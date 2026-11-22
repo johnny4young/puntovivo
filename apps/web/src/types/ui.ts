@@ -176,6 +176,7 @@ export type AuditLogAction =
   | 'kds.order.voided'
   | 'kds.station.saved'
   | 'restaurant_modifier.save'
+  | 'restaurant_modifier_group.save'
   | 'kds.routing.saved'
   | 'kds.routing.removed'
   // closure — credit-policy mutations.
@@ -308,6 +309,7 @@ export type AuditLogResourceType =
   // kitchen display rows.
   | 'kds_order'
   | 'restaurant_modifier'
+  | 'restaurant_modifier_group'
   | 'external_order'
   | 'external_order_connector'
   | 'restaurant_reservation'

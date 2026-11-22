@@ -437,7 +437,9 @@ Managers configure a versioned, site-local modifier catalog in the UI. Cashier
 surcharges require an exact active catalog reference validated inside the sale
 transaction; free-form zero-price instructions remain available, while custom
 charges and restricted add-ons require a manager or administrator. Catalog edits
-and archival never rewrite accepted orders.
+and archival never rewrite accepted orders. Options are grouped per dish
+(preparation, without, extras). Maximums are enforced inside the same
+transaction; minimums bind once an order sends the groups it showed (ADR-0020).
 
 ## Reservation and external fulfillment boundary
 

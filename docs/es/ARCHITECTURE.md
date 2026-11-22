@@ -488,7 +488,10 @@ sede en la UI. Los recargos de cajeros requieren una referencia exacta de
 catálogo activo validada dentro de la transacción de venta; las instrucciones
 libres sin precio siguen disponibles, mientras cargos personalizados y
 adicionales restringidos requieren gerente o administrador. Editar y archivar
-el catálogo nunca reescribe pedidos aceptados.
+el catálogo nunca reescribe pedidos aceptados. Las opciones se agrupan por plato
+(preparación, sin, adicionales). Los máximos se validan dentro de la misma
+transacción; los mínimos aplican cuando el pedido envía los grupos que mostró
+(ADR-0020).
 
 ## Límite de reservas y cumplimiento externo
 

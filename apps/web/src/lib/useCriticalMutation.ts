@@ -82,6 +82,7 @@ export type CriticalCommandPath =
   | 'sales.carryOver'
   | 'restaurantServices.openCheck'
   | 'restaurantModifiers.save'
+  | 'restaurantModifiers.saveGroup'
   | 'cashSessions.open'
   | 'cashSessions.close'
   | 'cashSessions.recordMovement'

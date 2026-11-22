@@ -12,6 +12,7 @@ import {
 import { sites, tenants, users } from './auth.js';
 import { nowIso, sqliteNow } from './base.js';
 import { kdsOrders } from './realtime.js';
+import type { RestaurantModifierGroupKind } from './restaurant.js';
 
 /** A site-local preparation destination, not proof of connected kitchen hardware. */
 export const kdsStations = sqliteTable(
@@ -82,6 +83,8 @@ export const kdsLineStatusEnum = ['pending', 'preparing', 'ready', 'voided'] as 
 export interface KdsModifierSnapshot {
   name: string;
   quantity: number;
+  /** Absent on free-form and pre-group modifiers; "without" must read as a removal. */
+  kind?: RestaurantModifierGroupKind | undefined;
 }
 
 /**

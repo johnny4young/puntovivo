@@ -464,9 +464,11 @@ The current validated candidate includes:
 - Durable kitchen notification is at least once and requires polling/reconnect;
   a local broadcast acknowledgement is not proof of physical screen or printer
   delivery. The restaurant line editor supports the existing bounded modifier
-  list. Managers configure versioned, site-local add-ons from the UI; cashier
-  surcharges require an exact active catalog reference checked inside the sale
-  transaction. Free-form zero-price instructions remain available, while custom
+  list. Managers configure versioned, site-local add-ons from the UI and group
+  them per dish (preparation, without, extras) with required and maximum
+  choices that orders must meet; the plate sheet that shows those groups is not
+  built yet. Cashier surcharges require an exact active catalog reference
+  checked inside the sale transaction. Free-form zero-price instructions remain available, while custom
   charges and restricted add-ons require a manager/admin. Catalog edits and
   archival do not alter accepted orders. Reservation scheduling
   cannot guarantee that a prior table service finishes on time. The signed external

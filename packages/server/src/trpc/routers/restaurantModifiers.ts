@@ -2,15 +2,27 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { restaurantModifierCatalog } from '../../db/schema.js';
 import { saveRestaurantModifier } from '../../application/restaurant/modifier-catalog.js';
+import {
+  listRestaurantModifierGroups,
+  restaurantModifierGroupsForProduct,
+  saveRestaurantModifierGroup,
+} from '../../application/restaurant/modifier-groups.js';
 import { router } from '../init.js';
 import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { createModuleGuard } from '../middleware/modules.js';
 import { commandEnvelope, asCriticalCommandContext } from '../middleware/commandEnvelope.js';
 import { ensureTenantSite } from '../middleware/tenantSite.js';
 import {
+  listRestaurantModifierGroupsInput,
   listRestaurantModifiersInput,
+  restaurantProductModifierGroupsInput,
+  saveRestaurantModifierGroupInput,
   saveRestaurantModifierInput,
 } from '../schemas/restaurantModifiers.js';
+
+/** Archived configuration is a manager view; cashiers only see what they can order. */
+const canSeeArchived = (requested: boolean, role: string | undefined) =>
+  requested && (role === 'manager' || role === 'admin');
 
 export const restaurantModifiersRouter = router({
   list: cashierManagerOrAdminProcedure
@@ -35,7 +47,7 @@ export const restaurantModifiersRouter = router({
           and(
             eq(restaurantModifierCatalog.tenantId, ctx.tenantId),
             eq(restaurantModifierCatalog.siteId, input.siteId),
-            input.includeArchived && (ctx.user?.role === 'manager' || ctx.user?.role === 'admin')
+            canSeeArchived(input.includeArchived, ctx.user?.role)
               ? undefined
               : eq(restaurantModifierCatalog.isActive, true),
             input.search
@@ -59,5 +71,37 @@ export const restaurantModifiersRouter = router({
     .mutation(async ({ ctx, input }) => {
       await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
       return saveRestaurantModifier(asCriticalCommandContext(ctx), input);
+    }),
+  /** Editor view of every group with its options and dishes; archived ones for managers only. */
+  groups: cashierManagerOrAdminProcedure
+    .use(createModuleGuard('dine-in'))
+    .input(listRestaurantModifierGroupsInput)
+    .query(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return listRestaurantModifierGroups(ctx.db, {
+        tenantId: ctx.tenantId,
+        siteId: input.siteId,
+        includeArchived: canSeeArchived(input.includeArchived, ctx.user?.role),
+      });
+    }),
+  /** Groups one dish asks for, in plate-sheet order, with only the options that can be added. */
+  productGroups: cashierManagerOrAdminProcedure
+    .use(createModuleGuard('dine-in'))
+    .input(restaurantProductModifierGroupsInput)
+    .query(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return restaurantModifierGroupsForProduct(
+        ctx.db,
+        { tenantId: ctx.tenantId, siteId: input.siteId },
+        input.productId
+      );
+    }),
+  saveGroup: managerOrAdminProcedure
+    .use(createModuleGuard('dine-in'))
+    .use(commandEnvelope)
+    .input(saveRestaurantModifierGroupInput)
+    .mutation(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return saveRestaurantModifierGroup(asCriticalCommandContext(ctx), input);
     }),
 });

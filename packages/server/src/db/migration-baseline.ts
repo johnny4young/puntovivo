@@ -227,8 +227,8 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         '0094_ocr_confirmation_idempotency',
         '0095_mighty_raza',
         // Identity, fiscal, settings and register children with no parent in
-        // this fixture; 0102 and 0103 alter cash_sessions, sales and
-        // day_close_signoffs, which it lacks.
+        // this fixture; 0102 to 0104 alter cash_sessions, sales,
+        // day_close_signoffs and restaurant_line_modifiers, which it lacks.
         '0096_account_recovery_codes',
         '0097_fiscal_numbering_ranges',
         '0098_drop_desktop_sync_config',
@@ -237,6 +237,7 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         '0101_site_transfer_destinations',
         '0102_cash_session_handoffs',
         '0103_day_close_signature',
+        '0104_restaurant_modifier_groups',
       ].includes(entry.tag)
     ) {
       // A later marker skips every earlier entry in Drizzle. The exact

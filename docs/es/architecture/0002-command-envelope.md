@@ -107,6 +107,7 @@ Agregar uno exige ADR sustituto o modificación documentada aquí.
 - `sales.carryOver` (manager/admin deja una venta suspendida para el día siguiente)
 - `restaurantServices.openCheck` (servicio de mesa y borrador atómicos)
 - `restaurantModifiers.save` (CAS del catálogo de sede, auditoría e instantánea reproducible)
+- `restaurantModifiers.saveGroup` (CAS del grupo de modificadores de la sede con sus opciones y platos, auditoría e instantánea reproducible)
 
 **Sesiones de caja**
 

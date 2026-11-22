@@ -144,6 +144,7 @@ Adding to this list requires a superseding ADR or a documented amendment here.
 - `sales.carryOver` (manager/admin leaves a parked draft for the next day)
 - `restaurantServices.openCheck` (atomic table service and sale draft)
 - `restaurantModifiers.save` (site catalog CAS, audit and replay snapshot)
+- `restaurantModifiers.saveGroup` (site modifier group CAS with its options and dishes, audit and replay snapshot)
 
 **Cash sessions**
 

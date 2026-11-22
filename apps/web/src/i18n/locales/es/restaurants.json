@@ -12,7 +12,12 @@
     "RESTAURANT_MODIFIER_APPROVAL_REQUIRED": "Elija un adicional aprobado o pida a un gerente que registre este pedido.",
     "RESTAURANT_MODIFIER_CHANGED": "Este adicional cambió. Elimínelo y selecciónelo de nuevo para revisar el precio actual antes de guardar.",
     "RESTAURANT_MODIFIER_LIMIT_REACHED": "Esta sede tiene 500 adicionales activos. Archive primero una opción que ya no use.",
-    "RESTAURANT_MODIFIER_NAME_DUPLICATE": "Ya existe un adicional activo con ese nombre. Elija otro nombre."
+    "RESTAURANT_MODIFIER_NAME_DUPLICATE": "Ya existe un adicional activo con ese nombre. Elija otro nombre.",
+    "RESTAURANT_MODIFIER_GROUP_INVALID": "El mínimo necesita al menos esa cantidad de opciones disponibles. Agregue opciones o baje el mínimo.",
+    "RESTAURANT_MODIFIER_GROUP_LIMIT_REACHED": "Se alcanzó el límite de grupos: 100 activos por sede y 8 por plato. Archive un grupo que ya no use.",
+    "RESTAURANT_MODIFIER_GROUP_NAME_DUPLICATE": "Ya existe un grupo activo con ese nombre. Elija otro nombre.",
+    "RESTAURANT_MODIFIER_GROUP_SELECTION_INVALID": "Las opciones elegidas para este plato no cumplen las reglas de sus grupos. Revise las elecciones obligatorias.",
+    "RESTAURANT_MODIFIER_GROUP_PRODUCT_UNAVAILABLE": "Un plato de este grupo ya no está disponible. Quítelo y guarde de nuevo."
   },
   "surface": {
     "touchHeading": "POS Touch",
@@ -294,5 +299,49 @@
     "selected": "Ya seleccionado",
     "cashierHelp": "Las instrucciones personalizadas son gratuitas. Para un adicional con precio, elija una opción aprobada.",
     "saved": "Adicional guardado"
+  },
+  "tabs": {
+    "label": "Vistas del catálogo de adicionales",
+    "options": "Opciones",
+    "groups": "Grupos"
+  },
+  "groups": {
+    "create": "Crear grupo",
+    "edit": "Editar grupo",
+    "editNamed": "Editar {{name}}",
+    "name": "Nombre del grupo",
+    "kind": "Tipo",
+    "kinds": {
+      "choice": "Preparación",
+      "without": "Sin",
+      "extra": "Adicionales"
+    },
+    "selection": "Selección",
+    "selections": {
+      "single": "Una opción",
+      "multiple": "Varias"
+    },
+    "required": "Obligatorio",
+    "min": "Mínimo",
+    "max": "Máximo",
+    "options": "Opciones",
+    "addOption": "Buscar opciones para agregar",
+    "moveUp": "Subir {{name}}",
+    "moveDown": "Bajar {{name}}",
+    "remove": "Quitar {{name}}",
+    "dishes": "Platos",
+    "addDish": "Buscar platos para agregar",
+    "noDishes": "Aún sin platos",
+    "rule": {
+      "chooseOne": "Elija uno",
+      "atMostOne": "Máximo uno",
+      "upTo": "Hasta {{count}}",
+      "exactly": "Elija {{count}}",
+      "range": "Elija de {{min}} a {{max}}"
+    },
+    "empty": "Ningún grupo coincide con esta vista.",
+    "includeArchived": "Mostrar grupos archivados",
+    "active": "Visible en sus platos",
+    "saved": "Grupo guardado"
   }
 }
