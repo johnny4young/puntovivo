@@ -390,7 +390,8 @@
       "empty": "Esta sede no tiene cuentas para recibir transferencias.",
       "configure": "Configurar",
       "loadError": "No se pudieron cargar las cuentas de transferencia.",
-      "approvalNeedsReference": "Escriba la referencia de la transferencia antes de pedir la aprobación."
+      "approvalNeedsReference": "Escriba la referencia de la transferencia antes de pedir la aprobación.",
+      "staticWarning": "QR estático: este código identifica el destino de pago, pero no fija el valor de esta venta. Verifique que el cliente haya enviado exactamente el importe indicado y confirme el abono en la cuenta del comercio antes de cerrar la venta. Una transferencia ya enviada no se puede revertir desde aquí."
     },
     "wallet": {
       "providerQrTitle": "Muestre el QR de {{rail}}",
@@ -399,7 +400,9 @@
       "approvedConfirming": "{{rail}} confirmó el pago. Confirmando la venta…",
       "declined": "{{rail}} rechazó el pago. Pida otro medio de pago.",
       "unavailable": "La pasarela no respondió. Usted confirma que el dinero llegó.",
-      "leftApproved": "{{rail}} ya había confirmado el pago de ese cobro. Revise antes de cobrar de nuevo."
+      "leftApproved": "{{rail}} ya había confirmado el pago de ese cobro. Revise antes de cobrar de nuevo.",
+      "cancelAttempt": "Cancelar intento",
+      "cancelAttemptHint": "Cancela solo el intento de Puntovivo; no revierte una transferencia ya enviada por el cliente."
     }
   },
   "history": {

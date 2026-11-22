@@ -840,7 +840,9 @@
       "bankName": "Ingrese el nombre del banco.",
       "accountType": "Elija el tipo de cuenta.",
       "qrPayload": "Ese no es un QR bancario completo. Escanéelo de nuevo."
-    }
+    },
+    "qrPreviewLabel": "Vista previa del QR",
+    "qrPreviewNote": "Vista previa del QR tal como lo escanea el cliente. El contenido se conserva sin modificaciones."
   },
   "server": {
     "TRANSFER_DESTINATION_ACCOUNT_INVALID": "Esa cuenta no corresponde a este destino. Bre-B recibe una llave con @, un correo o un número; Nequi y Daviplata, un celular de 10 dígitos; una cuenta bancaria, solo dígitos.",

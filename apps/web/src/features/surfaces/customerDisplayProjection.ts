@@ -49,6 +49,9 @@ export interface CustomerDisplayTransfer {
   account: string;
   qrPayload: string;
   amount: number;
+  /** False for a static bank QR: the customer types the amount in their app,
+   * so the display warns instead of implying the total is embedded. */
+  amountIncluded: boolean;
 }
 
 /**
@@ -163,6 +166,7 @@ export function buildCustomerDisplayProjection(args: {
             account: boundedText(args.transfer.account, TRANSFER_TEXT_MAX.account),
             qrPayload: args.transfer.qrPayload,
             amount: finiteMoney(args.transfer.amount),
+            amountIncluded: args.transfer.amountIncluded === true,
           },
         }
       : {}),
@@ -185,6 +189,9 @@ function parseTransfer(value: unknown): CustomerDisplayTransfer | null | undefin
     account: value.account,
     qrPayload: value.qrPayload,
     amount: value.amount,
+    // Legacy projections predate the flag; absent reads as true so an old
+    // text QR keeps its historical presentation instead of warning.
+    amountIncluded: value.amountIncluded !== false,
   };
 }
 

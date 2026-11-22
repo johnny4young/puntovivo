@@ -390,7 +390,8 @@
       "empty": "This site has no accounts to receive transfers.",
       "configure": "Set up",
       "loadError": "The transfer accounts could not be loaded.",
-      "approvalNeedsReference": "Type the transfer reference before asking for approval."
+      "approvalNeedsReference": "Type the transfer reference before asking for approval.",
+      "staticWarning": "Static QR: this code identifies the payment destination but does not carry this sale’s amount. Verify the customer sent exactly the total shown and confirm the deposit in your account before closing the sale. A transfer already sent cannot be reverted here."
     },
     "wallet": {
       "providerQrTitle": "Show the {{rail}} QR",
@@ -399,7 +400,9 @@
       "approvedConfirming": "{{rail}} confirmed the payment. Confirming the sale…",
       "declined": "{{rail}} declined the payment. Ask for another payment method.",
       "unavailable": "The payment provider did not answer. You confirm the money arrived.",
-      "leftApproved": "{{rail}} had already confirmed that charge. Check before charging again."
+      "leftApproved": "{{rail}} had already confirmed that charge. Check before charging again.",
+      "cancelAttempt": "Cancel attempt",
+      "cancelAttemptHint": "Cancels only the Puntovivo attempt; it does not revert a transfer the customer already sent."
     }
   },
   "history": {

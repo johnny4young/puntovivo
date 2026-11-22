@@ -18,6 +18,7 @@ import {
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
 import { Badge, Button } from '@/components/ui';
+import { TransferQrCode } from '@/features/sales/TransferQrCode';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -513,6 +514,19 @@ function DestinationForm({ destination, saving, onClose, onSave }: DestinationFo
             {t('operations:transferDestinations.qrHint')}
           </p>
           {error('qrPayload', t('operations:transferDestinations.errors.qrPayload'))}
+          {qr.trim() !== '' && (
+            <div className="mt-3 flex items-start gap-3 rounded-lg border border-secondary-200 bg-secondary-50 p-3">
+              <TransferQrCode
+                payload={qr.trim()}
+                label={t('operations:transferDestinations.qrPreviewLabel')}
+                className="transfer-qr"
+                testId={`${TID}-qr-preview`}
+              />
+              <p className="text-xs text-fg2">
+                {t('operations:transferDestinations.qrPreviewNote')}
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap justify-end gap-2">

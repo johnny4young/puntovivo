@@ -50,7 +50,7 @@ export function SalePaymentTransferSection({
   const selected = destinations.find(item => item.id === pickedId) ?? destinations[0] ?? null;
 
   const amountSettled = qrAmount === grandTotal;
-  const wallet = useWalletCharge({
+  const { state: wallet, cancelAttempt } = useWalletCharge({
     siteId,
     amount: qrAmount,
     enabled: amountSettled && query.data?.autoConfirm === true,
@@ -97,9 +97,25 @@ export function SalePaymentTransferSection({
   useEffect(() => {
     if (!customerDisplayActive || qrIsStale) return;
     if (label === undefined || account === undefined || qrPayload === undefined) return;
-    setDisplayTransfer({ label, account, qrPayload, amount: grandTotal });
+    setDisplayTransfer({
+      label,
+      account,
+      qrPayload,
+      amount: grandTotal,
+      amountIncluded: providerCharge ? true : Boolean(selected?.qr.amountIncluded),
+    });
     return () => setDisplayTransfer(null);
-  }, [account, customerDisplayActive, grandTotal, label, qrIsStale, qrPayload, setDisplayTransfer]);
+  }, [
+    account,
+    customerDisplayActive,
+    grandTotal,
+    label,
+    providerCharge,
+    qrIsStale,
+    qrPayload,
+    selected,
+    setDisplayTransfer,
+  ]);
 
   const referenceField = form.register('transferReference');
   const qrCopy = [
@@ -154,6 +170,16 @@ export function SalePaymentTransferSection({
           <div className="min-w-0">
             <p className="sale-pay-transfer-title">{t('payment.transferQr.title')}</p>
             {qrCopy && <p className="sale-pay-transfer-copy">{qrCopy}</p>}
+            {!selected.qr.amountIncluded && (
+              <p
+                className="sale-pay-note mt-2"
+                data-tone="muted"
+                data-testid="sale-payment-transfer-static-warning"
+              >
+                <CircleAlert className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <span>{t('payment.transferQr.staticWarning')}</span>
+              </p>
+            )}
             <div
               className="sale-pay-transfer-chips"
               role="group"
@@ -211,7 +237,11 @@ export function SalePaymentTransferSection({
         </div>
       </div>
 
-      <WalletStatusNote wallet={wallet} autoConfirming={isSaving} />
+      <WalletStatusNote
+        wallet={wallet}
+        autoConfirming={isSaving}
+        onCancelAttempt={cancelAttempt}
+      />
     </section>
   );
 }
@@ -219,9 +249,11 @@ export function SalePaymentTransferSection({
 function WalletStatusNote({
   wallet,
   autoConfirming,
+  onCancelAttempt,
 }: {
   wallet: WalletChargeState;
   autoConfirming: boolean;
+  onCancelAttempt: () => void;
 }) {
   const { t } = useTranslation('sales');
   const note =
@@ -276,6 +308,17 @@ function WalletStatusNote({
         aria-hidden="true"
       />
       {note.text}
+      {note.state === 'pending' && (
+        <button
+          type="button"
+          className="ml-auto shrink-0 font-semibold text-primary-700 underline"
+          title={t('payment.wallet.cancelAttemptHint')}
+          onClick={onCancelAttempt}
+          data-testid="sale-payment-wallet-cancel"
+        >
+          {t('payment.wallet.cancelAttempt')}
+        </button>
+      )}
     </p>
   );
 }

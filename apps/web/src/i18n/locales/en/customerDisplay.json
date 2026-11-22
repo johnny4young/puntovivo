@@ -48,6 +48,7 @@
   "privacy": "This screen shows products, totals and the store transfer QR. Customer, employee, payment and note details are never mirrored.",
   "transfer": {
     "title": "Pay by transfer",
-    "qrLabel": "QR to transfer to {{name}}"
+    "qrLabel": "QR to transfer to {{name}}",
+    "staticNote": "The amount is not included in the QR: confirm the total with your cashier."
   }
 }

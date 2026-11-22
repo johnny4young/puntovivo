@@ -211,14 +211,26 @@ describe('SalePaymentModal — transfer', () => {
         account: '@tienda',
         qrPayload: 'Bre-B\n@tienda\nCOP 100',
         amount: 100,
+        amountIncluded: true,
       })
     );
 
     await user.click(screen.getByTestId('sale-payment-transfer-destination-d-nequi'));
     expect(screen.getByText(/The customer types the amount in their app\./)).toBeInTheDocument();
+    expect(
+      screen.getByTestId('sale-payment-transfer-static-warning')
+    ).toHaveTextContent(/does not carry this sale/);
     await waitFor(() =>
-      expect(useCheckoutTransferDisplay.getState().transfer?.qrPayload).toBe('000201nequi')
+      expect(useCheckoutTransferDisplay.getState().transfer).toEqual(
+        expect.objectContaining({ qrPayload: '000201nequi', amountIncluded: false })
+      )
     );
+
+    // An amount-carrying QR never shows the static warning.
+    await user.click(screen.getByTestId('sale-payment-transfer-destination-d-breb'));
+    expect(
+      screen.queryByTestId('sale-payment-transfer-static-warning')
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId('sale-payment-tender-cash'));
     await waitFor(() => expect(useCheckoutTransferDisplay.getState().transfer).toBeNull());
@@ -298,10 +310,31 @@ describe('SalePaymentModal — transfer', () => {
         account: '',
         qrPayload: 'NEQUI-QR-9001',
         amount: 100,
+        amountIncluded: true,
       })
     );
     expect(screen.getByRole('button', { name: /It arrived · confirm sale/ })).toBeDisabled();
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('lets the cashier cancel a pending provider attempt explicitly', async () => {
+    moduleActiveMock.mockReturnValue(true);
+    mockWallet(liveCharge, 'pending');
+    renderTransfer();
+
+    const cancelButton = await screen.findByTestId('sale-payment-wallet-cancel');
+    expect(cancelButton).toHaveTextContent('Cancel attempt');
+
+    await userEvent.setup().click(cancelButton);
+
+    expect(cancelWalletMock).toHaveBeenCalledWith(
+      { chargeId: 'charge-1' },
+      expect.objectContaining({})
+    );
+    // The sheet stays usable: the attempt is gone and the manual note returns.
+    const note = await screen.findByTestId('sale-payment-wallet-status');
+    expect(note).toHaveAttribute('data-state', 'manual');
+    expect(screen.queryByTestId('sale-payment-wallet-cancel')).not.toBeInTheDocument();
   });
 
   it('confirms the sale by itself with the provider reference once approved', async () => {
