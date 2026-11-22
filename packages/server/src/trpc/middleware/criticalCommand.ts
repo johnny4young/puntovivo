@@ -95,6 +95,15 @@ export function createCriticalCommandModuleProcedure(
     .use(commandEnvelope);
 }
 
+/** Manager/admin critical command gated on a module entitlement. */
+export function criticalCommandManagerOrAdminProcedureWithModule(moduleId: ModuleId) {
+  return createCriticalCommandModuleProcedure(
+    moduleId,
+    MANAGER_OR_ADMIN_ROLES,
+    'Only administrators and managers can perform this action'
+  );
+}
+
 /** Cashier/manager/admin critical command gated on a module entitlement. */
 export function criticalCommandCashierManagerOrAdminProcedureWithModule(moduleId: ModuleId) {
   return createCriticalCommandModuleProcedure(

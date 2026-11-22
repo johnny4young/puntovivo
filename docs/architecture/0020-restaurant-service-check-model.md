@@ -237,6 +237,27 @@ hardware certification; the durable preparation contract is owned separately.
   table's service, and the order rail numbers rounds across those checks by
   their send time. Appending a round to an open check needs a draft-append
   command in the sale pipeline and is not part of this model yet.
+- `restaurantServices.regroupChecks` (manager or administrator) rearranges the
+  lines of a table across its open checks in one immediate transaction: an
+  explicit layout of accounts, or one account per diner by seat with shared
+  plates last. Every arrow in the split screen is its own command, so the
+  server always holds the layout the staff sees and a second device never
+  works from an unsaved one. The command carries the version of every open
+  check the screen read, and each check whose lines change moves to a new
+  version (a bill split bumps its source too), so a layout built on an older
+  table fails as stale and the screen reloads instead of undoing another
+  device's move. Lines only move between checks with the same price tier and
+  customer, because completion prices and credits by the draft's terms. Every check must be a suspended draft; one
+  resumed on a register blocks the move. A new account opens a suspended draft
+  with its own sale number, and a check left without lines is cancelled with
+  its draft without touching stock, because the reservations travel with the
+  lines. Each draft's discount, tip and service charge are split across its
+  lines to the cent before anything moves, so the table owes the same amount
+  afterwards. Rounds and courses belong to a check: a moved line reuses the
+  receiving check's copy of the same submission or course, or gets a clone
+  (keeping the round sequence when it is free). A round or course a surviving
+  check no longer uses is removed, except a round a kitchen line still names.
+  Kitchen lines follow their plates.
 
 ## Alternatives rejected
 
@@ -256,6 +277,7 @@ hardware certification; the durable preparation contract is owned separately.
 ## Verification evidence
 
 - `packages/server/src/__tests__/restaurant-services.test.ts`
+- `packages/server/src/__tests__/restaurant-regroup-checks.test.ts`
 - `packages/server/src/__tests__/restaurant-tables-router.test.ts`
 - `packages/server/src/__tests__/sales-park-and-reprint.test.ts`
 - `packages/server/src/__tests__/kds.test.ts`

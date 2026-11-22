@@ -79,6 +79,7 @@ interface SalesModalsProps {
   isPaymentModalOpen: boolean;
   paymentModalKey: number;
   paymentTotal: number;
+  paymentConsumptionTax?: number | undefined;
   paymentApprovalSaleId: string | null;
   paymentApprovalCustomerId: string | null;
   paymentCustomerLocked: boolean;
@@ -129,6 +130,7 @@ export function SalesModals({
   isPaymentModalOpen,
   paymentModalKey,
   paymentTotal,
+  paymentConsumptionTax,
   paymentApprovalSaleId,
   paymentApprovalCustomerId,
   paymentCustomerLocked,
@@ -360,6 +362,7 @@ export function SalesModals({
             key={paymentModalKey}
             isOpen={isPaymentModalOpen}
             total={paymentTotal}
+            consumptionTaxAmount={paymentConsumptionTax}
             approvalSaleId={paymentApprovalSaleId}
             approvalCustomerId={paymentApprovalCustomerId}
             customerLocked={paymentCustomerLocked}

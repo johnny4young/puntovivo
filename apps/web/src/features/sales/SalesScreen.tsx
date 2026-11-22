@@ -30,7 +30,7 @@ import { LastReadBanner } from '@/features/sales/LastReadBanner';
 import type { LastRead } from '@/features/sales/useLastRead';
 import type { PaymentFocusTarget } from '@/features/sales/useSalesModals';
 import { roundMoney } from '@/lib/money';
-import { serviceChargeFor } from '@/features/sales/cashTender';
+import { percentOf } from '@/features/sales/cashTender';
 import type { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
 import type { ProductSearchSelection } from '@/types';
 import { canAccessRole, managerOrAdminRoles } from '@/features/auth/roleAccess';
@@ -454,8 +454,7 @@ export function SalesScreen({
   });
   // Mirrors the charge drawer: quotations carry no service charge.
   const cashDue = roundMoney(
-    draftSummary.total +
-      serviceChargeFor(draftSummary.total, isQuotationCart ? 0 : serviceChargeRate)
+    draftSummary.total + percentOf(draftSummary.total, isQuotationCart ? 0 : serviceChargeRate)
   );
 
   const { sellsOnCredit, account: customerAccount } = useCustomerAccount(ticketCustomerId);
@@ -487,9 +486,9 @@ export function SalesScreen({
   if (isTillPaymentOpen && !canPayAccount) setIsTillPaymentOpen(false);
 
   // Resuming a sale means the shift is not ending yet, so the close stops here.
-  const handleResumeSuspended: typeof handleResumeFromPanel = draft => {
+  const handleResumeSuspended: typeof handleResumeFromPanel = (draft, options) => {
     setIsCashSessionCloseModalOpen(false);
-    return handleResumeFromPanel(draft);
+    return handleResumeFromPanel(draft, options);
   };
 
   return (
@@ -837,6 +836,7 @@ export function SalesScreen({
             isPaymentModalOpen={isPaymentModalOpen}
             paymentModalKey={paymentModalKey}
             paymentTotal={draftSummary.total}
+            paymentConsumptionTax={draftSummary.consumptionTaxAmount}
             paymentApprovalSaleId={activeWorkspace?.serverSaleId ?? null}
             paymentApprovalCustomerId={ticketCustomerId}
             paymentCustomerLocked={customerLocked}

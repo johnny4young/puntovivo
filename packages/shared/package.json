@@ -104,6 +104,11 @@
       "types": "./src/sentry-data-collection.ts",
       "import": "./dist/sentry-data-collection.js",
       "default": "./dist/sentry-data-collection.js"
+    },
+    "./restaurant-split": {
+      "types": "./src/restaurant-split.ts",
+      "import": "./dist/restaurant-split.js",
+      "default": "./dist/restaurant-split.js"
     }
   },
   "scripts": {

@@ -81,6 +81,7 @@ export type CriticalCommandPath =
   | 'sales.splitDraft'
   | 'sales.carryOver'
   | 'restaurantServices.openCheck'
+  | 'restaurantServices.regroupChecks'
   | 'restaurantModifiers.save'
   | 'restaurantModifiers.saveGroup'
   | 'cashSessions.open'

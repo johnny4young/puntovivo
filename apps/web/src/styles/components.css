@@ -1091,6 +1091,53 @@
     cursor: not-allowed;
   }
 
+  /* Split sheet: one column per account, scrolling sideways past two. */
+  .split-sheet-columns {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 48rem) {
+    .split-sheet-columns {
+      grid-template-columns: repeat(var(--split-columns, 2), minmax(17rem, 1fr));
+      overflow-x: auto;
+    }
+  }
+
+  .split-sheet-account {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 12rem;
+  }
+
+  .split-sheet-move {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.625rem;
+    background: color-mix(in oklch, var(--fg1) 8%, transparent);
+    color: var(--fg1);
+  }
+
+  .split-sheet-move:hover:not(:disabled) {
+    background: color-mix(in oklch, var(--fg1) 14%, transparent);
+  }
+
+  .split-sheet-move:focus-visible {
+    outline: 2px solid var(--primary-600);
+    outline-offset: 2px;
+  }
+
+  .split-sheet-move:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   .dish-tile {
     display: flex;
     flex-direction: column;
@@ -1782,6 +1829,12 @@
   /* Charge drawer, cash state: the change is the largest figure. */
   .sale-pay-summary {
     container-type: inline-size;
+  }
+
+  .sale-pay-tip {
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--line);
   }
 
   .sale-pay-total-figure,

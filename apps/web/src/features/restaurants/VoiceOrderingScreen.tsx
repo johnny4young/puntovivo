@@ -10,12 +10,16 @@
  * @module features/restaurants/VoiceOrderingScreen
  */
 import { Suspense, lazy, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { Split } from 'lucide-react';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { useIsModuleActive } from '@/features/modules/ModulesContext';
+import { useRegisterZone } from '@/features/modules/useRegisterZone';
+import { MANAGER_OR_ADMIN_ROLES } from '@puntovivo/shared/roles';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { trpc } from '@/lib/trpc';
@@ -64,6 +68,10 @@ const RestaurantPlateSheet = lazy(() =>
 type SheetState =
   { mode: 'add'; selection: ProductSearchSelection } | { mode: 'edit'; key: string };
 
+const RestaurantSplitSheet = lazy(() =>
+  import('./RestaurantSplitSheet').then(module => ({ default: module.RestaurantSplitSheet }))
+);
+
 const VoiceCartCommandModal = lazy(() =>
   import('@/features/voice/VoiceCartCommandModal').then(mod => ({
     default: mod.VoiceCartCommandModal,
@@ -85,6 +93,9 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
   const semanticSearchActive = useIsModuleActive('semantic-search');
   const dineInActive = useIsModuleActive('dine-in');
   const kdsActive = useIsModuleActive('kds');
+  const splitsBills = useRegisterZone('tip-split');
+  const navigate = useNavigate();
+  const [splitOpen, setSplitOpen] = useState(false);
   const voiceAvailabilityQuery = trpc.ai.settings.voiceAvailability.useQuery(undefined, {
     enabled: semanticSearchActive,
   });
@@ -184,6 +195,11 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
     0
   );
   const roundNumber = sentRounds.length + 1;
+  // Regrouping checks is a manager or admin override, like the server command.
+  const canSplit =
+    splitsBills &&
+    MANAGER_OR_ADMIN_ROLES.some(role => role === user?.role) &&
+    sentRounds.reduce((count, round) => count + round.lines.length, 0) > 1;
   const openService = tableStateQuery.data?.service ?? null;
   usePendingRoundReport(resolvedPickedTableId, cartItems.length, openService !== null);
   const draftLines: RailLine[] = pricedCartItems.map(item => {
@@ -497,11 +513,25 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
         />
       )}
       {resolvedPickedTableId && openService && (
-        <RestaurantBillRequestToggle
-          tableId={resolvedPickedTableId}
-          requested={openService.billRequestedAt !== null}
-          disabled={isSaving}
-        />
+        <div className="flex flex-wrap gap-2">
+          <RestaurantBillRequestToggle
+            tableId={resolvedPickedTableId}
+            requested={openService.billRequestedAt !== null}
+            disabled={isSaving}
+          />
+          {canSplit && (
+            <button
+              type="button"
+              className="btn-outline"
+              disabled={isSaving}
+              onClick={() => setSplitOpen(true)}
+              data-testid="voice-ordering-split"
+            >
+              <Split className="h-4 w-4" aria-hidden="true" />
+              {t('restaurants:split.ctaLabel')}
+            </button>
+          )}
+        </div>
       )}
       {resolvedPickedTableId && tableStateQuery.isLoading && (
         <p className="text-sm text-secondary-500" data-testid="voice-ordering-table-state-loading">
@@ -634,6 +664,17 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
           {/* A fixed height lets the sheet scroll inside and keep its actions in reach. */}
           <div className="h-[min(82dvh,48rem)]">{sheetBody}</div>
         </Modal>
+      )}
+
+      {splitOpen && resolvedPickedTableId && (
+        <Suspense fallback={null}>
+          <RestaurantSplitSheet
+            tableId={resolvedPickedTableId}
+            tableName={tableLabel}
+            onClose={() => setSplitOpen(false)}
+            onCharge={account => navigate('/sales', { state: { restaurantCharge: account } })}
+          />
+        </Suspense>
       )}
 
       {voiceModalOpen && (

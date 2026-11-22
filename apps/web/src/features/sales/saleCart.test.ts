@@ -451,8 +451,23 @@ describe('saleCart core helpers', () => {
       itemCount: 0,
       subtotal: 0,
       taxAmount: 0,
+      consumptionTaxAmount: 0,
       total: 0,
     });
+  });
+
+  it('getCartSummary keeps impoconsumo apart from VAT inside the tax', () => {
+    const summary = getCartSummary(
+      [
+        makeItem({ key: 'inc', unitPrice: 10800, quantity: 1, taxRate: 8, taxKind: 'inc' }),
+        makeItem({ key: 'iva', unitPrice: 11900, quantity: 1, taxRate: 19, taxKind: 'iva' }),
+        // Carts persisted before the field existed read as VAT.
+        makeItem({ key: 'old', unitPrice: 1190, quantity: 1, taxRate: 19 }),
+      ],
+      true
+    );
+    expect(summary.consumptionTaxAmount).toBe(800);
+    expect(summary.taxAmount).toBe(2890);
   });
 
   it('getCartDiscountAmount totals line-level percentage discounts', () => {

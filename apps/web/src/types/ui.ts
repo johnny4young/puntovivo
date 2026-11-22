@@ -178,6 +178,7 @@ export type AuditLogAction =
   | 'restaurant_modifier.save'
   | 'restaurant_modifier_group.save'
   | 'restaurant_service.bill_requested'
+  | 'restaurant.checks.regrouped'
   | 'restaurant_service.bill_request_cleared'
   | 'kds.routing.saved'
   | 'kds.routing.removed'

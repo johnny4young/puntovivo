@@ -10,6 +10,7 @@
  *
  * @module application/restaurant/service-lifecycle
  */
+import { RESTAURANT_REGROUP_MAX_ACCOUNTS } from '@puntovivo/shared/restaurant-split';
 import { assertRestaurantModifierAuthority } from './modifier-catalog.js';
 import { assertRestaurantModifierGroups } from './modifier-groups.js';
 import { assertNoReservationHold, reservationError } from '../reservations/invariants.js';
@@ -95,7 +96,7 @@ type RestaurantTransaction = DatabaseInstance;
 
 /** Shared writer/read projection ceilings for one open table service. */
 export const RESTAURANT_SERVICE_LIMITS = {
-  openChecks: 100,
+  openChecks: RESTAURANT_REGROUP_MAX_ACCOUNTS,
   activeDiners: 200,
   openLines: 1_000,
   openRounds: 1_000,
@@ -1257,6 +1258,32 @@ export function moveRestaurantCheckInTransaction(
   }
 }
 
+/** Copy a round onto another check; pass `sequence` when the target already uses the source's. */
+export function cloneRestaurantRound(
+  tx: RestaurantTransaction,
+  source: typeof restaurantRounds.$inferSelect,
+  checkId: string,
+  now: string,
+  sequence: number = source.sequence
+): typeof restaurantRounds.$inferSelect {
+  const clone = { ...source, id: nanoid(), checkId, sequence, createdAt: now };
+  tx.insert(restaurantRounds).values(clone).run();
+  return clone;
+}
+
+/** Copy a course onto another check; pass `position` when the target already uses the source's. */
+export function cloneRestaurantCourse(
+  tx: RestaurantTransaction,
+  source: typeof restaurantCourses.$inferSelect,
+  checkId: string,
+  now: string,
+  position: number = source.position
+): typeof restaurantCourses.$inferSelect {
+  const clone = { ...source, id: nanoid(), checkId, position, createdAt: now };
+  tx.insert(restaurantCourses).values(clone).run();
+  return clone;
+}
+
 /** Mirror an existing sale split into the normalized check model. */
 export function splitRestaurantCheckInTransaction(
   tx: RestaurantTransaction,
@@ -1411,19 +1438,7 @@ export function splitRestaurantCheckInTransaction(
       });
     }
     for (const course of sourceCourses) {
-      const clonedId = nanoid();
-      courseIdMap.set(course.id, clonedId);
-      tx.insert(restaurantCourses)
-        .values({
-          id: clonedId,
-          tenantId: context.tenantId,
-          checkId,
-          courseKey: course.courseKey,
-          name: course.name,
-          position: course.position,
-          createdAt: context.now,
-        })
-        .run();
+      courseIdMap.set(course.id, cloneRestaurantCourse(tx, course, checkId, context.now).id);
     }
   }
 
@@ -1451,21 +1466,7 @@ export function splitRestaurantCheckInTransaction(
       });
     }
     for (const round of sourceRounds) {
-      const clonedId = nanoid();
-      roundIdMap.set(round.id, clonedId);
-      tx.insert(restaurantRounds)
-        .values({
-          id: clonedId,
-          tenantId: context.tenantId,
-          checkId,
-          sequence: round.sequence,
-          label: round.label,
-          status: round.status,
-          submittedBy: round.submittedBy,
-          submittedAt: round.submittedAt,
-          createdAt: context.now,
-        })
-        .run();
+      roundIdMap.set(round.id, cloneRestaurantRound(tx, round, checkId, context.now).id);
     }
   }
 
@@ -1496,6 +1497,27 @@ export function splitRestaurantCheckInTransaction(
         message: 'Restaurant line changed while its check was being split',
       });
     }
+  }
+
+  // The source lost lines: a layout read before this split is now stale.
+  const bumped = tx
+    .update(restaurantChecks)
+    .set({ version: sourceCheck.version + 1, updatedAt: context.now })
+    .where(
+      and(
+        eq(restaurantChecks.id, sourceCheck.id),
+        eq(restaurantChecks.tenantId, context.tenantId),
+        eq(restaurantChecks.status, 'open'),
+        eq(restaurantChecks.version, sourceCheck.version)
+      )
+    )
+    .run();
+  if (bumped.changes !== 1) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+      message: 'Restaurant check changed while it was being split',
+    });
   }
 
   const updatedSale = tx

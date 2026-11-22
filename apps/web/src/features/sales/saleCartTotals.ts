@@ -73,6 +73,10 @@ export function getCartSummary(items: SaleCartItem[], priceIncludesTax: boolean)
         itemCount: summary.itemCount + articleCount(item),
         subtotal: roundMoney(summary.subtotal + lineTotals.subtotal),
         taxAmount: roundMoney(summary.taxAmount + lineTotals.taxAmount),
+        consumptionTaxAmount:
+          item.taxKind === 'inc'
+            ? roundMoney((summary.consumptionTaxAmount ?? 0) + lineTotals.taxAmount)
+            : summary.consumptionTaxAmount,
         total: roundMoney(summary.total + lineTotals.total),
       };
     },
@@ -80,6 +84,7 @@ export function getCartSummary(items: SaleCartItem[], priceIncludesTax: boolean)
       itemCount: 0,
       subtotal: 0,
       taxAmount: 0,
+      consumptionTaxAmount: 0,
       total: 0,
     }
   );

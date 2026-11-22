@@ -327,6 +327,14 @@ export const SERVER_ERROR_CODES_B = {
   RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED: 'RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED',
   /** A table marker needs an open service, and the table has none. */
   RESTAURANT_SERVICE_NOT_OPEN: 'RESTAURANT_SERVICE_NOT_OPEN',
+  /** A check of the table is resumed on a register, so its lines cannot move. */
+  RESTAURANT_SPLIT_CHECK_IN_USE: 'RESTAURANT_SPLIT_CHECK_IN_USE',
+  /** The regroup plan no longer matches the table's open checks and lines. */
+  RESTAURANT_SPLIT_STALE: 'RESTAURANT_SPLIT_STALE',
+  /** Splitting by diner needs lines from at least two diners. */
+  RESTAURANT_SPLIT_SINGLE_DINER: 'RESTAURANT_SPLIT_SINGLE_DINER',
+  /** Lines cannot move between checks priced at different tiers or billed to different customers. */
+  RESTAURANT_SPLIT_TERMS_DIFFER: 'RESTAURANT_SPLIT_TERMS_DIFFER',
 
   // --- kitchen display () ---
   /**

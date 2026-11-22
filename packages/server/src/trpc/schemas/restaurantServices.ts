@@ -1,5 +1,6 @@
 /** Input contracts for normalized restaurant service procedures. */
 import { z } from 'zod';
+import { RESTAURANT_REGROUP_MAX_ACCOUNTS } from '@puntovivo/shared/restaurant-split';
 import { MAX_RESTAURANT_GROUPS_PER_PRODUCT } from './restaurantModifiers.js';
 import { saleItemInput } from './sales.js';
 
@@ -140,6 +141,68 @@ export const setRestaurantPendingRoundInput = z
     itemCount: z.number().int().min(0).max(1000),
   })
   .strict();
+
+/**
+ * Target layout for the open checks of one table; a null `checkId` opens a new
+ * check. `checks` is the caller's view of every open check with its version.
+ */
+export const regroupRestaurantChecksInput = z
+  .object({
+    tableId: z.string().min(1),
+    checks: z
+      .array(
+        z
+          .object({
+            checkId: z.string().min(1),
+            version: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+          })
+          .strict()
+      )
+      .min(1)
+      .max(RESTAURANT_REGROUP_MAX_ACCOUNTS),
+    plan: z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('byDiner') }).strict(),
+      z
+        .object({
+          kind: z.literal('accounts'),
+          accounts: z
+            .array(
+              z
+                .object({
+                  checkId: z.string().min(1).nullable(),
+                  saleItemIds: z.array(z.string().min(1)).max(1000),
+                })
+                .strict()
+            )
+            .min(1)
+            .max(RESTAURANT_REGROUP_MAX_ACCOUNTS),
+        })
+        .strict(),
+    ]),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.plan.kind !== 'accounts') return;
+    const checkIds = value.plan.accounts.flatMap(account =>
+      account.checkId === null ? [] : [account.checkId]
+    );
+    if (new Set(checkIds).size !== checkIds.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['plan', 'accounts'],
+        message: 'A check can appear only once in the plan',
+      });
+    }
+    for (const [index, account] of value.plan.accounts.entries()) {
+      if (account.checkId === null && account.saleItemIds.length === 0) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['plan', 'accounts', index, 'saleItemIds'],
+          message: 'A new check needs at least one line',
+        });
+      }
+    }
+  });
 
 /** Fully validated payload for atomically opening a sale-backed restaurant check. */
 export type OpenRestaurantCheckProcedureInput = z.infer<typeof openRestaurantCheckInput>;

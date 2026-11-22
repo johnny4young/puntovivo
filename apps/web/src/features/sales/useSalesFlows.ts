@@ -38,6 +38,11 @@ export interface ResumeDraftSelection {
   resumedDeviceId: string | null;
 }
 
+/** `charge` opens the payment drawer once the resumed ticket is on screen. */
+export interface ResumeOptions {
+  charge?: boolean;
+}
+
 /**
  * Params for {@link useSalesFlows}.
  *
@@ -72,6 +77,8 @@ export interface UseSalesFlowsParams {
   resumeMutation: SalesMutationHandles['resumeMutation'];
   discardDraftMutation: SalesMutationHandles['discardDraftMutation'];
   openRestaurantCheckMutation: SalesMutationHandles['openRestaurantCheckMutation'];
+  /** Called after a resume asked to charge has hydrated its workspace. */
+  onResumedForCharge?: ((saleId: string) => void) | undefined;
 }
 
 /**
@@ -102,6 +109,7 @@ export function useSalesFlows({
   resumeMutation,
   discardDraftMutation,
   openRestaurantCheckMutation,
+  onResumedForCharge,
 }: UseSalesFlowsParams) {
   const { t } = useTranslation([
     'sales',
@@ -433,7 +441,7 @@ export function useSalesFlows({
     useCartWorkspaceStore.getState().setActive(workspaceId);
   };
 
-  const handleResumeFromPanel = async (draft: ResumeDraftSelection) => {
+  const handleResumeFromPanel = async (draft: ResumeDraftSelection, options?: ResumeOptions) => {
     // A double-click on the panel row would resume the same draft twice
     // and hydrate two workspaces pointing at one serverSaleId — charging
     // both would completeDraft the same sale twice.
@@ -525,6 +533,7 @@ export function useSalesFlows({
         unitPrice: row.unitPrice,
         discount: row.discount,
         taxRate: row.taxRate,
+        taxKind: row.taxKind,
         availableStock: Number.POSITIVE_INFINITY,
         // Resumed lines carry the server's flag so a service line keeps
         // its no-stock semantics through suspend and resume.
@@ -549,6 +558,7 @@ export function useSalesFlows({
         items,
       });
       setIsSuspendedPanelOpen(false);
+      if (options?.charge) onResumedForCharge?.(resumed.id);
       const refreshed = await invalidateCommittedGroups(utils, [
         u => u.sales.listDrafts,
         ...RESTAURANT_TABLE_INVALIDATIONS,
