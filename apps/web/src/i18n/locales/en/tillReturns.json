@@ -1,0 +1,65 @@
+{
+  "title": "Return",
+  "otherReceipt": "Another receipt",
+  "read": "receipt read",
+  "close": "Close",
+  "today": "today {{time}}",
+  "lookup": {
+    "label": "Scan or type the receipt number",
+    "missing": "That receipt was not found.",
+    "today": "Today's sales",
+    "todayEmpty": "No sales to return at this site today."
+  },
+  "loading": "Opening the sale…",
+  "loadError": "The sale could not be opened.",
+  "nothingLeft": "This sale has already been fully returned.",
+  "lines": "Items on the sale",
+  "quantityFor": "Quantity to return of {{product}}",
+  "of": "of {{total}}",
+  "reason": "Reason",
+  "reasons": {
+    "expired": "Damaged item",
+    "wrong_item": "Exchange",
+    "charge_error": "Charge error",
+    "other": "Other"
+  },
+  "destination": {
+    "label": "Refund to",
+    "original": "As paid",
+    "store_credit": "Store credit"
+  },
+  "amount": {
+    "generic": "Refund",
+    "cash": "Refund in cash",
+    "external": "Refund to {{method}}",
+    "storeCredit": "Goes to store credit",
+    "receivable": "Lowers the customer's debt",
+    "asPaid": "as it was paid",
+    "part": {
+      "cash": "Cash {{amount}}",
+      "external": "{{method}} {{amount}}",
+      "store_credit": "Store credit {{amount}}",
+      "receivable": "Debt {{amount}}",
+      "loyalty": "Points {{amount}}"
+    }
+  },
+  "approval": {
+    "rule": {
+      "role": "A manager approves it",
+      "shift_amount": "Over your {{amount}} limit: a manager approves it",
+      "shift_count": "Over your shift's return count: a manager approves it",
+      "dual": "Over {{amount}}: two managers approve it",
+      "no_shift": "No open drawer: a manager approves it"
+    },
+    "keepSelling": "It shows up in the manager's Pending list. You can keep selling.",
+    "rejected": "Rejected: {{reason}}",
+    "progress": "{{collected}} of {{required}} approvals",
+    "approved": "Approved. You can refund now.",
+    "request": "Ask for approval",
+    "waiting": "Waiting for approval",
+    "pin": "PIN here"
+  },
+  "confirm": "Refund {{amount}}",
+  "processing": "Refunding…",
+  "done": "Return recorded: {{amount}}"
+}

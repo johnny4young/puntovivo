@@ -165,3 +165,18 @@ export function resetManagerApprovalScenario(): void {
     db.close();
   }
 }
+
+/** Give one scenario manager the shared approval PIN so they can approve at the till. */
+export async function setScenarioManagerPin(userId: string): Promise<void> {
+  const pinHash = await hashStaffPin(E2E_MANAGER_APPROVAL_PIN);
+  const db = openDb();
+  try {
+    db.prepare('update users set staff_pin_hash = ?, updated_at = ? where id = ?').run(
+      pinHash,
+      new Date().toISOString(),
+      userId
+    );
+  } finally {
+    db.close();
+  }
+}

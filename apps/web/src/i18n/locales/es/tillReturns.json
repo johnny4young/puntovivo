@@ -1,0 +1,65 @@
+{
+  "title": "Devolución",
+  "otherReceipt": "Otro recibo",
+  "read": "recibo leído",
+  "close": "Cerrar",
+  "today": "hoy {{time}}",
+  "lookup": {
+    "label": "Escanee o escriba el número del recibo",
+    "missing": "No encontramos ese recibo.",
+    "today": "Ventas de hoy",
+    "todayEmpty": "Hoy no hay ventas para devolver en esta sede."
+  },
+  "loading": "Abriendo la venta…",
+  "loadError": "No se pudo abrir la venta.",
+  "nothingLeft": "Esta venta ya se devolvió completa.",
+  "lines": "Productos de la venta",
+  "quantityFor": "Cantidad a devolver de {{product}}",
+  "of": "de {{total}}",
+  "reason": "Motivo",
+  "reasons": {
+    "expired": "Producto dañado",
+    "wrong_item": "Cambio",
+    "charge_error": "Error de cobro",
+    "other": "Otro"
+  },
+  "destination": {
+    "label": "Cómo se devuelve",
+    "original": "Como se pagó",
+    "store_credit": "Saldo a favor"
+  },
+  "amount": {
+    "generic": "Devuelve",
+    "cash": "Devuelve en efectivo",
+    "external": "Devuelve por {{method}}",
+    "storeCredit": "Queda como saldo a favor",
+    "receivable": "Baja la deuda del cliente",
+    "asPaid": "como se pagó",
+    "part": {
+      "cash": "Efectivo {{amount}}",
+      "external": "{{method}} {{amount}}",
+      "store_credit": "Saldo a favor {{amount}}",
+      "receivable": "Deuda {{amount}}",
+      "loyalty": "Puntos {{amount}}"
+    }
+  },
+  "approval": {
+    "rule": {
+      "role": "La aprueba un encargado",
+      "shift_amount": "Supera su límite de {{amount}}: la aprueba un encargado",
+      "shift_count": "Supera las devoluciones de su turno: la aprueba un encargado",
+      "dual": "Supera {{amount}}: la aprueban dos encargados",
+      "no_shift": "Sin caja abierta: la aprueba un encargado"
+    },
+    "keepSelling": "Al encargado le aparece en Pendiente. Usted puede seguir vendiendo.",
+    "rejected": "Rechazada: {{reason}}",
+    "progress": "{{collected}} de {{required}} aprobaciones",
+    "approved": "Aprobada. Ya puede devolver.",
+    "request": "Pedir aprobación",
+    "waiting": "Esperando aprobación",
+    "pin": "PIN aquí"
+  },
+  "confirm": "Devolver {{amount}}",
+  "processing": "Devolviendo…",
+  "done": "Devolución registrada: {{amount}}"
+}

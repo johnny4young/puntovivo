@@ -184,6 +184,13 @@ The current validated candidate includes:
   manager, each on a fixed letter. Stockout, barcode, price and call reports
   land on the manager's Today pending queue until resolved, a stockout with the
   other site holding the most stock, and the sheet names today's last incident;
+- a return sheet over the open ticket from the Devolución key, `/` or the
+  incident sheet: the cashier scans or types the receipt, or picks one of
+  today's sales at the site, ticks the lines and quantities that come back,
+  picks a reason and sees the refund as it was paid. When the refund needs a
+  manager (always for cashiers, or past a shift limit, which the sheet names)
+  the cashier asks for approval and keeps selling, or a manager enters a PIN at
+  the till; an exchange opens the linked replacement sale;
 - by-weight products ask how much they weighed when tapped or picked on the
   register and the touch POS: quarter, half and one kilogram keys, a sale by
   value that buys the quantity to 0.001 at the line's price after tier,

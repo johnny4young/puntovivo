@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CornerDownLeft } from 'lucide-react';
+import { ChipRadioGroup } from '@/features/sales/ChipRadioGroup';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import {
@@ -144,26 +145,16 @@ export function TillIncidentReportForm({ kind, initialProduct, onSent }: ReportF
       )}
 
       {kind === 'stockout' && (
-        <fieldset>
-          <legend className="sales-cap mb-2">{t('stockout.reasons')}</legend>
-          <div className="flex flex-wrap gap-2">
-            {/* Native radios: arrows pick a reason and Enter sends the form. */}
-            {STOCKOUT_REASONS.map(option => (
-              <label key={option} className="sales-pill sales-quick-chip till-incident-reason">
-                <input
-                  type="radio"
-                  name="till-incident-reason"
-                  className="sr-only"
-                  value={option}
-                  checked={reason === option}
-                  onChange={() => setReason(option)}
-                  data-testid={`till-incident-reason-${option}`}
-                />
-                {t(`stockout.reason.${option}`)}
-              </label>
-            ))}
-          </div>
-        </fieldset>
+        <ChipRadioGroup
+          name="till-incident-reason"
+          legend={t('stockout.reasons')}
+          showLegend
+          options={STOCKOUT_REASONS}
+          value={reason}
+          onChange={setReason}
+          labelFor={option => t(`stockout.reason.${option}`)}
+          testIdPrefix="till-incident-reason"
+        />
       )}
 
       {kind === 'priceMismatch' && (

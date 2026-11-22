@@ -137,7 +137,7 @@ export function InlineApprovalDecision({
               inputMode="numeric"
               autoComplete="off"
               maxLength={6}
-              className="input mt-1 h-10 font-mono tracking-[0.3em]"
+              className="input mt-1 h-10 font-mono tracking-[0.3em] placeholder:tracking-normal"
               value={pin}
               onChange={event => setPin(event.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder={t('common:userMenu.approvals.pinPlaceholder')}

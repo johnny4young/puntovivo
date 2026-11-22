@@ -27,6 +27,15 @@ export interface ApprovalRequestView<Action extends ManagerApprovalAction = Mana
   requiredApprovals: number;
 }
 
+/** Statuses after which the cashier may ask again. */
+export const RETRYABLE_APPROVAL_STATUSES = new Set<ApprovalRequestView['status']>([
+  'not_requested',
+  'rejected',
+  'cancelled',
+  'consumed',
+  'expired',
+]);
+
 export type CheckoutApprovalView = ApprovalRequestView<CheckoutApprovalAction>;
 
 export function useCheckoutApprovals(input: {

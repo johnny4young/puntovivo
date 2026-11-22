@@ -26,7 +26,8 @@ import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatDateTime } from '@/lib/utils';
-import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
+import { invalidateAfterReturn } from '@/features/sales/returns/returnInvalidations';
+import { startExchange } from '@/features/sales/returns/startExchange';
 import type { SaleReturn } from '@/types';
 
 interface SaleDetailsModalProps {
@@ -124,21 +125,7 @@ export function SaleDetailsModal({
   const [reprintError, setReprintError] = useState<string | null>(null);
   const returnMutation = useCriticalMutation('sales.returnSale', {
     onSuccess: async () => {
-      await invalidateGroups(utils, [
-        u => u.cashSessions.getActive,
-        u => u.cashSessions.movements,
-        u => u.cashSessions.report,
-        u => u.sales.list,
-        u => u.sales.summary,
-        u => u.sales.getById,
-        u => u.dashboard.summary,
-        u => u.inventory.listMovements,
-        u => u.inventory.listStock,
-        u => u.products.list,
-        u => u.products.search,
-        u => u.managerApprovals.mine,
-        ...SERIAL_INVENTORY_INVALIDATIONS,
-      ]);
+      await invalidateAfterReturn(utils);
       toast.success({ title: t('sales:details.toast.refundSuccessTitle') });
       setIsReturnConfirmOpen(false);
       setPrintError(null);
@@ -420,14 +407,7 @@ export function SaleDetailsModal({
 
   const handleStartExchange = (saleReturn: SaleReturn) => {
     if (!sale || !currentTenant || !user) return;
-    useCartWorkspaceStore.getState().hydrateFromReturn({
-      ownerKey: `${currentTenant.id}:${user.id}`,
-      returnId: saleReturn.id,
-      saleNumber: sale.saleNumber,
-      customerId: sale.customerId ?? null,
-      customerName: sale.customerName ?? sale.customerNameSnapshot ?? null,
-      priceTier: sale.priceTier,
-    });
+    startExchange(sale, saleReturn.id, `${currentTenant.id}:${user.id}`);
     toast.success({ title: t('sales:details.toast.exchangeStartedTitle') });
     handleClose();
   };
