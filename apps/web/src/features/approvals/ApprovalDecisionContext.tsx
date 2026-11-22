@@ -24,7 +24,7 @@ const CADENCE_MAX_DAYS = [
 ] as const;
 
 function customerHabit(customer: Customer, t: Translate) {
-  const days = customer.averageDaysBetween;
+  const days = customer.daysPerVisit;
   const cadence = days === null ? undefined : CADENCE_MAX_DAYS.find(([, max]) => days <= max);
   return cadence
     ? t(`common:userMenu.approvals.context.cadence.${cadence[0]}`)
@@ -43,13 +43,16 @@ interface RowProps {
 
 function ContextRow({ testId, title, detail, value }: RowProps) {
   return (
-    <div data-testid={testId} className="flex items-center justify-between gap-3 py-2">
-      <div className="min-w-0">
-        <dt className="truncate text-xs font-semibold text-secondary-950">{title}</dt>
-        {detail && <dd className="text-[11px] text-fg2">{detail}</dd>}
-      </div>
+    <div
+      data-testid={testId}
+      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-2"
+    >
+      <dt className="col-start-1 truncate text-xs font-semibold text-secondary-950">{title}</dt>
+      {detail && <dd className="col-start-1 text-[11px] text-fg2">{detail}</dd>}
       {value && (
-        <dd className="shrink-0 text-base font-bold tabular-nums text-secondary-950">{value}</dd>
+        <dd className="col-start-2 row-span-2 row-start-1 text-base font-bold tabular-nums text-secondary-950">
+          {value}
+        </dd>
       )}
     </div>
   );
@@ -69,6 +72,10 @@ export function ApprovalDecisionContext({
   const { customer, discount, margin } = context;
   if (!customer && !discount && !margin) return null;
   const habit = customer && customerHabit(customer, t);
+  // Admins have no role limit, so only the requested share is shown.
+  const requested = discount
+    ? t('common:userMenu.approvals.context.requested', { percent: percent(discount.percent) })
+    : '';
   const marginValue =
     margin && (discount ? margin.withDiscountPercent : margin.withoutDiscountPercent);
 
@@ -92,10 +99,12 @@ export function ApprovalDecisionContext({
       {discount && (
         <ContextRow
           testId="approval-context-limit"
-          title={t('common:userMenu.approvals.context.limit', { name: requesterName })}
-          detail={t('common:userMenu.approvals.context.requested', {
-            percent: percent(discount.percent),
-          })}
+          title={
+            discount.roleLimitPercent === null
+              ? requested
+              : t('common:userMenu.approvals.context.limit', { name: requesterName })
+          }
+          detail={discount.roleLimitPercent === null ? null : requested}
           value={percent(discount.roleLimitPercent)}
         />
       )}

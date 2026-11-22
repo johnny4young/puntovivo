@@ -13,6 +13,7 @@ import {
   customers,
   managerApprovalRequests,
   products,
+  saleItems,
   sales,
   sites,
   syncOutbox,
@@ -372,27 +373,49 @@ describe('manager approvals router', () => {
       return id;
     }
 
-    async function seedCompletedSale(customerId: string, daysAgo: number, discountPercent: number) {
+    async function seedCompletedSale(
+      customerId: string,
+      productId: string,
+      daysAgo: number,
+      discount: { header?: number; line?: number },
+      returnState: 'refunded' | null = null
+    ) {
       const id = nanoid();
       const at = new Date(Date.now() - daysAgo * DAY_MS).toISOString();
       const gross = 100;
-      const discountAmount = (gross * discountPercent) / 100;
+      const lineDiscount = (gross * (discount.line ?? 0)) / 100;
+      const headerDiscount = (gross * (discount.header ?? 0)) / 100;
+      const subtotal = gross - lineDiscount;
       await db.insert(sales).values({
         id,
         tenantId,
         saleNumber: `CTX-SALE-${id}`,
         customerId,
-        subtotal: gross - discountAmount,
-        discountAmount,
-        total: gross - discountAmount,
+        subtotal,
+        discountAmount: headerDiscount,
+        total: subtotal - headerDiscount,
         paymentMethod: 'cash',
         paymentStatus: 'paid',
         status: 'completed',
+        returnState,
         cashSessionId: seededCashSessionId,
         createdBy: seededAdminId,
         checkoutCompletedAt: at,
         createdAt: at,
         updatedAt: at,
+      });
+      await db.insert(saleItems).values({
+        id: nanoid(),
+        saleId: id,
+        productId,
+        quantity: 1,
+        unitPrice: gross,
+        unitEquivalence: 1,
+        discount: discount.line ?? 0,
+        taxRate: 0,
+        taxAmount: 0,
+        costAtSale: 50,
+        total: subtotal,
       });
     }
 
@@ -440,10 +463,12 @@ describe('manager approvals router', () => {
         const taxed = await seedProduct({ price: 11_900, cost: 8_900, taxRate: 19 });
         const untaxed = await seedProduct({ price: 6_400, cost: 4_800, taxRate: 0 });
         const customerId = await seedCustomer();
-        await seedCompletedSale(customerId, 21, 8);
-        await seedCompletedSale(customerId, 14, 9);
-        await seedCompletedSale(customerId, 7, 10);
-        await seedCompletedSale(customerId, 120, 50);
+        await seedCompletedSale(customerId, untaxed, 21, { header: 8 });
+        // A line-only discount must count, or the median would fall to 8.
+        await seedCompletedSale(customerId, untaxed, 14, { line: 9 });
+        await seedCompletedSale(customerId, untaxed, 7, { header: 10 });
+        await seedCompletedSale(customerId, untaxed, 120, { header: 50 });
+        await seedCompletedSale(customerId, untaxed, 3, { header: 40 }, 'refunded');
 
         const created = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
           action: 'sale_discount',
@@ -466,10 +491,11 @@ describe('manager approvals router', () => {
           discount: { percent: 9.5, roleLimitPercent: 5 },
           margin: { withDiscountPercent: 5.8, withoutDiscountPercent: 14.4 },
           customer: {
+            id: customerId,
             name: `Context customer ${customerId}`,
             windowDays: 90,
             purchases: 3,
-            averageDaysBetween: 7,
+            daysPerVisit: 7,
             usualDiscountPercent: 9,
           },
         };
@@ -478,6 +504,21 @@ describe('manager approvals router', () => {
           .createCaller(manager.fresh())
           .managerApprovals.queue({ limit: 50 });
         expect(queue.items.find(item => item.id === created.id)?.decisionContext).toEqual(expected);
+
+        // The stored snapshot carries no name, so anonymizing the customer reaches the queue.
+        const stored = await db
+          .select({ decisionContext: managerApprovalRequests.decisionContext })
+          .from(managerApprovalRequests)
+          .where(eq(managerApprovalRequests.id, created.id))
+          .get();
+        expect(stored?.decisionContext?.customer).not.toHaveProperty('name');
+        await db.update(customers).set({ name: '—' }).where(eq(customers.id, customerId));
+        const anonymized = await appRouter
+          .createCaller(manager.fresh())
+          .managerApprovals.queue({ limit: 50 });
+        expect(
+          anonymized.items.find(item => item.id === created.id)?.decisionContext?.customer?.name
+        ).toBe('—');
       } finally {
         writeLossPreventionSettings(db, tenantId, previous);
       }
@@ -522,6 +563,21 @@ describe('manager approvals router', () => {
         margin: { withDiscountPercent: 44.4, withoutDiscountPercent: 50 },
         customer: null,
       });
+
+      const justOver = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+        action: 'sale_discount',
+        reason: 'Slightly over the limit',
+        resourceType: 'sale_checkout',
+        checkoutContext: checkout({
+          customerId: null,
+          items: [{ productId: taxed, quantity: 1, unitPrice: 11_900, discount: 0 }],
+          discountAmount: 1_195,
+          total: 10_705,
+        }),
+        summary: { label: 'checkout', amount: 1_195, currencyCode: 'COP' },
+      });
+      // 10.04 % must not read as 10 % next to a 10 % limit.
+      expect((await contextOf(justOver.id))?.discount?.percent).toBe(10.1);
 
       const unknownCost = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
         action: 'sale_discount',

@@ -6,11 +6,13 @@ import {
   type CheckoutApprovalContext,
 } from '@puntovivo/shared/checkout-approval';
 import {
+  customers,
   managerApprovalRequests,
   sales,
   sites,
   users,
   type ManagerApprovalAction,
+  type ManagerApprovalDecisionContext,
   type ManagerApprovalRequest,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
@@ -98,6 +100,18 @@ function presentRequest(request: ManagerApprovalRequest, now: string) {
     status: effectiveManagerApprovalStatus(request, now),
     requiredApproverRole: requiredApproverLabel(request.action),
     approvalsCollected: managerApprovalCount(request),
+  };
+}
+
+function withCustomerName(
+  context: ManagerApprovalDecisionContext | null,
+  names: ReadonlyMap<string, string>
+) {
+  if (!context) return null;
+  const name = context.customer ? names.get(context.customer.id) : undefined;
+  return {
+    ...context,
+    customer: context.customer && name !== undefined ? { ...context.customer, name } : null,
   };
 }
 
@@ -275,6 +289,20 @@ export const managerApprovalsRouter = router({
           .all(),
       ]);
 
+      const customerIds = [
+        ...new Set(rows.flatMap(row => row.request.decisionContext?.customer?.id ?? [])),
+      ];
+      const customerNames = new Map(
+        customerIds.length === 0
+          ? []
+          : ctx.db
+              .select({ id: customers.id, name: customers.name })
+              .from(customers)
+              .where(and(eq(customers.tenantId, ctx.tenantId), inArray(customers.id, customerIds)))
+              .all()
+              .map(customer => [customer.id, customer.name])
+      );
+
       return {
         approver: {
           id: ctx.user!.id,
@@ -282,7 +310,7 @@ export const managerApprovalsRouter = router({
         },
         items: rows.map(row => ({
           ...presentRequest(row.request, now),
-          decisionContext: row.request.decisionContext,
+          decisionContext: withCustomerName(row.request.decisionContext, customerNames),
           requesterName: row.requesterName,
           siteName: row.siteName,
         })),

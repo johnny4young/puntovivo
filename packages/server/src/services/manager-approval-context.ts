@@ -5,15 +5,20 @@
  *
  * @module services/manager-approval-context
  */
-import type { CheckoutApprovalContext } from '@puntovivo/shared/checkout-approval';
+import {
+  getCheckoutApprovalDiscountAmount,
+  type CheckoutApprovalContext,
+  type CheckoutApprovalItem,
+} from '@puntovivo/shared/checkout-approval';
 import type { UserRole } from '@puntovivo/shared/roles';
 import { splitLineTax } from '@puntovivo/shared/tax-split';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
-import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../db/index.js';
 import {
   customers,
   products,
+  saleItems,
   sales,
   unitXProduct,
   units,
@@ -54,7 +59,11 @@ function discountContext(
       ? resolveLossPreventionSettings(db, tenantId).roles[role]
       : null;
   return {
-    percent: roundPercent(checkoutDiscountPercent(checkout.items, checkout.discountAmount)),
+    // Round up so an escalated request never reads as within the limit.
+    percent:
+      Math.ceil(
+        roundQuantity(checkoutDiscountPercent(checkout.items, checkout.discountAmount), 6) * 10
+      ) / 10,
     roleLimitPercent: policy?.maxDiscountPercent ?? null,
   };
 }
@@ -136,7 +145,7 @@ async function customerContext(
 ): Promise<ManagerApprovalDecisionContext['customer']> {
   if (!customerId) return null;
   const customer = await db
-    .select({ name: customers.name })
+    .select({ id: customers.id })
     .from(customers)
     .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
     .get();
@@ -145,21 +154,14 @@ async function customerContext(
   const completedAt = sql<string>`coalesce(${sales.checkoutCompletedAt}, ${sales.createdAt})`;
   const since = new Date(nowMs - CUSTOMER_HABIT_WINDOW_DAYS * DAY_MS).toISOString();
   const rows = await db
-    .select({
-      completedAt,
-      total: sales.total,
-      discountAmount: sales.discountAmount,
-      tipAmount: sales.tipAmount,
-      serviceChargeAmount: sales.serviceChargeAmount,
-    })
+    .select({ id: sales.id, completedAt, headerDiscount: sales.discountAmount })
     .from(sales)
     .where(
       and(
         eq(sales.tenantId, tenantId),
         eq(sales.customerId, customerId),
         eq(sales.status, 'completed'),
-        // A sale completes after it is created; the raw column keeps the scan bounded.
-        gte(sales.createdAt, since),
+        or(isNull(sales.returnState), ne(sales.returnState, 'refunded')),
         gte(completedAt, since)
       )
     )
@@ -167,24 +169,53 @@ async function customerContext(
     .limit(CUSTOMER_HABIT_SALE_LIMIT)
     .all();
 
+  // sales.discount_amount is the ticket discount only; line discounts live on the items.
+  const itemsBySale = new Map<
+    string,
+    Pick<CheckoutApprovalItem, 'quantity' | 'unitPrice' | 'discount'>[]
+  >();
+  if (rows.length > 0) {
+    const lines = db
+      .select({
+        saleId: saleItems.saleId,
+        quantity: saleItems.quantity,
+        unitPrice: saleItems.unitPrice,
+        discount: saleItems.discount,
+      })
+      .from(saleItems)
+      .where(
+        inArray(
+          saleItems.saleId,
+          rows.map(row => row.id)
+        )
+      )
+      .all();
+    for (const { saleId, ...line } of lines) {
+      const items = itemsBySale.get(saleId);
+      if (items) items.push(line);
+      else itemsBySale.set(saleId, [line]);
+    }
+  }
   const discountPercents = rows.flatMap(row => {
-    const gross = row.total - row.tipAmount - row.serviceChargeAmount + row.discountAmount;
-    return gross > 0 ? [(row.discountAmount / gross) * 100] : [];
+    const items = itemsBySale.get(row.id);
+    if (!items) return [];
+    return [
+      checkoutDiscountPercent(items, getCheckoutApprovalDiscountAmount(items, row.headerDiscount)),
+    ];
   });
   const usualDiscount = median(discountPercents);
+  // Same-day tickets are one visit; the span runs to now so a lapsed habit stretches.
+  const visitDays = new Set(rows.map(row => row.completedAt.slice(0, 10))).size;
+  const oldest = rows.at(-1);
   return {
-    name: customer.name,
+    id: customer.id,
     windowDays: CUSTOMER_HABIT_WINDOW_DAYS,
     purchases: rows.length,
-    averageDaysBetween:
-      rows.length > 1
-        ? roundPercent(
-            (Date.parse(rows[0]!.completedAt) - Date.parse(rows.at(-1)!.completedAt)) /
-              DAY_MS /
-              (rows.length - 1)
-          )
+    daysPerVisit:
+      visitDays > 1 && oldest
+        ? roundPercent((nowMs - Date.parse(oldest.completedAt)) / DAY_MS / visitDays)
         : null,
-    usualDiscountPercent: usualDiscount === null ? null : roundPercent(usualDiscount),
+    usualDiscountPercent: usualDiscount === null ? null : roundPercent(Math.max(0, usualDiscount)),
   };
 }
 

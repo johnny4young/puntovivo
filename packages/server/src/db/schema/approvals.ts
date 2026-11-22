@@ -49,12 +49,13 @@ export interface ManagerApprovalDecisionContext {
   discount: { percent: number; roleLimitPercent: number | null } | null;
   /** Pre-tax margin from catalog cost; null when any line has no cost. */
   margin: { withDiscountPercent: number | null; withoutDiscountPercent: number } | null;
-  /** Completed purchases of the ticket's customer in the trailing window. */
+  /** Completed, unrefunded purchases of the ticket's customer in the trailing window. */
   customer: {
-    name: string;
+    /** The name is read live so anonymizing the customer reaches this row. */
+    id: string;
     windowDays: number;
     purchases: number;
-    averageDaysBetween: number | null;
+    daysPerVisit: number | null;
     usualDiscountPercent: number | null;
   } | null;
 }

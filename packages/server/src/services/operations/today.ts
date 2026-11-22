@@ -386,8 +386,14 @@ async function collectPending(
       siteName: sites.name,
     })
     .from(managerApprovalRequests)
-    .innerJoin(users, eq(users.id, managerApprovalRequests.requesterId))
-    .innerJoin(sites, eq(sites.id, managerApprovalRequests.siteId))
+    .innerJoin(
+      users,
+      and(eq(users.id, managerApprovalRequests.requesterId), eq(users.tenantId, tenantId))
+    )
+    .innerJoin(
+      sites,
+      and(eq(sites.id, managerApprovalRequests.siteId), eq(sites.tenantId, tenantId))
+    )
     .where(
       and(
         eq(managerApprovalRequests.tenantId, tenantId),

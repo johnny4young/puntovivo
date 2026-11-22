@@ -102,10 +102,11 @@ describe('ManagerApprovalQueue', () => {
           discount: { percent: 12, roleLimitPercent: 10 },
           margin: { withDiscountPercent: 21, withoutDiscountPercent: 31.4 },
           customer: {
+            id: 'customer-1',
             name: 'Restaurante El Fogón',
             windowDays: 90,
             purchases: 12,
-            averageDaysBetween: 7,
+            daysPerVisit: 7,
             usualDiscountPercent: 9,
           },
         },
@@ -127,6 +128,25 @@ describe('ManagerApprovalQueue', () => {
     expect(screen.getByText('“Customer has a documented price match”')).toBeInTheDocument();
   });
 
+  it('shows only the requested share when the requester has no role limit', () => {
+    queryResult.data!.items = [
+      {
+        ...pendingRequest,
+        decisionContext: {
+          version: 1,
+          discount: { percent: 12, roleLimitPercent: null },
+          margin: null,
+          customer: null,
+        },
+      },
+    ];
+    render(<ManagerApprovalQueue />);
+
+    const limit = screen.getByTestId('approval-context-limit');
+    expect(limit).toHaveTextContent('Asks for 12%');
+    expect(limit).not.toHaveTextContent('Limit for');
+  });
+
   it('counts purchases when there is no steady cadence and hides empty context', () => {
     queryResult.data!.items = [
       {
@@ -136,10 +156,11 @@ describe('ManagerApprovalQueue', () => {
           discount: null,
           margin: null,
           customer: {
+            id: 'customer-2',
             name: 'Nuevo cliente',
             windowDays: 90,
             purchases: 0,
-            averageDaysBetween: null,
+            daysPerVisit: null,
             usualDiscountPercent: null,
           },
         },
