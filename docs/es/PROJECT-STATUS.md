@@ -246,7 +246,9 @@ El candidato validado actual incluye:
   mientras los borradores minoristas genéricos siguen siendo privados; recibo y
   auditoría conservan identidades distintas de apertura y liquidación. Los
   catálogos de mesas buscan en el servidor antes de paginar de forma determinista,
-  el plano lee el catálogo activo completo acotado y el trabajo suspendido pagina
+  el plano lee un resumen acotado de cada mesa activa con su tiempo sentada,
+  monto, comensales, cuentas, ronda sin enviar, pidió la cuenta marcado por el
+  personal y próxima reserva, y el trabajo suspendido pagina
   todo el conjunto recuperable sin ocultar filas excedentes. Los borradores
   nuevos y reanudados registran reclamaciones de actor y dispositivo; cada mutación
   del ciclo de vida exige el actor activo, el cierre de sesión estaciona todas

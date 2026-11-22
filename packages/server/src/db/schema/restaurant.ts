@@ -78,6 +78,14 @@ export const restaurantServices = sqliteTable(
     openedAt: text('opened_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     closedBy: text('closed_by').references(() => users.id),
     closedAt: text('closed_at'),
+    // Staff-set markers. Plain user ids without FKs keep the columns additive
+    // (an FK would make drizzle-kit rebuild this table).
+    billRequestedAt: text('bill_requested_at'),
+    billRequestedBy: text('bill_requested_by'),
+    /** Unsent plates on an ordering device; cleared when a round is sent. */
+    pendingRoundItems: integer('pending_round_items'),
+    pendingRoundBy: text('pending_round_by'),
+    pendingRoundAt: text('pending_round_at'),
     version: integer('version').notNull().default(1),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),

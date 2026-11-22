@@ -223,7 +223,8 @@ The current validated candidate includes:
   settle a normalized check while generic retail drafts remain private; the
   receipt and audit retain distinct opener and settlement identities. Table
   catalogs search on the server before deterministic pagination, the floor map
-  reads the bounded complete active catalog, and suspended work pages through
+  reads a bounded summary of every active table with its seated time, amount,
+  party, checks, unsent round, staff-set bill request and next reservation, and suspended work pages through
   the complete recoverable result set instead of hiding excess rows. Fresh and
   resumed drafts record actor-and-device claims; every lifecycle mutation
   enforces the active actor, logout parks all actor claims, and staff switch

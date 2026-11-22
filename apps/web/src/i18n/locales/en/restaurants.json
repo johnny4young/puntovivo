@@ -8,6 +8,7 @@
     "RESTAURANT_SERVICE_TABLE_REQUIRED": "Restaurant checks must remain attached to a physical table.",
     "RESTAURANT_SERVICE_LIMIT_REACHED": "This table service has reached its safe open-order limit. Settle or cancel existing checks before adding more items.",
     "RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED": "This action would split or merge a party between table services. Keep the split at its current table, or move an unshared service to an empty table.",
+    "RESTAURANT_SERVICE_NOT_OPEN": "This table has no open orders. Open an order before marking it.",
     "RESTAURANT_MODIFIER_UNAVAILABLE": "This add-on is no longer available at this site. Remove it or select an available option.",
     "RESTAURANT_MODIFIER_APPROVAL_REQUIRED": "Choose an approved add-on or ask a manager to place this order.",
     "RESTAURANT_MODIFIER_CHANGED": "This add-on changed. Remove it and choose it again to review the current price before saving.",
@@ -25,20 +26,32 @@
     "subheading": "Capture the order by voice or manual search."
   },
   "floorMap": {
-    "kicker": "Floor",
-    "title": "Floor map",
-    "count_one": "{{count}} table",
-    "count_other": "{{count}} tables",
     "noAreaLabel": "No zone",
+    "areaCount_one": "{{area}} · {{count}} table",
+    "areaCount_other": "{{area}} · {{count}} tables",
     "seatCount_one": "Seats · {{count}}",
     "seatCount_other": "Seats · {{count}}",
     "seatCountUnknown": "Seats not set",
+    "party_one": "{{count}} guest",
+    "party_other": "{{count}} guests",
+    "elapsedMinutes_one": "{{count}} min",
+    "elapsedMinutes_other": "{{count}} min",
+    "elapsedHours": "{{hours}} h {{minutes}}",
+    "checks_one": "{{count}} check",
+    "checks_other": "{{count}} checks",
+    "roundReady": "round ready to send",
     "status": {
       "free": "Free",
-      "occupied_one": "{{count}} open check",
-      "occupied_other": "{{count}} open checks",
-      "reserved": "Reserved · {{time}}"
-    }
+      "billRequested": "Asked for the bill",
+      "reserved": "Reserved"
+    },
+    "legendLabel": "Table states",
+    "legend": {
+      "occupied": "Occupied",
+      "billRequested": "Asked for the bill",
+      "reserved": "Reserved"
+    },
+    "occupancy": "{{occupied}} of {{total}} occupied"
   },
   "tableLabel": {
     "label": "Table",
@@ -367,5 +380,9 @@
     "empty": "No dishes in this category yet.",
     "pages": "Dish pages",
     "page": "Page {{page}} of {{pages}}"
+  },
+  "billRequest": {
+    "label": "Asked for the bill",
+    "error": "Could not update the bill request"
   }
 }

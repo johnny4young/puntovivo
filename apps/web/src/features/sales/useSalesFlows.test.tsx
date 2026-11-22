@@ -23,7 +23,7 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 vi.mock('@/lib/trpc', () => ({
   trpc: { useUtils: () => ({}) },
 }));
-vi.mock('@/lib/invalidateGroups', () => ({
+vi.mock('@/lib/invalidateGroups', async importOriginal => ({
   invalidateCommittedGroups: async (utils: unknown, pickers: unknown[]) => {
     try {
       await mocks.invalidateGroups(utils, pickers);
@@ -33,6 +33,8 @@ vi.mock('@/lib/invalidateGroups', () => ({
     }
   },
   INVENTORY_RESERVATION_INVALIDATIONS: [],
+  RESTAURANT_TABLE_INVALIDATIONS: (await importOriginal<typeof import('@/lib/invalidateGroups')>())
+    .RESTAURANT_TABLE_INVALIDATIONS,
 }));
 vi.mock('@/lib/translateServerError', () => ({
   translateServerError: () => 'translated error',

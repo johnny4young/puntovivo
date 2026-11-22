@@ -101,6 +101,13 @@ export const INVENTORY_RESERVATION_INVALIDATIONS: ReadonlyArray<InvalidationPick
  * sales — the customer ledger; missing any of these leaves another page
  * showing pre-sale data for the whole staleTime window.
  */
+/** Every read that shows a table's open checks, service or floor state. */
+export const RESTAURANT_TABLE_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
+  u => u.restaurantTables.listWithDraftStatus,
+  u => u.restaurantTables.listSummary,
+  u => u.restaurantServices.getTableState,
+];
+
 export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
   // the shell celebrates only after the server confirms the
   // tenant's first completed sale.
@@ -118,8 +125,7 @@ export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = 
   u => u.sales.summary,
   // Completing a normalized restaurant draft settles its check and may close
   // the table service in the same transaction.
-  u => u.restaurantTables.listWithDraftStatus,
-  u => u.restaurantServices.getTableState,
+  ...RESTAURANT_TABLE_INVALIDATIONS,
   // A fresh restaurant sale can consume the arrived reservation in this writer.
   u => u.reservations.list,
   ...INVENTORY_RESERVATION_INVALIDATIONS,

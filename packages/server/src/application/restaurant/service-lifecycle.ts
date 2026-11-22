@@ -365,7 +365,7 @@ function assertActiveTable(
   return { id: table.id, name: table.name, seatCount: table.seatCount };
 }
 
-function findOpenService(
+export function findOpenService(
   tx: RestaurantTransaction,
   tenantId: string,
   tableId: string
@@ -381,6 +381,25 @@ function findOpenService(
       )
     )
     .get();
+}
+
+/** Clears the actor's own unsent-round marker; another waiter's marker stays. */
+export function clearOwnPendingRound(
+  tx: RestaurantTransaction,
+  tenantId: string,
+  serviceId: string,
+  actorId: string
+): void {
+  tx.update(restaurantServices)
+    .set({ pendingRoundItems: null, pendingRoundBy: null, pendingRoundAt: null })
+    .where(
+      and(
+        eq(restaurantServices.id, serviceId),
+        eq(restaurantServices.tenantId, tenantId),
+        eq(restaurantServices.pendingRoundBy, actorId)
+      )
+    )
+    .run();
 }
 
 function createOpenService(
@@ -401,6 +420,11 @@ function createOpenService(
     openedAt: context.now,
     closedBy: null,
     closedAt: null,
+    billRequestedAt: null,
+    billRequestedBy: null,
+    pendingRoundItems: null,
+    pendingRoundBy: null,
+    pendingRoundAt: null,
     version: 1,
     createdAt: context.now,
     updatedAt: context.now,
@@ -603,6 +627,10 @@ export function openRestaurantCheckInTransaction(
   );
   if (reservation && context.envelope)
     seatReservation(tx, { ...context, envelope: context.envelope }, reservation, service.id);
+  // Sending answers the sender's own unsent-round marker.
+  if (service.pendingRoundBy === context.actorId) {
+    clearOwnPendingRound(tx, context.tenantId, service.id, context.actorId);
+  }
   assertCheckCapacity(tx, context.tenantId, service.id);
   assertServiceProjectionCapacity(
     tx,

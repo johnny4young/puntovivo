@@ -410,7 +410,9 @@ devuelve todas las cuentas abiertas. Pedidos por voz y el POS tradicional exigen
 ese estado autorizado antes de abrir otra cuenta y fallan de forma segura cuando
 no está disponible. Buscar en el catálogo de mesas es un filtro literal del
 servidor aplicado antes de una paginación estable; el plano administrativo lee
-el catálogo activo completo y acotado por separado. Se rechaza crear o reactivar
+por separado el resumen acotado del salón (estado, tiempo sentado, monto,
+comensales, cuentas, ronda sin enviar, pidió la cuenta y la próxima reserva del
+día) para el catálogo activo completo. Se rechaza crear o reactivar
 más de 500 mesas activas por sede sin truncar una vista operativa. Los clientes
 heredados que crean y luego suspenden, y la migración `0058`, normalizan solo
 hechos demostrables a partir de filas ligadas a mesas aún en borrador, incluido

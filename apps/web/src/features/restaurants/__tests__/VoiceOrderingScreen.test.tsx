@@ -53,7 +53,7 @@ interface TableCatalogState {
 interface TableServiceState {
   data:
     | {
-        service: { id: string; guestCount: number } | null;
+        service: { id: string; guestCount: number; billRequestedAt?: string | null } | null;
         checks: Array<Record<string, unknown>>;
         diners: Array<{ id: string; seatNumber: number | null }>;
       }
@@ -89,6 +89,9 @@ const invalidateDrafts = vi.fn();
 const invalidateSalesSummary = vi.fn();
 const invalidateCashSession = vi.fn();
 const invalidateTableStatus = vi.fn();
+const invalidateTableSummary = vi.fn();
+const setPendingRoundMutate = vi.fn();
+const setBillRequestedMutate = vi.fn();
 const invalidateTableState = vi.fn();
 const invalidateReservations = vi.fn();
 const invalidateInventoryMovements = vi.fn();
@@ -172,6 +175,10 @@ vi.mock('@/lib/trpc', () => ({
         useQuery: (input: unknown, options: { enabled: boolean }) =>
           restaurantTableStateUseQueryMock(input, options),
       },
+      setBillRequested: {
+        useMutation: () => ({ mutate: setBillRequestedMutate, isPending: false }),
+      },
+      setPendingRound: { useMutation: () => ({ mutate: setPendingRoundMutate }) },
     },
     restaurantModifiers: {
       productGroups: { useQuery: () => productGroupsMock() },
@@ -196,7 +203,10 @@ vi.mock('@/lib/trpc', () => ({
         summary: { invalidate: invalidateSalesSummary },
       },
       cashSessions: { getActive: { invalidate: invalidateCashSession } },
-      restaurantTables: { listWithDraftStatus: { invalidate: invalidateTableStatus } },
+      restaurantTables: {
+        listWithDraftStatus: { invalidate: invalidateTableStatus },
+        listSummary: { invalidate: invalidateTableSummary },
+      },
       restaurantServices: { getTableState: { invalidate: invalidateTableState } },
       restaurantModifiers: { productGroups: { prefetch: vi.fn() } },
       reservations: { list: { invalidate: invalidateReservations } },
@@ -984,6 +994,45 @@ describe('VoiceOrderingScreen', () => {
     expect(screen.getByTestId('order-rail-draft-round')).toHaveTextContent('Ronda 3 · sin enviar');
     expect(screen.getByTestId('voice-ordering-save')).toHaveTextContent('Enviar ronda 3 a cocina');
     expect(screen.getByTestId('order-rail-total')).toHaveTextContent(money(30_000));
+  });
+
+  it('lets staff mark that an open table asked for the bill', () => {
+    restaurantTableStateMock.mockReturnValue({
+      data: {
+        service: { id: 'service-1', guestCount: 2, billRequestedAt: null },
+        diners: [],
+        checks: [],
+      },
+      isLoading: false,
+      error: null,
+    });
+    renderScreen();
+    expect(screen.queryByTestId('restaurant-bill-request-toggle')).not.toBeInTheDocument();
+    selectTable();
+    const toggle = screen.getByTestId('restaurant-bill-request-toggle');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(toggle).toHaveTextContent('Pidió la cuenta');
+    fireEvent.click(toggle);
+    expect(setBillRequestedMutate).toHaveBeenCalledWith({ tableId: 'table-1', requested: true });
+  });
+
+  it('reports the unsent round of an open table and clears it on leaving', async () => {
+    restaurantTableStateMock.mockReturnValue({
+      data: { service: { id: 'service-1', guestCount: 2 }, diners: [], checks: [] },
+      isLoading: false,
+      error: null,
+    });
+    const { unmount } = renderScreen();
+    selectTable();
+    await waitFor(() =>
+      expect(setPendingRoundMutate).toHaveBeenCalledWith({ tableId: 'table-1', itemCount: 0 })
+    );
+    await addVoiceItem();
+    await waitFor(() =>
+      expect(setPendingRoundMutate).toHaveBeenLastCalledWith({ tableId: 'table-1', itemCount: 1 })
+    );
+    unmount();
+    expect(setPendingRoundMutate).toHaveBeenLastCalledWith({ tableId: 'table-1', itemCount: 0 });
   });
 
   it('says it saves the round when no kitchen screen is on', async () => {

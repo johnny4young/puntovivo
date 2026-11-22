@@ -88,6 +88,9 @@ export const ENFORCED_PAIRS = [
   ['cobrar', 'cobrar-foreground'],
   ['rail', 'rail-foreground'],
   ['rail', 'rail-muted'],
+  // Floor-map tiles: «pidió la cuenta» sets navy text on the warning fill.
+  ['warning-500', 'rail'],
+  ['primary-50', 'secondary-950'],
   ['success-50', 'success-700'],
   ['danger-50', 'danger-700'],
 ];

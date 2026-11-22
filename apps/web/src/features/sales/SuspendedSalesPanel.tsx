@@ -38,6 +38,7 @@ import { useTenant } from '@/features/tenant/TenantProvider';
 import {
   invalidateCommittedGroups,
   INVENTORY_RESERVATION_INVALIDATIONS,
+  RESTAURANT_TABLE_INVALIDATIONS,
 } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
@@ -162,8 +163,7 @@ function OpenSuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSalesPa
       setDraftPage(1);
       const refreshed = await invalidateCommittedGroups(utils, [
         u => u.sales.listDrafts,
-        u => u.restaurantTables.listWithDraftStatus,
-        u => u.restaurantServices.getTableState,
+        ...RESTAURANT_TABLE_INVALIDATIONS,
         ...INVENTORY_RESERVATION_INVALIDATIONS,
       ]);
       if (refreshed) {

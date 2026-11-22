@@ -140,6 +140,27 @@ view drift from the sale that is eventually paid.
 - Mobile Waiter is usable only when both `mobile-waiter` and `dine-in` are
   active. Voice Ordering has the equivalent `pos-touch` plus `dine-in` gate.
 
+### Floor summary and table markers
+
+- `restaurantTables.listSummary` pages the active tables of one site with a
+  state (`free`, `occupied`, `billRequested`, `reserved`), the visit start,
+  party size, open checks and amount. Amount and checks come from the table's
+  open sale drafts, so a legacy draft without a service still reads occupied.
+  The response carries `generatedAt`; clients measure elapsed time against it
+  instead of a moving clock. The next booked or arrived reservation counts
+  only while it has not ended and starts before the tenant business day ends.
+- "Asked for the bill" is a staff-set marker on the open service
+  (`restaurantServices.setBillRequested`). It is idempotent, audited per
+  change, advances the service version and ends with the visit.
+- An ordering device reports its unsent plates with
+  `restaurantServices.setPendingRound`. The round exists only in that device's
+  memory, so the marker is a hint: it is never audited, never advances the
+  version, clears when the same waiter sends a round, and a zero from one
+  waiter never clears another waiter's marker. A table without an open
+  service has nothing to mark.
+- Migration `0105` adds the marker columns with plain `ADD COLUMN` and no
+  foreign keys, so `restaurant_services` is never rebuilt.
+
 ### KDS boundary
 
 The original post-commit compatibility hook is superseded by

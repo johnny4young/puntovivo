@@ -155,6 +155,7 @@ vi.mock('@/lib/trpc', () => ({
       },
       restaurantTables: {
         listWithDraftStatus: { invalidate: restaurantTablesInvalidateMock },
+        listSummary: { invalidate: vi.fn() },
       },
       restaurantServices: {
         getTableState: { invalidate: restaurantServicesInvalidateMock },

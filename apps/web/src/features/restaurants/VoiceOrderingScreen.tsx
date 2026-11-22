@@ -1,5 +1,3 @@
-import { ReservationChoice } from '@/features/reservations/ReservationChoice';
-import { reservationChoiceKey } from '@/features/reservations/reservationSelection';
 /**
  * Restaurant ordering screen shared by `/touch/voice` (three columns: dishes,
  * plate sheet, order rail) and `/m` (stacked, sheet in a dialog).
@@ -25,6 +23,7 @@ import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import {
   invalidateCommittedGroups,
   INVENTORY_RESERVATION_INVALIDATIONS,
+  RESTAURANT_TABLE_INVALIDATIONS,
 } from '@/lib/invalidateGroups';
 import { translateServerError } from '@/lib/translateServerError';
 import { roundMoney } from '@/lib/money';
@@ -39,7 +38,11 @@ import { selectionFromHydratedProduct } from '@/features/sales/productSelection'
 import { Modal } from '@/components/form-controls/Modal';
 import type { VoiceCartItem } from '@/features/voice/VoiceCartCommandModal';
 import type { Product, ProductSearchSelection } from '@/types';
+import { ReservationChoice } from '@/features/reservations/ReservationChoice';
+import { reservationChoiceKey } from '@/features/reservations/reservationSelection';
 import { VoiceOrderingControls } from './VoiceOrderingControls';
+import { RestaurantBillRequestToggle } from './RestaurantBillRequestToggle';
+import { usePendingRoundReport } from './usePendingRoundReport';
 import { RestaurantDishCatalog } from './RestaurantDishCatalog';
 import { RestaurantOrderRail } from './RestaurantOrderRail';
 import { sentRoundsFromTableState, type RailLine } from './orderRounds';
@@ -181,6 +184,8 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
     0
   );
   const roundNumber = sentRounds.length + 1;
+  const openService = tableStateQuery.data?.service ?? null;
+  usePendingRoundReport(resolvedPickedTableId, cartItems.length, openService !== null);
   const draftLines: RailLine[] = pricedCartItems.map(item => {
     const detail = detailFor(item.key);
     return {
@@ -372,8 +377,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
         u => u.sales.listDrafts,
         u => u.sales.summary,
         u => u.cashSessions.getActive,
-        u => u.restaurantTables.listWithDraftStatus,
-        u => u.restaurantServices.getTableState,
+        ...RESTAURANT_TABLE_INVALIDATIONS,
         // The same writer may have seated the arrived reservation.
         u => u.reservations.list,
         ...INVENTORY_RESERVATION_INVALIDATIONS,
@@ -490,6 +494,13 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
           onChange={checked =>
             setReservationSelection(checked ? reservationChoiceKey(arrivedReservation) : '')
           }
+        />
+      )}
+      {resolvedPickedTableId && openService && (
+        <RestaurantBillRequestToggle
+          tableId={resolvedPickedTableId}
+          requested={openService.billRequestedAt !== null}
+          disabled={isSaving}
         />
       )}
       {resolvedPickedTableId && tableStateQuery.isLoading && (
