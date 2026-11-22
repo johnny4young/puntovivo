@@ -125,7 +125,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile
         aria-hidden="true"
         data-testid="mobile-navigation-backdrop"
         className={cn(
-          'fixed inset-0 z-40 bg-secondary-950/35 backdrop-blur-sm transition-opacity duration-200',
+          'fixed inset-0 z-40 bg-scrim/35 backdrop-blur-sm transition-opacity duration-200',
           mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
         )}
         onClick={onCloseMobile}
