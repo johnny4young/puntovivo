@@ -18,6 +18,7 @@ import {
   lineRemaining,
   useReturnPreview,
   useReturnSelection,
+  type LineSelection,
   type ReturnDestination,
   type ReturnPreviewState,
   type ReturnSelection,
@@ -60,9 +61,10 @@ interface PickedReceipt {
 }
 
 interface ReturnDraft {
-  owner: string;
+  /** Tenant, cashier and site: a draft never follows the cashier to another site. */
+  key: string;
   receipt: PickedReceipt;
-  quantities: Record<string, number>;
+  lines: Record<string, LineSelection>;
   reason: TillReturnReason | null;
   destination: ReturnDestination;
 }
@@ -79,11 +81,11 @@ interface TillReturnSheetProps {
 export default function TillReturnSheet({ onClose, restoreFocusTo }: TillReturnSheetProps) {
   const { t } = useTranslation('tillReturns');
   const { user } = useAuth();
-  const { currentTenant } = useTenant();
+  const { currentTenant, currentSite } = useTenant();
   const owner = `${currentTenant?.id ?? ''}:${user?.id ?? ''}`;
-  const [receipt, setReceipt] = useState<PickedReceipt | null>(() =>
-    rememberedDraft?.owner === owner ? rememberedDraft.receipt : null
-  );
+  const draftKey = `${owner}:${currentSite?.id ?? ''}`;
+  const draft = rememberedDraft?.key === draftKey ? rememberedDraft : null;
+  const [receipt, setReceipt] = useState<PickedReceipt | null>(() => draft?.receipt ?? null);
   const lookupRef = useRef<HTMLInputElement>(null);
 
   const changeReceipt = (next: PickedReceipt | null) => {
@@ -164,7 +166,8 @@ export default function TillReturnSheet({ onClose, restoreFocusTo }: TillReturnS
           key={receipt.id}
           receipt={receipt}
           owner={owner}
-          draft={rememberedDraft?.owner === owner ? rememberedDraft : null}
+          draftKey={draftKey}
+          draft={draft}
           onDone={() => {
             rememberedDraft = null;
             onClose();
@@ -199,7 +202,7 @@ function ReceiptLookup({
   const utils = trpc.useUtils();
   const today = trpc.sales.returnableToday.useQuery(undefined, { staleTime: 15_000 });
   const [code, setCode] = useState('');
-  const [missing, setMissing] = useState(false);
+  const [lookupError, setLookupError] = useState<'missing' | 'failed' | null>(null);
   const [isLooking, setIsLooking] = useState(false);
 
   const submit = async (event: FormEvent) => {
@@ -212,11 +215,11 @@ function ReceiptLookup({
       if (found) {
         onPick({ ...found, scanned: true });
       } else {
-        setMissing(true);
+        setLookupError('missing');
         setCode('');
       }
     } catch {
-      setMissing(true);
+      setLookupError('failed');
     } finally {
       setIsLooking(false);
     }
@@ -235,14 +238,14 @@ function ReceiptLookup({
             autoComplete="off"
             onChange={event => {
               setCode(event.target.value);
-              setMissing(false);
+              setLookupError(null);
             }}
             data-testid="till-return-code"
           />
         </label>
-        {missing && (
+        {lookupError && (
           <p className="mt-2 text-sm font-medium text-danger-700" role="alert">
-            {t('lookup.missing')}
+            {t(lookupError === 'missing' ? 'lookup.missing' : 'lookup.failed')}
           </p>
         )}
       </form>
@@ -251,6 +254,11 @@ function ReceiptLookup({
         <h3 id="till-return-today" className="sales-cap mb-2">
           {t('lookup.today')}
         </h3>
+        {today.error && (
+          <p className="text-sm text-danger-700" role="alert">
+            {t('lookup.todayError')}
+          </p>
+        )}
         {today.data && today.data.length === 0 && (
           <p className="text-sm text-fg2" data-testid="till-return-today-empty">
             {t('lookup.todayEmpty')}
@@ -293,17 +301,16 @@ function ReceiptLookup({
   );
 }
 
-function ReturnForm({
-  receipt,
-  owner,
-  draft,
-  onDone,
-}: {
+interface ReturnFormProps {
   receipt: PickedReceipt;
   owner: string;
+  draftKey: string;
   draft: ReturnDraft | null;
   onDone: () => void;
-}) {
+}
+
+function ReturnForm(props: ReturnFormProps) {
+  const { receipt } = props;
   const { t } = useTranslation('tillReturns');
   const saleQuery = trpc.sales.getById.useQuery({ id: receipt.id });
   const sale = saleQuery.data as Sale | undefined;
@@ -322,29 +329,22 @@ function ReturnForm({
       </p>
     );
   }
-  return (
-    <LoadedReturnForm sale={sale} receipt={receipt} owner={owner} draft={draft} onDone={onDone} />
-  );
+  return <LoadedReturnForm sale={sale} {...props} />;
 }
 
 function LoadedReturnForm({
   sale,
   receipt,
   owner,
+  draftKey,
   draft,
   onDone,
-}: {
-  sale: Sale;
-  receipt: PickedReceipt;
-  owner: string;
-  draft: ReturnDraft | null;
-  onDone: () => void;
-}) {
+}: ReturnFormProps & { sale: Sale }) {
   const { t } = useTranslation(['tillReturns', 'sales', 'returnErrors', 'errors']);
   const toast = useToast();
   const utils = trpc.useUtils();
   const selection = useReturnSelection(sale, {
-    initialQuantities: draft?.quantities,
+    initialLines: draft?.lines,
     preselectSingleLine: true,
   });
   const [reason, setReason] = useState<TillReturnReason | null>(draft?.reason ?? null);
@@ -363,7 +363,8 @@ function LoadedReturnForm({
     resourceId: sale.id,
     summary: {
       label: sale.saleNumber,
-      amount: refundAmount,
+      // The grant covers the sale, so it is asked for everything still returnable.
+      amount: Number(sale.returnableAmount ?? sale.total),
       currencyCode: sale.currencyCode ?? 'COP',
     },
     enabled: approvalRequired,
@@ -376,9 +377,9 @@ function LoadedReturnForm({
   const awaitingManager = isPending || view.status === 'approved';
   useEffect(() => {
     rememberedDraft = awaitingManager
-      ? { owner, receipt, quantities: selection.selectedQuantities, reason, destination }
+      ? { key: draftKey, receipt, lines: selection.lines, reason, destination }
       : null;
-  }, [awaitingManager, owner, receipt, selection.selectedQuantities, reason, destination]);
+  }, [awaitingManager, draftKey, receipt, selection.lines, reason, destination]);
 
   const returnMutation = useCriticalMutation('sales.returnSale', {
     onSuccess: async result => {
@@ -393,10 +394,15 @@ function LoadedReturnForm({
       }
       onDone();
     },
-    onError: onErrorToast(toast, t, {
-      titleKey: 'sales:details.toast.refundErrorTitle',
-      fallbackKey: 'sales:details.toast.refundErrorFallback',
-    }),
+    onError: error => {
+      // An expired grant or a changed rule shows up only after a fresh read.
+      void approval.refetch();
+      void previewState.refetch();
+      onErrorToast(toast, t, {
+        titleKey: 'sales:details.toast.refundErrorTitle',
+        fallbackKey: 'sales:details.toast.refundErrorFallback',
+      })(error);
+    },
   });
 
   const ready =

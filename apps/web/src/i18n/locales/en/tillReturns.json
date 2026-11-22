@@ -7,8 +7,10 @@
   "lookup": {
     "label": "Scan or type the receipt number",
     "missing": "That receipt was not found.",
+    "failed": "The receipt could not be looked up. Try again.",
     "today": "Today's sales",
-    "todayEmpty": "No sales to return at this site today."
+    "todayEmpty": "No sales to return at this site today.",
+    "todayError": "Today's sales could not be loaded."
   },
   "loading": "Opening the sale…",
   "loadError": "The sale could not be opened.",

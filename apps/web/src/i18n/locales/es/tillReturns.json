@@ -7,8 +7,10 @@
   "lookup": {
     "label": "Escanee o escriba el número del recibo",
     "missing": "No encontramos ese recibo.",
+    "failed": "No se pudo buscar el recibo. Intente de nuevo.",
     "today": "Ventas de hoy",
-    "todayEmpty": "Hoy no hay ventas para devolver en esta sede."
+    "todayEmpty": "Hoy no hay ventas para devolver en esta sede.",
+    "todayError": "No se pudieron cargar las ventas de hoy."
   },
   "loading": "Abriendo la venta…",
   "loadError": "No se pudo abrir la venta.",

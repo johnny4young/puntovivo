@@ -14,7 +14,12 @@ const state = vi.hoisted(() => ({
   allApproved: false,
   // A fresh owner per test: a return waiting on a manager is remembered per cashier.
   tenantId: 'tenant-1',
+  siteId: 'site-1',
+  lookupFails: false,
+  commitFails: false,
+  approvalInput: null as null | { summary: { amount?: number } },
 }));
+const refetchApproval = vi.hoisted(() => vi.fn());
 const returnSale = vi.hoisted(() => vi.fn());
 const requestApproval = vi.hoisted(() => vi.fn());
 const hydrateFromReturn = vi.hoisted(() => vi.fn());
@@ -27,7 +32,8 @@ vi.mock('@/lib/trpc', () => ({
       getById: { useQuery: () => ({ data: state.sale, error: null }) },
       previewReturn: {
         useQuery: (input: { items: Array<{ quantity: number }> }, opts: { enabled: boolean }) => {
-          if (!opts.enabled) return { data: undefined, isFetching: false, error: null };
+          if (!opts.enabled)
+            return { data: undefined, isFetching: false, error: null, refetch: vi.fn() };
           const refundAmount = input.items.reduce((sum, item) => sum + item.quantity * 1000, 0);
           return {
             data: {
@@ -45,12 +51,18 @@ vi.mock('@/lib/trpc', () => ({
             },
             isFetching: false,
             error: null,
+            refetch: vi.fn(),
           };
         },
       },
     },
     useUtils: () => ({
-      sales: { findByReceipt: { fetch: () => Promise.resolve(state.found) } },
+      sales: {
+        findByReceipt: {
+          fetch: () =>
+            state.lookupFails ? Promise.reject(new Error('offline')) : Promise.resolve(state.found),
+        },
+      },
     }),
   },
 }));
@@ -58,11 +70,15 @@ vi.mock('@/lib/trpc', () => ({
 vi.mock('@/lib/useCriticalMutation', () => ({
   useCriticalMutation: (
     _path: string,
-    options: { onSuccess?: (result: unknown) => Promise<void> | void }
+    options: {
+      onSuccess?: (result: unknown) => Promise<void> | void;
+      onError?: (error: unknown) => void;
+    }
   ) => ({
     mutate: (input: unknown) => {
       returnSale(input);
-      void options.onSuccess?.({ returns: [{ id: 'ret-1' }] });
+      if (state.commitFails) options.onError?.(new Error('grant expired'));
+      else void options.onSuccess?.({ returns: [{ id: 'ret-1' }] });
     },
     isPending: false,
   }),
@@ -73,25 +89,28 @@ vi.mock('@/features/sales/returns/returnInvalidations', () => ({
 }));
 
 vi.mock('@/features/approvals/useManagerApproval', () => ({
-  useManagerApproval: () => ({
-    views: [
-      {
-        action: 'sale_refund',
-        requestId: state.approvalStatus === 'not_requested' ? null : 'req-1',
-        status: state.approvalStatus,
-        decisionReason: null,
-        approvalsCollected: 0,
-        requiredApprovals: 1,
-      },
-    ],
-    approvalRequestId: state.allApproved ? 'req-1' : null,
-    allApproved: state.allApproved,
-    isLoading: false,
-    error: null,
-    isRequesting: false,
-    requestApproval,
-    refetch: vi.fn(),
-  }),
+  useManagerApproval: (input: { summary: { amount?: number } }) => {
+    state.approvalInput = input;
+    return {
+      views: [
+        {
+          action: 'sale_refund',
+          requestId: state.approvalStatus === 'not_requested' ? null : 'req-1',
+          status: state.approvalStatus,
+          decisionReason: null,
+          approvalsCollected: 0,
+          requiredApprovals: 1,
+        },
+      ],
+      approvalRequestId: state.allApproved ? 'req-1' : null,
+      allApproved: state.allApproved,
+      isLoading: false,
+      error: null,
+      isRequesting: false,
+      requestApproval,
+      refetch: refetchApproval,
+    };
+  },
 }));
 
 vi.mock('@/features/approvals/InlineApprovalDecision', () => ({
@@ -107,7 +126,7 @@ vi.mock('@/features/auth/AuthProvider', () => ({
 }));
 
 vi.mock('@/features/tenant/TenantProvider', () => ({
-  useTenant: () => ({ currentTenant: { id: state.tenantId } }),
+  useTenant: () => ({ currentTenant: { id: state.tenantId }, currentSite: { id: state.siteId } }),
 }));
 
 vi.mock('@/components/feedback/ToastProvider', () => ({ useToast: () => toast }));
@@ -122,7 +141,13 @@ const receipt = {
   customerName: null,
 };
 
-function line(id: string, name: string, quantity: number, remaining = quantity) {
+function line(
+  id: string,
+  name: string,
+  quantity: number,
+  remaining = quantity,
+  serials: string[] = []
+) {
   return {
     id,
     productId: `p-${id}`,
@@ -133,13 +158,19 @@ function line(id: string, name: string, quantity: number, remaining = quantity) 
     total: quantity * 1000,
     unitEquivalence: 1,
     lots: [],
-    serials: [],
+    serials: serials.map(serial => ({
+      id: `ss-${serial}`,
+      productSerialId: `ps-${serial}`,
+      serialNumber: serial,
+      returned: false,
+    })),
   };
 }
 
 function sale(items = [line('l-oil', 'Aceite 1 L', 1), line('l-rice', 'Arroz 500 g', 2)]) {
   return {
     id: 'sale-1',
+    returnableAmount: items.reduce((sum, item) => sum + item.returnableAmount, 0),
     saleNumber: 'VTA-N-000842',
     currencyCode: 'COP',
     customerId: null,
@@ -164,6 +195,10 @@ describe('TillReturnSheet', () => {
     state.approvalRule = { required: false, reason: null, limitAmount: null };
     state.approvalStatus = 'not_requested';
     state.allApproved = false;
+    state.siteId = 'site-1';
+    state.lookupFails = false;
+    state.commitFails = false;
+    refetchApproval.mockReset();
     returnSale.mockReset();
     requestApproval.mockReset();
     hydrateFromReturn.mockReset();
@@ -312,6 +347,71 @@ describe('TillReturnSheet', () => {
 
     render(<TillReturnSheet onClose={vi.fn()} />);
     expect(screen.getByTestId('till-return-code')).toBeInTheDocument();
+  });
+
+  it('asks the manager for everything still returnable, whatever is ticked now', async () => {
+    const user = userEvent.setup();
+    state.approvalRule = { required: true, reason: 'role', limitAmount: null };
+    render(<TillReturnSheet onClose={vi.fn()} />);
+    await scan(user);
+    await user.click(await screen.findByTestId('till-return-check-l-oil'));
+    expect(state.approvalInput?.summary.amount).toBe(3000);
+  });
+
+  it('keeps the chosen serial when a return waiting on a manager reopens', async () => {
+    const user = userEvent.setup();
+    state.sale = sale([line('l-phone', 'Teléfono', 3, 3, ['A-1', 'B-2', 'C-3'])]);
+    state.approvalRule = { required: true, reason: 'role', limitAmount: null };
+    state.approvalStatus = 'pending';
+    const first = render(<TillReturnSheet onClose={vi.fn()} />);
+    await scan(user);
+    await user.clear(await screen.findByTestId('till-return-quantity-l-phone'));
+    await user.type(screen.getByTestId('till-return-quantity-l-phone'), '1');
+    await user.click(screen.getByRole('checkbox', { name: 'A-1' }));
+    await user.click(screen.getByRole('checkbox', { name: 'C-3' }));
+    first.unmount();
+
+    render(<TillReturnSheet onClose={vi.fn()} />);
+    expect(await screen.findByRole('checkbox', { name: 'C-3' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'A-1' })).not.toBeChecked();
+  });
+
+  it('does not reopen a waiting return at another site', async () => {
+    const user = userEvent.setup();
+    state.approvalRule = { required: true, reason: 'role', limitAmount: null };
+    state.approvalStatus = 'pending';
+    const first = render(<TillReturnSheet onClose={vi.fn()} />);
+    await scan(user);
+    await user.click(await screen.findByTestId('till-return-check-l-oil'));
+    first.unmount();
+
+    state.siteId = 'site-2';
+    render(<TillReturnSheet onClose={vi.fn()} />);
+    expect(screen.getByTestId('till-return-code')).toBeInTheDocument();
+  });
+
+  it('says the lookup failed instead of calling a real receipt missing', async () => {
+    const user = userEvent.setup();
+    state.lookupFails = true;
+    render(<TillReturnSheet onClose={vi.fn()} />);
+    await scan(user);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The receipt could not be looked up. Try again.'
+    );
+  });
+
+  it('reads the approval again when the commit is refused', async () => {
+    const user = userEvent.setup();
+    state.approvalRule = { required: true, reason: 'role', limitAmount: null };
+    state.approvalStatus = 'approved';
+    state.allApproved = true;
+    state.commitFails = true;
+    render(<TillReturnSheet onClose={vi.fn()} />);
+    await scan(user);
+    await user.click(await screen.findByTestId('till-return-check-l-oil'));
+    await user.click(screen.getByTestId('till-return-reason-other'));
+    await user.click(screen.getByTestId('till-return-submit'));
+    expect(refetchApproval).toHaveBeenCalled();
   });
 
   it('preselects the only line of a one-line receipt', async () => {

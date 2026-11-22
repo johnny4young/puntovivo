@@ -30,7 +30,7 @@ export function lineName(line: SaleItem): string {
   return line.productNameSnapshot ?? line.productName ?? line.productId;
 }
 
-interface LineSelection {
+export interface LineSelection {
   quantity: number;
   lots: Record<string, number>;
   serials: string[];
@@ -60,24 +60,30 @@ function selectQuantity(line: SaleItem, quantity: number): LineSelection {
 export function useReturnSelection(
   sale: Sale | undefined,
   options: {
-    initialQuantities?: Record<string, number> | undefined;
+    initialLines?: Record<string, LineSelection> | undefined;
     /** A one-line receipt at the till has nothing to choose. */
     preselectSingleLine?: boolean | undefined;
   } = {}
 ) {
-  const { initialQuantities = {}, preselectSingleLine = false } = options;
+  const { initialLines = {}, preselectSingleLine = false } = options;
   const returnableLines = useMemo(
     () => (sale?.items ?? []).filter(line => lineRemaining(line) > EPSILON),
     [sale?.items]
   );
   const [selection, setSelection] = useState<Record<string, LineSelection>>(() => {
-    const remembered = returnableLines.filter(line => initialQuantities[line.id] !== undefined);
+    const remembered = returnableLines.filter(line => initialLines[line.id] !== undefined);
     if (remembered.length > 0) {
       return Object.fromEntries(
-        remembered.map(line => [
-          line.id,
-          selectQuantity(line, Math.min(initialQuantities[line.id]!, lineRemaining(line))),
-        ])
+        remembered.map(line => {
+          const saved = initialLines[line.id]!;
+          // Keep the picked lots and serials unless the line shrank since.
+          return [
+            line.id,
+            saved.quantity - lineRemaining(line) > EPSILON
+              ? selectQuantity(line, lineRemaining(line))
+              : saved,
+          ];
+        })
       );
     }
     const [only] = returnableLines;
@@ -190,6 +196,7 @@ export function useReturnSelection(
 
   return {
     returnableLines,
+    lines: selection,
     selectedQuantities,
     lotsFor: (lineId: string) => selection[lineId]?.lots ?? {},
     serialsFor: (lineId: string) => selection[lineId]?.serials ?? [],
@@ -243,6 +250,7 @@ export function useReturnPreview(input: {
 
   return {
     preview,
+    refetch: previewQuery.refetch,
     isFetching: selection.canPreview && previewQuery.isFetching,
     error,
     externalAllocations,

@@ -31,10 +31,13 @@ export function useManagerApproval<Action extends ManagerApprovalAction>(
     { limit: 20 },
     {
       enabled,
-      // Only an open request can change on its own; asking refetches through invalidation.
+      // A pending request can be decided and an approved grant can expire on their own;
+      // asking refetches through invalidation.
       refetchInterval: query =>
         enabled &&
-        (query.state.data ?? []).some(row => isOwnRequest(row) && row.status === 'pending')
+        (query.state.data ?? []).some(
+          row => isOwnRequest(row) && (row.status === 'pending' || row.status === 'approved')
+        )
           ? 2_000
           : false,
     }
