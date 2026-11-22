@@ -22,6 +22,7 @@
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { formatSystemNote } from '@/lib/systemNotes';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -342,7 +343,7 @@ export function CustomerLedgerModal({ isOpen, customer, onClose }: CustomerLedge
                       {formatCurrency(row.amount)}
                     </td>
                     <td className="px-3 py-2 text-xs text-secondary-500">
-                      {row.note || row.referenceSaleId || '—'}
+                      {(row.note && formatSystemNote(row.note, t)) || row.referenceSaleId || '—'}
                     </td>
                   </tr>
                 ))}

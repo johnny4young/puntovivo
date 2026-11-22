@@ -410,5 +410,23 @@
     "recovered": "The system recovered. Check the last sale.",
     "restartsLabel": "Server restarts",
     "restartsValue": "{{count}} in 7 days"
+  },
+  "systemNotes": {
+    "saleAtSite": "Sale {{number}} · {{site}}",
+    "saleFromDraft": "Sale {{number}} · completed from draft",
+    "refundedSale": "Return of sale {{number}}",
+    "voidedSale": "Voided sale {{number}}",
+    "discardedDraft": "Discarded draft {{number}}",
+    "purchase": "Purchase {{number}}",
+    "purchaseAtSite": "Purchase {{number}} · {{site}}",
+    "purchaseForOrder": "Purchase {{number}} · order {{order}}",
+    "purchaseReceivedFromOrder": "Purchase {{number}} · received from order {{order}}",
+    "receivedFromOrder": "Received from order {{order}}",
+    "returnedPurchase": "Returned purchase {{number}}",
+    "voidedPurchase": "Voided purchase {{number}}",
+    "refundedReason": "Return: {{reason}}",
+    "voidedReason": "Void: {{reason}}",
+    "supplierPayment": "Supplier payment {{reference}}",
+    "launchImport": "Initial import {{id}}"
   }
 }
