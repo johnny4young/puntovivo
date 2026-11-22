@@ -115,7 +115,7 @@ export async function runInventoryIdentityCountJourney(page: Page, target: Pharm
   await expect(dialog).toBeHidden();
   await target.navigate('/inventory');
   await page.getByRole('button', { name: 'New Entry', exact: true }).click();
-  dialog = page.getByRole('dialog', { name: /Select Product for Initial Inventory/ });
+  dialog = page.getByRole('dialog', { name: /Select Product for Entry/ });
   await dialog.getByPlaceholder('Search by SKU, name, or barcode').fill(sku);
   await dialog.getByTestId(`product-search-row-${sku}`).click();
   await dialog.getByRole('button', { name: 'Record Entry', exact: true }).click();

@@ -59,7 +59,7 @@ test('admin receives, sells and traces one exact serialized unit', async ({ page
   await page.goto('/inventory');
   await page.getByRole('button', { name: 'New Entry' }).click();
   const searchDialog = page.getByRole('dialog', {
-    name: /Select Product for Initial Inventory/,
+    name: /Select Product for Entry/,
   });
   await searchDialog.getByPlaceholder('Search by SKU, name, or barcode').fill(productSku);
   const searchRow = searchDialog.getByTestId(`product-search-row-${productSku}`);

@@ -249,7 +249,7 @@ test.describe('launch data import', () => {
     await page.goto('/inventory');
     await page.getByRole('button', { name: 'New Entry' }).click();
     const inventoryDialog = page.getByRole('dialog', {
-      name: /Select Product for Initial Inventory/i,
+      name: /Select Product for Entry/i,
     });
     await inventoryDialog.getByPlaceholder('Search by SKU, name, or barcode').fill(serviceSku);
     await expect(
@@ -352,7 +352,7 @@ test.describe('launch data import', () => {
     await page.goto('/inventory');
     await page.getByRole('button', { name: 'Nueva entrada' }).click();
     const productSearch = page.getByRole('dialog', {
-      name: /Seleccionar producto para inventario inicial/,
+      name: /Seleccionar producto para la entrada/,
     });
     await productSearch
       .getByPlaceholder('Buscar por SKU, nombre o código de barras')

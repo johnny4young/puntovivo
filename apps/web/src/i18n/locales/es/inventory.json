@@ -259,8 +259,8 @@
   "newEntry": "Nueva entrada",
   "newAdjustment": "Nuevo ajuste",
   "dialogs": {
-    "selectProductEntry": "Seleccionar producto para inventario inicial",
-    "selectProductEntryForSite": "Seleccionar producto para inventario inicial · {{site}}",
+    "selectProductEntry": "Seleccionar producto para la entrada",
+    "selectProductEntryForSite": "Seleccionar producto para la entrada · {{site}}",
     "recordEntry": "Registrar entrada",
     "selectProductAdjust": "Seleccionar producto para ajuste",
     "selectProductAdjustForSite": "Seleccionar producto para ajuste · {{site}}",
