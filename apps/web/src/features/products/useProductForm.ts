@@ -206,7 +206,12 @@ export function useProductForm({
   };
 
   const syncAllTiersFromCost = (cost: number) => {
+    const previousCost = form.getValues('cost');
     form.setValue('cost', cost, { shouldDirty: true, shouldValidate: true });
+    // A new product values its opening stock at cost until initial cost is typed apart.
+    if (mode === 'create' && (form.getValues('initialCost') || 0) === (previousCost || 0)) {
+      form.setValue('initialCost', cost, { shouldDirty: true, shouldValidate: true });
+    }
 
     const tiers: Array<[PricingField, MarginPercentField, MarginAmountField]> = [
       ['price', 'marginPercent1', 'marginAmount1'],

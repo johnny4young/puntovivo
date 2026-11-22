@@ -50,6 +50,7 @@ describe('useProductForm submit contract', () => {
     expect(values.marginPercent1).toBeCloseTo(66.67);
     expect([values.price2, values.price3]).toEqual([0, 0]);
     expect([values.marginPercent2, values.marginAmount2]).toEqual([0, 0]);
+    expect(values.initialCost).toBe(3000);
   });
 
   it('reprices from cost only for a tier whose margin the operator typed', async () => {
@@ -70,6 +71,21 @@ describe('useProductForm submit contract', () => {
     expect(values.marginPercent1).toBe(50);
     expect(values.price2).toBe(1400);
     expect(values.marginPercent2).toBe(0);
+  });
+
+  it('stops mirroring cost into initial cost once initial cost is typed apart', async () => {
+    const { result } = renderHook(() =>
+      useProductForm({ mode: 'create', product: null, onSubmit: vi.fn() })
+    );
+
+    await act(async () => {
+      result.current.syncAllTiersFromCost(1000);
+      result.current.form.setValue('initialCost', 900);
+      result.current.syncAllTiersFromCost(1200);
+      await Promise.resolve();
+    });
+
+    expect(result.current.form.getValues('initialCost')).toBe(900);
   });
 
   it('propagates unexpected submit failures to observability', async () => {
