@@ -111,6 +111,8 @@
     "SALE_QUANTITY_NONPOSITIVE": "The selected quantity must resolve to a positive stock amount.",
     "SALE_SEQUENTIAL_MISSING": "Sale numbering missing.",
     "DOCUMENT_SEQUENTIAL_CHANGED": "Numbering changed. Retry.",
+    "SEQUENTIAL_BELOW_ISSUED": "The last used number cannot be lower than {{highestIssued}}, which was already issued.",
+    "SALE_NUMBER_COLLISION": "This sale number was already used. Ask an administrator to review Sequentials.",
     "SALE_CUSTOMER_INVALID": "The selected customer could not be found or is inactive.",
     "SALE_PRODUCT_INVALID": "The product {{productName}} could not be found or is inactive.",
     "SALE_UNIT_INVALID": "The unit selection is invalid for the product {{productName}}.",

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from '@/i18n';
+import userEvent from '@testing-library/user-event';
 import { render, screen } from '@/test/utils';
 import type { Sequential, Site } from '@/types';
 import { SequentialsPage } from './SequentialsPage';
@@ -32,6 +33,7 @@ const sequentials: Sequential[] = [
   },
 ];
 
+let upsertError: unknown = null;
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
 
@@ -86,7 +88,7 @@ vi.mock('@/lib/trpc', () => ({
         useMutation: () => ({
           mutateAsync: vi.fn(),
           isPending: false,
-          error: null,
+          error: upsertError,
           reset: vi.fn(),
         }),
       },
@@ -105,6 +107,7 @@ vi.mock('@/lib/trpc', () => ({
 describe('SequentialsPage', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    upsertError = null;
     await i18next.changeLanguage('en');
   });
 
@@ -118,5 +121,26 @@ describe('SequentialsPage', () => {
     expect(screen.getByText(/Puntovivo advances these counters automatically/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+  });
+
+  it('shows the translated rewind rejection inside the form', async () => {
+    upsertError = {
+      message: 'The last used number cannot be lower than 4, already issued',
+      data: {
+        code: 'BAD_REQUEST',
+        errorCode: 'SEQUENTIAL_BELOW_ISSUED',
+        errorDetails: { highestIssued: 4 },
+      },
+    };
+    await i18next.changeLanguage('es');
+    render(<SequentialsPage />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Editar' }));
+
+    expect(
+      await screen.findByText(
+        'El último número usado no puede ser menor que 4, que ya fue emitido.'
+      )
+    ).toBeInTheDocument();
   });
 });

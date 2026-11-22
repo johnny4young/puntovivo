@@ -94,8 +94,28 @@ async function completeSaleInScope(
     });
   }
 
-  if (input.mode === 'fresh') {
-    return runFreshSale(ctx, log, input);
+  try {
+    return input.mode === 'fresh'
+      ? await runFreshSale(ctx, log, input)
+      : await runCompleteDraft(ctx, log, input);
+  } catch (error) {
+    if (isSaleNumberCollision(error)) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'SALE_NUMBER_COLLISION',
+        message: 'The next sale number is already used; review the sale sequential',
+      });
+    }
+    throw error;
   }
-  return runCompleteDraft(ctx, log, input);
+}
+
+// A rewound counter allocates a number the tenant already issued.
+function isSaleNumberCollision(error: unknown): boolean {
+  for (let current = error; current instanceof Error; current = current.cause) {
+    if (/UNIQUE constraint failed: sales\.tenant_id, sales\.sale_number/i.test(current.message)) {
+      return true;
+    }
+  }
+  return false;
 }

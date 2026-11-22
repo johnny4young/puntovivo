@@ -111,6 +111,8 @@
     "SALE_QUANTITY_NONPOSITIVE": "La cantidad seleccionada debe resultar en un valor positivo de stock.",
     "SALE_SEQUENTIAL_MISSING": "Falta numeración de venta.",
     "DOCUMENT_SEQUENTIAL_CHANGED": "La numeración cambió. Reintente.",
+    "SEQUENTIAL_BELOW_ISSUED": "El último número usado no puede ser menor que {{highestIssued}}, que ya fue emitido.",
+    "SALE_NUMBER_COLLISION": "Este número de venta ya fue usado. Pida a un administrador que revise Consecutivos.",
     "SALE_CUSTOMER_INVALID": "El cliente seleccionado no existe o está inactivo.",
     "SALE_PRODUCT_INVALID": "El producto {{productName}} no existe o está inactivo.",
     "SALE_UNIT_INVALID": "La selección de unidad no es válida para el producto {{productName}}.",

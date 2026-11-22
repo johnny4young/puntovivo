@@ -488,6 +488,10 @@ export const SERVER_ERROR_CODES_A = {
   SALE_SEQUENTIAL_MISSING: 'SALE_SEQUENTIAL_MISSING',
   /** A document number could not be reserved from the selected sequential. */
   DOCUMENT_SEQUENTIAL_CHANGED: 'DOCUMENT_SEQUENTIAL_CHANGED',
+  /** A manual counter would reissue a number already used; details.highestIssued. */
+  SEQUENTIAL_BELOW_ISSUED: 'SEQUENTIAL_BELOW_ISSUED',
+  /** The allocated sale number already exists, usually after a counter rewind. */
+  SALE_NUMBER_COLLISION: 'SALE_NUMBER_COLLISION',
   /** The selected customer was not found or is inactive. */
   SALE_CUSTOMER_INVALID: 'SALE_CUSTOMER_INVALID',
   /** A line references a product that is missing or inactive; details.productName. */
