@@ -98,6 +98,29 @@ export function getSaleMinimumQuantity(
   return Math.max(item.fractionMinimum ?? step, step);
 }
 
+/**
+ * Quantity a plain add (quick key, search pick) puts on the register when no
+ * weight was entered: one whole unit, fitted to the product's step and minimum.
+ * The bare minimum (often 0.001) would ring up a near-zero line.
+ */
+export function getSaleDefaultAddQuantity(
+  item: Pick<SaleCartItem, 'sellByFraction' | 'fractionStep' | 'fractionMinimum'>
+): number {
+  if (!item.sellByFraction) return 1;
+  const step = getSaleQuantityStep(item);
+  const fitted = roundQuantity(Math.max(1, Math.round(1 / step)) * step, 6);
+  return Math.max(fitted, getSaleMinimumQuantity(item));
+}
+
+/** Typed quantity wins; a fractional product without one gets its default add. */
+export function resolveRegisterAddQuantity(
+  item: Pick<SaleCartItem, 'sellByFraction' | 'fractionStep' | 'fractionMinimum'>,
+  quantity: number | null
+): number | null {
+  if (quantity !== null) return quantity;
+  return item.sellByFraction ? getSaleDefaultAddQuantity(item) : null;
+}
+
 export function getCartItemKey(productId: string, unitId: string) {
   return `${productId}:${unitId}`;
 }
