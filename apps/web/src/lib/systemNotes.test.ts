@@ -22,6 +22,12 @@ describe('formatSystemNote', () => {
     expect(formatSystemNote('Purchase CMP-000002 · received from order PED-000001', t)).toBe(
       'Compra CMP-000002 · recibida del pedido PED-000001'
     );
+    expect(formatSystemNote('Opening stock from product creation', t)).toBe(
+      'Stock inicial al crear el producto'
+    );
+    expect(formatSystemNote('Stock changed from product edit', t)).toBe(
+      'Stock cambiado al editar el producto'
+    );
     expect(formatSystemNote('Sale pending review', t)).toBe('Sale pending review');
   });
 });

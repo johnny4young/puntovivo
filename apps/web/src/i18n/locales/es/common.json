@@ -427,6 +427,8 @@
     "refundedReason": "Devolución: {{reason}}",
     "voidedReason": "Anulación: {{reason}}",
     "supplierPayment": "Pago a proveedor {{reference}}",
-    "launchImport": "Importación inicial {{id}}"
+    "launchImport": "Importación inicial {{id}}",
+    "openingStock": "Stock inicial al crear el producto",
+    "productEditStock": "Stock cambiado al editar el producto"
   }
 }

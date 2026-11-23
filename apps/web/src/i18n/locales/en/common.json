@@ -427,6 +427,8 @@
     "refundedReason": "Return: {{reason}}",
     "voidedReason": "Void: {{reason}}",
     "supplierPayment": "Supplier payment {{reference}}",
-    "launchImport": "Initial import {{id}}"
+    "launchImport": "Initial import {{id}}",
+    "openingStock": "Opening stock from product creation",
+    "productEditStock": "Stock changed from product edit"
   }
 }
