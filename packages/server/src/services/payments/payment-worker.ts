@@ -51,6 +51,7 @@ import {
 } from './reconciliation.js';
 import type { TiebreakContext, TiebreakFn } from './ai-tiebreak.js';
 import { WorkerActivityTracker } from '../../lib/worker-activity.js';
+import { expirePresentations } from './presentation.js';
 import { expireAbandonedWalletCharges } from './wallet-confirmation.js';
 
 const fallbackLog = createModuleLogger('services/payments/payment-worker');
@@ -175,10 +176,28 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
     }
   }
 
+  /**
+   * Expire presentations nobody linked within their TTL.
+   *
+   * Deliberately part of the existing housekeeping tick rather than a timer of
+   * its own: the worker already boots with the app, survives restarts and runs
+   * offline on Windows. An expired presentation is not a lost payment — the row
+   * stays as 'timeout' so a transfer that lands late is still reconcilable.
+   */
+  function expirePresentationsSafely(): void {
+    try {
+      const expired = expirePresentations(db);
+      if (expired > 0) log.info({ expired }, 'expired static QR presentations');
+    } catch (err) {
+      log.warn({ err }, 'presentation expiry failed');
+    }
+  }
+
   async function housekeepingTickRaw(_tenantId: string): Promise<void> {
     if (stopped) return;
     await sweepStaleClaims();
     await expireAbandonedCharges();
+    expirePresentationsSafely();
   }
 
   async function runStatementImportRaw(

@@ -27,6 +27,8 @@
  * @module trpc/routers/payments
  */
 
+import { TRPCError } from '@trpc/server';
+
 import { sumMoneySql } from '../../lib/money.js';
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import {
@@ -45,6 +47,19 @@ import {
 } from '../../services/payments/index.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { reviewPaymentProposal } from '../../services/payments/reconciliation/review.js';
+import {
+  closePresentationAdmin,
+  getPresentation,
+  linkPresentationToSale,
+  listOpenPresentations,
+  startPresentation,
+} from '../../services/payments/presentation.js';
+import {
+  listPendingTransfers,
+  registerManualDeposit,
+  transferReconciliationCounters,
+} from '../../services/payments/transfer-reconciliation.js';
+import { listSiteTransferDestinations } from '../../services/site-transfer-destinations.js';
 import { router } from '../init.js';
 import {
   adminProcedure,
@@ -62,7 +77,34 @@ import {
   reviewPaymentProposalInput,
   startWalletChargeInput,
   walletChargeInput,
+  closePresentationInput,
+  linkPresentationInput,
+  openPresentationsInput,
+  pendingTransfersInput,
+  presentationInput,
+  registerManualDepositInput,
+  startPresentationInput,
 } from '../schemas/payments.js';
+
+/**
+ * Resolve the destination the cashier picked, from the site's own config.
+ * The client sends an id; the label and kind are read server-side so a
+ * presentation can never record a destination the site does not have.
+ */
+function requireDestination(
+  db: Parameters<typeof listSiteTransferDestinations>[0],
+  tenantId: string,
+  siteId: string,
+  destinationId: string
+): { id: string; label: string; kind: string } {
+  const row = listSiteTransferDestinations(db, tenantId, siteId).find(
+    destination => destination.id === destinationId
+  );
+  if (!row) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Transfer destination not found' });
+  }
+  return { id: row.id, label: row.label, kind: row.kind };
+}
 
 export const paymentsRouter = router({
   /** Opens a provider charge for a transfer when a live wallet rail is ready. */
@@ -89,6 +131,111 @@ export const paymentsRouter = router({
     .mutation(({ ctx, input }) =>
       cancelWalletCharge(ctx.db, { tenantId: ctx.tenantId, chargeId: input.chargeId })
     ),
+
+  // ── Static QR presentations (Fase 5) ────────────────────────────────────
+  //
+  // The QR shown at the register is a presentation, not a charge: it is
+  // recorded locally so a payment that arrives later can still be matched,
+  // and it is never dispatched to a provider.
+
+  startPresentation: cashierManagerOrAdminProcedure
+    .input(startPresentationInput)
+    .mutation(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      const destination = requireDestination(ctx.db, ctx.tenantId, input.siteId, input.destinationId);
+      return startPresentation(ctx.db, {
+        tenantId: ctx.tenantId,
+        siteId: input.siteId,
+        userId: ctx.user!.id,
+        amount: input.amount,
+        destination,
+        idempotencyKey: input.idempotencyKey,
+      });
+    }),
+
+  presentation: cashierManagerOrAdminProcedure
+    .input(presentationInput)
+    .query(({ ctx, input }) =>
+      getPresentation(ctx.db, ctx.tenantId, input.presentationId)
+    ),
+
+  openPresentations: cashierManagerOrAdminProcedure
+    .input(openPresentationsInput)
+    .query(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return listOpenPresentations(ctx.db, ctx.tenantId, input.siteId);
+    }),
+
+  linkPresentation: cashierManagerOrAdminProcedure
+    .input(linkPresentationInput)
+    .mutation(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return linkPresentationToSale(ctx.db, {
+        tenantId: ctx.tenantId,
+        presentationId: input.presentationId,
+        siteId: input.siteId,
+        amount: input.amount,
+        saleId: input.saleId,
+        salePaymentId: input.salePaymentId ?? null,
+        actorId: ctx.user!.id,
+      });
+    }),
+
+  closePresentation: managerOrAdminProcedure
+    .input(closePresentationInput)
+    .mutation(({ ctx, input }) =>
+      closePresentationAdmin(ctx.db, {
+        tenantId: ctx.tenantId,
+        presentationId: input.presentationId,
+        actorId: ctx.user!.id,
+        note: input.note,
+      })
+    ),
+
+  pendingTransfers: cashierManagerOrAdminProcedure
+    .input(pendingTransfersInput)
+    .query(({ ctx, input }) =>
+      listPendingTransfers(ctx.db, {
+        tenantId: ctx.tenantId,
+        siteId: input.siteId,
+        status: input.status,
+        from: input.from,
+        to: input.to,
+        limit: input.limit,
+      })
+    ),
+
+  transferReconciliation: managerOrAdminProcedure
+    .input(pendingTransfersInput)
+    .query(({ ctx, input }) => ({
+      counters: transferReconciliationCounters(ctx.db, ctx.tenantId, input.siteId ?? null),
+      rows: listPendingTransfers(ctx.db, {
+        tenantId: ctx.tenantId,
+        siteId: input.siteId,
+        status: input.status,
+        from: input.from,
+        to: input.to,
+        limit: input.limit,
+      }),
+    })),
+
+  registerManualDeposit: managerOrAdminProcedure
+    .input(registerManualDepositInput)
+    .mutation(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return registerManualDeposit(ctx.db, {
+        tenantId: ctx.tenantId,
+        siteId: input.siteId,
+        actorId: ctx.user!.id,
+        saleId: input.saleId,
+        salePaymentId: input.salePaymentId,
+        verifiedAmount: input.verifiedAmount,
+        reference: input.reference ?? null,
+        valueDate: input.valueDate ?? null,
+        note: input.note ?? null,
+        idempotencyKey: input.idempotencyKey,
+      });
+    }),
 
   getContract: managerOrAdminProcedure.query(() => {
     return buildPaymentRailsContract();

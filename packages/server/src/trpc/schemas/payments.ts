@@ -114,3 +114,74 @@ export const walletChargeInput = z
     chargeId: z.string().min(1).max(64),
   })
   .strict();
+
+// ── Static QR presentations (Fase 5) ────────────────────────────────────────
+//
+// The client supplies what the cashier chose and nothing else: tenant, actor
+// and currency come from the session and the database.
+
+export const startPresentationInput = z
+  .object({
+    siteId: z.string().min(1).max(64),
+    destinationId: z.string().min(1).max(64),
+    amount: z.number().positive().max(1_000_000_000),
+    /** Stable per checkout attempt, so a re-render or offline retry reuses it. */
+    idempotencyKey: z.string().min(1).max(128),
+  })
+  .strict();
+
+export const presentationInput = z
+  .object({
+    presentationId: z.string().min(1).max(64),
+  })
+  .strict();
+
+export const openPresentationsInput = z
+  .object({
+    siteId: z.string().min(1).max(64),
+  })
+  .strict();
+
+export const linkPresentationInput = z
+  .object({
+    presentationId: z.string().min(1).max(64),
+    siteId: z.string().min(1).max(64),
+    amount: z.number().positive().max(1_000_000_000),
+    saleId: z.string().min(1).max(64),
+    salePaymentId: z.string().min(1).max(64).nullish(),
+  })
+  .strict();
+
+export const closePresentationInput = z
+  .object({
+    presentationId: z.string().min(1).max(64),
+    note: z.string().min(1).max(500),
+  })
+  .strict();
+
+/** Pending transfer tenders, with the filters the reconciliation centre needs. */
+export const pendingTransfersInput = z
+  .object({
+    siteId: z.string().min(1).max(64).optional(),
+    status: z
+      .enum(['pending', 'customer_reported', 'manual_confirmed', 'provider_confirmed', 'rejected', 'needs_reconciliation'])
+      .optional(),
+    from: z.string().min(1).max(40).optional(),
+    to: z.string().min(1).max(40).optional(),
+    limit: z.number().int().positive().max(200).default(100),
+  })
+  .strict();
+
+/** Money the operator verified against the bank statement. */
+export const registerManualDepositInput = z
+  .object({
+    siteId: z.string().min(1).max(64),
+    saleId: z.string().min(1).max(64),
+    salePaymentId: z.string().min(1).max(64),
+    verifiedAmount: z.number().positive().max(1_000_000_000),
+    reference: z.string().min(1).max(120).optional(),
+    valueDate: z.string().min(1).max(40).optional(),
+    note: z.string().min(1).max(500).optional(),
+    idempotencyKey: z.string().min(1).max(128).optional(),
+  })
+  .strict();
