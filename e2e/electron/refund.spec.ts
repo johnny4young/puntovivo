@@ -92,7 +92,9 @@ test.describe('refund on the desktop app', () => {
     });
     await expect(refund).toBeVisible({ timeout: 15_000 });
     await expect(refund.getByText(PRODUCT_NAME)).toBeVisible();
-    await expect(refund.getByRole('checkbox', { name: new RegExp(PRODUCT_NAME) })).not.toBeChecked();
+    await expect(
+      refund.getByRole('checkbox', { name: new RegExp(PRODUCT_NAME) })
+    ).not.toBeChecked();
     await expect(
       refund.getByRole('button', { name: /request approval|solicitar aprobación/i })
     ).toHaveCount(0);
@@ -113,7 +115,9 @@ test.describe('refund on the desktop app', () => {
     // the success toast is intentionally transient.
     const history = page.getByTestId('sales-history-drawer');
     await expect(history).toBeVisible();
-    await history.getByPlaceholder(/search by invoice|buscar por factura/i).fill(saleNumber);
+    await history
+      .getByPlaceholder(/search by sale number|buscar por número de venta/i)
+      .fill(saleNumber);
     const refundedRow = history.locator('tbody tr').filter({ hasText: saleNumber }).first();
     await expect(refundedRow).toContainText(/refunded|reembolsada/i, { timeout: 15_000 });
 

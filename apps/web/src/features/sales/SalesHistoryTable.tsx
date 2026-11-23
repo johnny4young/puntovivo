@@ -52,7 +52,7 @@ export function SalesHistoryTable({
     () => [
       {
         accessorKey: 'saleNumber',
-        header: t('history.columns.invoiceNumber'),
+        header: t('history.columns.saleNumber'),
         size: 130,
         cell: ({ row }) => (
           <span className="font-mono font-medium text-primary-800">{row.original.saleNumber}</span>

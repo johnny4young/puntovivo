@@ -18,9 +18,12 @@ export function getCashSessionCountedTotal(
   }, 0);
 }
 
-export function cashSessionTotalsMatch(
-  openingFloat: number,
+/** A denomination count is the amount; the typed total only stands when nothing was counted. */
+export function resolveCashSessionAmount(
+  typedAmount: number | undefined,
   denominations: readonly CashSessionDenomination[]
-): boolean {
-  return Math.abs(openingFloat - getCashSessionCountedTotal(denominations)) < 1e-6;
+): number {
+  const counted = getCashSessionCountedTotal(denominations);
+  if (Number.isFinite(counted) && counted > 0) return counted;
+  return typedAmount !== undefined && Number.isFinite(typedAmount) ? typedAmount : 0;
 }

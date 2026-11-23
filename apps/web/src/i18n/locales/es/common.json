@@ -411,5 +411,25 @@
     "recovered": "El sistema se recuperó. Revise la última venta.",
     "restartsLabel": "Reinicios del servidor",
     "restartsValue": "{{count}} en 7 días"
+  },
+  "systemNotes": {
+    "saleAtSite": "Venta {{number}} · {{site}}",
+    "saleFromDraft": "Venta {{number}} · completada desde borrador",
+    "refundedSale": "Devolución de la venta {{number}}",
+    "voidedSale": "Anulación de la venta {{number}}",
+    "discardedDraft": "Borrador descartado {{number}}",
+    "purchase": "Compra {{number}}",
+    "purchaseAtSite": "Compra {{number}} · {{site}}",
+    "purchaseForOrder": "Compra {{number}} · pedido {{order}}",
+    "purchaseReceivedFromOrder": "Compra {{number}} · recibida del pedido {{order}}",
+    "receivedFromOrder": "Recibido del pedido {{order}}",
+    "returnedPurchase": "Devolución de la compra {{number}}",
+    "voidedPurchase": "Anulación de la compra {{number}}",
+    "refundedReason": "Devolución: {{reason}}",
+    "voidedReason": "Anulación: {{reason}}",
+    "supplierPayment": "Pago a proveedor {{reference}}",
+    "launchImport": "Importación inicial {{id}}",
+    "openingStock": "Stock inicial al crear el producto",
+    "productEditStock": "Stock cambiado al editar el producto"
   }
 }

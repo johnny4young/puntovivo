@@ -737,7 +737,7 @@ test.describe('launch data import', () => {
       .filter({ has: page.getByRole('heading', { name: 'Open cash session' }) })
       .last();
     await expect(openDialog.locator('#cash-session-register')).toHaveValue(registerName);
-    await expect(openDialog.locator('#cash-session-opening-float')).toHaveValue('120000');
+    await expect(openDialog.locator('#cash-session-opening-float')).toHaveText(/120[.,]000/);
     await expect(openDialog.locator('#cash-session-count-0')).toHaveValue('2');
     await expect(openDialog.locator('#cash-session-count-1')).toHaveValue('1');
     await expect(openDialog.getByRole('button', { name: 'Open session' })).toBeEnabled();

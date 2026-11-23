@@ -10,6 +10,7 @@ import { useSalesCart } from '@/features/sales/useSalesCart';
 import { useSalesModals } from '@/features/sales/useSalesModals';
 import { useSalesCommandBar } from '@/features/sales/useSalesCommandBar';
 import { useWeighedItem } from '@/features/sales/useWeighedItem';
+import { resolveRegisterAddQuantity } from '@/features/sales/saleCart';
 import { useSalesPageData } from '@/features/sales/useSalesPageData';
 import { useLastRead } from '@/features/sales/useLastRead';
 import type { InitialTender } from '@/features/sales/salePaymentModal.types';
@@ -405,7 +406,7 @@ export function SalesPage() {
         return;
       }
       weighing.close();
-      handleProductSelect(selection, quantity);
+      handleProductSelect(selection, resolveRegisterAddQuantity(selection.product, quantity));
     },
   });
 
@@ -611,7 +612,7 @@ export function SalesPage() {
   const { onKickCashDrawer, isKickingCashDrawer, approvalModal } = useCashDrawerController({
     hasRegisteredDrawer,
   });
-  const { handleBarcodeScan } = useBarcodeProductScanner({
+  const { handleBarcodeScan, handleTypedCode } = useBarcodeProductScanner({
     scannerConfig,
     isResumedCart: itemsLocked,
     isProductSearchOpen,
@@ -646,6 +647,7 @@ export function SalesPage() {
         handleOpenProductSearch={handleMeasuredOpenProductSearch}
         productInputRef={productInputRef}
         onCameraCode={code => void handleBarcodeScan(code)}
+        onTypedCode={handleTypedCode}
         setIsHistoryDrawerOpen={setIsHistoryDrawerOpen}
         setIsSuspendedPanelOpen={setIsSuspendedPanelOpen}
         suspendedDraftsCount={suspendedDraftsCount}

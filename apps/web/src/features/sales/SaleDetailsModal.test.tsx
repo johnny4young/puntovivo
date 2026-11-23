@@ -61,7 +61,10 @@ vi.mock('@/features/auth/AuthProvider', () => ({
 }));
 
 vi.mock('@/features/tenant/TenantProvider', () => ({
-  useTenant: () => ({ currentSite: { id: 'site-1', name: 'Central' } }),
+  useTenant: () => ({
+    currentSite: { id: 'site-1', name: 'Central' },
+    currentTenant: { id: 'tenant-1' },
+  }),
 }));
 
 vi.mock('@/features/approvals/useManagerApproval', () => ({
@@ -128,8 +131,23 @@ vi.mock('@/lib/trpc', () => ({
 }));
 
 vi.mock('@/features/sales/SaleDetailsContent', () => ({
-  SaleDetailsContent: () => <div>Sale details</div>,
+  SaleDetailsContent: ({
+    onStartExchange,
+  }: {
+    onStartExchange?: (saleReturn: { id: string }) => void;
+  }) => (
+    <div>
+      Sale details
+      {onStartExchange && (
+        <button type="button" onClick={() => onStartExchange({ id: 'return-1' })}>
+          Start exchange
+        </button>
+      )}
+    </div>
+  ),
 }));
+
+vi.mock('@/features/sales/returns/startExchange', () => ({ startExchange: vi.fn() }));
 
 vi.mock('@/features/sales/SaleDetailsFiscalBlock', () => ({
   SaleDetailsFiscalBlock: () => null,
@@ -215,6 +233,24 @@ describe('SaleDetailsModal shift policy', () => {
     mocks.saleQueryError = null;
     mocks.sale.paymentStatus = 'paid';
     mocks.sale.receiptPresentationSnapshotVersion = null;
+  });
+
+  it('lets the opener close too once an exchange ticket starts', () => {
+    const onClose = vi.fn();
+    const onExchangeStarted = vi.fn();
+    render(
+      <SaleDetailsModal
+        saleId="sale-1"
+        isOpen
+        onClose={onClose}
+        onExchangeStarted={onExchangeStarted}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start exchange' }));
+
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(onExchangeStarted).toHaveBeenCalledOnce();
   });
 
   it('fails closed while checking a manager refund cap and until its exact grant is approved', async () => {

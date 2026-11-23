@@ -5,6 +5,7 @@ import i18next from 'i18next';
 import type { TFunction } from 'i18next';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { roundMoney } from '@/lib/money';
+import { formatSystemNote } from '@/lib/systemNotes';
 import type { SaleItem, SalePayment } from '@/types';
 import { paymentsNeedBreakdown } from '../checkoutPayment';
 import { escapeHtml } from './escape';
@@ -153,7 +154,7 @@ export async function buildSaleReceiptHtml(
     ? `
       <section class="notes">
         <div class="section-label">${escapeHtml(t('receipts:fallback.notes'))}</div>
-        <p>${escapeHtml(sale.notes)}</p>
+        <p>${escapeHtml(formatSystemNote(sale.notes, t))}</p>
       </section>
     `
     : '';

@@ -34,6 +34,8 @@ interface SaleDetailsModalProps {
   saleId: string | null;
   isOpen: boolean;
   onClose: () => void;
+  /** The exchange ticket takes the register, so whatever opened this steps aside too. */
+  onExchangeStarted?: (() => void) | undefined;
   receiptShareSection?: ReactNode;
 }
 
@@ -41,6 +43,7 @@ export function SaleDetailsModal({
   saleId,
   isOpen,
   onClose,
+  onExchangeStarted,
   receiptShareSection,
 }: SaleDetailsModalProps) {
   const { t } = useTranslation(['sales', 'returnErrors', 'common', 'errors', 'fulfillmentErrors']);
@@ -410,6 +413,7 @@ export function SaleDetailsModal({
     startExchange(sale, saleReturn.id, `${currentTenant.id}:${user.id}`);
     toast.success({ title: t('sales:details.toast.exchangeStartedTitle') });
     handleClose();
+    onExchangeStarted?.();
   };
 
   return (

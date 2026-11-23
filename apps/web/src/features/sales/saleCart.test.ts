@@ -11,6 +11,7 @@ import {
   getBarcodeCartItemKey,
   mergeBarcodeCartItem,
   mergeCartItem,
+  resolveRegisterAddQuantity,
   updateCartItem,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
@@ -94,6 +95,29 @@ describe('saleCart fraction policy helpers', () => {
     expect(getSaleQuantityStep(item)).toBe(1);
     expect(getSaleMinimumQuantity(item)).toBe(1);
     expect(item.quantity).toBe(1);
+  });
+
+  it('adds one whole unit of a fractional product when no weight or quantity was typed', () => {
+    const weighed = createSelection({
+      sellByFraction: true,
+      fractionStep: 0.001,
+      fractionMinimum: 0.001,
+    });
+    expect(resolveRegisterAddQuantity(weighed.product, null)).toBe(1);
+    expect(resolveRegisterAddQuantity(weighed.product, 0.25)).toBe(0.25);
+    expect(
+      resolveRegisterAddQuantity(
+        createSelection({ sellByFraction: true, fractionStep: 0.5, fractionMinimum: 2 }).product,
+        null
+      )
+    ).toBe(2);
+    expect(resolveRegisterAddQuantity(createSelection().product, null)).toBeNull();
+
+    const added = mergeBarcodeCartItem([], weighed, {
+      quantity: resolveRegisterAddQuantity(weighed.product, null),
+      price: null,
+    });
+    expect(added[0]?.quantity).toBe(1);
   });
 
   it('uses configured step and minimum for fractional products', () => {

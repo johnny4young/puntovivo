@@ -31,7 +31,7 @@ import { useBarcodeProductScanner } from './useBarcodeProductScanner';
 function renderScanner(pendingQuantity: number | 'rejected' | null = null) {
   const setCartItems = vi.fn();
   const takePendingQuantity = vi.fn(() => pendingQuantity);
-  renderHook(() =>
+  const { result } = renderHook(() =>
     useBarcodeProductScanner({
       scannerConfig: { minLength: 6, maxLength: 32, interCharGapMs: 30, endOfScan: 'enter' },
       isResumedCart: false,
@@ -48,10 +48,16 @@ function renderScanner(pendingQuantity: number | 'rejected' | null = null) {
       takePendingQuantity,
     })
   );
-  return { setCartItems, takePendingQuantity };
+  return { setCartItems, takePendingQuantity, hook: result };
 }
 
-function lookup(overrides: { suggestedQuantity?: number | null; sellByFraction?: boolean } = {}) {
+function lookup(
+  overrides: {
+    suggestedQuantity?: number | null;
+    sellByFraction?: boolean;
+    resolvedUnitId?: string | null;
+  } = {}
+) {
   return {
     product: {
       id: 'product-1',
@@ -63,9 +69,10 @@ function lookup(overrides: { suggestedQuantity?: number | null; sellByFraction?:
       sellByFraction: overrides.sellByFraction ?? false,
       unitAssignments: [
         { id: 'a1', unitId: 'unit-base', unitName: 'Unidad', equivalence: 1, price: 3200, isBase: true },
+        { id: 'a2', unitId: 'unit-pack', unitName: 'Paca', equivalence: 6, price: 18000, isBase: false },
       ],
     },
-    resolvedUnitId: null,
+    resolvedUnitId: overrides.resolvedUnitId ?? null,
     suggestedPrice: null,
     suggestedQuantity: overrides.suggestedQuantity ?? null,
   };
@@ -75,6 +82,7 @@ function lookup(overrides: { suggestedQuantity?: number | null; sellByFraction?:
 function cartAfterScan(setCartItems: ReturnType<typeof vi.fn>) {
   const updater = setCartItems.mock.calls.at(-1)?.[0] as (items: unknown[]) => Array<{
     quantity: number;
+    unitId: string;
   }>;
   return updater([]);
 }
@@ -170,5 +178,38 @@ describe('useBarcodeProductScanner', () => {
       { barcode: '7702001000011', siteId: 'site-1' },
       { retry: false }
     );
+  });
+
+  it('adds a hand-typed presentation code in that presentation', async () => {
+    mocks.fetch.mockResolvedValue(lookup({ resolvedUnitId: 'unit-pack' }));
+    const { setCartItems, hook } = renderScanner();
+
+    let added: boolean | undefined;
+    await act(async () => {
+      added = await hook.current.handleTypedCode(' 7702001000028 ');
+    });
+
+    expect(added).toBe(true);
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      { barcode: '7702001000028', siteId: 'site-1' },
+      { retry: false }
+    );
+    expect(cartAfterScan(setCartItems)).toEqual([
+      expect.objectContaining({ unitId: 'unit-pack', quantity: 1 }),
+    ]);
+  });
+
+  it('leaves typed text that is not a known code to the product search', async () => {
+    mocks.fetch.mockResolvedValue(null);
+    const { setCartItems, hook } = renderScanner();
+
+    await act(async () => {
+      expect(await hook.current.handleTypedCode('arroz')).toBe(false);
+      expect(await hook.current.handleTypedCode('ABR0001')).toBe(false);
+    });
+
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    expect(mocks.toast.warning).not.toHaveBeenCalled();
+    expect(setCartItems).not.toHaveBeenCalled();
   });
 });

@@ -25,10 +25,7 @@ export function ReceiptShareSection({ saleId, initiallyOpen = false }: ReceiptSh
 
   return (
     <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-secondary-200 bg-secondary-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <p className="text-sm font-semibold text-secondary-950">{t('action')}</p>
-        <p className="mt-0.5 text-sm text-secondary-600">{t('description')}</p>
-      </div>
+      <p className="text-sm text-secondary-600">{t('description')}</p>
       <Button type="button" variant="outline" className="shrink-0" onClick={() => setIsOpen(true)}>
         <MessageCircle aria-hidden="true" />
         {t('action')}
