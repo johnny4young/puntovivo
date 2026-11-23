@@ -2,6 +2,7 @@ import {
   planReceiptReversal,
   readProductValuation,
   type InventoryValueDelta,
+  syncCatalogCostFromPools,
 } from '../../services/product-valuation.js';
 import { freezePurchaseValue } from './values.js';
 /**
@@ -277,6 +278,7 @@ export async function returnPurchase(ctx: CriticalPurchaseContext, input: Return
           serialAware: item.tracksSerials,
           now,
         });
+        syncCatalogCostFromPools(tx, ctx.tenantId, item.productId, now);
 
         const frozenValue = freezePurchaseValue(valueDelta, -1);
         returnedValues.set(item.id, frozenValue);

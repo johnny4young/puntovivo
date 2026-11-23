@@ -1,10 +1,11 @@
 /** Tenant-wide exact pools retain the existing global (not site-average) cost policy. */
 import { inventoryValueGuard } from './inventory-value-errors.js';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
 import type { DatabaseInstance } from '../db/index.js';
 import { products } from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
+import { roundMoney } from '../lib/money.js';
 import { getProductStockTotal } from './inventory-balances/derive.js';
 import {
   addInventoryValues,
@@ -185,6 +186,54 @@ export function applyProductValueDelta(
     if (changed.changes !== 1) stale();
     return { ...values, version: before.version + 1 };
   }, 'INVENTORY_VALUE_INVALID');
+}
+
+/**
+ * Mirror the pool averages into the catalog after a receipt or its reversal, without revaluing.
+ * Empty or negative stock keeps the receipt basis so the next default credit still cancels it.
+ */
+export function syncCatalogCostFromPools(
+  db: DatabaseInstance,
+  tenantId: string,
+  productId: string,
+  now: string
+): void {
+  const row = db
+    .select({
+      cost: products.cost,
+      initialCost: products.initialCost,
+      inventoryValueCents: products.inventoryValueCents,
+      cogsValueCents: products.cogsValueCents,
+      valuationQuantity: products.valuationQuantity,
+    })
+    .from(products)
+    .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)))
+    .get();
+  if (
+    !row ||
+    row.inventoryValueCents === null ||
+    row.cogsValueCents === null ||
+    row.valuationQuantity === null ||
+    row.valuationQuantity <= 0
+  ) {
+    return;
+  }
+  const quantity = row.valuationQuantity;
+  const cost = roundMoney(fromInventoryCents(row.cogsValueCents) / quantity);
+  const initialCost = roundMoney(fromInventoryCents(row.inventoryValueCents) / quantity);
+  if (cost === row.cost && initialCost === row.initialCost) return;
+  db.update(products)
+    .set({
+      cost,
+      initialCost,
+      // Catalog forms must reject prices read before the average moved.
+      version: sql`${products.version} + 1`,
+      syncStatus: 'pending',
+      syncVersion: sql`${products.syncVersion} + 1`,
+      updatedAt: now,
+    })
+    .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)))
+    .run();
 }
 
 /**

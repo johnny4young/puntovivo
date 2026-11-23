@@ -812,12 +812,13 @@ describe('fractional carrying value across sale lifecycle', () => {
         cause: { errorCode: 'INVENTORY_VALUE_CHANGED' },
       });
       const after = db.select().from(products).where(eq(products.id, productId)).get()!;
+      // The catalog shows the weighted average: 150 over 4.001 units.
       expect(after).toMatchObject({
-        cost: 0.5,
-        initialCost: 0.5,
+        cost: 0.37,
+        initialCost: 0.37,
         name: current.name,
-        version: current.version + 1,
       });
+      expect(after.version).toBeGreaterThan(current.version);
       expect(carrying(productId, lotId)).toEqual({ quantity: 4.001, inventory: 150, cogs: 150 });
       const events = db
         .select()

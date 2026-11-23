@@ -4,6 +4,7 @@ import { prepareProductReceipt } from '../../services/rebase-product-valuation.j
 import {
   readProductValuation,
   inventoryMovementValueSnapshot,
+  syncCatalogCostFromPools,
 } from '../../services/product-valuation.js';
 import { legacyInventoryValue } from '../../services/inventory-valuation.js';
 import { TRPCError } from '@trpc/server';
@@ -178,6 +179,7 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
         initialOnHandIfMissing: currentSiteStock,
         now,
       });
+      syncCatalogCostFromPools(tx, ctx.tenantId, input.productId, now);
 
       newStock = getProductStockTotal(tx, ctx.tenantId, input.productId);
 

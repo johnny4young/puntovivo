@@ -1,6 +1,9 @@
 import { inventoryValueGuard } from '../../services/inventory-value-errors.js';
 import { toInventoryCents } from '../../services/inventory-valuation.js';
-import { readProductValuation } from '../../services/product-valuation.js';
+import {
+  readProductValuation,
+  syncCatalogCostFromPools,
+} from '../../services/product-valuation.js';
 import { prepareProductReceipt } from '../../services/rebase-product-valuation.js';
 /**
  * Receive a purchase against an existing order (full or partial receipt).
@@ -327,6 +330,7 @@ export async function createPurchaseFromOrder(
           serialAware: row.tracksSerials,
           now,
         });
+        syncCatalogCostFromPools(tx, ctx.tenantId, row.productId, now);
 
         tx.insert(inventoryMovements)
           .values({

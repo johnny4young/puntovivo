@@ -69,6 +69,11 @@ describe('catalog weighted average valuation', () => {
     return { inventory: row.inventoryValueCents, cogs: row.cogsValueCents };
   }
 
+  function catalogCost(productId: string) {
+    const row = getDatabase().select().from(products).where(eq(products.id, productId)).get()!;
+    return { cost: row.cost, initialCost: row.initialCost };
+  }
+
   function revaluations(productId: string) {
     return getDatabase()
       .select()
@@ -125,6 +130,7 @@ describe('catalog weighted average valuation', () => {
     // 50 x 3,100 + 10 x 3,200
     expect(pools(product.id)).toEqual({ inventory: 18_700_000, cogs: 18_700_000 });
     expect(revaluations(product.id)).toHaveLength(0);
+    expect(catalogCost(product.id)).toEqual({ cost: 3116.67, initialCost: 3116.67 });
   });
 
   it.each([false, true])(
@@ -150,6 +156,7 @@ describe('catalog weighted average valuation', () => {
       // 48 x 1,500 + 2 x 1,550
       expect(pools(product.id)).toEqual({ inventory: 7_510_000, cogs: 7_510_000 });
       expect(revaluations(product.id)).toHaveLength(0);
+      expect(catalogCost(product.id)).toEqual({ cost: 1502, initialCost: 1502 });
     }
   );
 
@@ -295,8 +302,10 @@ describe('catalog weighted average valuation', () => {
 
   it('restores the earlier average when the latest purchase is voided', async () => {
     const { product, purchase } = await boughtTwice();
+    expect(catalogCost(product.id)).toEqual({ cost: 15, initialCost: 15 });
     await caller().purchases.void({ id: purchase.id, reason: 'Wrong invoice' });
     expect(pools(product.id)).toEqual({ inventory: 10_000, cogs: 10_000 });
+    expect(catalogCost(product.id)).toEqual({ cost: 10, initialCost: 10 });
   });
 
   it('returns a purchase in parts at its frozen value', async () => {
