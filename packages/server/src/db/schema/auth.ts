@@ -8,9 +8,9 @@
  *
  * @module db/schema/auth
  */
-import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { relations } from 'drizzle-orm';
-import { nowIso, sqliteNow, userRoleEnum } from './base.js';
+import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { relations, sql } from 'drizzle-orm';
+import { nowIso, sqliteNow, userKindEnum, userRoleEnum } from './base.js';
 import {
   categories,
   cities,
@@ -116,9 +116,19 @@ export const users = sqliteTable(
     tenantId: text('tenant_id')
       .notNull()
       .references(() => tenants.id),
-    email: text('email').notNull().unique(),
+    /**
+     * A human signs in; a service identity only ever acts as the technical
+     * actor of automatic operations (payment worker). The discriminator is
+     * what keeps every authentication path fail-closed, so it is NOT NULL
+     * and existing rows are `human`.
+     */
+    kind: text('kind', { enum: userKindEnum }).notNull().default('human'),
+    /** Null for service identities: no invented address is ever stored. */
+    email: text('email').unique(),
     name: text('name').notNull(),
-    passwordHash: text('password_hash').notNull(),
+    /** Null for service identities: nothing can be verified because nothing
+     * was ever set. Every login path refuses a NULL hash before verifying. */
+    passwordHash: text('password_hash'),
     // optional fast-switch credential. Stored as an Argon2id
     // hash and never projected into user/sync/audit responses.
     staffPinHash: text('staff_pin_hash'),
@@ -131,6 +141,21 @@ export const users = sqliteTable(
   table => [
     index('idx_users_tenant').on(table.tenantId),
     uniqueIndex('idx_users_email').on(table.email),
+    // Per-tenant lookup of the one service identity; partial so it never
+    // constrains human rows.
+    uniqueIndex('idx_users_tenant_service_name')
+      .on(table.tenantId, table.name)
+      .where(sql`kind = 'service'`),
+    check(
+      'chk_users_service_has_no_credentials',
+      sql`(${table.kind} = 'human'
+        AND ${table.email} IS NOT NULL
+        AND ${table.passwordHash} IS NOT NULL)
+        OR (${table.kind} = 'service'
+        AND ${table.email} IS NULL
+        AND ${table.passwordHash} IS NULL
+        AND ${table.staffPinHash} IS NULL)`
+    ),
   ]
 );
 

@@ -71,6 +71,7 @@ import { writeAuditLog } from '../../../services/audit-logs.js';
 import { parkDraftsForIdentityChange } from '../../../application/sales/parkDraftsForIdentityChange.js';
 import { DEVICE_ID_HEADER } from '../../schemas/envelope.js';
 import { clearSessionCsrfCookie } from '../../../security/csrf.js';
+import { toHumanSessionIdentity } from '../../../security/session-identity.js';
 
 function readHeader(value: string | string[] | undefined): string | null {
   if (Array.isArray(value)) return value[0] ?? null;
@@ -129,7 +130,10 @@ export const authMutationProcedures = {
             eq(users.id, input.targetUserId),
             eq(users.tenantId, ctx.tenantId),
             eq(users.role, 'cashier'),
-            eq(users.isActive, true)
+            eq(users.isActive, true),
+            // Service identities never hold a staff PIN; keep them out of the
+            // fast-switch path explicitly instead of relying on hashes alone.
+            eq(users.kind, 'human')
           )
         )
         .get();
@@ -255,10 +259,10 @@ export const authMutationProcedures = {
       // commits. A failed switch must not grant brute-force amnesty.
       registerStaffPinSuccess(ctx.db, rateIdentity);
 
-      const token = signAccessToken(ctx.req.server, handoff.target, sessionClaims);
+      const token = signAccessToken(ctx.req.server, toHumanSessionIdentity(handoff.target), sessionClaims);
       const refreshToken = signRefreshToken(
         ctx.req.server,
-        handoff.target,
+        toHumanSessionIdentity(handoff.target),
         handoff.family,
         sessionClaims
       );
@@ -333,6 +337,18 @@ export const authMutationProcedures = {
     // probe pays the same Argon2 cost as the not-found probe. Without
     // this re-ordering, an attacker could distinguish "user exists but
     // is disabled" from "user does not exist" via response timing.
+    // A service identity holds no credentials by construction (the CHECK
+    // constraint forbids them), so it can never authenticate. Refuse before
+    // the Argon2 work: there is nothing to verify and no timing signal to win.
+    if (user.kind === 'service' || user.passwordHash === null) {
+      registerLoginFailure(ctx.db, ip, email);
+      throwServerError({
+        trpcCode: 'UNAUTHORIZED',
+        errorCode: 'AUTH_INVALID_CREDENTIALS',
+        message: 'Email or password is incorrect',
+      });
+    }
+
     const isValidPassword = await verifyPasswordSecurely(user.passwordHash, password);
     if (!isValidPassword) {
       registerLoginFailure(ctx.db, ip, email);
@@ -395,8 +411,11 @@ export const authMutationProcedures = {
       userId: user.id,
     });
 
-    const token = signAccessToken(ctx.req.server, user);
-    const refreshToken = signRefreshToken(ctx.req.server, user, family);
+    // Only a human session identity can be signed; the helper refuses a
+    // service row before any token is minted.
+    const sessionUser = toHumanSessionIdentity(user);
+    const token = signAccessToken(ctx.req.server, sessionUser);
+    const refreshToken = signRefreshToken(ctx.req.server, sessionUser, family);
     setRefreshCookie(ctx.req, ctx.res, refreshToken);
     setSessionCsrfCookieForFamily(ctx.req, ctx.res, user, family.familyId);
 
@@ -544,8 +563,9 @@ export const authMutationProcedures = {
       }
 
       const sessionClaims = getAuthSessionClaims(refreshPayload);
-      const token = signAccessToken(ctx.req.server, user, sessionClaims);
-      const refreshToken = signRefreshToken(ctx.req.server, user, family, sessionClaims);
+      const sessionUser = toHumanSessionIdentity(user);
+      const token = signAccessToken(ctx.req.server, sessionUser, sessionClaims);
+      const refreshToken = signRefreshToken(ctx.req.server, sessionUser, family, sessionClaims);
       setRefreshCookie(ctx.req, ctx.res, refreshToken);
       if (upgradedLegacy) {
         setSessionCsrfCookieForFamily(ctx.req, ctx.res, user, family.familyId);
@@ -615,6 +635,14 @@ export const authMutationProcedures = {
       }
 
       // Verify current password (pinned Argon2 params).
+      // A service identity holds no credentials; refuse before verifying.
+      if (user.kind === 'service' || user.passwordHash === null) {
+        throwServerError({
+          trpcCode: 'UNAUTHORIZED',
+          errorCode: 'AUTH_CURRENT_PASSWORD_INCORRECT',
+          message: 'Current password is incorrect',
+        });
+      }
       const isValidPassword = await verifyPasswordSecurely(user.passwordHash, currentPassword);
       if (!isValidPassword) {
         throwServerError({

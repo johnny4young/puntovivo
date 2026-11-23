@@ -1,3 +1,4 @@
+import { toHumanSessionIdentity } from '../security/session-identity.js';
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -49,7 +50,7 @@ describe('command identity across replay and revocation', () => {
       serverApp: server.app,
       tenantId: actor.tenantId,
       userId: user.id,
-      email: user.email,
+      email: toHumanSessionIdentity(user).email,
       role: user.role,
       sessionVersion: user.sessionVersion,
       siteId,

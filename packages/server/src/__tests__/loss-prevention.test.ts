@@ -27,6 +27,7 @@ import {
 } from '../services/loss-prevention/index.js';
 import type { Context } from '../trpc/context.js';
 import { appRouter } from '../trpc/router.js';
+import { requireActorEmail } from '../security/session-identity.js';
 import {
   createCriticalCommandFixture,
   type CriticalCommandFixture,
@@ -151,7 +152,7 @@ function criticalContext(
     serverApp: server.app,
     tenantId: harness.tenantId,
     userId: context.user!.id,
-    email: context.user!.email,
+    email: requireActorEmail(context.user!),
     role,
     siteId: harness.siteId,
   });

@@ -1,3 +1,4 @@
+import { requireHumanCredentials } from '../security/session-identity.js';
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 import { count, eq } from 'drizzle-orm';
@@ -93,7 +94,7 @@ describe('database foundation seed', () => {
       .get();
 
     expect(seededUser).toBeDefined();
-    expect(await argon2.verify(seededUser!.passwordHash, DEFAULT_DEVELOPMENT_ADMIN_PASSWORD)).toBe(
+    expect(await argon2.verify(requireHumanCredentials(seededUser!).passwordHash, DEFAULT_DEVELOPMENT_ADMIN_PASSWORD)).toBe(
       true
     );
   });

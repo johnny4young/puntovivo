@@ -47,7 +47,9 @@ function findEligibleOwner(reader: RecoveryReader): EligibleOwner | null {
     .from(accountRecoveryCodes)
     .where(eq(accountRecoveryCodes.userId, owner.id))
     .get();
-  return code ? null : { id: owner.id, tenantId: owner.tenantId, email: owner.email };
+  return code || owner.email === null
+    ? null
+    : { id: owner.id, tenantId: owner.tenantId, email: owner.email };
 }
 
 function unavailable(): never {

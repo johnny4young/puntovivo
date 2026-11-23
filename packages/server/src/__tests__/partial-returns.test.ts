@@ -1,3 +1,4 @@
+import { toHumanSessionIdentity } from '../security/session-identity.js';
 import { randomUUID } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, asc, eq, inArray } from 'drizzle-orm';
@@ -179,7 +180,7 @@ describe('normalized partial returns', () => {
       serverApp: server.app,
       tenantId,
       userId,
-      email: user.email,
+      email: toHumanSessionIdentity(user).email,
       role: 'admin',
       siteId,
       deviceId: device.deviceId,

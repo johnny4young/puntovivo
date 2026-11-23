@@ -27,6 +27,7 @@ import {
 } from './utils/criticalCommandFixture.js';
 import type { SaveRestaurantModifierInput } from '../trpc/schemas/restaurantModifiers.js';
 import type { RestaurantLineModifierInput } from '../application/restaurant/service-lifecycle.js';
+import { toHumanSessionIdentity } from '../security/session-identity.js';
 
 let server: PuntovivoServer,
   db: DatabaseInstance,
@@ -42,6 +43,9 @@ beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   db = getDatabase();
   const owner = db.select().from(users).where(eq(users.email, 'admin@localhost')).get()!;
+  // The owner is a human row by construction; narrow once instead of casting
+  // at every call site.
+  const ownerHuman = toHumanSessionIdentity(owner);
   adminId = owner.id;
   tenantId = owner.tenantId;
   siteId = db.select().from(sites).where(eq(sites.tenantId, tenantId)).get()!.id;
@@ -68,7 +72,7 @@ beforeAll(async () => {
     })
     .run();
   for (const [userId, email, role] of [
-    [adminId, owner.email, 'admin'],
+    [adminId, ownerHuman.email, 'admin'],
     [cashierId, `${cashierId}@example.test`, 'cashier'],
   ] as const) {
     const fixture = await createCriticalCommandFixture({

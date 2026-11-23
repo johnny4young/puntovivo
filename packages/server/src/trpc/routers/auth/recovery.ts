@@ -73,7 +73,11 @@ export const recoveryProcedures = {
         .from(users)
         .where(and(eq(users.id, actorId), eq(users.tenantId, ctx.tenantId)))
         .get();
-      if (!user || !(await verifyPasswordSecurely(user.passwordHash, input.currentPassword))) {
+      if (
+        !user ||
+        user.passwordHash === null ||
+        !(await verifyPasswordSecurely(user.passwordHash, input.currentPassword))
+      ) {
         throwServerError({
           trpcCode: 'UNAUTHORIZED',
           errorCode: 'AUTH_CURRENT_PASSWORD_INCORRECT',

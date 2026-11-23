@@ -1,3 +1,4 @@
+import { toHumanSessionIdentity } from '../security/session-identity.js';
 /** Loyalty and store-credit tender round trips through sale, return, draft and void. */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { and, eq, sql } from 'drizzle-orm';
@@ -231,7 +232,7 @@ describe('customer-value tenders', () => {
       serverApp: server.app,
       tenantId,
       userId,
-      email: admin.email,
+      email: toHumanSessionIdentity(admin).email,
       siteId,
       deviceId: registration.deviceId,
       defaultRole: 'admin',

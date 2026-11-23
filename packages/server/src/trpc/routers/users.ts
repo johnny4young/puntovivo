@@ -24,7 +24,9 @@ export const usersRouter = router({
     const { page, perPage, search, isActive } = input;
     const offset = (page - 1) * perPage;
 
-    const conditions = [eq(users.tenantId, ctx.tenantId)];
+    // Service identities are technical audit actors, not staff: they never
+    // appear in administrative listings or selectors.
+    const conditions = [eq(users.tenantId, ctx.tenantId), eq(users.kind, 'human')];
     if (search) {
       conditions.push(or(like(users.name, `%${search}%`), like(users.email, `%${search}%`))!);
     }

@@ -18,7 +18,12 @@ export interface Context {
   db: DatabaseInstance;
   user: {
     id: string;
-    email: string;
+    /**
+     * Null for an actor without an address on record. No procedure reads it:
+     * it is identity metadata for the context, not a channel. Keeping it
+     * non-null only forced every fixture to fabricate an address.
+     */
+    email: string | null;
     role: UserRole;
     tenantId: string;
     /** Present for real JWT contexts; synthetic direct-caller tests may omit it. */

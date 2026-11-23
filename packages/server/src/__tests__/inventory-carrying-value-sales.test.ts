@@ -1,3 +1,4 @@
+import { toHumanSessionIdentity } from '../security/session-identity.js';
 import { __withExpectedTestLogs } from '../logging/logger.js';
 import { productInventoryValueSql } from '../services/inventory-balances/derive.js';
 import * as productMutationHelpers from '../services/products/mutation-helpers.js';
@@ -72,7 +73,7 @@ describe('fractional carrying value across sale lifecycle', () => {
       serverApp: server.app,
       tenantId,
       userId: user.id,
-      email: user.email,
+      email: toHumanSessionIdentity(user).email,
       siteId,
       deviceId: device.deviceId,
       defaultRole: 'admin',

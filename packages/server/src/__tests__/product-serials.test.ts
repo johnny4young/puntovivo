@@ -1,3 +1,4 @@
+import { toHumanSessionIdentity } from '../security/session-identity.js';
 /** serialized-unit receipt, checkout and reversal lifecycle. */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
@@ -140,7 +141,7 @@ beforeAll(async () => {
     serverApp: server.app,
     tenantId,
     userId,
-    email: seededUser.email,
+    email: toHumanSessionIdentity(seededUser).email,
     siteId,
     deviceId: registration.deviceId,
     defaultRole: 'admin',

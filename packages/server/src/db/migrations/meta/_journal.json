@@ -757,6 +757,20 @@
       "when": 1795338282602,
       "tag": "0107_owner_push_subscriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "6",
+      "when": 1795393928053,
+      "tag": "0108_transfer_confirmation",
+      "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "6",
+      "when": 1795396828793,
+      "tag": "0109_user_kind_service",
+      "breakpoints": true
     }
   ]
 }

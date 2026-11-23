@@ -1,3 +1,4 @@
+import { requireHumanCredentials, toHumanSessionIdentity } from '../security/session-identity.js';
 /**
  * Auth tRPC Router Tests
  *
@@ -578,7 +579,7 @@ describe('Auth tRPC Router', () => {
         .where(eq(users.id, testCashierId))
         .get();
       expect(cashier).toBeDefined();
-      const expired = signAccessToken(server.app, cashier!, {
+      const expired = signAccessToken(server.app, toHumanSessionIdentity(cashier!), {
         authMethod: 'staff_pin',
         authSessionExpiresAt: Date.now() - 1,
       });
@@ -869,7 +870,7 @@ describe('Auth tRPC Router', () => {
       const db = getDatabase();
       const updatedUser = await db.select().from(users).where(eq(users.id, testUserId)).get();
       expect(updatedUser).toBeDefined();
-      const isNewPasswordValid = await verify(updatedUser!.passwordHash, 'NewPassword456!');
+      const isNewPasswordValid = await verify(requireHumanCredentials(updatedUser!).passwordHash, 'NewPassword456!');
       expect(isNewPasswordValid).toBe(true);
 
       // Reset password for other tests

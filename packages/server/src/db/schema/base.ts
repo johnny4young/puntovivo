@@ -121,6 +121,37 @@ export const paymentStatusEnum = [
   'refunded',
 ] as const;
 
+/**
+ * Confirmation lifecycle of a transfer tender (design V3.3). Historical rows
+ * stay NULL and keep their current presentation; every transfer tender
+ * created after the migration is born explicitly as 'pending'. Only the
+ * confirmations count as received money; 'customer_reported', 'pending' and
+ * 'needs_reconciliation' never do.
+ */
+export const transferConfirmationStatusEnum = [
+  'pending',
+  'customer_reported',
+  'manual_confirmed',
+  'provider_confirmed',
+  'rejected',
+  'needs_reconciliation',
+  'cancelled',
+] as const;
+export type TransferConfirmationStatus = (typeof transferConfirmationStatusEnum)[number];
+
+/**
+ * How an effective confirmation was obtained. Only ever set together with a
+ * confirmed status; pending, rejected and reconciliation rows stay NULL.
+ * There is deliberately no 'provider_fallback': a status query is just
+ * 'provider_api'.
+ */
+export const transferConfirmationSourceEnum = [
+  'operator',
+  'provider_api',
+  'provider_webhook',
+] as const;
+export type TransferConfirmationSource = (typeof transferConfirmationSourceEnum)[number];
+
 /** Derived return state, orthogonal to collection state. NULL = never returned. */
 export const saleReturnStateEnum = ['partially_refunded', 'refunded'] as const;
 export const idempotencyKeyStatusEnum = ['processing', 'succeeded', 'failed'] as const;
@@ -160,6 +191,10 @@ export const cashMovementTypeEnum = [
 ] as const;
 export type CashMovementType = (typeof cashMovementTypeEnum)[number];
 export const userRoleEnum = USER_ROLES;
+
+/** Human accounts authenticate; service identities only act as audit actors. */
+export const userKindEnum = ['human', 'service'] as const;
+export type UserKind = (typeof userKindEnum)[number];
 export const deviceAuthorityRoleEnum = ['authority_node', 'hub_client', 'web_client'] as const;
 export type DeviceAuthorityRole = (typeof deviceAuthorityRoleEnum)[number];
 
@@ -406,6 +441,29 @@ export const auditLogActionEnum = [
   'payment.mark_settled',
   'payment.proposal_approved',
   'payment.proposal_rejected',
+  // Transfer confirmation lifecycle (design V3.3). Every transition carries
+  // the actor, the previous state and the evidence (verified amounts,
+  // fingerprints, notes) in the immutable chain; the tender columns hold only
+  // the current state for fast reads.
+  'sale_payment.transfer_customer_reported',
+  'sale_payment.transfer_manual_confirmed',
+  'sale_payment.transfer_rejected',
+  'sale_payment.transfer_needs_reconciliation',
+  'sale_payment.transfer_cancelled',
+  // Authentic provider responses, persisted once per distinct verdict
+  // (fingerprint = providerTxnId|status|amount|currency|reference).
+  'payment.provider_response',
+  // A deposit the cashier verified against the store account (static QR:
+  // the bank never tells Puntovivo; the human evidence lives here).
+  'sale_payment.manual_deposit',
+  // Static QR presentation lifecycle: durable pre-sale record kept in the
+  // payment outbox under kind='presentation'.
+  'payment.presentation_started',
+  'payment.presentation_linked',
+  'payment.presentation_closed_admin',
+  // Resolution of unapplied money (surplus refunded externally or converted
+  // to store credit). Closes the obligation without erasing the evidence.
+  'payment.surplus_resolved',
   // restaurant table catalog admin gestures. Every CRUD on
   // a `restaurant_tables` row emits an audit entry carrying the row's
   // prior + post-action snapshot so forensics can replay the catalog

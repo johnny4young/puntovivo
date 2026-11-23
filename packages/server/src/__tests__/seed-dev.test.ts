@@ -1,3 +1,4 @@
+import { requireHumanCredentials } from '../security/session-identity.js';
 /**
  * Tests for the developer seed (`src/db/seed-dev.ts`).
  *
@@ -81,7 +82,7 @@ describe('Dev seed (`seedDevData`)', () => {
     const admin = rows.find(r => r.email === DEV_ADMIN_EMAIL);
     expect(admin).toBeTruthy();
     expect(admin?.role).toBe('admin');
-    expect(await argon2.verify(admin!.passwordHash, DEV_USER_PASSWORD)).toBe(true);
+    expect(await argon2.verify(requireHumanCredentials(admin!).passwordHash, DEV_USER_PASSWORD)).toBe(true);
   });
 
   it('creates the expected catalog row counts', async () => {

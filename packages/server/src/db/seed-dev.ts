@@ -233,7 +233,7 @@ export async function seedDevData(
       tenantId: existingTenant.id,
       companyId: counts.companyId,
       users: existingUsers.map(u => ({
-        email: u.email,
+        email: u.email ?? `user-${Math.random().toString(36).slice(2)}@seed.invalid`,
         password: DEV_USER_PASSWORD,
         name: u.name,
         role: (u.role ?? 'viewer') as UserRole,

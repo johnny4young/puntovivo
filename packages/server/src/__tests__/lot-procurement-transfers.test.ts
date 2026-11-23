@@ -1,3 +1,4 @@
+import { toHumanSessionIdentity } from '../security/session-identity.js';
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -176,7 +177,7 @@ describe('lot-aware procurement and transfers', () => {
       serverApp: server.app,
       tenantId,
       userId,
-      email: user.email,
+      email: toHumanSessionIdentity(user).email,
       siteId: primarySiteId,
       deviceId: device.deviceId,
       defaultRole: 'admin',
