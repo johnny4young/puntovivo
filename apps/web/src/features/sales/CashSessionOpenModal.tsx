@@ -75,8 +75,9 @@ export function CashSessionOpenModal({
 
   const countedTotal = getCashSessionCountedTotal(denominations ?? []);
   const usesDenominations = countedTotal > 0;
+  const canSubmit = !isSaving;
   const handleSubmit = form.handleSubmit(
-    useSingleFlightSubmit(!isSaving, (values: CashSessionOpenValues) =>
+    useSingleFlightSubmit(canSubmit, (values: CashSessionOpenValues) =>
       onSubmit({
         ...values,
         openingFloat: resolveCashSessionAmount(values.openingFloat, values.denominations),
@@ -109,7 +110,7 @@ export function CashSessionOpenModal({
           <ModalButton
             variant="primary"
             onClick={handleSubmit}
-            disabled={isSaving}
+            disabled={!canSubmit}
             className="sm:min-w-[10rem]"
           >
             {isSaving ? t('cashSession.form.opening') : t('cashSession.form.confirm')}
