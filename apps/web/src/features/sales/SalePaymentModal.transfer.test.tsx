@@ -216,11 +216,16 @@ describe('SalePaymentModal — transfer', () => {
   it('stops showing the QR on the customer display once the presentation is no longer live', async () => {
     moduleActiveMock.mockReturnValue(true);
     mockDestinations(destinations);
-    presentationStatusMock.mockReturnValue('timeout');
     renderTransfer();
+    // The QR really is on screen first: this is a live -> dead transition, not
+    // a component that never published anything.
+    await waitFor(() => expect(useCheckoutTransferDisplay.getState().transfer).not.toBeNull());
 
-    // An expired presentation must not sit on the customer screen inviting a
-    // payment the till already considers gone.
+    presentationStatusMock.mockReturnValue('timeout');
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+
     await waitFor(() => expect(useCheckoutTransferDisplay.getState().transfer).toBeNull());
   });
 

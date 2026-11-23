@@ -42,6 +42,7 @@ export function SalePaymentTransferSection({
   const { user } = useAuth();
   const customerDisplayActive = useIsModuleActive('customer-display');
   const setDisplayTransfer = useCheckoutTransferDisplay(state => state.setTransfer);
+  const clearDisplayTransfer = useCheckoutTransferDisplay(state => state.clearTransfer);
   const siteId = currentSite?.id ?? '';
   // A tip typed while charging changes the total per keystroke; ask once it settles.
   const qrAmount = useDebouncedValue(grandTotal, 300);
@@ -92,12 +93,26 @@ export function SalePaymentTransferSection({
   // considers gone. Read once and on focus - no interval drives this.
   const presentationStatus = trpc.payments.presentation.useQuery(
     { presentationId: presentationId ?? '' },
-    { enabled: presentationId !== null, staleTime: 30_000, refetchOnWindowFocus: true }
+    {
+      enabled: presentationId !== null,
+      // 0 so a window focus actually re-reads it: with a fresh cache React
+      // Query skips the refetch and a QR closed elsewhere keeps showing.
+      staleTime: 0,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+    }
   );
+  // Fail closed once we know an id and cannot confirm it is live: a QR the
+  // till would refuse to link must not stay on the customer screen. While the
+  // first read is in flight we stay open, or the QR would blink on every mount.
   const presentationLive =
-    presentationId === null || !presentationStatus.data
+    presentationId === null
       ? true
-      : presentationStatus.data.status === 'presented';
+      : presentationStatus.isError
+        ? false
+        : presentationStatus.data === undefined
+          ? true
+          : presentationStatus.data.status === 'presented';
 
   const label = providerCharge ? providerCharge.railLabel : storeQr?.label;
   const account = providerCharge ? '' : storeQr?.account;
@@ -129,18 +144,21 @@ export function SalePaymentTransferSection({
     autoConfirmedRef.current = approvedReference;
     onConfirm();
   }, [approvedReference, canSubmit, onConfirm, referenceValid]);
+  const displayOwner = presentationId ?? 'static-qr';
   useEffect(() => {
     if (!presentationLive) {
-      setDisplayTransfer(null);
+      clearDisplayTransfer(displayOwner);
       return;
     }
     if (!customerDisplayActive || qrIsStale) return;
     if (label === undefined || account === undefined || qrPayload === undefined) return;
-    setDisplayTransfer({ label, account, qrPayload, amount: grandTotal });
-    return () => setDisplayTransfer(null);
+    setDisplayTransfer({ label, account, qrPayload, amount: grandTotal }, displayOwner);
+    return () => clearDisplayTransfer(displayOwner);
   }, [
     account,
+    clearDisplayTransfer,
     customerDisplayActive,
+    displayOwner,
     grandTotal,
     label,
     presentationLive,
