@@ -73,6 +73,20 @@ describe('useProductForm submit contract', () => {
     expect(values.marginPercent2).toBe(0);
   });
 
+  it('mirrors cost into initial cost after the cost input has already stored the value', async () => {
+    const { result } = renderHook(() =>
+      useProductForm({ mode: 'create', product: null, onSubmit: vi.fn() })
+    );
+
+    await act(async () => {
+      result.current.form.setValue('cost', 3000);
+      result.current.syncAllTiersFromCost(3000);
+      await Promise.resolve();
+    });
+
+    expect(result.current.form.getValues('initialCost')).toBe(3000);
+  });
+
   it('stops mirroring cost into initial cost once initial cost is typed apart', async () => {
     const { result } = renderHook(() =>
       useProductForm({ mode: 'create', product: null, onSubmit: vi.fn() })

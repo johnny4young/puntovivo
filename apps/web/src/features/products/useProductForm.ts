@@ -188,6 +188,7 @@ export function useProductForm({
 
   // Tiers whose margin the operator typed; a cost change keeps those margins and reprices.
   const marginLedTiers = useRef(new Set<PricingField>());
+  const mirroredInitialCost = useRef(0);
 
   const syncTier = (
     priceField: PricingField,
@@ -206,11 +207,12 @@ export function useProductForm({
   };
 
   const syncAllTiersFromCost = (cost: number) => {
-    const previousCost = form.getValues('cost');
     form.setValue('cost', cost, { shouldDirty: true, shouldValidate: true });
     // A new product values its opening stock at cost until initial cost is typed apart.
-    if (mode === 'create' && (form.getValues('initialCost') || 0) === (previousCost || 0)) {
+    // The cost input stores its value before calling here, so compare with the last mirror.
+    if (mode === 'create' && (form.getValues('initialCost') || 0) === mirroredInitialCost.current) {
       form.setValue('initialCost', cost, { shouldDirty: true, shouldValidate: true });
+      mirroredInitialCost.current = cost;
     }
 
     const tiers: Array<[PricingField, MarginPercentField, MarginAmountField]> = [
