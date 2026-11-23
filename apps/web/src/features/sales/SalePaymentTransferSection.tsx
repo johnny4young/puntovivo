@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { keepPreviousData } from '@tanstack/react-query';
 import { CircleAlert, CircleCheck, Clock, LoaderCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -67,14 +67,37 @@ export function SalePaymentTransferSection({
     ? live.status !== 'declined'
     : wallet.mode === 'idle' && query.data?.autoConfirm === true;
   const storeQr = storeQrHidden ? null : selected;
+  const [presentationId, setPresentationId] = useState<string | null>(null);
+  // Stable identity: the hook reports on change, and a fresh callback each
+  // render would make it report forever.
+  const handlePresentationChange = useCallback(
+    (presentation: SaleTransferPresentation | null) => {
+      const nextId = presentation?.id ?? null;
+      setPresentationId(current => (current === nextId ? current : nextId));
+      onPresentationChange(presentation);
+    },
+    [onPresentationChange]
+  );
   // Record the store QR that is actually on screen. Never awaited by the sale.
   useStoreQrPresentation({
     siteId,
     destinationId: storeQr?.id ?? null,
     amount: qrAmount,
     enabled: storeQr !== null && amountSettled && !providerCharge,
-    onChange: onPresentationChange,
+    onChange: handlePresentationChange,
   });
+  // The customer display must not keep showing a QR the server no longer holds
+  // as live: an expired or administratively closed presentation is exactly the
+  // case where the customer would otherwise pay against a QR the till already
+  // considers gone. Read once and on focus - no interval drives this.
+  const presentationStatus = trpc.payments.presentation.useQuery(
+    { presentationId: presentationId ?? '' },
+    { enabled: presentationId !== null, staleTime: 30_000, refetchOnWindowFocus: true }
+  );
+  const presentationLive =
+    presentationId === null || !presentationStatus.data
+      ? true
+      : presentationStatus.data.status === 'presented';
 
   const label = providerCharge ? providerCharge.railLabel : storeQr?.label;
   const account = providerCharge ? '' : storeQr?.account;
@@ -107,11 +130,24 @@ export function SalePaymentTransferSection({
     onConfirm();
   }, [approvedReference, canSubmit, onConfirm, referenceValid]);
   useEffect(() => {
+    if (!presentationLive) {
+      setDisplayTransfer(null);
+      return;
+    }
     if (!customerDisplayActive || qrIsStale) return;
     if (label === undefined || account === undefined || qrPayload === undefined) return;
     setDisplayTransfer({ label, account, qrPayload, amount: grandTotal });
     return () => setDisplayTransfer(null);
-  }, [account, customerDisplayActive, grandTotal, label, qrIsStale, qrPayload, setDisplayTransfer]);
+  }, [
+    account,
+    customerDisplayActive,
+    grandTotal,
+    label,
+    presentationLive,
+    qrIsStale,
+    qrPayload,
+    setDisplayTransfer,
+  ]);
 
   const referenceField = form.register('transferReference');
   const qrCopy = [

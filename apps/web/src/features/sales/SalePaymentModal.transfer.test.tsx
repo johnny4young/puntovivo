@@ -12,6 +12,7 @@ const roleMock = vi.hoisted(() => vi.fn(() => 'cashier'));
 const startWalletMock = vi.hoisted(() => vi.fn());
 const cancelWalletMock = vi.hoisted(() => vi.fn());
 const startPresentationMock = vi.hoisted(() => vi.fn());
+const presentationStatusMock = vi.hoisted(() => vi.fn(() => 'presented'));
 const walletStatusMock = vi.hoisted(() => vi.fn());
 const toastWarningMock = vi.hoisted(() => vi.fn());
 
@@ -45,6 +46,13 @@ vi.mock('@/lib/trpc', () => ({
       cancelWalletCharge: { useMutation: () => ({ mutate: cancelWalletMock }) },
       walletChargeStatus: { useQuery: walletStatusMock },
       startPresentation: { useMutation: () => ({ mutateAsync: startPresentationMock }) },
+      // Fase 5.2: el display sigue el ciclo de vida de la presentación.
+      presentation: {
+        useQuery: () => ({
+          data: { id: 'pres-1', status: presentationStatusMock() },
+          isLoading: false,
+        }),
+      },
     },
   },
 }));
@@ -143,6 +151,7 @@ beforeEach(() => {
   startWalletMock.mockReset();
   cancelWalletMock.mockReset();
   startPresentationMock.mockReset();
+  presentationStatusMock.mockReturnValue('presented');
   startPresentationMock.mockResolvedValue({ id: 'pres-1' });
   toastWarningMock.mockReset();
   mockWallet({ mode: 'manual', providerUnavailable: false });
@@ -202,6 +211,17 @@ describe('SalePaymentModal — transfer', () => {
       { method: 'transfer', amount: 100, reference: '482190', presentationId: 'pres-1' },
     ]);
     expect(values).not.toHaveProperty('transferReference');
+  });
+
+  it('stops showing the QR on the customer display once the presentation is no longer live', async () => {
+    moduleActiveMock.mockReturnValue(true);
+    mockDestinations(destinations);
+    presentationStatusMock.mockReturnValue('timeout');
+    renderTransfer();
+
+    // An expired presentation must not sit on the customer screen inviting a
+    // payment the till already considers gone.
+    await waitFor(() => expect(useCheckoutTransferDisplay.getState().transfer).toBeNull());
   });
 
   it('mirrors the picked destination to the customer display and says so', async () => {
