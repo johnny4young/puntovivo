@@ -116,7 +116,15 @@ export async function runReconciliationPass(
   const outboxRows = await db
     .select()
     .from(paymentOutbox)
-    .where(and(eq(paymentOutbox.tenantId, tenantId), gte(paymentOutbox.createdAt, sinceIso)))
+    .where(
+      and(
+        eq(paymentOutbox.tenantId, tenantId),
+        gte(paymentOutbox.createdAt, sinceIso),
+        // A static QR presentation is not a charge: it must never enter the
+        // statement pass or any provider reconciliation.
+        eq(paymentOutbox.kind, 'charge')
+      )
+    )
     .all();
   const tenders = await db
     .select()
@@ -563,6 +571,7 @@ async function settleOutboxRow(
     .where(
       and(
         eq(paymentOutbox.tenantId, tenantId),
+        eq(paymentOutbox.kind, 'charge'),
         eq(paymentOutbox.railId, statement.railId),
         eq(paymentOutbox.providerTransactionId, statement.providerTransactionId),
         eq(paymentOutbox.status, 'settled'),

@@ -111,6 +111,7 @@ const RAIL_CURRENCY: Record<PaymentRailId, string> = {
   mercado_pago: 'COP',
   nequi: 'COP',
   daviplata: 'COP',
+  static_qr: '',
 };
 
 const RAIL_AMOUNT_RANGES: Record<PaymentRailId, { min: number; max: number }> = {
@@ -120,6 +121,7 @@ const RAIL_AMOUNT_RANGES: Record<PaymentRailId, { min: number; max: number }> = 
   mercado_pago: { min: 9_000, max: 380_000 },
   nequi: { min: 5_000, max: 220_000 },
   daviplata: { min: 4_000, max: 180_000 },
+  static_qr: { min: 0, max: 0 },
 };
 
 const RAIL_REFERENCE_PREFIX: Record<PaymentRailId, string> = {
@@ -129,6 +131,7 @@ const RAIL_REFERENCE_PREFIX: Record<PaymentRailId, string> = {
   mercado_pago: 'MPO',
   nequi: 'NEQ',
   daviplata: 'DVP',
+  static_qr: 'SQR',
 };
 
 /**

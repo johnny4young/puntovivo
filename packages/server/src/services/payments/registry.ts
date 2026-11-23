@@ -15,6 +15,7 @@ import type {
   PaymentRailValidationResult,
 } from './contracts.js';
 import { DeterministicPaymentRailAdapter } from './mock-adapter.js';
+import { StaticQrNotAProviderAdapter } from './static-qr-adapter.js';
 import { PAYMENT_RAIL_IDS, PAYMENT_RAILS_MANIFEST, buildPaymentRailsContract } from './manifest.js';
 
 const ADAPTERS: Record<PaymentRailId, PaymentRailAdapter> = {
@@ -24,6 +25,9 @@ const ADAPTERS: Record<PaymentRailId, PaymentRailAdapter> = {
   mercado_pago: new DeterministicPaymentRailAdapter('mercado_pago'),
   nequi: new DeterministicPaymentRailAdapter('nequi'),
   daviplata: new DeterministicPaymentRailAdapter('daviplata'),
+  // A presentation is shown, never charged. Any attempt to reach a provider
+  // through this identity fails loudly instead of pretending to succeed.
+  static_qr: new StaticQrNotAProviderAdapter(),
 };
 
 const overrides = new Map<PaymentRailId, PaymentRailAdapter>();

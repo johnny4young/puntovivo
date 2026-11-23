@@ -126,6 +126,7 @@ export async function savePaymentProposal(
         .where(
           and(
             eq(paymentOutbox.tenantId, tenantId),
+            eq(paymentOutbox.kind, 'charge'),
             inArray(
               paymentOutbox.id,
               candidates.map(row => row.id)
@@ -164,6 +165,7 @@ export async function savePaymentProposal(
         .where(
           and(
             eq(paymentOutbox.tenantId, tenantId),
+            eq(paymentOutbox.kind, 'charge'),
             eq(paymentOutbox.railId, statement.railId),
             eq(paymentOutbox.status, 'settled'),
             eq(paymentOutbox.providerTransactionId, statement.providerTransactionId),

@@ -542,6 +542,13 @@ export const paymentRailIdEnum = [
   'mercado_pago',
   'nequi',
   'daviplata',
+  /**
+   * Not a provider rail: a static store QR is shown, never charged through an
+   * API.  is NOT NULL, so presentations need an
+   * identity here; every charge processor filters kind='charge', which keeps
+   * this value out of all rail logic. No SQL change: the column has no CHECK.
+   */
+  'static_qr',
 ] as const;
 export type PaymentRailId = (typeof paymentRailIdEnum)[number];
 
