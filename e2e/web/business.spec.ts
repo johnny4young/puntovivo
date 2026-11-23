@@ -208,7 +208,7 @@ async function openSaleDetails(page: Page, saleNumber: string) {
   await page.getByTestId('sales-open-history').click();
   const historyDrawer = page.getByTestId('sales-history-drawer');
   await expect(historyDrawer).toBeVisible();
-  await historyDrawer.getByPlaceholder('Search by invoice...').fill(saleNumber);
+  await historyDrawer.getByPlaceholder('Search by sale number...').fill(saleNumber);
   const viewButton = historyDrawer.getByRole('button', { name: `View ${saleNumber}` });
   await expect(viewButton).toBeVisible();
   await viewButton.click();

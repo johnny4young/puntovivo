@@ -146,7 +146,7 @@ test('admin receives, sells and traces one exact serialized unit', async ({ page
   await page.goto('/sales');
   await page.getByTestId('sales-open-history').click();
   const historyDrawer = page.getByTestId('sales-history-drawer');
-  await historyDrawer.getByPlaceholder('Search by invoice...').fill(saleNumber);
+  await historyDrawer.getByPlaceholder('Search by sale number...').fill(saleNumber);
   await historyDrawer.getByRole('button', { name: `View ${saleNumber}` }).click();
   const saleDetails = page.getByRole('dialog', { name: `Sale ${saleNumber}` });
   await expect(saleDetails).toBeVisible();
