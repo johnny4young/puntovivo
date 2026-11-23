@@ -1,7 +1,7 @@
 /** Record an initial inventory or physical-count entry. */
 import { writeAuditLog } from '../../services/audit-logs.js';
+import { prepareProductReceipt } from '../../services/rebase-product-valuation.js';
 import {
-  adoptProductValuation,
   readProductValuation,
   inventoryMovementValueSnapshot,
 } from '../../services/product-valuation.js';
@@ -146,7 +146,15 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
         })
         .where(and(eq(products.id, input.productId), eq(products.tenantId, ctx.tenantId)))
         .run();
-      adoptProductValuation(tx, valuationBefore);
+      const receiptValue = stockDelta > 0 ? legacyInventoryValue(stockDelta, cost) : 0;
+      prepareProductReceipt(tx, {
+        before: valuationBefore,
+        receipt: { quantity: stockDelta, value: receiptValue, unitCost: cost },
+        actorId: ctx.user.id,
+        source: 'inventory_entry',
+        referenceId: entryId,
+        operationId: ctx.envelope?.operationId,
+      });
 
       let movementValue = inventoryMovementValueSnapshot({ inventoryValue: 0, cogsValue: 0 });
       applyInventoryBalanceDelta(tx, {
@@ -157,10 +165,7 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
         // Weighted average: the typed cost values only the units added, in both pools.
         ...(stockDelta > 0
           ? {
-              valueDelta: {
-                inventoryValue: legacyInventoryValue(stockDelta, cost),
-                cogsValue: legacyInventoryValue(stockDelta, cost),
-              },
+              valueDelta: { inventoryValue: receiptValue, cogsValue: receiptValue },
             }
           : {}),
         onValueDelta: values => {

@@ -171,4 +171,75 @@ describe('catalog weighted average valuation', () => {
     });
     expect(pools(id)).toEqual({ inventory: 10_000, cogs: 10_000 });
   });
+
+  /** Five units oversold at cost 10: pool -5 / -50 in both pools. */
+  function oversold() {
+    const db = getDatabase();
+    const id = nanoid();
+    db.insert(products)
+      .values({
+        id,
+        tenantId,
+        name: 'Oversold',
+        sku: nanoid(),
+        price: 30,
+        cost: 10,
+        initialCost: 10,
+        inventoryValueCents: -5000,
+        cogsValueCents: -5000,
+        valuationQuantity: -5,
+      })
+      .run();
+    db.insert(unitXProduct)
+      .values({ id: nanoid(), productId: id, unitId, equivalence: 1, price: 30, isBase: true })
+      .run();
+    db.insert(inventoryBalances)
+      .values({ id: nanoid(), tenantId, siteId, productId: id, onHand: -5 })
+      .run();
+    return id;
+  }
+
+  it.each([false, true])(
+    'empties the pool when a receipt at another cost covers the shortfall (from order=%s)',
+    async fromOrder => {
+      const id = oversold();
+      const item = { productId: id, unitId, quantity: 5, costPerUnit: 12 };
+      if (fromOrder) {
+        const order = await caller().orders.create({ providerId, items: [item] });
+        await caller().purchases.createFromOrder({
+          orderId: order.id,
+          items: [{ orderItemId: order.items[0]!.id, quantity: 5 }],
+        });
+      } else {
+        await caller().purchases.create({ providerId, items: [item] });
+      }
+      expect(pools(id)).toEqual({ inventory: 0, cogs: 0 });
+      expect(revaluations(id)[0]!.metadata).toMatchObject({
+        inventoryDeltaCents: -1000,
+        cogsDeltaCents: -1000,
+      });
+    }
+  );
+
+  it('empties the pool when an entry at another cost brings stock back to zero', async () => {
+    const id = oversold();
+    await caller().inventory.recordEntry({
+      productId: id,
+      unitId,
+      mode: 'initial',
+      quantity: 5,
+      cost: 12,
+    });
+    expect(pools(id)).toEqual({ inventory: 0, cogs: 0 });
+  });
+
+  it('prices the shortfall at the receipt cost instead of averaging it in', async () => {
+    const id = oversold();
+    await caller().purchases.create({
+      providerId,
+      items: [{ productId: id, unitId, quantity: 10, costPerUnit: 20 }],
+    });
+    // 5 units left at 20 each
+    expect(pools(id)).toEqual({ inventory: 10_000, cogs: 10_000 });
+  });
 });

@@ -1,6 +1,7 @@
 import { inventoryValueGuard } from '../../services/inventory-value-errors.js';
 import { toInventoryCents } from '../../services/inventory-valuation.js';
-import { adoptProductValuation, readProductValuation } from '../../services/product-valuation.js';
+import { readProductValuation } from '../../services/product-valuation.js';
+import { prepareProductReceipt } from '../../services/rebase-product-valuation.js';
 /**
  * Create a completed purchase (immediate stock-in).
  *
@@ -199,7 +200,18 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
           .where(and(eq(products.id, row.productId), eq(products.tenantId, ctx.tenantId)))
           .run();
 
-        adoptProductValuation(tx, valuationBefore);
+        prepareProductReceipt(tx, {
+          before: valuationBefore,
+          receipt: {
+            quantity: row.normalizedQuantity,
+            value: row.total,
+            unitCost: row.baseUnitCost,
+          },
+          actorId: ctx.user.id,
+          source: 'purchase',
+          referenceId: purchaseId,
+          operationId: ctx.envelope.operationId,
+        });
 
         applyInventoryBalanceDelta(tx, {
           tenantId: ctx.tenantId,

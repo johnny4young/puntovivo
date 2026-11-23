@@ -1,6 +1,7 @@
 import { inventoryValueGuard } from '../../services/inventory-value-errors.js';
 import { toInventoryCents } from '../../services/inventory-valuation.js';
-import { adoptProductValuation, readProductValuation } from '../../services/product-valuation.js';
+import { readProductValuation } from '../../services/product-valuation.js';
+import { prepareProductReceipt } from '../../services/rebase-product-valuation.js';
 /**
  * Receive a purchase against an existing order (full or partial receipt).
  *
@@ -303,7 +304,18 @@ export async function createPurchaseFromOrder(
           .where(and(eq(products.id, row.productId), eq(products.tenantId, ctx.tenantId)))
           .run();
 
-        adoptProductValuation(tx, valuationBefore);
+        prepareProductReceipt(tx, {
+          before: valuationBefore,
+          receipt: {
+            quantity: row.normalizedQuantity,
+            value: row.total,
+            unitCost: row.baseUnitCost,
+          },
+          actorId: ctx.user.id,
+          source: 'order_receipt',
+          referenceId: purchaseId,
+          operationId: ctx.envelope.operationId,
+        });
 
         applyInventoryBalanceDelta(tx, {
           tenantId: ctx.tenantId,
