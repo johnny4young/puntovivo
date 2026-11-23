@@ -382,7 +382,8 @@ export async function resolveFiscalDocumentSnapshot(
       serviceChargeAmount: saleReturns.serviceChargeAmount,
       taxAmount: saleReturns.taxAmount,
       discountAmount: saleReturns.discountAmount,
-      total: saleReturns.refundAmount,
+      refundAmount: saleReturns.refundAmount,
+      roundingAdjustment: saleReturns.roundingAdjustment,
     })
     .from(saleReturns)
     .where(
@@ -394,6 +395,7 @@ export async function resolveFiscalDocumentSnapshot(
     )
     .get();
   if (!header) return { amounts: input.sale, lines: [] };
+  const returnTotal = roundMoney(header.refundAmount - header.roundingAdjustment);
   const lines = await resolveReturnLines(tx, input.tenantId, input.sourceId, {
     tipAmount: header.tipAmount,
     serviceChargeAmount: header.serviceChargeAmount,
@@ -404,7 +406,7 @@ export async function resolveFiscalDocumentSnapshot(
         subtotal: header.subtotal,
         taxAmount: header.taxAmount,
         discountAmount: header.discountAmount,
-        total: header.total,
+        total: returnTotal,
       },
       lines: [],
     };
@@ -420,7 +422,7 @@ export async function resolveFiscalDocumentSnapshot(
       subtotal: lines.reduce((sum, line) => roundMoney(sum + line.lineTotal - line.taxAmount), 0),
       taxAmount: header.taxAmount,
       discountAmount: header.discountAmount,
-      total: header.total,
+      total: returnTotal,
     },
     lines,
   };

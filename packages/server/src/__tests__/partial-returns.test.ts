@@ -1253,72 +1253,86 @@ describe('normalized partial returns', () => {
 
   it('absorbs final cents deterministically across tiny split tenders', async () => {
     const db = getDatabase();
-    const productId = await seedProduct({ name: 'Final-cent widget', price: 0.01, stock: 3 });
-    const completed = await completeSale(context(), {
-      mode: 'fresh',
-      customerId: null,
-      items: [{ productId, unitId, quantity: 3, unitPrice: 0.01, discount: 0 }],
-      payments: [
-        { method: 'cash', amount: 0.01, reference: null },
-        { method: 'cash', amount: 0.01, reference: null },
-        { method: 'cash', amount: 0.01, reference: null },
-      ],
-      paymentMethod: 'cash',
-      paymentStatus: 'paid',
-      status: 'completed',
-      discountAmount: 0,
-    });
-    const saleId = (completed.sale as { id: string }).id;
-    const lineId = await saleLineId(saleId);
+    // Cent tenders only exist in a two-decimal currency; COP would round them to pesos.
+    await db
+      .update(tenants)
+      .set({ defaultCurrencyCode: 'USD' })
+      .where(eq(tenants.id, tenantId))
+      .run();
+    try {
+      const productId = await seedProduct({ name: 'Final-cent widget', price: 0.01, stock: 3 });
+      const completed = await completeSale(context(), {
+        mode: 'fresh',
+        customerId: null,
+        items: [{ productId, unitId, quantity: 3, unitPrice: 0.01, discount: 0 }],
+        payments: [
+          { method: 'cash', amount: 0.01, reference: null },
+          { method: 'cash', amount: 0.01, reference: null },
+          { method: 'cash', amount: 0.01, reference: null },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        discountAmount: 0,
+      });
+      const saleId = (completed.sale as { id: string }).id;
+      const lineId = await saleLineId(saleId);
 
-    await returnSale(context(), {
-      id: saleId,
-      items: [{ saleItemId: lineId, quantity: 1 }],
-    });
-    const firstReturn = await db
-      .select({ id: saleReturns.id })
-      .from(saleReturns)
-      .where(and(eq(saleReturns.tenantId, tenantId), eq(saleReturns.saleId, saleId)))
-      .get();
-    if (!firstReturn) throw new Error('Expected first final-cent return');
-    const firstAllocations = await db
-      .select({ amount: saleReturnPaymentAllocations.amount })
-      .from(saleReturnPaymentAllocations)
-      .where(eq(saleReturnPaymentAllocations.saleReturnId, firstReturn.id))
-      .all();
-    expect(firstAllocations.reduce((sum, row) => sum + row.amount, 0)).toBe(0.01);
+      await returnSale(context(), {
+        id: saleId,
+        items: [{ saleItemId: lineId, quantity: 1 }],
+      });
+      const firstReturn = await db
+        .select({ id: saleReturns.id })
+        .from(saleReturns)
+        .where(and(eq(saleReturns.tenantId, tenantId), eq(saleReturns.saleId, saleId)))
+        .get();
+      if (!firstReturn) throw new Error('Expected first final-cent return');
+      const firstAllocations = await db
+        .select({ amount: saleReturnPaymentAllocations.amount })
+        .from(saleReturnPaymentAllocations)
+        .where(eq(saleReturnPaymentAllocations.saleReturnId, firstReturn.id))
+        .all();
+      expect(firstAllocations.reduce((sum, row) => sum + row.amount, 0)).toBe(0.01);
 
-    // Do not skip the middle boundary by refunding both remaining units at
-    // once: the old cumulative targets fell from one cent to zero there.
-    for (let returned = 2; returned <= 3; returned += 1) {
-      const refundCaller = appRouter.createCaller(callerContext());
-      const input = { id: saleId, items: [{ saleItemId: lineId, quantity: 1 }] };
-      const response = await refundCaller.sales.returnSale(input);
-      expect(await refundCaller.sales.returnSale(input)).toEqual(response);
-      expect(
-        await db.select().from(saleReturns).where(eq(saleReturns.saleId, saleId)).all()
-      ).toHaveLength(returned);
-      expect(await getProductStockTotal(db, tenantId, productId)).toBe(returned);
+      // Do not skip the middle boundary by refunding both remaining units at
+      // once: the old cumulative targets fell from one cent to zero there.
+      for (let returned = 2; returned <= 3; returned += 1) {
+        const refundCaller = appRouter.createCaller(callerContext());
+        const input = { id: saleId, items: [{ saleItemId: lineId, quantity: 1 }] };
+        const response = await refundCaller.sales.returnSale(input);
+        expect(await refundCaller.sales.returnSale(input)).toEqual(response);
+        expect(
+          await db.select().from(saleReturns).where(eq(saleReturns.saleId, saleId)).all()
+        ).toHaveLength(returned);
+        expect(await getProductStockTotal(db, tenantId, productId)).toBe(returned);
+      }
+      const allAllocations = await db
+        .select({
+          amount: saleReturnPaymentAllocations.amount,
+          paymentId: saleReturnPaymentAllocations.salePaymentId,
+        })
+        .from(saleReturnPaymentAllocations)
+        .innerJoin(saleReturns, eq(saleReturnPaymentAllocations.saleReturnId, saleReturns.id))
+        .where(and(eq(saleReturns.tenantId, tenantId), eq(saleReturns.saleId, saleId)))
+        .all();
+      expect(allAllocations.reduce((sum, row) => sum + row.amount, 0)).toBeCloseTo(0.03, 8);
+      const refundedByPayment = new Map<string | null, number>();
+      for (const allocation of allAllocations) {
+        expect(allocation.amount).toBeGreaterThan(0);
+        refundedByPayment.set(
+          allocation.paymentId,
+          (refundedByPayment.get(allocation.paymentId) ?? 0) + allocation.amount
+        );
+      }
+      expect([...refundedByPayment.values()]).toEqual([0.01, 0.01, 0.01]);
+    } finally {
+      await db
+        .update(tenants)
+        .set({ defaultCurrencyCode: 'COP' })
+        .where(eq(tenants.id, tenantId))
+        .run();
     }
-    const allAllocations = await db
-      .select({
-        amount: saleReturnPaymentAllocations.amount,
-        paymentId: saleReturnPaymentAllocations.salePaymentId,
-      })
-      .from(saleReturnPaymentAllocations)
-      .innerJoin(saleReturns, eq(saleReturnPaymentAllocations.saleReturnId, saleReturns.id))
-      .where(and(eq(saleReturns.tenantId, tenantId), eq(saleReturns.saleId, saleId)))
-      .all();
-    expect(allAllocations.reduce((sum, row) => sum + row.amount, 0)).toBeCloseTo(0.03, 8);
-    const refundedByPayment = new Map<string | null, number>();
-    for (const allocation of allAllocations) {
-      expect(allocation.amount).toBeGreaterThan(0);
-      refundedByPayment.set(
-        allocation.paymentId,
-        (refundedByPayment.get(allocation.paymentId) ?? 0) + allocation.amount
-      );
-    }
-    expect([...refundedByPayment.values()]).toEqual([0.01, 0.01, 0.01]);
   });
 
   it('requires external evidence before claiming a card refund', async () => {
@@ -1747,7 +1761,7 @@ describe('normalized partial returns', () => {
         .from(saleReturns)
         .where(and(eq(saleReturns.tenantId, tenantId), eq(saleReturns.saleId, saleId)))
         .get()
-    ).toEqual({ discount: 396.67, refund: 11503.33 });
+    ).toEqual({ discount: 396.67, refund: 11503 });
     expect(readProfit()).toMatchObject({ revenue: 19206.67, cogs: 12000, grossProfit: 7206.67 });
     await returnSale(context(), { id: saleId, items: [{ saleItemId: lineId, quantity: 2 }] });
     expect(readProfit()).toBeUndefined();

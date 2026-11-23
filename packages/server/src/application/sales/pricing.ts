@@ -21,7 +21,7 @@
 
 import type { DatabaseInstance } from '../../db/index.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { roundMoney } from '../../lib/money.js';
+import { resolvePayableTotal, roundMoney } from '../../lib/money.js';
 import { assertServiceChargeMatchesTenant } from '../../services/restaurant/settings.js';
 import {
   getCashCollectedAmount,
@@ -50,7 +50,11 @@ export interface FreshSaleTotals {
   tipMethod: SaleTipMethod | null;
   serviceChargeAmount: number;
   serviceChargeRate: number | null;
+  /** 2-decimal sum of the parts; fiscal documents and quotations compare against this. */
+  grossTotal: number;
+  /** Payable total, rounded to the currency's payable unit. */
   total: number;
+  roundingAdjustment: number;
 }
 
 /**
@@ -80,6 +84,7 @@ export async function resolveFreshSaleTotals(args: {
   tipMethod: SaleTipMethod | null | undefined;
   serviceChargeAmount: number | undefined;
   status: FreshSaleStatus;
+  currencyCode: string;
 }): Promise<FreshSaleTotals> {
   const { db, tenantId, status } = args;
 
@@ -124,7 +129,12 @@ export async function resolveFreshSaleTotals(args: {
     });
     serviceChargeRate = serviceChargeAmount > 0 ? restaurantSettings.serviceChargeRate : null;
   }
-  const total = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
+  const grossTotal = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
+  // A draft keeps its gross total; completion re-derives the payable one.
+  const { total, roundingAdjustment } =
+    status === 'draft'
+      ? { total: grossTotal, roundingAdjustment: 0 }
+      : resolvePayableTotal(grossTotal, args.currencyCode);
 
   return {
     subtotal,
@@ -134,7 +144,9 @@ export async function resolveFreshSaleTotals(args: {
     tipMethod,
     serviceChargeAmount,
     serviceChargeRate,
+    grossTotal,
     total,
+    roundingAdjustment,
   };
 }
 

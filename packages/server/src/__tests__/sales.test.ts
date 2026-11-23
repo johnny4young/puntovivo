@@ -459,8 +459,10 @@ describe('Sales tRPC Router', () => {
     expect(result.paymentStatus).toBe('paid');
     expect(result.subtotal).toBeCloseTo(20);
     expect(result.taxAmount).toBeCloseTo(3.8);
-    expect(result.total).toBeCloseTo(23.8);
-    expect(result.change).toBeCloseTo(6.2);
+    // A COP tenant charges whole pesos; the 0.20 lives on the rounding adjustment.
+    expect(result.total).toBe(24);
+    expect(result.roundingAdjustment).toBe(0.2);
+    expect(result.change).toBe(6);
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toMatchObject({
       productId,

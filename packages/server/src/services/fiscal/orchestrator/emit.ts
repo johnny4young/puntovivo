@@ -8,6 +8,7 @@
  * @module services/fiscal/orchestrator/emit
  */
 import { and, eq } from 'drizzle-orm';
+import { roundMoney } from '../../../lib/money.js';
 import {
   assertFiscalTaxHeaderParity,
   sumTaxTotals,
@@ -125,6 +126,7 @@ export async function emitFiscalDocument(
       taxAmount: sales.taxAmount,
       discountAmount: sales.discountAmount,
       total: sales.total,
+      roundingAdjustment: sales.roundingAdjustment,
     })
     .from(sales)
     .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
@@ -169,7 +171,8 @@ export async function emitFiscalDocument(
       subtotal: sale.subtotal,
       taxAmount: sale.taxAmount,
       discountAmount: sale.discountAmount,
-      total: sale.total,
+      // The document carries the 2-decimal gross; payable rounding is settlement only.
+      total: roundMoney(sale.total - sale.roundingAdjustment),
     },
   });
   const { lines } = documentSnapshot;

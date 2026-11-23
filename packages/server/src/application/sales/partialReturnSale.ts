@@ -1030,6 +1030,7 @@ export async function returnSale(
             discountAmount: committedPlan.discountAmount,
             taxAmount: committedPlan.taxAmount,
             refundAmount: committedPlan.refundAmount,
+            roundingAdjustment: committedPlan.roundingAdjustment,
             currencyCode: current.currencyCode,
             reason: input.reason ?? null,
             createdBy: ctx.user.id,

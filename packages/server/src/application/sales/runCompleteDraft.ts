@@ -34,7 +34,7 @@ import {
   unitXProduct,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { roundMoney } from '../../lib/money.js';
+import { resolvePayableTotal, roundMoney } from '../../lib/money.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   evaluateCheckoutLossPrevention,
@@ -412,7 +412,11 @@ export async function runCompleteDraft(
     serviceChargeAmount,
   });
   const serviceChargeRate = serviceChargeAmount > 0 ? restaurantSettings.serviceChargeRate : null;
-  const total = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
+  const grossTotal = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
+  const { total, roundingAdjustment } = resolvePayableTotal(
+    grossTotal,
+    existing.currencyCode ?? 'COP'
+  );
 
   // resolve the tender list (split or legacy),
   // payment status, change, and cash collected. The draft is always
@@ -503,7 +507,7 @@ export async function runCompleteDraft(
       subtotal: draftSubtotal,
       taxAmount: draftTaxAmount,
       discountAmount: existing.discountAmount ?? 0,
-      total,
+      total: grossTotal,
     },
     lines: fiscalLines,
     completedAt: now,
@@ -827,6 +831,7 @@ export async function runCompleteDraft(
             subtotal: draftSubtotal,
             taxAmount: draftTaxAmount,
             total,
+            roundingAdjustment,
             ...checkoutTiming,
             syncStatus: 'pending',
             syncVersion: nextSyncVersion,
