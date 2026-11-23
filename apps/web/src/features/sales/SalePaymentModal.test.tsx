@@ -313,6 +313,22 @@ describe('SalePaymentModal — stable drawer shell', () => {
     );
   });
 
+  it('charges whole pesos for a fractional COP total and names the rounding', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => undefined);
+    render(<SalePaymentModal {...createProps({ total: 3737.5, currencyCode: 'COP', onSubmit })} />);
+    expect(screen.getByRole('status', { name: 'Sale total' })).toHaveTextContent(
+      formatCurrency(3738)
+    );
+    expect(screen.getByTestId('sale-payment-total-detail')).toHaveTextContent('Rounding $0.50');
+    const amountInput = screen.getByLabelText(/Amount received/i) as HTMLInputElement;
+    await waitFor(() => expect(amountInput.value).toBe('3738'));
+
+    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    const submitted = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
+    expect(submitted.amountReceived).toBe(3738);
+  });
+
   beforeAll(async () => {
     await i18next.changeLanguage('en');
   });

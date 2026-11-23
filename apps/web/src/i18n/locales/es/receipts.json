@@ -50,6 +50,7 @@
     "subtotal": "Subtotal",
     "tax": "Impuesto",
     "discount": "Descuento",
+    "rounding": "Redondeo",
     "cashReceived": "Efectivo recibido",
     "change": "Cambio",
     "tenders": "Medios de pago",

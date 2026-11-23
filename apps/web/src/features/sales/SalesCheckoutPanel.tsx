@@ -20,6 +20,8 @@ import { useHardwareCopy } from '@/features/sales/useHardwareCopy';
 import { initialsOf } from '@/features/sales/handoff/handoffModel';
 
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
+import { useResolvedLocale } from '@/features/locale/LocaleProvider';
+import { getPayableCartTotal } from '@/features/sales/saleCartTotals';
 import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
 import { roundMoney } from '@/lib/money';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
@@ -187,7 +189,9 @@ export function SalesCheckoutPanel({
   const isReady = canFastCash && visiblePreflightItems.length === 0;
   // Unavailable Suspend stays out of the tab order: a disabled key fails contrast.
   const showSuspendAction = !!onSuspend && canSuspend;
-  const totalText = formatCurrency(draftSummary.total);
+  const { currency } = useResolvedLocale();
+  const payable = getPayableCartTotal(draftSummary, currency);
+  const totalText = formatCurrency(payable.total);
   const consumptionTax = draftSummary.consumptionTaxAmount ?? 0;
   const vatAmount = roundMoney(draftSummary.taxAmount - consumptionTax);
   const creditKeyShown = !!cashSession && showsCreditKey;
@@ -292,6 +296,12 @@ export function SalesCheckoutPanel({
               <div data-testid="checkout-consumption-tax">
                 <dt>{t('sell.total.consumptionTaxIncluded')}</dt>
                 <dd>{formatCurrency(consumptionTax)}</dd>
+              </div>
+            )}
+            {payable.roundingAdjustment !== 0 && (
+              <div data-testid="checkout-rounding">
+                <dt>{t('sell.total.rounding')}</dt>
+                <dd>{formatCurrency(payable.roundingAdjustment, undefined, undefined, 2)}</dd>
               </div>
             )}
           </dl>

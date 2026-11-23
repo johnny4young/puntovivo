@@ -347,6 +347,7 @@
     },
     "consumption": "Consumption {{amount}}",
     "consumptionTaxIncluded": "Consumption tax included {{amount}}",
+    "rounding": "Rounding {{amount}}",
     "serviceCharge": {
       "heading": "Service charge",
       "helper": "Auto-applied to the subtotal.",
@@ -959,7 +960,8 @@
       "prescriptions": "{{count}} with prescription",
       "savings": "Discounts",
       "taxIncluded": "Tax included",
-      "consumptionTaxIncluded": "Consumption tax included"
+      "consumptionTaxIncluded": "Consumption tax included",
+      "rounding": "Rounding"
     },
     "ready": {
       "title": "Ready to charge",

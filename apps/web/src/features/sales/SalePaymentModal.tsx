@@ -109,6 +109,7 @@ export function SalePaymentModal({
     serviceChargeAmount,
     tipAmount,
     grandTotal,
+    roundingAdjustment,
     amountReceivedValue,
     change,
     outstanding,
@@ -219,6 +220,13 @@ export function SalePaymentModal({
     // Promotions reprice lines after the cart computed its tax.
     ...(consumptionTaxAmount > 0 && promotionDiscountAmount === 0
       ? [t('payment.consumptionTaxIncluded', { amount: formatCurrency(consumptionTaxAmount) })]
+      : []),
+    ...(roundingAdjustment !== 0
+      ? [
+          t('payment.rounding', {
+            amount: formatCurrency(roundingAdjustment, undefined, undefined, 2),
+          }),
+        ]
       : []),
   ];
 

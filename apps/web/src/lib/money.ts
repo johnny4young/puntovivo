@@ -7,4 +7,10 @@
  * this import path preserves existing call sites while
  * `@puntovivo/shared/money` owns the cross-runtime implementation.
  */
-export { roundMoney } from '@puntovivo/shared/money';
+export {
+  payableDecimals,
+  resolvePayableTotal,
+  roundMoney,
+  roundPayable,
+  type PayableTotal,
+} from '@puntovivo/shared/money';

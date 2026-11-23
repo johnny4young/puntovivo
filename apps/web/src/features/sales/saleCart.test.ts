@@ -18,6 +18,7 @@ import {
   areSerialSelectionsComplete,
   getCartSummary,
   getLineTotals,
+  getPayableCartTotal,
 } from '@/features/sales/saleCartTotals';
 import { getCartDiscountAmount, isCartPriceOverride } from '@/features/sales/saleApprovalPricing';
 import type { ProductSearchSelection } from '@/types';
@@ -333,6 +334,17 @@ describe('saleCart core helpers', () => {
     // Second line: total=100, taxAmount=0, subtotal=100
     expect(summary.subtotal).toBeCloseTo(184.03, 2);
     expect(summary.taxAmount).toBeCloseTo(15.97, 2);
+  });
+
+  it('getPayableCartTotal charges whole pesos for a fractional weight, like the server', () => {
+    // 1.25 kg x 2,990 COP = 3,737.50
+    const summary = getCartSummary(
+      [makeItem({ quantity: 1.25, unitPrice: 2990, taxRate: 0, sellByFraction: true })],
+      true
+    );
+    expect(summary.total).toBe(3737.5);
+    expect(getPayableCartTotal(summary, 'COP')).toEqual({ total: 3738, roundingAdjustment: 0.5 });
+    expect(getPayableCartTotal(summary, 'USD')).toEqual({ total: 3737.5, roundingAdjustment: 0 });
   });
 
   it('getLineTotals adds the tax on top in exclusive mode', () => {

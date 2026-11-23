@@ -22,6 +22,7 @@ import { SalesQuickSearchBar } from '@/features/sales/SalesQuickSearchBar';
 import { SalesShortcutStrip } from '@/features/sales/SalesShortcutStrip';
 import { SalesStatusPills } from '@/features/sales/SalesStatusPills';
 import { getSalesDockGates } from '@/features/sales/salesDockGates';
+import { getPayableCartTotal } from '@/features/sales/saleCartTotals';
 import { buildRegisterBarActions } from '@/features/sales/registerBarActions';
 import { isTicketCustomerFrozen } from '@/features/sales/useCartWorkspaceStore';
 import type { SalesCommandBar } from '@/features/sales/useSalesCommandBar';
@@ -481,9 +482,13 @@ export function SalesScreen({
         : undefined,
   });
   // Mirrors the charge drawer: quotations carry no service charge.
-  const cashDue = roundMoney(
-    draftSummary.total + percentOf(draftSummary.total, isQuotationCart ? 0 : serviceChargeRate)
-  );
+  const cashDue = getPayableCartTotal(
+    {
+      total:
+        draftSummary.total + percentOf(draftSummary.total, isQuotationCart ? 0 : serviceChargeRate),
+    },
+    currencyCode
+  ).total;
 
   const { sellsOnCredit, account: customerAccount } = useCustomerAccount(ticketCustomerId);
   const pharmacyTicket = usePharmacyTicket(cartItems, ticketCustomerId, currentSite?.id);
@@ -527,7 +532,7 @@ export function SalesScreen({
       <div className="sales-pos-shell flex flex-col gap-3 lg:pb-4 pos:min-h-0 pos:overflow-hidden pos:pb-0">
         <SalesFlowRail
           itemCount={draftSummary.itemCount}
-          total={draftSummary.total}
+          total={getPayableCartTotal(draftSummary, currencyCode).total}
           hasCashSession={!!activeCashSession}
           canOpenCashSession={canOpenCashSession}
           canCharge={canCharge}
