@@ -309,7 +309,7 @@ export async function createPurchaseFromOrder(
           receipt: {
             quantity: row.normalizedQuantity,
             value: row.total,
-            unitCost: row.baseUnitCost,
+            basis: { inventory: row.baseUnitCost, cogs: row.baseUnitCost },
           },
           actorId: ctx.user.id,
           source: 'order_receipt',

@@ -205,7 +205,7 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
           receipt: {
             quantity: row.normalizedQuantity,
             value: row.total,
-            unitCost: row.baseUnitCost,
+            basis: { inventory: row.baseUnitCost, cogs: row.baseUnitCost },
           },
           actorId: ctx.user.id,
           source: 'purchase',

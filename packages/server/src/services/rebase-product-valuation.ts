@@ -1,4 +1,5 @@
 /** Explicit catalog revaluation is not a conservative stock transformation. */
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { inventoryValueGuard } from './inventory-value-errors.js';
 import type { DatabaseInstance } from '../db/index.js';
 import { writeAuditLog } from './audit-logs.js';
@@ -102,34 +103,38 @@ export function rebaseProductValuation(
 /**
  * Prepare a pool for a receipt before its balance update. Oversold units are repriced at the
  * receipt cost so the shortfall neither skews the new average nor leaves value on an empty pool.
+ * A shortfall the receipt does not cover stays on each pool's post-receipt basis, so the next
+ * default credit at that basis cancels it exactly.
  */
 export function prepareProductReceipt(
   db: DatabaseInstance,
   input: RevaluationAudit & {
     before: ProductValuationState | null;
-    receipt: { quantity: number; value: number; unitCost: number };
+    receipt: { quantity: number; value: number; basis: { inventory: number; cogs: number } };
     source: 'purchase' | 'order_receipt' | 'inventory_entry';
   }
 ): void {
   return inventoryValueGuard(() => {
     const before = input.before;
     if (!before) return;
-    if (before.quantity >= 0 || input.receipt.quantity <= 0) {
+    const { receipt } = input;
+    if (before.quantity >= 0 || receipt.quantity <= 0) {
       adoptProductValuation(db, before);
       return;
     }
     const shortfall = -before.quantity;
-    const shortfallValue =
-      shortfall <= input.receipt.quantity
-        ? allocateInventoryValue(input.receipt.value, input.receipt.quantity, shortfall)
-            .consumedValue
-        : legacyInventoryValue(shortfall, input.receipt.unitCost);
+    const covered = shortfall <= receipt.quantity;
+    const uncovered = roundQuantity(shortfall - receipt.quantity, 12);
+    const target = (basis: number) =>
+      covered
+        ? -allocateInventoryValue(receipt.value, receipt.quantity, shortfall).consumedValue
+        : -addInventoryValues(receipt.value, legacyInventoryValue(uncovered, basis));
     applyRevaluation(
       db,
       before,
       {
-        inventoryValue: -shortfallValue,
-        cogsValue: -shortfallValue,
+        inventoryValue: target(receipt.basis.inventory),
+        cogsValue: target(receipt.basis.cogs),
         initialCost: before.initialCost,
         cost: before.cost,
       },

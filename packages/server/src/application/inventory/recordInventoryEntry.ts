@@ -149,7 +149,11 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
       const receiptValue = stockDelta > 0 ? legacyInventoryValue(stockDelta, cost) : 0;
       prepareProductReceipt(tx, {
         before: valuationBefore,
-        receipt: { quantity: stockDelta, value: receiptValue, unitCost: cost },
+        receipt: {
+          quantity: stockDelta,
+          value: receiptValue,
+          basis: { inventory: cost, cogs: product.cost },
+        },
         actorId: ctx.user.id,
         source: 'inventory_entry',
         referenceId: entryId,

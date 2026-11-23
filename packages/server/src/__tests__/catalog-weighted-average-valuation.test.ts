@@ -173,9 +173,10 @@ describe('catalog weighted average valuation', () => {
   });
 
   /** Five units oversold at cost 10: pool -5 / -50 in both pools. */
-  function oversold() {
+  function oversold(quantity = 5, cost = 10) {
     const db = getDatabase();
     const id = nanoid();
+    const cents = -quantity * cost * 100;
     db.insert(products)
       .values({
         id,
@@ -183,21 +184,60 @@ describe('catalog weighted average valuation', () => {
         name: 'Oversold',
         sku: nanoid(),
         price: 30,
-        cost: 10,
-        initialCost: 10,
-        inventoryValueCents: -5000,
-        cogsValueCents: -5000,
-        valuationQuantity: -5,
+        cost,
+        initialCost: cost,
+        inventoryValueCents: cents,
+        cogsValueCents: cents,
+        valuationQuantity: -quantity,
       })
       .run();
     db.insert(unitXProduct)
       .values({ id: nanoid(), productId: id, unitId, equivalence: 1, price: 30, isBase: true })
       .run();
     db.insert(inventoryBalances)
-      .values({ id: nanoid(), tenantId, siteId, productId: id, onHand: -5 })
+      .values({ id: nanoid(), tenantId, siteId, productId: id, onHand: -quantity })
       .run();
     return id;
   }
+
+  async function adjustToZero(id: string) {
+    const current = getDatabase().select().from(products).where(eq(products.id, id)).get()!;
+    await caller().products.update({ id, version: current.version, stock: 0 });
+    expect(pools(id)).toEqual({ inventory: 0, cogs: 0 });
+  }
+
+  it('keeps an uncovered shortfall on the converted receipt basis', async () => {
+    const id = oversold(4, 5);
+    const boxUnitId = getDatabase()
+      .select()
+      .from(units)
+      .where(eq(units.tenantId, tenantId))
+      .all()
+      .find(unit => unit.id !== unitId && unit.isActive !== false)!.id;
+    getDatabase()
+      .insert(unitXProduct)
+      .values({ id: nanoid(), productId: id, unitId: boxUnitId, equivalence: 3, price: 90 })
+      .run();
+    await caller().purchases.create({
+      providerId,
+      items: [{ productId: id, unitId: boxUnitId, quantity: 1, costPerUnit: 10 }],
+    });
+    expect(pools(id)).toEqual({ inventory: -333, cogs: -333 });
+    await adjustToZero(id);
+  });
+
+  it('keeps an uncovered entry shortfall on each pool basis', async () => {
+    const id = oversold();
+    await caller().inventory.recordEntry({
+      productId: id,
+      unitId,
+      mode: 'initial',
+      quantity: 2,
+      cost: 8,
+    });
+    expect(pools(id)).toEqual({ inventory: -2400, cogs: -3000 });
+    await adjustToZero(id);
+  });
 
   it.each([false, true])(
     'empties the pool when a receipt at another cost covers the shortfall (from order=%s)',
