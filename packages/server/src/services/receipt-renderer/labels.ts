@@ -46,6 +46,7 @@ export const DEFAULT_RECEIPT_RENDER_LABELS: ReceiptRenderLabels = {
     taxInc: 'INC',
     tip: 'Tip',
     serviceCharge: 'Service',
+    rounding: 'Rounding',
     grandTotal: 'Total',
   },
   tendersTable: {

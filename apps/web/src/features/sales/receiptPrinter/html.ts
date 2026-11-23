@@ -445,6 +445,11 @@ export async function buildSaleReceiptHtml(
                   `
                   : ''
               }
+              ${
+                sale.roundingAdjustment
+                  ? `<div class="summary-row"><span class="muted">${escapeHtml(t('receipts:fallback.rounding'))}</span><span>${escapeHtml(formatCurrency(sale.roundingAdjustment, undefined, undefined, 2))}</span></div>`
+                  : ''
+              }
               <div class="summary-row total-row">
                 <span>${escapeHtml(t('receipts:fallback.total'))}</span>
                 <span>${escapeHtml(formatCurrency(sale.total))}</span>

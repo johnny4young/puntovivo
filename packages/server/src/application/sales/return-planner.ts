@@ -29,7 +29,7 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import type { ServerErrorCode } from '../../lib/errorCodes.js';
-import { roundMoney } from '../../lib/money.js';
+import { payableDecimals, roundMoney, roundPayable } from '../../lib/money.js';
 import {
   addInventoryValues,
   allocateInventoryValue,
@@ -138,6 +138,10 @@ export interface ReturnPlan {
   discountAmount: number;
   taxAmount: number;
   refundAmount: number;
+  /** Merchandise and header shares at 2 decimals; the credit note carries this. */
+  grossRefundAmount: number;
+  /** Part of refundAmount that snaps it to the sale currency's payable unit. */
+  roundingAdjustment: number;
   cashAmount: number;
   externalAmount: number;
   receivableAmount: number;
@@ -965,10 +969,35 @@ export function buildReturnPlan(
   const headerDiscountAmount = allocateHeaderDelta(sale.discountAmount);
   const tipAmount = allocateHeaderDelta(sale.tipAmount);
   const serviceChargeAmount = allocateHeaderDelta(sale.serviceChargeAmount);
+  const grossRefundAmount = roundMoney(
+    lineRefundAmount - headerDiscountAmount + tipAmount + serviceChargeAmount
+  );
+  // A sale paid in whole units refunds whole units. Rounding the cumulative
+  // target, not each share, keeps a run of partial returns from drifting.
+  const wholeUnitCurrency = payableDecimals(sale.currencyCode) < 2;
+  const cumulativeShare = (original: number) => {
+    if (allLineQuantitiesReturned) return roundMoney(original);
+    if (originalLineAmount <= EPSILON) return 0;
+    const after = priorReturnedLineAmount + lineRefundAmount;
+    return roundMoney(original * Math.min(1, after / originalLineAmount));
+  };
+  const cumulativeRefundTarget = roundMoney(
+    priorReturnedLineAmount +
+      lineRefundAmount -
+      cumulativeShare(sale.discountAmount) +
+      cumulativeShare(sale.tipAmount) +
+      cumulativeShare(sale.serviceChargeAmount) +
+      cumulativeShare(sale.roundingAdjustment)
+  );
   const refundAmount = Math.min(
-    roundMoney(lineRefundAmount - headerDiscountAmount + tipAmount + serviceChargeAmount),
+    wholeUnitCurrency
+      ? allLineQuantitiesReturned
+        ? remainingSaleAmount
+        : roundMoney(roundPayable(cumulativeRefundTarget, sale.currencyCode) - priorRefundAmount)
+      : grossRefundAmount,
     remainingSaleAmount
   );
+  const roundingAdjustment = wholeUnitCurrency ? roundMoney(refundAmount - grossRefundAmount) : 0;
   // Zero-value merchandise is still physically returnable. This occurs with
   // free bundle items and fully discounted lines, including after another
   // partial return already exhausted the ticket's paid balance. Persist the
@@ -1081,10 +1110,20 @@ export function buildReturnPlan(
     const prior = priorByPayment.get(source.id ?? `legacy:${source.method}`) ?? 0;
     return Math.round(roundMoney(source.amount - prior) * 100);
   });
-  const allocationCents = allocateReturnTenderCents(
-    Math.round(refundAmount * 100),
-    remainingTenderCents
-  );
+  // Split in whole payable units when every balance allows it, so a peso
+  // refund never hands back fractions of a peso on one tender.
+  const unitCents = 10 ** (2 - Math.min(2, payableDecimals(sale.currencyCode)));
+  const refundCents = Math.round(refundAmount * 100);
+  const allocationUnit = [refundCents, ...remainingTenderCents].every(
+    value => value % unitCents === 0
+  )
+    ? unitCents
+    : 1;
+  const allocationCents =
+    allocateReturnTenderCents(
+      refundCents / allocationUnit,
+      remainingTenderCents.map(value => value / allocationUnit)
+    )?.map(value => value * allocationUnit) ?? null;
   if (
     allocationCents === null ||
     remainingTenderCents.reduce((sum, value) => sum + value, 0) !==
@@ -1165,6 +1204,8 @@ export function buildReturnPlan(
     discountAmount: headerDiscountAmount,
     taxAmount: sumMoney(lines.map(line => line.taxAmount)),
     refundAmount,
+    grossRefundAmount,
+    roundingAdjustment,
     cashAmount: sumMoney(
       allocations.filter(allocation => allocation.destination === 'cash').map(row => row.amount)
     ),

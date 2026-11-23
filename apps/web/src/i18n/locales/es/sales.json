@@ -347,6 +347,7 @@
     },
     "consumption": "Consumo {{amount}}",
     "consumptionTaxIncluded": "Impoconsumo incluido {{amount}}",
+    "rounding": "Redondeo {{amount}}",
     "serviceCharge": {
       "heading": "Servicio",
       "helper": "Se aplica automáticamente al subtotal.",
@@ -355,6 +356,7 @@
     "lockedCustomer": "Cliente de la cotización",
     "confirmPartialAmount": "Confirmar venta con pago parcial · faltan {{amount}}",
     "confirmSplitMissing": "Confirmar venta · faltan {{amount}}",
+    "confirmWholeAmounts": "Use valores enteros, sin centavos",
     "confirmSplitOver": "Confirmar venta · sobran {{amount}}",
     "partialTitle": "Esta venta quedará con pago parcial",
     "partialWarning": "El saldo pendiente es {{amount}}. Confirme solo si desea dejar este saldo sin pagar.",
@@ -959,7 +961,8 @@
       "prescriptions": "{{count}} con fórmula",
       "savings": "Descuentos",
       "taxIncluded": "IVA incluido",
-      "consumptionTaxIncluded": "Impoconsumo incluido"
+      "consumptionTaxIncluded": "Impoconsumo incluido",
+      "rounding": "Redondeo"
     },
     "ready": {
       "title": "Todo listo para cobrar",

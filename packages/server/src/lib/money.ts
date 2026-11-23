@@ -36,10 +36,10 @@
  * iteration (not only at the end) so a long line list does not stack
  * drift across iterations.
  *
- * Out of scope: per-currency exponent (JPY = 0, BHD = 3). Today every
- * LATAM currency we ship uses 2 decimals;  will add
- * `currency_code` per-row and a future iteration can refine to
- * `roundMoney(value, currency_code)` using `currency_catalog.decimals`.
+ * Storage stays 2-decimal for every currency. The one exception is the
+ * PAYABLE total: `resolvePayableTotal` rounds it to the currency's payable
+ * unit (whole pesos for COP / CLP / PYG) and records the difference as the
+ * sale's rounding adjustment; tenders, change and cash follow that total.
  *
  * Negative values round half-away-from-zero too (auditoría 2026-06):
  * `Math.round` alone rounds negative halves toward +infinity
@@ -59,9 +59,14 @@
 import { sql, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 
-import { roundMoney } from '@puntovivo/shared/money';
+import {
+  payableDecimals,
+  resolvePayableTotal,
+  roundMoney,
+  roundPayable,
+} from '@puntovivo/shared/money';
 
-export { roundMoney };
+export { payableDecimals, resolvePayableTotal, roundMoney, roundPayable };
 
 /**
  * Round a value and return it only when its integer-cent representation is

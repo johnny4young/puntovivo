@@ -101,6 +101,9 @@ export const sales = sqliteTable(
     taxAmount: real('tax_amount').notNull().default(0),
     discountAmount: real('discount_amount').notNull().default(0),
     total: real('total').notNull().default(0),
+    // total minus the 2-decimal gross (subtotal + tax - discount + tip +
+    // service): what rounding to the currency's payable unit added or removed.
+    roundingAdjustment: real('rounding_adjustment').notNull().default(0),
     // multi-currency seam. `currencyCode` is the currency
     // the sale was priced in (subtotal/taxAmount/tipAmount/total are
     // all denominated in it). `exchangeRateAtSale` is the factor that

@@ -203,6 +203,22 @@ export function totalsRows(
   labels: ReceiptRenderLabels
 ): ReceiptTotalRow[] {
   return lines.flatMap(line => {
+    if (line === 'grandTotal' && data.sale.rounding) {
+      return [
+        {
+          key: 'rounding',
+          label: labels.totalsLines.rounding ?? 'Rounding',
+          value: data.sale.rounding,
+          isGrandTotal: false,
+        },
+        {
+          key: line,
+          label: totalsLabel(line, labels),
+          value: totalsValue(line, data),
+          isGrandTotal: true,
+        },
+      ];
+    }
     if (line !== 'taxTotal' || !data.sale.taxBreakdown) {
       return [
         {

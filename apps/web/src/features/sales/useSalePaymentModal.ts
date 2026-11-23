@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useRegisterZone } from '@/features/modules/useRegisterZone';
-import { roundMoney } from '@/lib/money';
+import { resolvePayableTotal, roundMoney, roundPayable } from '@/lib/money';
 import { sumBy } from '@/lib/numbers';
 import { trpc } from '@/lib/trpc';
 import { extractServerErrorCode, translateServerError } from '@/lib/translateServerError';
@@ -357,7 +357,11 @@ export function useSalePaymentModal({
     () => percentOf(checkoutBaseTotal, serviceChargeRate),
     [checkoutBaseTotal, serviceChargeRate]
   );
-  const grandTotal = roundMoney(checkoutBaseTotal + serviceChargeAmount + tipAmount);
+  // Same payable-unit rounding the server applies on completion (whole pesos for COP).
+  const { total: grandTotal, roundingAdjustment } = resolvePayableTotal(
+    checkoutBaseTotal + serviceChargeAmount + tipAmount,
+    currencyCode
+  );
   const isCash = paymentMethod === 'cash';
   const isCredit = paymentMethod === 'credit';
   // A single transfer is always the whole total; the voucher reference is what the cashier checks.
@@ -739,7 +743,10 @@ export function useSalePaymentModal({
     // service charge is fixed for the cart; only the tip
     // delta moves grandTotal across calls. Including it keeps the
     // auto-sync of amountReceived / first tender consistent.
-    const nextGrandTotal = roundMoney(checkoutBaseTotal + serviceChargeAmount + nextTipAmount);
+    const nextGrandTotal = resolvePayableTotal(
+      checkoutBaseTotal + serviceChargeAmount + nextTipAmount,
+      currencyCode
+    ).total;
 
     if (splitMode) {
       const currentTenders = form.getValues('tenders');
@@ -837,7 +844,15 @@ export function useSalePaymentModal({
     tendersAreAllPositive &&
     customerValueTenderError === null;
 
+  // Mirrors the server: a whole-unit currency takes no cents in a tender or cash received.
+  const offUnitTender = (
+    splitMode
+      ? tenders.map(tender => Number(tender.amount) || 0)
+      : [...(isCash ? [amountReceivedValue] : []), creditDownPayment]
+  ).some(amount => roundPayable(amount, currencyCode) !== roundMoney(amount));
+
   const canSubmit =
+    !offUnitTender &&
     !isSaving &&
     !promotionQuoteLoading &&
     !promotionQuoteUnavailable &&
@@ -994,6 +1009,7 @@ export function useSalePaymentModal({
     serviceChargeAmount,
     tipAmount,
     grandTotal,
+    roundingAdjustment,
     amountReceivedValue,
     change,
     outstanding,
@@ -1061,6 +1077,7 @@ export function useSalePaymentModal({
     checkoutApprovals: checkoutApprovalState,
     tenderSum,
     tenderDelta,
+    offUnitTender,
     splitIsValid,
     canSubmit,
     handleSubmit,

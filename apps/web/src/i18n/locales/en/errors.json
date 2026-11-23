@@ -82,6 +82,7 @@
     "SALE_FRACTION_POLICY_MISSING": "This product is missing its fraction policy configuration.",
     "SALE_QUANTITY_INVALID": "The quantity must be greater than zero.",
     "SALE_PAYMENTS_SUM_MISMATCH": "The split payments must sum to the sale total.",
+    "SALE_TENDER_NOT_PAYABLE_UNIT": "Payments in this currency must be whole amounts, without cents.",
     "TRANSFER_SITES_IDENTICAL": "Origin and destination sites must be different.",
     "TRANSFER_SITE_NOT_FOUND": "The selected transfer site could not be found or is inactive.",
     "TRANSFER_PRODUCT_NOT_FOUND": "The selected product could not be found or is inactive.",

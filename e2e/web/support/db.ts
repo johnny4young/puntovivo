@@ -693,9 +693,58 @@ export function seedLargeTotalSaleScenario(seed: string): SeededSaleScenario {
   return seedPricedSaleScenario(seed, 123456789);
 }
 
-/** A tiny catalog price exposes cent allocation without fabricating a sale or refund. */
+/**
+ * A tiny catalog price exposes cent allocation without fabricating a sale or
+ * refund. COP pays in whole pesos, so the isolated tenant settles in USD.
+ */
 export function seedCentRefundScenario(seed: string): SeededSaleScenario {
-  return seedPricedSaleScenario(seed, 0.01);
+  const scenario = seedSurfaceGateScenario(seed, {}, 'USD');
+  const db = openDb();
+  try {
+    const now = nowIso();
+    const sites = [scenario.site];
+    const unitId = makeId('e2e_cent_unit');
+    db.prepare(
+      `insert into units (
+        id, tenant_id, name, abbreviation, dimension, standard_code,
+        reference_factor, is_active, created_at, updated_at
+      ) values (?, ?, 'Unit', 'u', 'count', 'H87', 1, 1, ?, ?)`
+    ).run(unitId, scenario.tenantId, now, now);
+    db.prepare(
+      'insert into sequentials (id, tenant_id, site_id, document_type, prefix) values (?, ?, ?, ?, ?)'
+    ).run(makeId('e2e_cent_sequence'), scenario.tenantId, scenario.site.id, 'sale', 'CENT-');
+    const manager = seedBusinessUser(db, {
+      tenantId: scenario.tenantId,
+      sites,
+      role: 'manager',
+      templateEmail: 'e2e.manager@local.test',
+      seed: normalizeSeed(seed),
+    });
+    const product = seedBusinessProduct(db, {
+      tenantId: scenario.tenantId,
+      sites,
+      unitId,
+      seed: normalizeSeed(seed),
+      siteStocks: [SITE_STOCK],
+    });
+    db.prepare('update products set price = 0.01, price2 = 0.01, price3 = 0.01 where id = ?').run(
+      product.id
+    );
+    db.prepare('update unit_x_product set price = 0.01 where product_id = ?').run(product.id);
+    db.prepare(
+      "update tenant_locale_settings set locale_override = 'en-US', currency_override = 'USD' where tenant_id = ?"
+    ).run(scenario.tenantId);
+    return {
+      tenantId: scenario.tenantId,
+      sites,
+      admin: scenario.admin,
+      manager,
+      cashier: manager,
+      product,
+    };
+  } finally {
+    db.close();
+  }
 }
 
 /**
@@ -1000,7 +1049,8 @@ export function seedTransferScenario(seed: string): SeededSaleScenario {
 function seedIsolatedAdminTenant(
   seed: string,
   namespace: 'fiscal' | 'surface',
-  modules: Record<string, boolean>
+  modules: Record<string, boolean>,
+  currencyCode = 'COP'
 ): SeededFiscalProfileScenario {
   const db = openDb();
   try {
@@ -1019,12 +1069,13 @@ function seedIsolatedAdminTenant(
       db.prepare(
         `insert into tenants (
           id, name, slug, settings, default_currency_code, is_active, created_at, updated_at
-        ) values (?, ?, ?, ?, 'COP', 1, ?, ?)`
+        ) values (?, ?, ?, ?, ?, 1, ?, ?)`
       ).run(
         tenantId,
         `E2E ${label} Tenant ${suffix}`,
         `e2e-${namespace}-${suffix}`,
         JSON.stringify({ modules }),
+        currencyCode,
         now,
         now
       );
@@ -1071,9 +1122,10 @@ export function seedFiscalProfileScenario(seed: string): SeededFiscalProfileScen
  */
 export function seedSurfaceGateScenario(
   seed: string,
-  modules: Record<string, boolean>
+  modules: Record<string, boolean>,
+  currencyCode?: string
 ): SeededFiscalProfileScenario {
-  return seedIsolatedAdminTenant(seed, 'surface', modules);
+  return seedIsolatedAdminTenant(seed, 'surface', modules, currencyCode);
 }
 
 /** Printer settings must never enable auto-print for another parallel checkout. */

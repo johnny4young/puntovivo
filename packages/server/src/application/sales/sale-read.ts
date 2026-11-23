@@ -104,6 +104,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       serviceChargeAmount: sales.serviceChargeAmount,
       serviceChargeRate: sales.serviceChargeRate,
       total: sales.total,
+      roundingAdjustment: sales.roundingAdjustment,
       paymentMethod: sales.paymentMethod,
       paymentStatus: sales.paymentStatus,
       returnState: sales.returnState,

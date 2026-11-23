@@ -88,6 +88,8 @@ export interface RenderSale {
   serviceCharge: number;
   /** Percentage active when the sale was finalized (null when disabled). */
   serviceChargeRate?: number | null;
+  /** Payable-unit rounding folded into grandTotal; rendered just above it when non-zero. */
+  rounding?: number | null;
   grandTotal: number;
   changeDue?: number | null;
   cashReceived?: number | null;
@@ -209,6 +211,7 @@ export interface ReceiptRenderLabels {
     taxInc: string;
     tip: string;
     serviceCharge: string;
+    rounding?: string | undefined;
     grandTotal: string;
   };
   tendersTable: {
