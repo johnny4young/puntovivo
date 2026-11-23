@@ -40,6 +40,7 @@
     "lineTotal": "Line Total",
     "currentStock": "Current stock {{count}}",
     "quantityFor": "Quantity for {{name}}",
+    "costFor": "Unit cost for {{name}}",
     "removeItem": "Remove {{name}}",
     "serialNumbers": "Serial numbers",
     "serialNumbersPlaceholder": "One serial number per line",

@@ -12,6 +12,7 @@ import { applyInventoryBalanceDelta, getPrimarySiteId } from '../../services/inv
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { productAuditSnapshot } from '../../services/products/catalog-audit.js';
 import { normalizeProductPricing } from '../../services/pricing.js';
+import { assertGs1CheckDigit } from '../../services/products/barcode-check-digit.js';
 import {
   assertCreateLotTrackingPolicy,
   assertCreateSerialTrackingPolicy,
@@ -61,6 +62,8 @@ async function persistProduct(
     tracksLots: input.tracksLots,
     tracksSerials: input.tracksSerials,
   });
+
+  assertGs1CheckDigit(input.barcode);
 
   const existingSku = await ctx.db
     .select({ id: products.id })
@@ -134,6 +137,11 @@ async function persistProduct(
   const productCurrencyCode = resolveTenantCurrency(ctx.db, ctx.tenantId);
 
   const openingMovementId = input.stock > 0 ? nanoid() : null;
+  // Opening stock with only a cost typed must still carry inventory value.
+  const openingInitialCost =
+    input.initialCost > 0 || input.stock <= 0
+      ? roundMoney(input.initialCost)
+      : normalizedPricing.cost;
   ctx.db.transaction(
     tx => {
       tx.insert(products)
@@ -159,7 +167,7 @@ async function persistProduct(
           vatRateId: taxSummary.vatRateId,
           providerId: normalizedProviderState?.providerId ?? null,
           locationId: resolvedLocationId,
-          initialCost: roundMoney(input.initialCost),
+          initialCost: openingInitialCost,
           currencyCode: productCurrencyCode,
           minStock: input.minStock,
           sellByFraction: resolvedFractionPolicy.sellByFraction,

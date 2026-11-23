@@ -36,7 +36,8 @@ function mapSelectionToForm(selection: ProductSearchSelection | null): Inventory
   return {
     mode: 'initial',
     quantity: 1,
-    cost: selection?.product.initialCost ?? selection?.product.cost ?? 0,
+    // 0 is the unset default for both columns, so it must not win over a real cost.
+    cost: selection?.product.cost || selection?.product.initialCost || 0,
     lotNumber: '',
     expiresAt: '',
     serialNumbers: '',

@@ -56,6 +56,7 @@
     "PRODUCT_FRACTION_MINIMUM_REQUIRED": "Set a minimum sale quantity greater than zero before enabling fractional sales.",
     "PRODUCT_FRACTION_MINIMUM_BELOW_STEP": "The minimum sale quantity must be greater than or equal to the fraction step.",
     "PRODUCT_FRACTION_MINIMUM_NOT_ALIGNED": "The minimum sale quantity must be a multiple of the fraction step.",
+    "PRODUCT_BARCODE_CHECK_DIGIT_INVALID": "The barcode check digit is invalid. Check the code; the register could not scan it.",
     "PRODUCT_LOT_TRACKING_REQUIRES_ZERO_STOCK": "Set this product's stock to zero before enabling lot tracking, then receive each batch through Inventory.",
     "PRODUCT_LOT_TRACKING_STOCK_MANAGED": "Lot-tracked stock must be changed through a lot-aware inventory receipt.",
     "PRODUCT_LOT_TRACKING_REQUIRED": "Enable lot tracking on this product before receiving a batch.",
