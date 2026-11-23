@@ -25,6 +25,7 @@ import { dailyDatedRevenueSql, type DailyRevenueRow } from '../reports/net-sales
 import { listOpenRegisterIncidents, type RegisterIncidentRow } from '../register-incidents.js';
 import { roundMoney } from '../../lib/money.js';
 import { computeNeedsAttention, type OperationsAttentionArea } from './attention.js';
+import { isDianEnabled } from '../fiscal/orchestrator/helpers.js';
 
 export type PendingSeverity = 'blocks' | 'beforeClose' | 'whenPossible';
 const SEVERITY_ORDER: Record<PendingSeverity, number> = {
@@ -136,6 +137,8 @@ export interface OperationsToday {
   } | null;
   awaitingHandoffs: TodayAwaitingHandoff[];
   pending: TodayPendingItem[];
+  /** Whether the business issues electronic invoices at all. */
+  fiscalEnabled: boolean;
 }
 
 function hourWindows(date: string, timezone: string) {
@@ -382,6 +385,7 @@ export async function computeOperationsToday(
     nextHandoff,
     awaitingHandoffs,
     pending: await pending,
+    fiscalEnabled: await isDianEnabled(db, tenantId),
   };
 }
 

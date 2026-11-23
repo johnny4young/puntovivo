@@ -1,7 +1,7 @@
 {
   "card": {
     "title": "Locale and currency",
-    "description": "Pick the country where this business operates. Defaults flow from the global catalog; overrides apply only to this tenant.",
+    "description": "Pick the country where this business operates. Defaults flow from the global catalog; overrides apply only to this business.",
     "countryLabel": "Country",
     "countryPlaceholder": "Select a country",
     "uiNotReadyWarning": "The operator UI does not yet ship a {{language}} bundle. Numbers and dates render correctly; text copy will fall back to Spanish.",

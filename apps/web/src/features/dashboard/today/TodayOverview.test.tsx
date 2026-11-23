@@ -87,6 +87,18 @@ describe('TodayOverview', () => {
     expect(screen.getByTestId('today-status-pill')).toHaveTextContent('DIAN needs a fix');
   });
 
+  it('does not claim DIAN is up to date while electronic invoicing is off', () => {
+    todayData.current = todayFixture({ fiscalEnabled: false, pending: [] });
+    render(<TodayOverview formatCurrency={formatCurrency} />);
+    expect(screen.queryByTestId('today-status-pill')).not.toBeInTheDocument();
+  });
+
+  it('shows DIAN up to date only when invoicing is on and nothing fiscal is pending', () => {
+    todayData.current = todayFixture({ pending: [] });
+    render(<TodayOverview formatCurrency={formatCurrency} />);
+    expect(screen.getByTestId('today-status-pill')).toHaveTextContent('DIAN up to date');
+  });
+
   it('orders the queue by severity and outlines only the first blocking row', () => {
     render(<TodayOverview formatCurrency={formatCurrency} />);
     expect(screen.getByTestId('today-pending-count')).toHaveTextContent('4');

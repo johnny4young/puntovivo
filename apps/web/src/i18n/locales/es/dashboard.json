@@ -29,8 +29,8 @@
       "fallbackLabel": "todas las sedes"
     },
     "ordersToday": {
-      "title": "Pedidos de hoy",
-      "fallbackLabel": "completados hoy"
+      "title": "Número de ventas hoy",
+      "fallbackLabel": "completadas hoy"
     },
     "lowStockAlerts": {
       "title": "Alertas de stock bajo",
@@ -50,7 +50,7 @@
     "chartLabel": "Gráfico de ingresos diarios de los últimos 30 días",
     "empty": "Aún no hay ingresos para representar.",
     "periodTotal": "Total del periodo",
-    "periodOrders": "Pedidos del periodo",
+    "periodOrders": "Ventas del periodo",
     "bestDay": "Mejor día"
   },
   "recentSales": {
@@ -77,8 +77,8 @@
   },
   "unitsSold_one": "{{count}} unidad vendida",
   "unitsSold_other": "{{count}} unidades vendidas",
-  "ordersCount_one": "{{count}} pedido",
-  "ordersCount_other": "{{count}} pedidos",
+  "ordersCount_one": "{{count}} venta",
+  "ordersCount_other": "{{count}} ventas",
   "stockCount_one": "{{count}} en stock",
   "stockCount_other": "{{count}} en stock",
   "today": {

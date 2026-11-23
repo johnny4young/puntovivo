@@ -30,55 +30,69 @@
     },
     "catalog": {
       "label": "Sellable catalog",
-      "hint": "{{count}} active products are available to this business."
+      "hint_one": "{{count}} active product is available to this business.",
+      "hint_other": "{{count}} active products are available to this business."
     },
     "productUnits": {
       "label": "Product units",
-      "hint": "{{count}} active products have at least one configured sales unit."
+      "hint_one": "{{count}} active product has at least one configured sales unit.",
+      "hint_other": "{{count}} active products have at least one configured sales unit."
     },
     "fractionalSales": {
       "label": "Fractional quantities",
-      "hint": "{{count}} products are configured for measured or cut quantities."
+      "hint_one": "{{count}} product is configured for measured or cut quantities.",
+      "hint_other": "{{count}} products are configured for measured or cut quantities."
     },
     "lotTracking": {
       "label": "Lot traceability",
-      "hint": "{{count}} active products require lot-level stock handling."
+      "hint_one": "{{count}} active product requires lot-level stock handling.",
+      "hint_other": "{{count}} active products require lot-level stock handling."
     },
     "serializedInventory": {
       "label": "Serialized inventory",
-      "hint": "{{count}} products preserve one physical identity per sold unit."
+      "hint_one": "{{count}} product preserves one physical identity per sold unit.",
+      "hint_other": "{{count}} products preserve one physical identity per sold unit."
     },
     "weightedBarcode": {
       "label": "Weight barcode scanner",
-      "hint": "{{count}} active site scanners have valid GS1 weight or price decoding."
+      "hint_one": "{{count}} active site scanner has valid GS1 weight or price decoding.",
+      "hint_other": "{{count}} active site scanners have valid GS1 weight or price decoding."
     },
     "transformationRecipes": {
       "label": "Transformations and recipes",
-      "hint": "{{count}} active recipes match this operating profile."
+      "hint_one": "{{count}} active recipe matches this operating profile.",
+      "hint_other": "{{count}} active recipes match this operating profile."
     },
     "pharmacyCatalog": {
       "label": "Pharmacy catalog data",
-      "hint": "{{count}} active products have a pharmaceutical profile."
+      "hint_one": "{{count}} active product has a pharmaceutical profile.",
+      "hint_other": "{{count}} active products have a pharmaceutical profile."
     },
     "pharmacyPolicy": {
       "label": "Effective pharmacy policy",
-      "hint": "{{count}} pharmaceutical products have a sale classification allowed by the current country policy."
+      "hint_one": "{{count}} pharmaceutical product has a sale classification allowed by the current country policy.",
+      "hint_other": "{{count}} pharmaceutical products have a sale classification allowed by the current country policy."
     },
     "pharmacyAuthorizations": {
       "label": "Professional authorizations",
-      "hint": "{{count}} professional authorizations are effective today."
+      "hint_one": "{{count}} professional authorization is effective today.",
+      "hint_other": "{{count}} professional authorizations are effective today."
     },
     "restaurantTables": {
       "label": "Table map",
-      "hint": "{{count}} active tables are configured for dine-in service."
+      "hint_one": "{{count}} active table is configured for dine-in service.",
+      "hint_other": "{{count}} active tables are configured for dine-in service."
     },
     "kdsStations": {
       "label": "Kitchen stations",
-      "hint": "{{count}} active KDS stations can receive routed preparation lines."
+      "hint_one": "{{count}} active KDS station can receive routed preparation lines.",
+      "hint_other": "{{count}} active KDS stations can receive routed preparation lines."
     },
     "customerDisplay": {
       "label": "Customer Display",
-      "hint": "{{count}} privacy-minimal local display module is enabled."
+      "hint_zero": "The customer display is not enabled.",
+      "hint_one": "The customer display is enabled.",
+      "hint_other": "{{count}} customer displays are enabled."
     }
   },
   "disclaimer": "These signals verify application configuration only. They do not certify legal compliance, physical hardware or a live operating pilot."

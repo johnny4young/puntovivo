@@ -139,7 +139,7 @@ describe('Sidebar workspaces', () => {
   it('uses the shared 44px shell control for rail collapse', () => {
     render(<Sidebar {...sidebarProps} />);
 
-    const collapse = screen.getByRole('button', { name: 'Collapse rail' });
+    const collapse = screen.getByRole('button', { name: 'Collapse menu' });
     expect(collapse).toHaveAttribute('type', 'button');
     expect(collapse).toHaveClass('btn-outline', 'btn-icon', 'h-11', 'w-11');
   });

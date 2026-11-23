@@ -5,7 +5,7 @@
     "description": "Turn each AI feature on separately and choose the OCR provider used for supplier invoices.",
     "featuresTitle": "Active features",
     "enableLabel": "Enable AI features",
-    "enableHint": "When off, every AI surface short-circuits with a friendly notice.",
+    "enableHint": "When off, every AI feature stops with a clear notice.",
     "providerLabel": "OCR provider",
     "providerHint": "Choose Anthropic, OpenAI, or Ollama. The selected provider needs its own API credential or local daemon before use.",
     "providerLocked": "Available once provider credentials and support are connected.",

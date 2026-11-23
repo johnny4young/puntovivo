@@ -24,8 +24,8 @@
   "permissionDeniedHint": "Se denegó el acceso al micrófono. Permita el micrófono en la configuración de su navegador.",
   "noMicHint": "No se detectó un micrófono.",
   "unsupportedHint": "Su navegador no admite grabación de audio.",
-  "disabledNoModule": "Los comandos por voz no están activos para este tenant.",
-  "disabledNoAi": "La IA está desactivada a nivel de tenant.",
+  "disabledNoModule": "Los comandos por voz no están activos para este negocio.",
+  "disabledNoAi": "La IA está desactivada para todo el negocio.",
   "disabledResumed": "El carrito retomado está bloqueado; descártelo para grabar comandos por voz.",
   "disabledNoSession": "Abra una sesión de caja antes de grabar comandos por voz."
 }

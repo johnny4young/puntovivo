@@ -47,6 +47,16 @@ describe('productsColumns margin column', () => {
     expect(marginColumn(buildColumns(null))).toBeUndefined();
   });
 
+  it.each([
+    ['en', 'Margin (30 days)'],
+    ['es', 'Margen (30 días)'],
+  ])('labels the header as the realized 30-day margin in %s', async (language, header) => {
+    await i18n.changeLanguage(language);
+    const column = marginColumn(buildColumns(new Map()));
+    expect((column!.header as () => string)()).toBe(header);
+    await i18n.changeLanguage('en');
+  });
+
   it('renders an em dash for a product with no sales in the window', async () => {
     await i18n.changeLanguage('en');
     renderMarginCell(new Map());

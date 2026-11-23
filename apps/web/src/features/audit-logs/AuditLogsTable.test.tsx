@@ -860,7 +860,7 @@ describe('AuditLogsTable', () => {
     );
 
     expect(screen.getByText('Module toggled')).toBeInTheDocument();
-    expect(screen.getByText('Tenant module')).toBeInTheDocument();
+    expect(screen.getByText('Business module')).toBeInTheDocument();
   });
 
   it('renders the vertical module preset action label', () => {
@@ -879,8 +879,8 @@ describe('AuditLogsTable', () => {
       />
     );
 
-    expect(screen.getByText('Module preset applied')).toBeInTheDocument();
-    expect(screen.getByText('Tenant module')).toBeInTheDocument();
+    expect(screen.getByText('Module setup applied')).toBeInTheDocument();
+    expect(screen.getByText('Business module')).toBeInTheDocument();
   });
 
   it('falls back to actorEmail when actorName is null, and to actorId when both are null', () => {

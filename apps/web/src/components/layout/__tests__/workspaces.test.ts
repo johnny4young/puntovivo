@@ -12,6 +12,7 @@
  * @module components/layout/__tests__/workspaces.test
  */
 import { describe, expect, it } from 'vitest';
+import { SALES_ROLES, USER_ROLES } from '@puntovivo/shared/roles';
 import { ROLE_PERMISSION_TEMPLATES } from '@/features/auth/workspaceRoleTemplates';
 import {
   WORKSPACES,
@@ -112,15 +113,34 @@ describe('WORKSPACES catalogue', () => {
   });
 
   it('stays in parity with the admin permission-audit template', () => {
+    // Default access: roles that reach at least one route no module gates.
     const navigationRoles = new Map(
-      WORKSPACES.map(workspace => [workspace.id, workspace.allowedRoles] as const)
+      WORKSPACES.map(workspace => {
+        const reachable = new Set(
+          workspace.items
+            .filter(item => !item.requiredModule)
+            .flatMap(item => item.allowedRoles)
+            .filter(role => workspace.allowedRoles.includes(role))
+        );
+        return [workspace.id, USER_ROLES.filter(role => reachable.has(role))] as const;
+      })
     );
     const auditRoles = new Map(
       ROLE_PERMISSION_TEMPLATES.map(template => [template.id, template.allowedRoles] as const)
     );
 
     expect(auditRoles.size).toBe(ROLE_PERMISSION_TEMPLATES.length);
-    expect([...auditRoles]).toEqual([...navigationRoles]);
+    expect(
+      [...auditRoles].map(([id, roles]) => [id, USER_ROLES.filter(role => roles.includes(role))])
+    ).toEqual([...navigationRoles]);
+  });
+});
+
+describe('permission-audit template vs server guards', () => {
+  it('lists exactly the roles the server lets sell', () => {
+    const sell = ROLE_PERMISSION_TEMPLATES.find(template => template.id === 'sell');
+    expect(sell?.allowedRoles).toEqual(SALES_ROLES);
+    expect(sell?.allowedRoles).not.toContain('viewer');
   });
 });
 
