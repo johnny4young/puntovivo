@@ -236,7 +236,7 @@ describe('payable total rounding', () => {
       weighedSale(productId, {
         payments: [
           { method: 'cash', amount: 2000 },
-          { method: 'card', amount: 1737.5, reference: 'VOUCHER-1' },
+          { method: 'card', amount: 1737, reference: 'VOUCHER-1' },
         ],
       })
     ).rejects.toMatchObject({ cause: { errorCode: 'SALE_PAYMENTS_SUM_MISMATCH' } });
@@ -355,6 +355,67 @@ describe('payable total rounding', () => {
       sale: { subtotal: 4737.5, taxAmount: 0, discountAmount: 0, total: 4737.5 },
     });
     expect(fiscal.amounts.total).toBe(2242.5);
+  });
+
+  it('rounds the cumulative refund so repeated partial returns do not drift', async () => {
+    // 1.5 kg x 1,001 + 1,000 = 2,501.50, charged 2,502; each 0.5 kg share is 500.50.
+    const weighedId = await seedProduct(1001);
+    const unitPricedId = await seedProduct(1000);
+    const result = await completeSale(context(), {
+      mode: 'fresh',
+      customerId: null,
+      items: [
+        { productId: weighedId, unitId, quantity: 1.5, unitPrice: 1001, discount: 0 },
+        { productId: unitPricedId, unitId, quantity: 1, unitPrice: 1000, discount: 0 },
+      ],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 3000,
+      discountAmount: 0,
+    });
+    const saleId = (result.sale as { id: string }).id;
+    const lines = await getDatabase()
+      .select({ id: saleItems.id, productId: saleItems.productId })
+      .from(saleItems)
+      .where(eq(saleItems.saleId, saleId))
+      .all();
+    const lineOf = (productId: string) => lines.find(line => line.productId === productId)!.id;
+    for (const [productId, quantity] of [
+      [weighedId, 0.5],
+      [weighedId, 0.5],
+      [weighedId, 0.5],
+      [unitPricedId, 1],
+    ] as const) {
+      await returnSale(context(), {
+        id: saleId,
+        items: [{ saleItemId: lineOf(productId), quantity }],
+      });
+    }
+    const amounts = (
+      await getDatabase()
+        .select({ refundAmount: saleReturns.refundAmount })
+        .from(saleReturns)
+        .where(eq(saleReturns.saleId, saleId))
+        .all()
+    ).map(row => row.refundAmount);
+    expect(amounts.slice().sort((a, b) => a - b)).toEqual([500, 501, 501, 1000]);
+    expect(amounts.reduce((sum, value) => sum + value, 0)).toBe(2502);
+  });
+
+  it('rejects a tender with cents in a whole-peso currency', async () => {
+    const productId = await seedProduct(KILO_PRICE);
+    await expect(
+      weighedSale(productId, {
+        payments: [
+          { method: 'cash', amount: 2000.5 },
+          { method: 'card', amount: 1737.5, reference: 'VOUCHER-3' },
+        ],
+      })
+    ).rejects.toMatchObject({ cause: { errorCode: 'SALE_TENDER_NOT_PAYABLE_UNIT' } });
+    await expect(weighedSale(productId, { amountReceived: 4000.5 })).rejects.toMatchObject({
+      cause: { errorCode: 'SALE_TENDER_NOT_PAYABLE_UNIT' },
+    });
   });
 
   it('leaves a two-decimal currency untouched', async () => {

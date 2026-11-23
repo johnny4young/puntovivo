@@ -21,7 +21,7 @@
 
 import type { DatabaseInstance } from '../../db/index.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { resolvePayableTotal, roundMoney } from '../../lib/money.js';
+import { resolvePayableTotal, roundMoney, roundPayable } from '../../lib/money.js';
 import { assertServiceChargeMatchesTenant } from '../../services/restaurant/settings.js';
 import {
   getCashCollectedAmount,
@@ -196,8 +196,23 @@ export function resolveSalePaymentPlan(args: {
   requestedStatus: SalePaymentStatus;
   total: number;
   collectCash: boolean;
+  currencyCode: string;
 }): SalePaymentPlan {
   const { payments, paymentMethod, requestedStatus, total, collectCash } = args;
+  // Whole-unit currencies (COP, CLP) cannot hand over or charge a fraction of a peso.
+  const offUnit = (amount: number) =>
+    roundPayable(amount, args.currencyCode) !== roundMoney(amount);
+  if (
+    (payments ?? []).some(payment => offUnit(payment.amount)) ||
+    (paymentMethod === 'cash' && args.amountReceived !== undefined && offUnit(args.amountReceived))
+  ) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_TENDER_NOT_PAYABLE_UNIT',
+      message: 'Payment amounts must use the currency payable unit',
+      details: { currencyCode: args.currencyCode },
+    });
+  }
 
   // Auditoría 2026-06 — normalize the legacy tender at the boundary: the
   // Zod schema only enforces >= 0, so a sub-cent amountReceived (99.999)

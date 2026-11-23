@@ -329,6 +329,17 @@ describe('SalePaymentModal — stable drawer shell', () => {
     expect(submitted.amountReceived).toBe(3738);
   });
 
+  it('blocks cash received with cents in a whole-peso currency', async () => {
+    const user = userEvent.setup();
+    render(<SalePaymentModal {...createProps({ total: 3737.5, currencyCode: 'COP' })} />);
+    const amountInput = screen.getByLabelText(/Amount received/i) as HTMLInputElement;
+    await waitFor(() => expect(amountInput.value).toBe('3738'));
+    await user.clear(amountInput);
+    await user.type(amountInput, '4000.5');
+    const confirm = screen.getByRole('button', { name: /Use whole amounts/i });
+    expect(confirm).toBeDisabled();
+  });
+
   beforeAll(async () => {
     await i18next.changeLanguage('en');
   });

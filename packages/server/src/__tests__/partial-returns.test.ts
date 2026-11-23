@@ -1809,7 +1809,7 @@ describe('normalized partial returns', () => {
         paymentMethod: 'cash',
         paymentStatus: 'paid',
         status: 'completed',
-        amountReceived: 34509.99,
+        amountReceived: 34510,
         discountAmount: 1190.01,
       });
       const saleId = (completed.sale as { id: string }).id;

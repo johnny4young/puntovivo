@@ -356,6 +356,7 @@
     "lockedCustomer": "Quotation customer",
     "confirmPartialAmount": "Confirm partial sale · {{amount}} missing",
     "confirmSplitMissing": "Confirm sale · {{amount}} missing",
+    "confirmWholeAmounts": "Use whole amounts, without cents",
     "confirmSplitOver": "Confirm sale · {{amount}} over",
     "partialTitle": "This sale will remain partially paid",
     "partialWarning": "The outstanding balance is {{amount}}. Confirm only if you intend to leave this balance unpaid.",

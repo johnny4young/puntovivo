@@ -154,6 +154,7 @@ export function SalePaymentModal({
     pharmacyCheckout,
     tenderSum,
     tenderDelta,
+    offUnitTender,
     splitIsValid,
     canSubmit,
     handleSubmit,
@@ -189,6 +190,7 @@ export function SalePaymentModal({
     electronicInvoice.available;
   const confirmLabel = (): string => {
     if (isSaving) return t('payment.processing');
+    if (offUnitTender) return t('payment.confirmWholeAmounts');
     if (isPartialPayment) {
       return t('payment.confirmPartialAmount', { amount: formatCurrency(outstanding) });
     }

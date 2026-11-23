@@ -274,6 +274,7 @@ export async function runFreshSale(
     requestedStatus: input.paymentStatus,
     total,
     collectCash: input.status === 'completed',
+    currencyCode: saleCurrencyCode,
   });
   const loyaltySettings = await resolveLoyaltySettings(ctx.db, ctx.tenantId);
   assertCustomerValueTenderInputs({

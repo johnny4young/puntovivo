@@ -27,6 +27,7 @@ import {
   saleReturnItems,
   saleReturnItemLots,
   sites,
+  tenants,
   units,
   unitXProduct,
   users,
@@ -51,6 +52,8 @@ describe('fractional carrying value across sale lifecycle', () => {
     const db = getDatabase();
     const user = db.select().from(users).where(eq(users.email, 'admin@localhost')).get()!;
     tenantId = user.tenantId;
+    // Fractional carrying values are paid in cents; whole-peso rounding has its own suite.
+    db.update(tenants).set({ defaultCurrencyCode: 'USD' }).where(eq(tenants.id, tenantId)).run();
     siteId = db
       .select()
       .from(sites)

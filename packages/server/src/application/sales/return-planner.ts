@@ -138,6 +138,8 @@ export interface ReturnPlan {
   discountAmount: number;
   taxAmount: number;
   refundAmount: number;
+  /** Merchandise and header shares at 2 decimals; the credit note carries this. */
+  grossRefundAmount: number;
   /** Part of refundAmount that snaps it to the sale currency's payable unit. */
   roundingAdjustment: number;
   cashAmount: number;
@@ -970,17 +972,28 @@ export function buildReturnPlan(
   const grossRefundAmount = roundMoney(
     lineRefundAmount - headerDiscountAmount + tipAmount + serviceChargeAmount
   );
-  // A sale paid in whole units refunds whole units: partial returns round
-  // their share, and the return that empties the ticket takes what is left.
+  // A sale paid in whole units refunds whole units. Rounding the cumulative
+  // target, not each share, keeps a run of partial returns from drifting.
   const wholeUnitCurrency = payableDecimals(sale.currencyCode) < 2;
+  const cumulativeShare = (original: number) => {
+    if (allLineQuantitiesReturned) return roundMoney(original);
+    if (originalLineAmount <= EPSILON) return 0;
+    const after = priorReturnedLineAmount + lineRefundAmount;
+    return roundMoney(original * Math.min(1, after / originalLineAmount));
+  };
+  const cumulativeRefundTarget = roundMoney(
+    priorReturnedLineAmount +
+      lineRefundAmount -
+      cumulativeShare(sale.discountAmount) +
+      cumulativeShare(sale.tipAmount) +
+      cumulativeShare(sale.serviceChargeAmount) +
+      cumulativeShare(sale.roundingAdjustment)
+  );
   const refundAmount = Math.min(
     wholeUnitCurrency
       ? allLineQuantitiesReturned
         ? remainingSaleAmount
-        : roundPayable(
-            grossRefundAmount + allocateHeaderDelta(sale.roundingAdjustment),
-            sale.currencyCode
-          )
+        : roundMoney(roundPayable(cumulativeRefundTarget, sale.currencyCode) - priorRefundAmount)
       : grossRefundAmount,
     remainingSaleAmount
   );
@@ -1191,6 +1204,7 @@ export function buildReturnPlan(
     discountAmount: headerDiscountAmount,
     taxAmount: sumMoney(lines.map(line => line.taxAmount)),
     refundAmount,
+    grossRefundAmount,
     roundingAdjustment,
     cashAmount: sumMoney(
       allocations.filter(allocation => allocation.destination === 'cash').map(row => row.amount)

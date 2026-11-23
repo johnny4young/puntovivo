@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useRegisterZone } from '@/features/modules/useRegisterZone';
-import { resolvePayableTotal, roundMoney } from '@/lib/money';
+import { resolvePayableTotal, roundMoney, roundPayable } from '@/lib/money';
 import { sumBy } from '@/lib/numbers';
 import { trpc } from '@/lib/trpc';
 import { extractServerErrorCode, translateServerError } from '@/lib/translateServerError';
@@ -844,7 +844,15 @@ export function useSalePaymentModal({
     tendersAreAllPositive &&
     customerValueTenderError === null;
 
+  // Mirrors the server: a whole-unit currency takes no cents in a tender or cash received.
+  const offUnitTender = (
+    splitMode
+      ? tenders.map(tender => Number(tender.amount) || 0)
+      : [...(isCash ? [amountReceivedValue] : []), creditDownPayment]
+  ).some(amount => roundPayable(amount, currencyCode) !== roundMoney(amount));
+
   const canSubmit =
+    !offUnitTender &&
     !isSaving &&
     !promotionQuoteLoading &&
     !promotionQuoteUnavailable &&
@@ -1069,6 +1077,7 @@ export function useSalePaymentModal({
     checkoutApprovals: checkoutApprovalState,
     tenderSum,
     tenderDelta,
+    offUnitTender,
     splitIsValid,
     canSubmit,
     handleSubmit,

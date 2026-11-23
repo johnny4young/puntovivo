@@ -34,6 +34,7 @@ import {
   unitXProduct,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { resolveTenantCurrency } from '../../lib/currency.js';
 import { resolvePayableTotal, roundMoney } from '../../lib/money.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
@@ -413,10 +414,8 @@ export async function runCompleteDraft(
   });
   const serviceChargeRate = serviceChargeAmount > 0 ? restaurantSettings.serviceChargeRate : null;
   const grossTotal = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
-  const { total, roundingAdjustment } = resolvePayableTotal(
-    grossTotal,
-    existing.currencyCode ?? 'COP'
-  );
+  const saleCurrencyCode = existing.currencyCode ?? resolveTenantCurrency(ctx.db, ctx.tenantId);
+  const { total, roundingAdjustment } = resolvePayableTotal(grossTotal, saleCurrencyCode);
 
   // resolve the tender list (split or legacy),
   // payment status, change, and cash collected. The draft is always
@@ -436,6 +435,7 @@ export async function runCompleteDraft(
     requestedStatus: input.paymentStatus,
     total,
     collectCash: true,
+    currencyCode: saleCurrencyCode,
   });
 
   const persistedTaxComponents = await ctx.db
@@ -642,7 +642,7 @@ export async function runCompleteDraft(
     creditAmount: creditSaleAmount,
     tipAmount,
     serviceChargeAmount,
-    currencyCode: existing.currencyCode ?? 'COP',
+    currencyCode: saleCurrencyCode,
   };
   const baselineApprovalActions = requiredCheckoutApprovalActions({
     role: ctx.user.role as UserRole,

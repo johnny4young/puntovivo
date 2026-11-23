@@ -340,6 +340,8 @@ export const SERVER_ERROR_CODES_A = {
   GS1_CHECK_DIGIT_INVALID: 'GS1_CHECK_DIGIT_INVALID',
   /** Split-payment input: Σ(payments.amount) does not match the sale total. */
   SALE_PAYMENTS_SUM_MISMATCH: 'SALE_PAYMENTS_SUM_MISMATCH',
+  /** A tender or cash received is finer than the currency's payable unit (pesos have no cents). */
+  SALE_TENDER_NOT_PAYABLE_UNIT: 'SALE_TENDER_NOT_PAYABLE_UNIT',
 
   // --- inventory transfers domain ---
   TRANSFER_SITES_IDENTICAL: 'TRANSFER_SITES_IDENTICAL',
