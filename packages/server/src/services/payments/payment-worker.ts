@@ -366,6 +366,11 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
     try {
       await sweepStaleClaims();
       await expireAbandonedCharges();
+      // Same three sweeps as housekeepingTickRaw, deliberately in the same
+      // order. They are the two entry points into this work and they must stay
+      // in step: the expiry call went missing here once and the tick that
+      // actually runs in a live process kept presentations alive forever.
+      expirePresentationsSafely();
     } catch (err) {
       log.warn({ err }, 'payment worker housekeeping failed');
     }
