@@ -29,6 +29,8 @@ export interface CheckoutForwardTender {
   amount: number;
   reference?: string;
   loyaltyPoints?: number;
+  /** Static QR presentation behind a transfer tender. Transfer only. */
+  presentationId?: string;
 }
 
 export function checkoutUsesCreditTender(values: SalePaymentValues): boolean {
@@ -105,6 +107,10 @@ export function getCheckoutPaymentState(
           amount: tender.amount,
           ...(tender.method === 'loyalty' && tender.loyaltyPoints
             ? { loyaltyPoints: tender.loyaltyPoints }
+            : {}),
+          // Only the transfer tender can be backed by a shown QR presentation.
+          ...(tender.method === 'transfer' && tender.presentationId
+            ? { presentationId: tender.presentationId }
             : {}),
           // Omit the field entirely when blank — the server schema treats
           // `reference` as optional and an empty string would survive the

@@ -12,8 +12,9 @@ import { useTenant } from '@/features/tenant/TenantProvider';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { trpc } from '@/lib/trpc';
 import { useCheckoutTransferDisplay } from './checkoutTransferDisplay';
-import type { SalePaymentValues } from './salePaymentModal.types';
+import type { SalePaymentValues, SaleTransferPresentation } from './salePaymentModal.types';
 import { TransferQrCode } from './TransferQrCode';
+import { useStoreQrPresentation } from './useStoreQrPresentation';
 import { useWalletCharge, type WalletChargeState } from './useWalletCharge';
 
 interface SalePaymentTransferSectionProps {
@@ -23,6 +24,8 @@ interface SalePaymentTransferSectionProps {
   canSubmit: boolean;
   isSaving: boolean;
   onConfirm: () => void;
+  /** Hands the presentation shown for this checkout up to the tender builder. */
+  onPresentationChange: (presentation: SaleTransferPresentation | null) => void;
 }
 
 export function SalePaymentTransferSection({
@@ -32,6 +35,7 @@ export function SalePaymentTransferSection({
   canSubmit,
   isSaving,
   onConfirm,
+  onPresentationChange,
 }: SalePaymentTransferSectionProps) {
   const { t, i18n } = useTranslation(['sales', 'common']);
   const { currentSite } = useTenant();
@@ -63,6 +67,14 @@ export function SalePaymentTransferSection({
     ? live.status !== 'declined'
     : wallet.mode === 'idle' && query.data?.autoConfirm === true;
   const storeQr = storeQrHidden ? null : selected;
+  // Record the store QR that is actually on screen. Never awaited by the sale.
+  useStoreQrPresentation({
+    siteId,
+    destinationId: storeQr?.id ?? null,
+    amount: qrAmount,
+    enabled: storeQr !== null && amountSettled && !providerCharge,
+    onChange: onPresentationChange,
+  });
 
   const label = providerCharge ? providerCharge.railLabel : storeQr?.label;
   const account = providerCharge ? '' : storeQr?.account;

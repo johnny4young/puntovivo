@@ -11,6 +11,7 @@ const moduleActiveMock = vi.hoisted(() => vi.fn(() => false));
 const roleMock = vi.hoisted(() => vi.fn(() => 'cashier'));
 const startWalletMock = vi.hoisted(() => vi.fn());
 const cancelWalletMock = vi.hoisted(() => vi.fn());
+const startPresentationMock = vi.hoisted(() => vi.fn());
 const walletStatusMock = vi.hoisted(() => vi.fn());
 const toastWarningMock = vi.hoisted(() => vi.fn());
 
@@ -43,6 +44,7 @@ vi.mock('@/lib/trpc', () => ({
       startWalletCharge: { useMutation: () => ({ mutateAsync: startWalletMock }) },
       cancelWalletCharge: { useMutation: () => ({ mutate: cancelWalletMock }) },
       walletChargeStatus: { useQuery: walletStatusMock },
+      startPresentation: { useMutation: () => ({ mutateAsync: startPresentationMock }) },
     },
   },
 }));
@@ -137,8 +139,11 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  window.sessionStorage.clear();
   startWalletMock.mockReset();
   cancelWalletMock.mockReset();
+  startPresentationMock.mockReset();
+  startPresentationMock.mockResolvedValue({ id: 'pres-1' });
   toastWarningMock.mockReset();
   mockWallet({ mode: 'manual', providerUnavailable: false });
 });
@@ -177,6 +182,7 @@ describe('SalePaymentModal — transfer', () => {
     const user = userEvent.setup();
     mockDestinations(destinations);
     const onSubmit = renderTransfer();
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalledTimes(1));
     const confirm = await screen.findByRole('button', { name: /It arrived · confirm sale/ });
 
     expect(confirm).toBeDisabled();
@@ -192,7 +198,9 @@ describe('SalePaymentModal — transfer', () => {
     const values = onSubmit.mock.calls[0]![0];
     expect(values.paymentMethod).toBe('transfer');
     expect(values.amountReceived).toBe(100);
-    expect(values.tenders).toEqual([{ method: 'transfer', amount: 100, reference: '482190' }]);
+    expect(values.tenders).toEqual([
+      { method: 'transfer', amount: 100, reference: '482190', presentationId: 'pres-1' },
+    ]);
     expect(values).not.toHaveProperty('transferReference');
   });
 
@@ -391,6 +399,92 @@ describe('SalePaymentModal — transfer', () => {
         title: 'Nequi had already confirmed that charge. Check before charging again.',
       })
     );
+  });
+
+  it('records exactly one presentation for the static QR on screen', async () => {
+    mockDestinations(destinations);
+    renderTransfer();
+
+    expect(await screen.findByTestId('sale-payment-transfer-qr')).toBeInTheDocument();
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalledTimes(1));
+    expect(startPresentationMock).toHaveBeenCalledWith({
+      siteId: 'site-1',
+      destinationId: 'd-breb',
+      amount: 100,
+      idempotencyKey: expect.any(String),
+    });
+  });
+
+  it('reuses the same presentation across a re-render and a modal reopen', async () => {
+    mockDestinations(destinations);
+    const onSubmit = vi.fn<(values: SalePaymentValues) => Promise<void>>(async () => undefined);
+    const view = render(transferModal(onSubmit));
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalledTimes(1));
+    const firstKey = startPresentationMock.mock.calls[0]![0].idempotencyKey as string;
+
+    view.rerender(transferModal(onSubmit));
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalledTimes(1));
+
+    view.unmount();
+    render(transferModal(onSubmit));
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalledTimes(2));
+
+    const keys = startPresentationMock.mock.calls.map(call => call[0].idempotencyKey);
+    expect(keys).toEqual([firstKey, firstKey]);
+    expect(startPresentationMock.mock.calls[1]![0]).toMatchObject({ amount: 100 });
+  });
+
+  it('creates a different presentation when the total changes', async () => {
+    mockDestinations(destinations);
+    const onSubmit = vi.fn<(values: SalePaymentValues) => Promise<void>>(async () => undefined);
+    const view = render(transferModal(onSubmit, 100));
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalledTimes(1));
+    const firstKey = startPresentationMock.mock.calls[0]![0].idempotencyKey as string;
+
+    view.rerender(transferModal(onSubmit, 120));
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalledTimes(2), { timeout: 3000 });
+
+    const second = startPresentationMock.mock.calls[1]![0];
+    expect(second.amount).toBe(120);
+    expect(second.idempotencyKey).not.toBe(firstKey);
+  });
+
+  it('keeps the QR and the sale when the presentation cannot be created', async () => {
+    const user = userEvent.setup();
+    mockDestinations(destinations);
+    startPresentationMock.mockRejectedValue(new Error('offline'));
+    const onSubmit = renderTransfer();
+
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalled());
+    expect(screen.getByTestId('sale-payment-transfer-qr')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    const confirm = await screen.findByRole('button', { name: /It arrived · confirm sale/ });
+    await user.type(screen.getByTestId('sale-payment-transfer-reference'), '482190');
+    await waitFor(() => expect(confirm).toBeEnabled());
+    await user.click(confirm);
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0]![0].tenders).toEqual([
+      { method: 'transfer', amount: 100, reference: '482190' },
+    ]);
+  });
+
+  it('hands the presentation id to the transfer tender', async () => {
+    const user = userEvent.setup();
+    mockDestinations(destinations);
+    const onSubmit = renderTransfer();
+
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalledTimes(1));
+    const confirm = await screen.findByRole('button', { name: /It arrived · confirm sale/ });
+    await user.type(screen.getByTestId('sale-payment-transfer-reference'), '482190');
+    await waitFor(() => expect(confirm).toBeEnabled());
+    await user.click(confirm);
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0]![0].tenders).toEqual([
+      { method: 'transfer', amount: 100, reference: '482190', presentationId: 'pres-1' },
+    ]);
   });
 
   it('drops the approved reference when a new total opens a new charge', async () => {
