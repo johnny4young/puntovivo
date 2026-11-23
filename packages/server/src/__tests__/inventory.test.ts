@@ -316,6 +316,16 @@ describe('Inventory tRPC Router', () => {
       unitAssignments: [{ unitId: baseUnitId, equivalence: 1, price: 25, isBase: true }],
     });
 
+    for (const notes of [undefined, '   ']) {
+      await expect(
+        caller.inventory.adjustStock({
+          productId: created.id,
+          newStock: 9,
+          ...(notes === undefined ? {} : { notes }),
+        } as Parameters<typeof caller.inventory.adjustStock>[0])
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    }
+
     const adjusted = await caller.inventory.adjustStock({
       productId: created.id,
       newStock: 9,
@@ -534,6 +544,7 @@ describe('Inventory tRPC Router', () => {
     });
     await expect(
       caller.inventory.adjustStock({
+        notes: 'Counted on the shelf',
         productId: tracked.id,
         newStock: 1,
       })
@@ -1273,6 +1284,7 @@ describe('Inventory tRPC Router', () => {
         // Adjust to a new target; the derived total must equal Σ(balances) and
         // the requested target, by construction.
         await caller.inventory.adjustStock({
+          notes: 'Counted on the shelf',
           productId: created.id,
           newStock: 15,
         });

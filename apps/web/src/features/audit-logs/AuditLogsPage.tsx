@@ -159,6 +159,21 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'webhook_subscription.disable',
   'webhook_subscription.revoke',
   'webhook_delivery.retry',
+  // catalog and document numbering.
+  'sequential.create',
+  'sequential.adjust',
+  'sequential.delete',
+  'product.create',
+  'product.update',
+  'category.create',
+  'category.update',
+  'category.delete',
+  'unit.create',
+  'unit.update',
+  'unit.delete',
+  'vat_rate.create',
+  'vat_rate.update',
+  'vat_rate.delete',
 ];
 
 const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
@@ -223,6 +238,10 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'webhook_outbox',
   'fiscal_numbering_range',
   'transfer_destination',
+  'sequential',
+  'category',
+  'unit',
+  'vat_rate',
 ];
 
 /**

@@ -166,14 +166,22 @@ export function InventoryAdjustmentModal({
 
             <div>
               <label htmlFor="inventory-adjustment-notes" className="label">
-                {t('table.notes')}
+                {t('adjustment.reason')}
               </label>
               <textarea
                 id="inventory-adjustment-notes"
                 className="input mt-1 min-h-[96px]"
-                placeholder={t('adjustment.notesPlaceholder')}
-                {...form.register('notes')}
+                required
+                aria-invalid={form.formState.errors.notes ? true : undefined}
+                {...form.register('notes', {
+                  validate: value => value.trim().length > 0 || t('adjustment.reasonRequired'),
+                })}
               />
+              {form.formState.errors.notes && (
+                <p className="mt-1 text-sm text-danger-500">
+                  {form.formState.errors.notes.message}
+                </p>
+              )}
             </div>
           </>
         )}

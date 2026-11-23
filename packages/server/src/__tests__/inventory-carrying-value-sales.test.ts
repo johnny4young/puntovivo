@@ -262,11 +262,23 @@ describe('fractional carrying value across sale lifecycle', () => {
 
   it('freezes exact manual adjustment debits, known-zero no-ops and final residuals', async () => {
     const { productId } = await transformed(false);
-    const first = await caller().inventory.adjustStock({ productId, newStock: 2 });
+    const first = await caller().inventory.adjustStock({
+      notes: 'Counted on the shelf',
+      productId,
+      newStock: 2,
+    });
     expectMovementValue(first.movementId, -33);
-    const noOp = await caller().inventory.adjustStock({ productId, newStock: 2 });
+    const noOp = await caller().inventory.adjustStock({
+      notes: 'Counted on the shelf',
+      productId,
+      newStock: 2,
+    });
     expectMovementValue(noOp.movementId, 0);
-    const last = await caller().inventory.adjustStock({ productId, newStock: 0 });
+    const last = await caller().inventory.adjustStock({
+      notes: 'Counted on the shelf',
+      productId,
+      newStock: 0,
+    });
     expectMovementValue(last.movementId, -67);
     expect(carrying(productId, null)).toEqual({ quantity: 0, inventory: 0, cogs: 0 });
   });
@@ -503,7 +515,11 @@ describe('fractional carrying value across sale lifecycle', () => {
             ],
             async () => {
               if (kind === 'adjust')
-                return caller().inventory.adjustStock({ productId: p.id, newStock: 2 });
+                return caller().inventory.adjustStock({
+                  notes: 'Counted on the shelf',
+                  productId: p.id,
+                  newStock: 2,
+                });
               if (kind === 'movement')
                 return caller().inventory.createMovement({
                   productId: p.id,

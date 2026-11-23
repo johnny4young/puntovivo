@@ -22,6 +22,7 @@ import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { units } from '../../db/schema.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 import { lookupUnitStandard } from '../../services/units/unit-standards.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { paginatedList } from '../lib/paginatedList.js';
@@ -47,6 +48,17 @@ function rethrowUnitAbbreviationConflict(error: unknown, abbreviation: string): 
     });
   }
   throw error;
+}
+
+function unitAuditSnapshot(row: typeof units.$inferSelect) {
+  return {
+    name: row.name,
+    abbreviation: row.abbreviation,
+    dimension: row.dimension,
+    standardCode: row.standardCode,
+    referenceFactor: row.referenceFactor,
+    isActive: row.isActive,
+  };
 }
 
 export const unitsRouter = router({
@@ -121,9 +133,19 @@ export const unitsRouter = router({
             }
           );
 
-          const created = tx.select().from(units).where(eq(units.id, id)).get();
+          const created = tx.select().from(units).where(eq(units.id, id)).get()!;
+          writeAuditLog({
+            tx,
+            tenantId: ctx.tenantId,
+            actorId: ctx.user!.id,
+            action: 'unit.create',
+            resourceType: 'unit',
+            resourceId: id,
+            before: null,
+            after: unitAuditSnapshot(created),
+          });
 
-          return created!;
+          return created;
         },
         { behavior: 'immediate' }
       );
@@ -158,6 +180,11 @@ export const unitsRouter = router({
     try {
       return ctx.db.transaction(
         tx => {
+          const before = tx
+            .select()
+            .from(units)
+            .where(and(eq(units.id, id), eq(units.tenantId, ctx.tenantId)))
+            .get();
           const result = tx
             .update(units)
             .set(updateData)
@@ -178,9 +205,19 @@ export const unitsRouter = router({
             }
           );
 
-          const updated = tx.select().from(units).where(eq(units.id, id)).get();
+          const updated = tx.select().from(units).where(eq(units.id, id)).get()!;
+          writeAuditLog({
+            tx,
+            tenantId: ctx.tenantId,
+            actorId: ctx.user!.id,
+            action: 'unit.update',
+            resourceType: 'unit',
+            resourceId: id,
+            before: before ? unitAuditSnapshot(before) : null,
+            after: unitAuditSnapshot(updated),
+          });
 
-          return updated!;
+          return updated;
         },
         { behavior: 'immediate' }
       );
@@ -219,6 +256,16 @@ export const unitsRouter = router({
             data: { id: input.id },
           }
         );
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'unit.delete',
+          resourceType: 'unit',
+          resourceId: input.id,
+          before: unitAuditSnapshot(existing),
+          after: null,
+        });
 
         return { success: true, id: input.id };
       },

@@ -45,6 +45,7 @@ import {
   resolveUnitAssignments,
 } from '../../services/products/mutation-helpers.js';
 import { getProductWithRelations } from '../../services/products/product-read.js';
+import { productAuditDiff } from '../../services/products/catalog-audit.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   getProductTaxComponents,
@@ -453,6 +454,20 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
         )
         .run() as { changes?: number };
       assertVersionedWriteApplied('product', versionedUpdate.changes ?? 0, input.version);
+      const productChange = productAuditDiff(current, updateData);
+      if (productChange) {
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user.id,
+          action: 'product.update',
+          resourceType: 'product',
+          resourceId: id,
+          ...productChange,
+          metadata: { name: (updateData.name as string | undefined) ?? current.name },
+          operationId: ctx.envelope?.operationId,
+        });
+      }
       rebaseProductValuation(tx, {
         before: valuationBefore,
         initialCost:

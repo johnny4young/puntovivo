@@ -96,6 +96,12 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'transfer_destination.update',
     'transfer_destination.delete',
     'transfer_destination.reorder',
+    // Price, cost, tax and numbering changes decide what the next receipt charges.
+    'product.update',
+    'vat_rate.update',
+    'vat_rate.delete',
+    'sequential.adjust',
+    'sequential.delete',
   ],
   inventory: [
     'inventory.adjust_stock',
