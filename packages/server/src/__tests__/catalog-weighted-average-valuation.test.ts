@@ -242,4 +242,45 @@ describe('catalog weighted average valuation', () => {
     // 5 units left at 20 each
     expect(pools(id)).toEqual({ inventory: 10_000, cogs: 10_000 });
   });
+
+  async function boughtTwice() {
+    const product = await created(10, 10);
+    const purchase = await caller().purchases.create({
+      providerId,
+      items: [{ productId: product.id, unitId, quantity: 10, costPerUnit: 20 }],
+    });
+    expect(pools(product.id)).toEqual({ inventory: 30_000, cogs: 30_000 });
+    return { product, purchase };
+  }
+
+  it('restores the earlier average when the latest purchase is voided', async () => {
+    const { product, purchase } = await boughtTwice();
+    await caller().purchases.void({ id: purchase.id, reason: 'Wrong invoice' });
+    expect(pools(product.id)).toEqual({ inventory: 10_000, cogs: 10_000 });
+  });
+
+  it('returns a purchase in parts at its frozen value', async () => {
+    const { product, purchase } = await boughtTwice();
+    const purchaseItemId = purchase.items[0]!.id;
+    await caller().purchases.returnPurchase({
+      id: purchase.id,
+      items: [{ purchaseItemId, quantity: 4 }],
+    });
+    expect(pools(product.id)).toEqual({ inventory: 22_000, cogs: 22_000 });
+    await caller().purchases.returnPurchase({
+      id: purchase.id,
+      items: [{ purchaseItemId, quantity: 6 }],
+    });
+    expect(pools(product.id)).toEqual({ inventory: 10_000, cogs: 10_000 });
+  });
+
+  it('debits only what is left when the received units were consumed since', async () => {
+    const { product, purchase } = await boughtTwice();
+    const current = getDatabase().select().from(products).where(eq(products.id, product.id)).get()!;
+    // Ten units leave at the 15 average, so 150 remains for the last ten.
+    await caller().products.update({ id: product.id, version: current.version, stock: 10 });
+    expect(pools(product.id)).toEqual({ inventory: 15_000, cogs: 15_000 });
+    await caller().purchases.void({ id: purchase.id, reason: 'Late void' });
+    expect(pools(product.id)).toEqual({ inventory: 0, cogs: 0 });
+  });
 });

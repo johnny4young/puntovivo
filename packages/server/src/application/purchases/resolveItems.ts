@@ -38,6 +38,7 @@ import {
   assertServiceStockMutationAllowed,
 } from '../../services/products/lot-tracking.js';
 import { getNormalizedPurchaseQuantity } from './helpers.js';
+import { frozenReceiptSlice } from './values.js';
 import type {
   ResolvedOrderReceiptItem,
   ResolvedPurchaseItem,
@@ -267,6 +268,8 @@ export function resolvePurchaseReturnItems(
       costPerUnit: purchaseItems.costPerUnit,
       baseUnitCost: purchaseItems.baseUnitCost,
       total: purchaseItems.total,
+      inventoryValueCents: purchaseItems.inventoryValueCents,
+      cogsValueCents: purchaseItems.cogsValueCents,
     })
     .from(purchaseItems)
     .innerJoin(
@@ -518,6 +521,7 @@ export function resolvePurchaseReturnItems(
       baseUnitCost,
       total,
       normalizedQuantity,
+      frozenValue: frozenReceiptSlice(purchaseItem, alreadyReturnedQuantity, inputItem.quantity),
       tracksLots: purchaseItem.tracksLots,
       tracksSerials: purchaseItem.tracksSerials,
       serialIds,

@@ -9,6 +9,7 @@
  * @module application/purchases/types
  */
 import type { DatabaseInstance } from '../../db/index.js';
+import type { InventoryValueDelta } from '../../services/product-valuation.js';
 
 /**
  * Minimal structural subset of the tRPC `Context` that the purchase
@@ -69,6 +70,8 @@ export type ResolvedPurchaseReturnItem = {
   baseUnitCost: number;
   total: number;
   normalizedQuantity: number;
+  /** Frozen receipt value of this slice; null for legacy lines without one. */
+  frozenValue: InventoryValueDelta | null;
   tracksLots: boolean;
   tracksSerials: boolean;
   serialIds: string[];

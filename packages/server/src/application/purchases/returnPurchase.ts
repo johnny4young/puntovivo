@@ -1,4 +1,8 @@
-import type { InventoryValueDelta } from '../../services/product-valuation.js';
+import {
+  planReceiptReversal,
+  readProductValuation,
+  type InventoryValueDelta,
+} from '../../services/product-valuation.js';
 import { freezePurchaseValue } from './values.js';
 /**
  * Return (partially or fully) a completed purchase, reversing stock.
@@ -244,7 +248,18 @@ export async function returnPurchase(ctx: CriticalPurchaseContext, input: Return
           );
         }
 
+        const frozen = item.tracksLots || item.tracksSerials ? null : item.frozenValue;
+        const valuation = frozen ? readProductValuation(tx, ctx.tenantId, item.productId) : null;
         applyInventoryBalanceDelta(tx, {
+          ...(frozen && valuation
+            ? {
+                valueDelta: planReceiptReversal(
+                  valuation,
+                  roundQuantity(currentSiteBalance - newSiteBalance, 12),
+                  frozen
+                ),
+              }
+            : {}),
           tenantId: ctx.tenantId,
           siteId: current.siteId,
           productId: item.productId,

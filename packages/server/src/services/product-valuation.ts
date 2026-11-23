@@ -188,6 +188,26 @@ export function applyProductValueDelta(
 }
 
 /**
+ * Reverse a supplier receipt at its frozen value. Units sold since left at the average, so take
+ * at most what the pool still holds, and all of it when no units remain.
+ */
+export function planReceiptReversal(
+  state: ProductValuationState,
+  debit: number,
+  frozen: InventoryValueDelta
+): InventoryValueDelta {
+  return inventoryValueGuard(() => {
+    const remaining = roundQuantity(state.quantity - debit, 12);
+    const take = (pool: number, value: number) =>
+      remaining <= 0 ? pool : Math.max(0, Math.min(pool, value));
+    return {
+      inventoryValue: -take(state.inventoryValue, frozen.inventoryValue),
+      cogsValue: -take(state.cogsValue, frozen.cogsValue),
+    };
+  }, 'INVENTORY_VALUE_INVALID');
+}
+
+/**
  * Pin a legacy (unadopted) pool before a catalog cost write; otherwise the derived
  * pool would silently revalue existing stock at the new cost instead of averaging.
  */

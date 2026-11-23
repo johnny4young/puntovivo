@@ -947,7 +947,7 @@ describe('fractional carrying value across sale lifecycle', () => {
     expect(lots.map(lot => lot.carryingValueCents).sort()).toEqual([0, 1]);
   });
 
-  it('freezes actual supplier return/void debits after fractional transformation', async () => {
+  it('reverses supplier return/void at the frozen receipt value after a transformation', async () => {
     const tracksLots = false;
     for (const operation of ['return', 'void'] as const) {
       const db = getDatabase();
@@ -994,7 +994,7 @@ describe('fractional carrying value across sale lifecycle', () => {
             },
           ],
         });
-        // Supplier settlement stays the original invoice amount, independent of current carrying value.
+        // Book value reverses the frozen receipt value, not the current average.
         const returned = db
           .select()
           .from(purchaseReturnItems)
@@ -1002,11 +1002,11 @@ describe('fractional carrying value across sale lifecycle', () => {
           .get()!;
         expect(returned).toMatchObject({
           total: 0.99,
-          inventoryValueCents: 100,
-          cogsValueCents: 100,
+          inventoryValueCents: 99,
+          cogsValueCents: 99,
         });
       } else await caller().purchases.void({ id: receipt.id });
-      expect(carrying(target.id, lotId)).toEqual({ quantity: 3.001, inventory: 99, cogs: 99 });
+      expect(carrying(target.id, lotId)).toEqual({ quantity: 3.001, inventory: 100, cogs: 100 });
       const movement = db
         .select()
         .from(inventoryMovements)
@@ -1014,7 +1014,7 @@ describe('fractional carrying value across sale lifecycle', () => {
           and(eq(inventoryMovements.productId, target.id), eq(inventoryMovements.type, 'return'))
         )
         .get()!;
-      expect(movement).toMatchObject({ inventoryValueDeltaCents: -100, cogsValueDeltaCents: -100 });
+      expect(movement).toMatchObject({ inventoryValueDeltaCents: -99, cogsValueDeltaCents: -99 });
     }
   });
 

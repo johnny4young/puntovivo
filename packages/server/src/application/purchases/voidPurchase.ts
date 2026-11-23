@@ -1,5 +1,9 @@
-import type { InventoryValueDelta } from '../../services/product-valuation.js';
-import { freezePurchaseValue } from './values.js';
+import {
+  planReceiptReversal,
+  readProductValuation,
+  type InventoryValueDelta,
+} from '../../services/product-valuation.js';
+import { freezePurchaseValue, frozenReceiptSlice } from './values.js';
 /**
  * Void a completed purchase, reversing destination-site stock.
  *
@@ -105,6 +109,8 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
           productId: purchaseItems.productId,
           quantity: purchaseItems.quantity,
           unitEquivalence: purchaseItems.unitEquivalence,
+          inventoryValueCents: purchaseItems.inventoryValueCents,
+          cogsValueCents: purchaseItems.cogsValueCents,
         })
         .from(purchaseItems)
         .where(eq(purchaseItems.purchaseId, input.id))
@@ -248,7 +254,16 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
           );
         }
 
+        const debit = roundQuantity(currentSiteBalance - newSiteBalance, 12);
+        const frozen =
+          product.tracksLots || product.tracksSerials
+            ? null
+            : frozenReceiptSlice({ ...item, quantity: normalizedQuantity }, 0, normalizedQuantity);
+        const valuation = frozen ? readProductValuation(tx, ctx.tenantId, item.productId) : null;
         applyInventoryBalanceDelta(tx, {
+          ...(frozen && valuation
+            ? { valueDelta: planReceiptReversal(valuation, debit, frozen) }
+            : {}),
           onValueDelta: value => {
             if (value) valueDelta = value;
           },
