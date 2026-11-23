@@ -122,6 +122,7 @@ import {
   prepareSaleFiscalIntent,
 } from '../../services/fiscal/orchestrator/intents.js';
 import type { ResolvedLine } from '../../services/fiscal/orchestrator/types.js';
+import { linkPresentationToTender } from '../../services/payments/presentation.js';
 import { linkWalletChargeToTender } from '../../services/payments/wallet-confirmation.js';
 import { resolveElectronicInvoiceBuyer } from './electronicInvoice.js';
 import { transferConfirmationColumns } from './transfer-confirmation.js';
@@ -736,6 +737,15 @@ export async function runFreshSale(
           amount: tenderAmount,
         });
         if (input.status === 'completed') {
+          if (payment.presentationId) {
+            linkPresentationToTender(tx, {
+              tenantId: ctx.tenantId,
+              saleId,
+              salePaymentId: paymentId,
+              presentationId: payment.presentationId,
+              amount: tenderAmount,
+            });
+          }
           linkWalletChargeToTender(tx, {
             tenantId: ctx.tenantId,
             salePaymentId: paymentId,

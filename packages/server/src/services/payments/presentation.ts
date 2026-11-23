@@ -18,7 +18,7 @@
  *
  * @module services/payments/presentation
  */
-import { and, eq, lt } from 'drizzle-orm';
+import { and, eq, lt, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { nanoid } from 'nanoid';
 
@@ -395,4 +395,80 @@ export function listOpenPresentations(
     .all()
     .map(toPresentation)
     .filter(presentation => presentation.siteId === siteId);
+}
+
+/**
+ * Link a presentation inside the sale transaction that creates its tender.
+ *
+ * Deliberately not `linkPresentationToSale`: that one opens its own
+ * transaction, which is right for a standalone endpoint and wrong here. Called
+ * from inside the sale, a mismatched presentation must abort the whole sale —
+ * a charged sale beside an open presentation is the one state that would make
+ * the till disagree with the bank silently.
+ *
+ * `timeout` links too: an expired presentation is exactly the late payment
+ * reconciliation exists for.
+ */
+export function linkPresentationToTender(
+  tx: Pick<DatabaseInstance, 'update'>,
+  args: {
+    tenantId: string;
+    saleId: string;
+    salePaymentId: string;
+    presentationId: string;
+    amount: number;
+  }
+): void {
+  const presentation = (tx as unknown as DatabaseInstance)
+    .select()
+    .from(paymentOutbox)
+    .where(
+      and(
+        eq(paymentOutbox.id, args.presentationId),
+        eq(paymentOutbox.tenantId, args.tenantId),
+        eq(paymentOutbox.kind, 'presentation')
+      )
+    )
+    .get();
+  if (!presentation) {
+    throw new TRPCError({
+      code: 'CONFLICT',
+      message: `Presentation ${args.presentationId} does not belong to this tenant`,
+    });
+  }
+  if (Math.abs(roundMoney(presentation.amount) - roundMoney(args.amount)) >= 0.005) {
+    throw new TRPCError({
+      code: 'CONFLICT',
+      message: 'The presentation amount does not match the tender being charged',
+    });
+  }
+
+  const now = new Date().toISOString();
+  const result = tx
+    .update(paymentOutbox)
+    .set({
+      status: 'linked',
+      salePaymentId: args.salePaymentId,
+      payload: {
+        ...(presentation.payload ?? {}),
+        saleId: args.saleId,
+      },
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(paymentOutbox.id, args.presentationId),
+        eq(paymentOutbox.tenantId, args.tenantId),
+        eq(paymentOutbox.kind, 'presentation'),
+        sql`${paymentOutbox.status} IN ('presented', 'timeout')`
+      )
+    )
+    .run();
+
+  if (Number(result.changes) !== 1) {
+    throw new TRPCError({
+      code: 'CONFLICT',
+      message: 'This presentation was already linked or closed; reopen the QR and charge again',
+    });
+  }
 }

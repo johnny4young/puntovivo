@@ -113,6 +113,7 @@ import {
   prepareSaleFiscalIntent,
 } from '../../services/fiscal/orchestrator/intents.js';
 import type { ResolvedLine } from '../../services/fiscal/orchestrator/types.js';
+import { linkPresentationToTender } from '../../services/payments/presentation.js';
 import { linkWalletChargeToTender } from '../../services/payments/wallet-confirmation.js';
 import { resolveElectronicInvoiceBuyer } from './electronicInvoice.js';
 import { transferConfirmationColumns } from './transfer-confirmation.js';
@@ -1000,6 +1001,15 @@ export async function runCompleteDraft(
               createdAt: now,
             })
             .run();
+          if (payment.presentationId) {
+            linkPresentationToTender(tx, {
+              tenantId: ctx.tenantId,
+              saleId: input.saleId,
+              salePaymentId: paymentId,
+              presentationId: payment.presentationId,
+              amount: tenderAmount,
+            });
+          }
           paymentEffects.push({
             id: paymentId,
             method: payment.method,

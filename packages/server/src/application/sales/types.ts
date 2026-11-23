@@ -55,6 +55,12 @@ export interface CompleteSaleTender {
   amount: number;
   // explicit `| undefined` on Zod-optional field.
   reference?: string | null | undefined;
+  /**
+   * Static QR presentation shown for this transfer, when the register
+   * recorded one. Absent for every other method and for callers that predate
+   * it, which keeps those paths byte-identical.
+   */
+  presentationId?: string | null | undefined;
   /** Required only for a loyalty tender; the server prices the points. */
   loyaltyPoints?: number | undefined;
   /**

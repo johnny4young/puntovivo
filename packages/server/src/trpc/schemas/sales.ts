@@ -109,9 +109,22 @@ export const salePaymentInput = z
     reference: z.string().trim().max(120).optional(),
     /** Required for loyalty and forbidden for every other tender. */
     loyaltyPoints: z.number().int().positive().optional(),
+    /**
+     * Static QR presentation the register showed for this transfer. Only the
+     * id travels: the amount and destination are re-read server-side, so a
+     * client cannot latch a tender onto someone else's presentation.
+     */
+    presentationId: z.string().min(1).max(64).optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
+    if (value.presentationId !== undefined && value.method !== 'transfer') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['presentationId'],
+        message: 'Only transfer tenders carry a QR presentation',
+      });
+    }
     if ((value.method === 'loyalty') !== (value.loyaltyPoints !== undefined)) {
       ctx.addIssue({
         code: 'custom',
