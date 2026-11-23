@@ -89,13 +89,8 @@ test('admin receives, sells and traces one exact serialized unit', async ({ page
   await expect(page).toHaveURL(/\/sales$/);
   const salesSearch = page.locator('#sales-product-search-input');
   await salesSearch.fill(productSku);
+  // The form stores the SKU as the barcode, so Enter adds the exact code directly.
   await salesSearch.press('Enter');
-  const salesDialog = page.getByRole('dialog', { name: /Add product/ });
-  const salesRow = salesDialog.getByTestId(`product-search-row-${productSku}`);
-  await expect(salesRow).toBeVisible({ timeout: 15_000 });
-  await salesRow.click();
-  await salesDialog.getByRole('button', { name: 'Add to cart' }).click();
-  await expect(salesDialog).toBeHidden();
 
   const cartLine = page.getByTestId(`sale-cart-item-${productSku}`);
   await expect(cartLine).toBeVisible();
@@ -117,10 +112,6 @@ test('admin receives, sells and traces one exact serialized unit', async ({ page
   // The same SPA session must not offer the sold identity to a fresh cart.
   await salesSearch.fill(productSku);
   await salesSearch.press('Enter');
-  await expect(salesRow).toBeVisible({ timeout: 15_000 });
-  await salesRow.click();
-  await salesDialog.getByRole('button', { name: 'Add to cart' }).click();
-  await expect(salesDialog).toBeHidden();
   await expect(
     cartLine.getByText('No sellable serial numbers are available at this site.')
   ).toBeVisible({ timeout: 15_000 });
