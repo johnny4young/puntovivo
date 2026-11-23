@@ -124,6 +124,7 @@ import {
 import type { ResolvedLine } from '../../services/fiscal/orchestrator/types.js';
 import { linkWalletChargeToTender } from '../../services/payments/wallet-confirmation.js';
 import { resolveElectronicInvoiceBuyer } from './electronicInvoice.js';
+import { transferConfirmationColumns } from './transfer-confirmation.js';
 
 /**
  * Fresh-sale path (formerly `sales.create`): resolve the cart from scratch,
@@ -718,6 +719,12 @@ export async function runFreshSale(
             amount: tenderAmount,
             reference: payment.reference,
             loyaltyPoints: payment.loyaltyPoints ?? null,
+            ...transferConfirmationColumns({
+              method: payment.method,
+              reference: payment.reference,
+              actorId: ctx.user.id,
+              now,
+            }),
             syncStatus: 'pending',
             syncVersion: 1,
             createdAt: now,

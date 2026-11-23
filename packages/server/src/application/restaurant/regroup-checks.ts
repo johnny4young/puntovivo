@@ -800,6 +800,7 @@ export function regroupRestaurantChecksInTransaction(
       saleId: check.sale.id,
       method: check.sale.paymentMethod,
       amount: total,
+      actorId,
       now,
     });
   }
@@ -838,6 +839,7 @@ export function regroupRestaurantChecksInTransaction(
       saleId: check.sale.id,
       method: check.sale.paymentMethod,
       amount: null,
+      actorId,
       now,
     });
     closeRestaurantCheckForSale(

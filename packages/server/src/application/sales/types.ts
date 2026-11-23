@@ -1,3 +1,4 @@
+import type { TransferConfirmationStatus } from '../../db/schema/base.js';
 import type { ExternalAcceptanceReference } from '../external-orders/quote.js';
 /**
  * Public types for the `completeSale` application service.
@@ -56,6 +57,12 @@ export interface CompleteSaleTender {
   reference?: string | null | undefined;
   /** Required only for a loyalty tender; the server prices the points. */
   loyaltyPoints?: number | undefined;
+  /**
+   * Transfer confirmation state (design V3.3). Absent for every non-transfer
+   * method and for callers that predate the lifecycle; the persistence layer
+   * resolves the initial state through `resolveInitialTransferState`.
+   */
+  confirmationStatus?: TransferConfirmationStatus | null | undefined;
 }
 
 export interface CompleteSaleApprovalReference {

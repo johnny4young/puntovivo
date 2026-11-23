@@ -37,7 +37,7 @@ import type {
  * mismatch — do NOT widen it; see the PAYMENT_SUM_EPSILON regression
  * tests in application-sales-completeSale.test.ts ( context).
  */
-const PAYMENT_SUM_EPSILON = 0.005;
+export const PAYMENT_SUM_EPSILON = 0.005;
 
 /**
  * Decide the persisted `paymentStatus` of a sale at completion time.
@@ -58,6 +58,7 @@ export function getPaymentStatus({
   total,
   isSplit,
   creditAmount,
+  confirmedAmount,
 }: {
   amountReceived: number | undefined;
   paymentMethod: SalePaymentMethod;
@@ -73,8 +74,22 @@ export function getPaymentStatus({
    * the legacy `'paid'` outcome.
    */
   creditAmount?: number;
+  /**
+   * Money actually confirmed for this sale (design V3.3). Omitted on the
+   * historical single-tender paths, which keep their exact behaviour. A
+   * split sale whose confirmed total is short of the sale total is
+   * `partial` (some money arrived) or `pending` (none did) — a transfer the
+   * customer reported but nobody verified never counts as received.
+   */
+  confirmedAmount?: number;
 }): SalePaymentStatus {
   if (isSplit) {
+    if (confirmedAmount !== undefined) {
+      const confirmed = roundMoney(confirmedAmount);
+      if (confirmed + PAYMENT_SUM_EPSILON < roundMoney(total)) {
+        return confirmed > 0 ? 'partial' : 'pending';
+      }
+    }
     return (creditAmount ?? 0) > 0 ? 'partial' : 'paid';
   }
 
@@ -157,6 +172,9 @@ export function resolveSalePayments(args: {
       amount: roundMoney(payment.amount),
       reference: payment.reference ?? null,
       ...(payment.loyaltyPoints !== undefined ? { loyaltyPoints: payment.loyaltyPoints } : {}),
+      ...(payment.confirmationStatus !== undefined
+        ? { confirmationStatus: payment.confirmationStatus }
+        : {}),
     }));
     const sum = rows.reduce((acc, payment) => roundMoney(acc + payment.amount), 0);
     if (Math.abs(sum - args.total) >= PAYMENT_SUM_EPSILON) {

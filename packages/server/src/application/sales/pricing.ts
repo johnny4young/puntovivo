@@ -29,6 +29,7 @@ import {
   resolveSalePayments,
   type ResolvedSalePayments,
 } from './policies.js';
+import { sumSaleTenders } from './transfer-confirmation.js';
 import type {
   CompleteSaleTender,
   FreshSaleStatus,
@@ -215,6 +216,23 @@ export function resolveSalePaymentPlan(args: {
     .filter(row => row.method === 'credit')
     .reduce((sum, row) => roundMoney(sum + row.amount), 0);
 
+  // Transfer confirmation lifecycle (design V3.3): only money actually
+  // confirmed may count as received. The aggregate is computed only when the
+  // caller actually stated a confirmation state, so every traditional path
+  // (cash, card, credit, historic callers) keeps its exact behaviour.
+  const hasStatedTransferState = resolvedPayments.rows.some(
+    row => row.method === 'transfer' && row.confirmationStatus !== undefined
+  );
+  const tenderSums = hasStatedTransferState
+    ? sumSaleTenders(
+        resolvedPayments.rows.map(row => ({
+          method: row.method,
+          amount: row.amount,
+          confirmationStatus: row.confirmationStatus ?? null,
+        }))
+      )
+    : null;
+
   const paymentStatus = getPaymentStatus({
     amountReceived,
     paymentMethod: resolvedPayments.dominantMethod,
@@ -222,6 +240,7 @@ export function resolveSalePaymentPlan(args: {
     total,
     isSplit: isSplitPayment,
     creditAmount: creditSaleAmount,
+    ...(tenderSums ? { confirmedAmount: tenderSums.receivedTotal } : {}),
   });
   // Both operands are 2-decimal by now, but their float difference can
   // still drift (24.00 - 23.80 = 0.20000000000000284) — round the change

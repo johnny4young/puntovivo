@@ -504,6 +504,7 @@ export const salesSplitDraftProcedures = {
               saleId,
               method: currentSource.paymentMethod,
               amount,
+              actorId: ctx.user!.id,
               now,
             });
           }

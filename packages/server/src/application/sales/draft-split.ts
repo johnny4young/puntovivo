@@ -11,6 +11,7 @@ import { cashSessions, salePayments, sales, sequentials, sites } from '../../db/
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
 import { allocateNextSequential } from '../../services/sequential-allocation.js';
+import { transferConfirmationColumns } from './transfer-confirmation.js';
 
 /** Only a transaction handle can allocate a document number. */
 export type DraftSplitTransaction = Parameters<Parameters<DatabaseInstance['transaction']>[0]>[0];
@@ -209,6 +210,7 @@ export function rebuildProvisionalDraftPayment(
     saleId: string;
     method: SaleRow['paymentMethod'];
     amount: number | null;
+    actorId: string;
     now: string;
   }
 ): void {
@@ -225,6 +227,14 @@ export function rebuildProvisionalDraftPayment(
       amount: args.amount,
       reference: null,
       loyaltyPoints: null,
+      // A provisional draft tender still records its transfer lifecycle: the
+      // state is never left NULL by omission (design V3.3 invariant).
+      ...transferConfirmationColumns({
+        method: args.method,
+        reference: null,
+        actorId: args.actorId,
+        now: args.now,
+      }),
       syncStatus: 'pending',
       syncVersion: 1,
       createdAt: args.now,
