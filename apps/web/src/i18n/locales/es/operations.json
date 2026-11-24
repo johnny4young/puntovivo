@@ -614,7 +614,63 @@
         }
       }
     },
-    "kicker": "Pagos"
+    "kicker": "Pagos",
+    "transfers": {
+      "title": "Conciliación de transferencias",
+      "kicker": "Conciliación",
+      "description": "Cada cobro por transferencia según su estado, las presentaciones QR abiertas o vencidas y el dinero que la cadena de abonos todavía no aplicó. La tabla lista todos los cobros aún abiertos, no solo los de hoy, para que el dinero pendiente de un día anterior siga visible.",
+      "countersTitle": "Estado de los cobros",
+      "derivedTitle": "Presentaciones y dinero",
+      "unavailable": "No disponible",
+      "truncatedHint": "La lectura llegó a su límite de filas, así que este total no está completo.",
+      "buckets": {
+        "reported": "Reportadas",
+        "confirmed": "Confirmadas",
+        "rejected": "Rechazadas",
+        "awaitingReconciliation": "Por conciliar",
+        "pending": "Pendientes",
+        "pendingPresentations": "Presentaciones QR abiertas",
+        "expiredPresentations": "Presentaciones vencidas",
+        "unlinkedPresentations": "Sin venta vinculada",
+        "partialDeposits": "Abonos parciales o múltiples",
+        "excess": "Cobros con excedente",
+        "unappliedAmount": "Dinero no aplicado"
+      },
+      "bucketHints": {
+        "confirmed": "Confirmadas por el operador o por el proveedor",
+        "expiredPresentations": "Vencidas y aún pendientes de cruce bancario",
+        "unlinkedPresentations": "Presentaciones que terminaron sin una venta asociada",
+        "partialDeposits": "Abonos acumulados por debajo del importe esperado o por encima",
+        "unappliedAmount": "Excedente recibido que nunca se aplicó a una venta"
+      },
+      "columns": {
+        "sale": "Venta",
+        "reference": "Referencia",
+        "amount": "Esperado",
+        "applied": "Aplicado",
+        "surplus": "Excedente",
+        "status": "Estado",
+        "createdAt": "Creado",
+        "actions": "Acciones"
+      },
+      "status": {
+        "pending": "Pendiente",
+        "customer_reported": "Reportada por el cliente",
+        "manual_confirmed": "Confirmada manualmente",
+        "provider_confirmed": "Confirmada por el proveedor",
+        "rejected": "Rechazada",
+        "needs_reconciliation": "Por conciliar",
+        "cancelled": "Cancelada",
+        "missing": "Sin registrar"
+      },
+      "actions": {
+        "deposit": "Registrar abono",
+        "noPermission": "Solo un gerente o un administrador puede registrar un abono",
+        "noSite": "Este cobro no tiene sede de destino, así que no se puede conciliar desde aquí"
+      },
+      "emptyTitle": "No hay transferencias por conciliar",
+      "emptyState": "Ningún cobro por transferencia está esperando cruce bancario en este momento."
+    }
   },
   "authority": {
     "hub": {

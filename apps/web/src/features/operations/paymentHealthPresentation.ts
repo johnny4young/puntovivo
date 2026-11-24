@@ -24,6 +24,21 @@ export function paymentStatusTone(status: string | null): PaymentSemanticTone {
   return 'neutral';
 }
 
+/**
+ * Tone for `sale_payments.confirmation_status` on a transfer tender.
+ *
+ * Deliberately separate from {@link paymentStatusTone}, which describes
+ * `payment_outbox.status`: a `timeout` charge and a `timeout` presentation are
+ * failures, while a transfer confirmation is a human/provider verdict about
+ * money that is already on its way.
+ */
+export function transferConfirmationTone(status: string | null): PaymentSemanticTone {
+  if (status === 'manual_confirmed' || status === 'provider_confirmed') return 'success';
+  if (status === 'rejected') return 'danger';
+  if (status === 'needs_reconciliation') return 'warning';
+  return 'neutral';
+}
+
 export function paymentMismatchTone(type: string): PaymentSemanticTone {
   if (type === 'provider_issue') return 'danger';
   if (type === 'missing_provider_reference' || type === 'amount_mismatch') {

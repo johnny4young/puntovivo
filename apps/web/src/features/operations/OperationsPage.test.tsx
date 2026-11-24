@@ -174,6 +174,29 @@ vi.mock('@/lib/trpc', () => ({
           error: null,
         }),
       },
+      // 5.4: reads the mounted reconciliation subsection reaches on the
+      // `?tab=payments` path. Empty on purpose — this file asserts the page
+      // navigation, and the subsection has its own test file.
+      transferReconciliation: {
+        useQuery: () => ({
+          data: { counters: {}, rows: [] },
+          isLoading: false,
+          error: null,
+          isSuccess: true,
+        }),
+      },
+      pendingTransfers: {
+        useQuery: () => ({
+          data: [],
+          isLoading: false,
+          isError: false,
+          isSuccess: true,
+          refetch: vi.fn(),
+        }),
+      },
+      registerManualDeposit: {
+        useMutation: () => ({ isPending: false, mutate: vi.fn() }),
+      },
       retryOutbox: {
         useMutation: () => ({ isPending: false, mutateAsync: vi.fn() }),
       },

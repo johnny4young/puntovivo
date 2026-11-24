@@ -61,9 +61,26 @@ vi.mock('@/lib/trpc', () => ({
         peekOutbox: { invalidate: peekOutboxInvalidate },
         reconciliation: { invalidate: reconciliationInvalidate },
         methodBreakdown: { invalidate: methodBreakdownInvalidate },
+        // 5.4: the reconciliation subsection's deposit controller invalidates
+        // these two reads after a deposit; this panel never calls them itself.
+        transferReconciliation: { invalidate: vi.fn(async () => undefined) },
+        pendingTransfers: { invalidate: vi.fn(async () => undefined) },
       },
       operations: { needsAttention: { invalidate: attentionInvalidate } },
     }),
+    // 5.4: `TransferReconciliationSection` fans one `openPresentations` read out
+    // per visible site. This file declares no site, so the list stays empty.
+    useQueries: () => [],
+    sites: {
+      list: {
+        useQuery: () => ({
+          data: { items: [] },
+          isLoading: false,
+          error: null,
+          isSuccess: true,
+        }),
+      },
+    },
     payments: {
       listProposals: { useQuery: () => ({ data: [], isLoading: false, error: null }) },
       reviewProposal: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
@@ -131,6 +148,29 @@ vi.mock('@/lib/trpc', () => ({
           isLoading: false,
           error: null,
         }),
+      },
+      // 5.4: reads the mounted reconciliation subsection reaches. Empty on
+      // purpose — this file asserts the payment panel itself, and the
+      // subsection has its own test file.
+      transferReconciliation: {
+        useQuery: () => ({
+          data: { counters: {}, rows: [] },
+          isLoading: false,
+          error: null,
+          isSuccess: true,
+        }),
+      },
+      pendingTransfers: {
+        useQuery: () => ({
+          data: [],
+          isLoading: false,
+          isError: false,
+          isSuccess: true,
+          refetch: vi.fn(),
+        }),
+      },
+      registerManualDeposit: {
+        useMutation: () => ({ isPending: false, mutate: vi.fn() }),
       },
       retryOutbox: {
         useMutation: (options: {

@@ -16,12 +16,16 @@ import { PaymentBreakdownSection } from './PaymentBreakdownSection';
 import { PaymentHealthSummary, PaymentRailSummary } from './PaymentHealthOverview';
 import { PaymentMismatchSection } from './PaymentMismatchSection';
 import { PaymentProposalSection } from './PaymentProposalSection';
+import { TransferReconciliationSection } from './TransferReconciliationSection';
 import {
   getPaymentErrorMessage,
   PAYMENT_BREAKDOWN_WINDOW_DAYS,
   paymentStatusTone,
   RETRIABLE_PAYMENT_STATUSES,
 } from './paymentHealthPresentation';
+
+/** Outbox rows the panel tails; the reconciliation subsection reuses this window. */
+const OUTBOX_ROW_LIMIT = 20;
 
 interface PaymentHealthPanelProps {
   /** Counts a deliberate control activation inside a measured recovery. */
@@ -74,7 +78,7 @@ export function PaymentHealthPanel({
   );
   const outboxQuery = trpc.payments.peekOutbox.useQuery(
     {
-      limit: 20,
+      limit: OUTBOX_ROW_LIMIT,
     },
     {
       staleTime: 30_000,
@@ -201,6 +205,11 @@ export function PaymentHealthPanel({
       {data && <PaymentMismatchSection mismatches={data.mismatches} />}
 
       <PaymentProposalSection isAdmin={isAdmin} />
+
+      {/* Fase 5.4: transfer reconciliation lives inside this tab, not in a
+          navigation entry of its own, and reads the outbox window above so an
+          expired presentation is counted where expiry is recorded. */}
+      <TransferReconciliationSection outboxRows={outboxRows} outboxLimit={OUTBOX_ROW_LIMIT} />
 
       <section className="card p-6 space-y-4">
         <h3 className="pv-title text-lg">{t('payments.outbox.title')}</h3>
