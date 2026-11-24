@@ -33,17 +33,23 @@ jobs:
       # A command waits for a running review instead of cancelling it.
       cancel-in-progress: ${{ github.event_name != 'issue_comment' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: read
       issues: write
       pull-requests: write
       statuses: write
+      # Only for /centinela review: lets the job prove its identity to the Claude API.
+      id-token: write
     steps:
-      - uses: johnny4young/centinela@v1.4.0
+      - uses: johnny4young/centinela@v1.5.0
         with:
           app-client-id: ${{ vars.CENTINELA_APP_CLIENT_ID }}
           app-private-key: ${{ secrets.CENTINELA_APP_PRIVATE_KEY }}
+          anthropic-federation-rule-id: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
+          anthropic-organization-id: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
+          anthropic-service-account-id: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          anthropic-workspace-id: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
 
   lifecycle:
     name: Centinela lifecycle
@@ -57,7 +63,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: johnny4young/centinela@v1.4.0
+      - uses: johnny4young/centinela@v1.5.0
         with:
           app-client-id: ${{ vars.CENTINELA_APP_CLIENT_ID }}
           app-private-key: ${{ secrets.CENTINELA_APP_PRIVATE_KEY }}
