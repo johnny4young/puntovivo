@@ -1,7 +1,5 @@
 {
-  "maintainers": [
-    "johnny4young"
-  ],
+  "maintainers": ["johnny4young"],
   "license": "MIT",
   "size": {
     "ignore": [
@@ -15,23 +13,9 @@
     ]
   },
   "paths": {
-    "ui": [
-      "apps/web/src/**/*.tsx",
-      "apps/web/src/**/*.css",
-      "apps/web/src/i18n/locales/**"
-    ],
-    "source": [
-      "apps/*/src/**",
-      "packages/*/src/**",
-      "scripts/**/*.mjs"
-    ],
-    "tests": [
-      "**/*.test.*",
-      "**/*.spec.*",
-      "**/__tests__/**",
-      "e2e/**",
-      "scripts/fixtures/**"
-    ],
+    "ui": ["apps/web/src/**/*.tsx", "apps/web/src/**/*.css", "apps/web/src/i18n/locales/**"],
+    "source": ["apps/*/src/**", "packages/*/src/**", "scripts/**/*.mjs"],
+    "tests": ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "e2e/**", "scripts/fixtures/**"],
     "sensitive": [
       "scripts/ensure-*.mjs",
       "apps/desktop/src/main/window-config.ts",
@@ -41,22 +25,14 @@
     ]
   },
   "language": {
-    "typosExclude": [
-      "apps/web/src/i18n/locales/es/**",
-      "docs/es/**"
-    ],
+    "typosExclude": ["apps/web/src/i18n/locales/es/**", "docs/es/**"],
     "spanishRegister": {
       "register": "usted",
-      "paths": [
-        "apps/web/src/i18n/locales/es/**"
-      ]
+      "paths": ["apps/web/src/i18n/locales/es/**"]
     },
     "localeParity": {
       "dir": "apps/web/src/i18n/locales",
-      "languages": [
-        "en",
-        "es"
-      ]
+      "languages": ["en", "es"]
     }
   },
   "rules": {
@@ -65,12 +41,8 @@
       {
         "id": "desktop-server-import",
         "severity": "maintainer",
-        "paths": [
-          "apps/desktop/src/main/**"
-        ],
-        "exclude": [
-          "apps/desktop/src/main/server-host/**"
-        ],
+        "paths": ["apps/desktop/src/main/**"],
+        "exclude": ["apps/desktop/src/main/server-host/**"],
         "pattern": "^\\s*import\\s+(?!type\\b)[^'\"]*from\\s+['\"]@puntovivo/server['\"]",
         "message": {
           "en": "The main process reaches the server only through `apps/desktop/src/main/server-host/`; the server runs on a worker thread. Please go through the server host instead of importing `@puntovivo/server`.",
@@ -80,9 +52,7 @@
       {
         "id": "rest-route",
         "severity": "maintainer",
-        "paths": [
-          "packages/server/src/server/routes/**"
-        ],
+        "paths": ["packages/server/src/server/routes/**"],
         "message": {
           "en": "tRPC at `/api/trpc` is the application API. Please add a tRPC procedure instead of a REST route, or explain why this one is needed.",
           "es": "tRPC en `/api/trpc` es la API de la aplicación. Por favor agregue un procedimiento tRPC en lugar de una ruta REST, o explique por qué esta es necesaria."
@@ -91,9 +61,7 @@
       {
         "id": "drizzle-null-default",
         "severity": "blocking",
-        "paths": [
-          "packages/server/src/db/**"
-        ],
+        "paths": ["packages/server/src/db/**"],
         "pattern": "\\.default\\(null\\)",
         "message": {
           "en": "Drizzle writes `.default(null)` on a JSON text column as the string `'null'`, not SQL NULL. Please leave the default out.",
@@ -103,9 +71,7 @@
       {
         "id": "tenant-scope",
         "severity": "suggestion",
-        "paths": [
-          "packages/server/src/trpc/routers/**"
-        ],
+        "paths": ["packages/server/src/trpc/routers/**"],
         "message": {
           "en": "Please confirm every query scopes by `ctx.tenantId` and every procedure that takes a `siteId` calls `ensureTenantSite`.",
           "es": "Por favor confirme que cada consulta filtra por `ctx.tenantId` y que cada procedimiento que recibe un `siteId` llama a `ensureTenantSite`."
@@ -127,9 +93,6 @@
     }
   },
   "ai": {
-    "rules": [
-      ".github/triage/REVIEW.md",
-      "CONTRIBUTING.md"
-    ]
+    "rules": [".github/triage/REVIEW.md", "CONTRIBUTING.md"]
   }
 }
