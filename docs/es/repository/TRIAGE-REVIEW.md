@@ -37,6 +37,46 @@ Las contribuciones de mantenedores se omiten salvo que lleven la etiqueta `triag
 
 El workflow se ejecuta desde `main` y lee la pull request solo mediante la API de GitHub; nunca descarga ni ejecuta el código contribuido.
 
+## Reglas de código
+
+Un mantenedor puede pedir a Centinela una revisión con IA con la etiqueta `centinela: ai-review`. La revisión lee la versión en inglés de esta sección como reglas del proyecto, así que solo incluye reglas que se puedan verificar en un diff.
+
+**Datos multi-tenant**
+
+- Toda consulta en un router de tRPC filtra por `ctx.tenantId`.
+- Un procedimiento que recibe un `siteId` llama a `ensureTenantSite(ctx.db, ctx.tenantId, siteId)`.
+- Los permisos por rol usan `adminProcedure`, `managerOrAdminProcedure` o `createRoleGuard`; nunca un middleware propio.
+
+**API y escritorio**
+
+- `/api/trpc` es la API de la aplicación. No se agregan rutas REST; solo quedan `/api/health` y `/api/realtime/*`.
+- El renderer de Electron está aislado: una API nueva del preload es un envoltorio de una línea sobre `ipcRenderer.invoke`, conectado a un canal `ipcMain.handle`.
+- El servidor integrado corre en un worker thread. El proceso principal llega a él solo mediante `apps/desktop/src/main/server-host/` y nunca importa `@puntovivo/server`.
+- El proceso principal nunca se bloquea: nada de trabajo síncrono de archivos, procesos o criptografía.
+
+**Base de datos**
+
+- Los cambios de esquema van en `packages/server/src/db/schema.ts` con una migración generada por `drizzle-kit`. El SQL escrito a mano usa `IF NOT EXISTS`.
+- Nunca `.default(null)` en una columna de texto `{ mode: 'json' }`: guarda el texto `null`.
+- El código de la aplicación nunca escribe `product_stock_totals`; lo mantienen los triggers de la base de datos.
+- Las actualizaciones del catálogo usan la actualización versionada que lanza `STALE_VERSION` ante un conflicto.
+
+**Dinero, ventas y documentos fiscales**
+
+- Todo valor monetario intermedio pasa por `roundMoney()`. El total a pagar usa `resolvePayableTotal`.
+- Completar una venta requiere una sesión de caja activa, y los movimientos de caja pasan por `insertCashMovement`.
+- Un documento fiscal, su entrada en el outbox y el avance de la numeración se escriben en una sola transacción. La emisión ocurre después del commit y nunca revierte la venta.
+- Un documento fiscal emitido nunca cambia.
+
+**Textos de la interfaz**
+
+- Todo texto visible vive en `apps/web/src/i18n/locales/`, en `en` y en `es`.
+- Los textos en español usan español latinoamericano neutro con usted: nunca voseo ni tú.
+
+**Pruebas**
+
+- Un procedimiento nuevo de tRPC necesita una prueba de servidor que llame al router con el caller de tRPC y una base de datos en memoria, incluido el aislamiento por tenant cuando lee o escribe datos de un tenant.
+
 ## Mejorar las reglas
 
 Las reglas de Puntovivo viven en `.github/centinela.json`; los chequeos viven en el [repositorio de Centinela](https://github.com/johnny4young/centinela).
