@@ -205,3 +205,100 @@ describe('ManualDepositDialog', () => {
     expect(screen.getByRole('button', { name: 'Recording…' })).toBeDisabled();
   });
 });
+
+/**
+ * S12: the dialog must show the tender's live balance from the server, and it
+ * must never pass the movement's recorded answer off as that balance. These
+ * cover the branches the hook-only tests cannot reach: what the operator sees.
+ */
+describe('ManualDepositDialog current tender state', () => {
+  const currentState = (
+    overrides: Partial<NonNullable<ManualDepositController['currentState']>> = {}
+  ): NonNullable<ManualDepositController['currentState']> => ({
+    phase: 'ready',
+    appliedAmount: 60,
+    surplusAmount: 0,
+    confirmationStatus: 'needs_reconciliation',
+    isFetching: false,
+    error: null,
+    refetch: vi.fn(),
+    ...overrides,
+  });
+
+  it('prints the re-read balance, not the movement outcome, as the current state', () => {
+    render(
+      <ManualDepositDialog
+        isOpen
+        onClose={vi.fn()}
+        tender={tender}
+        deposit={controller({
+          // The movement recorded 100 while the tender now owes 40: the two
+          // panels must disagree, and the current one is the server read.
+          result: { appliedAmount: 100, surplusAmount: 0, status: 'manual_confirmed' },
+          currentState: currentState({ appliedAmount: 60, surplusAmount: 25 }),
+        })}
+      />
+    );
+
+    const current = screen.getByTestId('manual-deposit-current-state');
+    expect(within(current).getByTestId('manual-deposit-current-applied')).toHaveTextContent('60');
+    expect(within(current).getByTestId('manual-deposit-current-surplus')).toHaveTextContent('25');
+  });
+
+  it('says it is reading instead of reusing the last known figures', () => {
+    render(
+      <ManualDepositDialog
+        isOpen
+        onClose={vi.fn()}
+        tender={tender}
+        deposit={controller({
+          result: { appliedAmount: 100, surplusAmount: 0, status: 'manual_confirmed' },
+          currentState: currentState({ phase: 'loading', appliedAmount: null, surplusAmount: null }),
+        })}
+      />
+    );
+
+    expect(screen.getByTestId('manual-deposit-current-loading')).toBeInTheDocument();
+    expect(screen.queryByTestId('manual-deposit-current-applied')).not.toBeInTheDocument();
+  });
+
+  it('says the tender left the list once it settles', () => {
+    render(
+      <ManualDepositDialog
+        isOpen
+        onClose={vi.fn()}
+        tender={tender}
+        deposit={controller({
+          result: { appliedAmount: 100, surplusAmount: 0, status: 'manual_confirmed' },
+          currentState: currentState({ phase: 'absent', appliedAmount: null, surplusAmount: null }),
+        })}
+      />
+    );
+
+    expect(screen.getByTestId('manual-deposit-current-absent')).toBeInTheDocument();
+  });
+
+  it('surfaces a failed refresh with a retry instead of showing stale numbers', () => {
+    const refetch = vi.fn();
+    render(
+      <ManualDepositDialog
+        isOpen
+        onClose={vi.fn()}
+        tender={tender}
+        deposit={controller({
+          result: { appliedAmount: 100, surplusAmount: 0, status: 'manual_confirmed' },
+          currentState: currentState({
+            phase: 'notRefreshed',
+            appliedAmount: null,
+            surplusAmount: null,
+            error: 'network',
+            refetch,
+          }),
+        })}
+      />
+    );
+
+    expect(screen.getByTestId('manual-deposit-current-error')).toBeInTheDocument();
+    expect(screen.queryByTestId('manual-deposit-current-applied')).not.toBeInTheDocument();
+  });
+});

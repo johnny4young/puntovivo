@@ -17,7 +17,14 @@
     "appliedAmount": "Aplicado a este pago",
     "surplusAmount": "Excedente no aplicado",
     "status": "Estado de confirmación",
-    "pending": "El servidor todavía no informa un abono para este pago."
+    "pending": "El servidor todavía no informa un abono para este pago.",
+    "outcomeHeading": "Resultado de este movimiento",
+    "outcomeHint": "Grabado cuando el servidor aceptó este movimiento. Es evidencia de ese abono, no la deuda actual del pago.",
+    "reading": "Consultando el estado actual del pago…",
+    "refreshing": "Actualizando el estado actual…",
+    "absent": "Este pago ya no aparece en la lista actual de transferencias del servidor, así que no se muestra un saldo en vivo. Puede estar ya confirmado.",
+    "notRefreshed": "No se pudo actualizar el estado actual del pago, así que no se muestra un saldo en vivo.",
+    "retry": "Reintentar"
   },
   "fields": {
     "reference": "Referencia bancaria",

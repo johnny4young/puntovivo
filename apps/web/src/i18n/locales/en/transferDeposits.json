@@ -17,7 +17,14 @@
     "appliedAmount": "Applied to this tender",
     "surplusAmount": "Unapplied surplus",
     "status": "Confirmation status",
-    "pending": "The server has not reported a deposit for this tender yet."
+    "pending": "The server has not reported a deposit for this tender yet.",
+    "outcomeHeading": "Outcome of this movement",
+    "outcomeHint": "Recorded when the server accepted this movement. It is evidence of that deposit, not what the tender owes today.",
+    "reading": "Reading the tender's current state…",
+    "refreshing": "Refreshing the current state…",
+    "absent": "This tender no longer appears in the server's current transfer list, so no live balance is shown. It may already be settled.",
+    "notRefreshed": "The tender's current state could not be refreshed, so no live balance is shown.",
+    "retry": "Retry"
   },
   "fields": {
     "reference": "Bank reference",

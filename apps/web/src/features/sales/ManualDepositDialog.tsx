@@ -9,6 +9,12 @@
  * shown after a deposit is the server's accumulated answer. A shortfall or an
  * excess is rendered as whatever `status` the server returned.
  *
+ * Two separate panels keep the two sources apart (S12). The current state is
+ * whatever a read that started after the last submit returned — loading,
+ * settled out of the list, or not refreshed are each said out loud. The
+ * recorded outcome is the mutation's own answer: evidence of that movement,
+ * never the tender's balance.
+ *
  * @module features/sales/ManualDepositDialog
  */
 import { useEffect } from 'react';
@@ -80,6 +86,9 @@ export function ManualDepositDialog({
     typeof value === 'number' && Number.isFinite(value)
       ? formatCurrency(value)
       : t('history.notReported');
+  // The tender's current state, from a read that started after the last
+  // submit. Absent on a controller built by hand (the hook always sends it).
+  const current = deposit.currentState;
 
   return (
     <Modal
@@ -139,8 +148,74 @@ export function ManualDepositDialog({
           </dl>
         </section>
 
-        <section className="surface-panel-muted p-4" data-testid="manual-deposit-server-state">
+        <section className="surface-panel-muted p-4" data-testid="manual-deposit-current-state">
           <p className="sales-cap">{t('state.heading')}</p>
+          {!current ? null : current.phase === 'ready' ? (
+            <>
+              <dl className="mt-2 grid gap-x-4 gap-y-2 text-sm md:grid-cols-3">
+                <div>
+                  <dt className="text-secondary-500">{t('state.appliedAmount')}</dt>
+                  <dd data-testid="manual-deposit-current-applied">
+                    {amountLabel(current.appliedAmount ?? undefined)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-secondary-500">{t('state.surplusAmount')}</dt>
+                  <dd data-testid="manual-deposit-current-surplus">
+                    {amountLabel(current.surplusAmount ?? undefined)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-secondary-500">{t('state.status')}</dt>
+                  <dd data-testid="manual-deposit-current-status">
+                    {statusLabel(current.confirmationStatus)}
+                  </dd>
+                </div>
+              </dl>
+              {current.isFetching && (
+                <p className="mt-2 text-xs text-secondary-500" role="status">
+                  {t('state.refreshing')}
+                </p>
+              )}
+            </>
+          ) : current.phase === 'loading' ? (
+            <p
+              className="mt-2 text-sm text-secondary-500"
+              role="status"
+              data-testid="manual-deposit-current-loading"
+            >
+              {t('state.reading')}
+            </p>
+          ) : current.phase === 'absent' ? (
+            <p
+              className="mt-2 text-sm text-secondary-500"
+              data-testid="manual-deposit-current-absent"
+            >
+              {t('state.absent')}
+            </p>
+          ) : current.phase === 'notRefreshed' ? (
+            <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+              <p
+                className="text-sm text-danger-500"
+                role="alert"
+                data-testid="manual-deposit-current-error"
+              >
+                {current.error ?? t('state.notRefreshed')}
+              </p>
+              <button
+                type="button"
+                className="text-sm font-semibold text-primary-700 underline"
+                onClick={current.refetch}
+              >
+                {t('state.retry')}
+              </button>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="surface-panel-muted p-4" data-testid="manual-deposit-server-state">
+          <p className="sales-cap">{t('state.outcomeHeading')}</p>
+          <p className="mt-1 text-xs text-secondary-500">{t('state.outcomeHint')}</p>
           {deposit.result ? (
             <dl className="mt-2 grid gap-x-4 gap-y-2 text-sm md:grid-cols-3">
               <div>

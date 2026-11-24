@@ -13,7 +13,9 @@ const state = vi.hoisted(() => ({
   query: {
     data: undefined as unknown[] | undefined,
     isLoading: false,
+    isFetching: false,
     isError: false,
+    error: null as unknown,
     refetch: vi.fn(),
   },
   invalidateHistory: vi.fn(),
@@ -89,6 +91,16 @@ function row(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function deferred() {
+  let resolve!: () => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<void>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 function mount(options: { enabled?: boolean; siteId?: string; onDeposited?: () => void } = {}) {
   const siteId = options.siteId ?? 'site-1';
   return renderHook(
@@ -111,7 +123,9 @@ describe('useManualDeposit', () => {
     state.queryOptions = null;
     state.query.data = undefined;
     state.query.isLoading = false;
+    state.query.isFetching = false;
     state.query.isError = false;
+    state.query.error = null;
     state.query.refetch.mockReset();
     state.invalidateHistory.mockReset();
     state.invalidateReconciliation.mockReset();
@@ -140,12 +154,14 @@ describe('useManualDeposit', () => {
     expect(result.current.error).toBeNull();
   });
 
-  it('reports the accumulated state the server answered, untouched', () => {
+  it('reports the accumulated state the server answered, untouched', async () => {
     const onDeposited = vi.fn();
     const { result } = mount({ onDeposited });
     const answer = { appliedAmount: 120, surplusAmount: 20, status: 'needs_reconciliation' };
 
-    act(() => state.mutationOptions?.onSuccess?.(answer));
+    await act(async () => {
+      state.mutationOptions?.onSuccess?.(answer);
+    });
 
     // 120 is the server's accumulated figure for a 40 deposit: the hook hands
     // the object through instead of adding anything up.
@@ -155,11 +171,13 @@ describe('useManualDeposit', () => {
     expect(state.invalidateReconciliation).toHaveBeenCalledTimes(1);
   });
 
-  it('surfaces a failed deposit and keeps the last confirmed answer', () => {
+  it('surfaces a failed deposit and keeps the last confirmed answer', async () => {
     const { result } = mount();
     const answer = { appliedAmount: 40, surplusAmount: 0, status: 'needs_reconciliation' };
 
-    act(() => state.mutationOptions?.onSuccess?.(answer));
+    await act(async () => {
+      state.mutationOptions?.onSuccess?.(answer);
+    });
     act(() => state.mutationOptions?.onError?.(new Error('Transfer tender not found')));
 
     expect(result.current.error).toContain('Transfer tender not found');
@@ -218,15 +236,15 @@ describe('useManualDeposit', () => {
     expect(state.queryOptions?.enabled).toBe(false);
   });
 
-  it('drops the previous answer when the target tender changes', () => {
+  it('drops the previous answer when the target tender changes', async () => {
     const { result, rerender } = mount();
-    act(() =>
+    await act(async () => {
       state.mutationOptions?.onSuccess?.({
         appliedAmount: 40,
         surplusAmount: 0,
         status: 'needs_reconciliation',
-      })
-    );
+      });
+    });
     expect(result.current.result?.appliedAmount).toBe(40);
 
     rerender({ tenderArg: { ...tender, salePaymentId: 'pay-2' } });
@@ -234,5 +252,145 @@ describe('useManualDeposit', () => {
     // A deposit recorded on another tender is not this tender's state.
     expect(result.current.result).toBeNull();
     expect(result.current.error).toBeNull();
+  });
+
+  /**
+   * S12 — the replay is not state. `registerManualDeposit` answers with the
+   * outcome recorded for *that* movement; on an idempotent replay the server
+   * returns the outcome stored back when the original movement was recorded,
+   * which can be older than today's balance. Only a read that starts after the
+   * submit may be presented as the tender's current state.
+   */
+  describe('current tender state comes from a fresh read (S12)', () => {
+    const replayAnswer = {
+      appliedAmount: 40,
+      surplusAmount: 0,
+      status: 'needs_reconciliation',
+    };
+
+    it('shows the current row after a replay and keeps the replay as that movement record', async () => {
+      // Read before the replay: the tender had 40 applied.
+      state.query.data = [row({ appliedAmount: 40, surplusAmount: 0 })];
+      // The read the replay triggers sees today's balance, 100.
+      state.invalidateHistory.mockImplementation(() => {
+        state.query.data = [row({ appliedAmount: 100, surplusAmount: 5 })];
+        return Promise.resolve();
+      });
+      const { result } = mount();
+
+      expect(result.current.currentState.appliedAmount).toBe(40);
+
+      await act(async () => {
+        state.mutationOptions?.onSuccess?.(replayAnswer);
+      });
+
+      // The balance comes from the fresh row, never from the replay's answer.
+      expect(result.current.currentState.phase).toBe('ready');
+      expect(result.current.currentState.appliedAmount).toBe(100);
+      expect(result.current.currentState.surplusAmount).toBe(5);
+      expect(result.current.currentState.confirmationStatus).toBe('needs_reconciliation');
+      // The answer stays available, unchanged, as the record of that movement.
+      expect(result.current.result).toEqual(replayAnswer);
+    });
+
+    it('withholds any figure while the re-read is in flight', () => {
+      const gate = deferred();
+      state.query.data = [row({ appliedAmount: 40, surplusAmount: 0 })];
+      state.invalidateHistory.mockImplementation(() => gate.promise);
+      const { result } = mount();
+
+      act(() => state.mutationOptions?.onSuccess?.(replayAnswer));
+
+      // 40 is both the pre-deposit row and the replay's figure: neither is      // today's balance, so the surface must say it is still reading.
+      expect(result.current.currentState.phase).toBe('loading');
+      expect(result.current.currentState.appliedAmount).toBeNull();
+      expect(result.current.currentState.surplusAmount).toBeNull();
+      expect(result.current.currentState.confirmationStatus).toBeNull();
+      // The movement record stays readable while the read runs.
+      expect(result.current.result).toEqual(replayAnswer);
+
+      return act(async () => {
+        gate.resolve();
+      });
+    });
+
+    it('says the tender left the list instead of keeping the replay numbers', async () => {
+      state.query.data = [row({ appliedAmount: 40, surplusAmount: 0 })];
+      // The deposit settled the tender, so the pending list no longer has it.
+      state.invalidateHistory.mockImplementation(() => {
+        state.query.data = [];
+        return Promise.resolve();
+      });
+      const { result } = mount();
+      expect(result.current.currentState.appliedAmount).toBe(40);
+
+      await act(async () => {
+        state.mutationOptions?.onSuccess?.({
+          appliedAmount: 100,
+          surplusAmount: 0,
+          status: 'manual_confirmed',
+        });
+      });
+
+      expect(result.current.currentState.phase).toBe('absent');
+      expect(result.current.currentState.appliedAmount).toBeNull();
+      expect(result.current.currentState.surplusAmount).toBeNull();
+      expect(result.current.currentState.confirmationStatus).toBeNull();
+      // The recorded outcome is still evidence of that movement.
+      expect(result.current.result?.appliedAmount).toBe(100);
+    });
+
+    it('surfaces a failed re-read instead of reusing the numbers it could not refresh', async () => {
+      state.query.data = [row({ appliedAmount: 40, surplusAmount: 0 })];
+      state.invalidateHistory.mockImplementation(() => {
+        state.query.isError = true;
+        state.query.error = new Error('Tender read failed');
+        return Promise.reject(new Error('Tender read failed'));
+      });
+      const { result } = mount();
+
+      await act(async () => {
+        state.mutationOptions?.onSuccess?.(replayAnswer);
+      });
+
+      expect(result.current.currentState.phase).toBe('notRefreshed');
+      expect(result.current.currentState.appliedAmount).toBeNull();
+      expect(result.current.currentState.surplusAmount).toBeNull();
+      expect(result.current.currentState.confirmationStatus).toBeNull();
+      expect(result.current.currentState.error).toContain('Tender read failed');
+      // The history section keeps its own error rendering.
+      expect(result.current.history.isError).toBe(true);
+    });
+
+    it('ends the first deposit on the freshly read state', async () => {
+      state.query.data = [
+        row({ appliedAmount: 0, surplusAmount: 0, confirmationStatus: 'customer_reported' }),
+      ];
+      state.invalidateHistory.mockImplementation(() => {
+        state.query.data = [row({ appliedAmount: 40, surplusAmount: 0 })];
+        return Promise.resolve();
+      });
+      const { result } = mount();
+
+      await act(async () => {
+        state.mutationOptions?.onSuccess?.(replayAnswer);
+      });
+
+      expect(result.current.currentState.phase).toBe('ready');
+      expect(result.current.currentState.appliedAmount).toBe(40);
+      expect(result.current.currentState.confirmationStatus).toBe('needs_reconciliation');
+      // Both reads the hook relies on are re-read, once.
+      expect(state.invalidateHistory).toHaveBeenCalledTimes(1);
+      expect(state.invalidateReconciliation).toHaveBeenCalledTimes(1);
+    });
+
+    it('reports the first read as in progress instead of showing a balance', () => {
+      state.query.isLoading = true;
+      const { result } = mount();
+
+      expect(result.current.currentState.phase).toBe('loading');
+      expect(result.current.currentState.appliedAmount).toBeNull();
+      expect(result.current.currentState.confirmationStatus).toBeNull();
+    });
   });
 });

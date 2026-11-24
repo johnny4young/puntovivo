@@ -14,7 +14,12 @@
  * - the movement history, read from the server through `pendingTransfers`
  *   (never accumulated from what this session sent) and scoped to the sale
  *   the dialog was opened for, so partial deposits and several movements on
- *   the same tender stay visible.
+ *   the same tender stay visible;
+ * - the tender's *current* state, which only ever comes from a read that
+ *   started after the last submit (S12). The mutation's answer is the outcome
+ *   recorded for that movement; on an idempotent replay the server returns the
+ *   outcome stored back then, which can be older than today's balance, so the
+ *   hook never presents it as the tender's state.
  *
  * The component layer stays presentational (`ManualDepositDialog`) so the
  * register/cashier flow and the reconciliation subsection can share it.
@@ -91,6 +96,36 @@ export interface ManualDepositHistory {
   refetch: () => void;
 }
 
+/**
+ * Where the tender's *current* state stands (S12).
+ *
+ * - `idle`: no read was requested yet (the owner has reads disabled).
+ * - `loading`: a read is in flight — including the re-read a submit triggers,
+ *   during which neither the previous row nor the mutation's answer is shown.
+ * - `ready`: a completed read returned this tender; the numbers are that row's.
+ * - `absent`: a completed read does not carry this tender any more (it settled
+ *   out of the pending list), so no balance is shown.
+ * - `notRefreshed`: the read failed, so the last numbers are *not* live and are
+ *   withheld instead of being reused.
+ */
+export type ManualDepositCurrentPhase = 'idle' | 'loading' | 'ready' | 'absent' | 'notRefreshed';
+
+/** The tender's current state, derived only from the fresh server read. */
+export interface ManualDepositCurrentState {
+  phase: ManualDepositCurrentPhase;
+  /** Accumulated applied amount of the read row; null unless `phase` is ready. */
+  appliedAmount: number | null;
+  /** Accumulated surplus of the read row; null unless `phase` is ready. */
+  surplusAmount: number | null;
+  /** Confirmation status of the read row; null unless `phase` is ready. */
+  confirmationStatus: string | null;
+  /** True while any read of the tender list is running. */
+  isFetching: boolean;
+  /** Why the current state is not available; null unless `phase` failed. */
+  error: string | null;
+  refetch: () => void;
+}
+
 /** Everything the dialog needs; the owner passes this object straight through. */
 export interface ManualDepositController {
   /** False for a role the server would reject; the dialog then stays read-only. */
@@ -98,10 +133,29 @@ export interface ManualDepositController {
   isSubmitting: boolean;
   /** Localized failure of the last attempt, cleared when a new one starts. */
   error: string | null;
-  /** Last answer the server gave for THIS tender, or null before the first one. */
+  /**
+   * The answer `registerManualDeposit` gave for THIS tender: the outcome
+   * recorded for that movement, never the tender's balance (S12).
+   */
   result: ManualDepositResult | null;
+  /**
+   * What the tender owes now, from a read that started after the last submit.
+   * Optional only so an existing caller can build a partial controller;
+   * `useManualDeposit` always returns it.
+   */
+  currentState?: ManualDepositCurrentState | undefined;
   history: ManualDepositHistory;
   submit: (values: ManualDepositValues) => void;
+}
+
+/**
+ * What `useManualDeposit` returns. The fresh read is always present here, so a
+ * surface wired to the hook never has to guess whether the tender's current
+ * state is available; `ManualDepositController` keeps it optional only so an
+ * existing caller can build a partial controller.
+ */
+export interface ManualDepositControllerWithState extends ManualDepositController {
+  currentState: ManualDepositCurrentState;
 }
 
 export interface UseManualDepositParams {
@@ -122,8 +176,22 @@ interface DepositOutcome {
   error: string | null;
 }
 
+/**
+ * Progress of the read a submit asks for. `rereading` starts the moment the
+ * server answers and only clears once the read it triggered has settled, so
+ * the surface cannot briefly fall back to numbers recorded before the deposit.
+ */
+interface DepositReread {
+  key: string;
+  phase: 'idle' | 'rereading' | 'failed';
+}
+
 function tenderKey(tender: ManualDepositTender): string {
   return `${tender.saleId}:${tender.salePaymentId}`;
+}
+
+function finiteOrNull(value: number | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 export function useManualDeposit({
@@ -131,7 +199,7 @@ export function useManualDeposit({
   tender,
   enabled = true,
   onDeposited,
-}: UseManualDepositParams): ManualDepositController {
+}: UseManualDepositParams): ManualDepositControllerWithState {
   const { t } = useTranslation('transferDeposits');
   const { user } = useAuth();
   const utils = trpc.useUtils();
@@ -142,20 +210,45 @@ export function useManualDeposit({
   const [outcome, setOutcome] = useState<DepositOutcome>({ key, result: null, error: null });
   const current: DepositOutcome =
     outcome.key === key ? outcome : { key, result: null, error: null };
+  const [reread, setReread] = useState<DepositReread>({ key, phase: 'idle' });
+  const fresh: DepositReread = reread.key === key ? reread : { key, phase: 'idle' };
 
   const historyQuery = trpc.payments.pendingTransfers.useQuery(
     { siteId, limit: HISTORY_LIMIT },
     { enabled: enabled && siteId.length > 0 }
   );
 
+  /**
+   * Re-reads the two reads this hook already depends on. The mutations' answer
+   * is never stored as state here: until this resolves the tender's balance is
+   * unknown, and if it fails the balance stays withheld rather than reusing
+   * the numbers the reader could not refresh (S12).
+   */
+  const rereadTender = async (): Promise<void> => {
+    setReread({ key, phase: 'rereading' });
+    try {
+      await Promise.all([
+        utils.payments.pendingTransfers.invalidate(),
+        utils.payments.transferReconciliation.invalidate(),
+      ]);
+      setReread({ key, phase: 'idle' });
+    } catch {
+      // The query's own error state carries the reason; this only keeps the
+      // phase honest so stale numbers are never presented as current.
+      setReread({ key, phase: 'failed' });
+    }
+  };
+
   const mutation = trpc.payments.registerManualDeposit.useMutation({
     onSuccess: answer => {
-      // Rendered as-is: accumulated applied amount, surplus and status are the
-      // server's verdict, so nothing here is recomputed or capped.
+      // Kept as the record of THIS movement: accumulated applied amount,
+      // surplus and status are the server's verdict for that deposit, so
+      // nothing here is recomputed or capped. It is not the tender's balance.
       setOutcome({ key, result: answer, error: null });
-      void utils.payments.pendingTransfers.invalidate();
-      void utils.payments.transferReconciliation.invalidate();
       void onDeposited?.(answer);
+      // The previous read predates the deposit, so the current state is
+      // unknown from here until a read that started after it settles.
+      void rereadTender();
     },
     onError: error => {
       setOutcome(previous => ({
@@ -194,11 +287,42 @@ export function useManualDeposit({
     row => row.saleId === tender.saleId
   );
 
+  // The fresh row for the selected tender, if the readable list still carries
+  // it. Settled tenders leave that list, which is itself information.
+  const tenderRow = (historyQuery.data ?? []).find(
+    row => row.salePaymentId === tender.salePaymentId && row.saleId === tender.saleId
+  );
+  const readFailed = fresh.phase === 'failed' || historyQuery.isError;
+  const phase: ManualDepositCurrentPhase = readFailed
+    ? 'notRefreshed'
+    : fresh.phase === 'rereading' || historyQuery.isLoading
+      ? 'loading'
+      : tenderRow
+        ? 'ready'
+        : historyQuery.data !== undefined
+          ? 'absent'
+          : 'idle';
+  const currentState: ManualDepositCurrentState = {
+    phase,
+    appliedAmount: phase === 'ready' ? finiteOrNull(tenderRow?.appliedAmount) : null,
+    surplusAmount: phase === 'ready' ? finiteOrNull(tenderRow?.surplusAmount) : null,
+    confirmationStatus: phase === 'ready' ? (tenderRow?.confirmationStatus ?? null) : null,
+    isFetching: historyQuery.isFetching,
+    error:
+      phase === 'notRefreshed'
+        ? translateServerError(historyQuery.error, t, t('state.notRefreshed'))
+        : null,
+    refetch: () => {
+      void rereadTender();
+    },
+  };
+
   return {
     canDeposit,
     isSubmitting: mutation.isPending,
     error: current.error,
     result: current.result,
+    currentState,
     history: {
       rows,
       isLoading: historyQuery.isLoading,
