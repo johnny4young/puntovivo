@@ -13,6 +13,7 @@ import { TRPCError } from '@trpc/server';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import { auditLogs, salePayments, sales, siteTransferDestinations } from '../../db/schema.js';
+import type { TransferConfirmationStatus } from '../../db/schema/base.js';
 import {
   summarizeDeposits,
   type DepositAccumulation,
@@ -30,6 +31,24 @@ type PendingTransferStatus = (typeof PENDING_STATUSES)[number];
 
 /** The immutable audit action that records one deposit movement. */
 const DEPOSIT_AUDIT_ACTION = 'sale_payment.transfer_manual_confirmed';
+
+/**
+ * Why a recorded deposit was never applied to its tender.
+ *
+ * The money still arrived: the audit row keeps it, with `appliedAmount: 0`.
+ * Only a dead tender (one a replacement already superseded, or one the operator
+ * cancelled) produces these, and only the audit chain states it —
+ * `sale_payments` has no column for it and gets none.
+ */
+export type DepositNotAppliedReason = 'tender_rejected' | 'tender_cancelled';
+
+function notAppliedReasonFor(
+  status: TransferConfirmationStatus | null | undefined
+): DepositNotAppliedReason | null {
+  if (status === 'rejected') return 'tender_rejected';
+  if (status === 'cancelled') return 'tender_cancelled';
+  return null;
+}
 
 export interface PendingTransferRow {
   salePaymentId: string;
@@ -63,6 +82,12 @@ interface RecordedDeposit {
   surplusAmount: number;
   status: DepositAccumulationStatus;
   idempotencyKey: string | null;
+  /**
+   * Set when the movement was recorded against a dead tender and therefore
+   * never applied. Any recorded reason counts as not applied, so a value a
+   * future build adds is read the conservative way instead of as money.
+   */
+  notAppliedReason: string | null;
 }
 
 /**
@@ -92,6 +117,7 @@ function readDepositPayload(after: Record<string, unknown> | null): RecordedDepo
       ? roundMoney(surplus)
       : 0;
   const idempotencyKey = after?.['idempotencyKey'];
+  const notAppliedReason = after?.['notAppliedReason'];
 
   return {
     salePaymentId,
@@ -103,6 +129,10 @@ function readDepositPayload(after: Record<string, unknown> | null): RecordedDepo
     status: after?.['status'] === 'manual_confirmed' ? 'manual_confirmed' : 'needs_reconciliation',
     idempotencyKey:
       typeof idempotencyKey === 'string' && idempotencyKey.length > 0 ? idempotencyKey : null,
+    notAppliedReason:
+      typeof notAppliedReason === 'string' && notAppliedReason.length > 0
+        ? notAppliedReason
+        : null,
   };
 }
 
@@ -141,6 +171,30 @@ function readRecordedDeposits(
 }
 
 /**
+ * Only the movements that were actually APPLIED, grouped by tender.
+ *
+ * A movement recorded against a tender that was already rejected or cancelled
+ * is evidence of received money, not applied money (`notAppliedReason`).
+ * Feeding it into the accumulation would make a dead tender look paid — and a
+ * receipt would print money as applied that the sale never absorbed. Both read
+ * paths and the write path build their sums through this one grouping, so a
+ * tender whose only movement was not applied carries no applied amount
+ * anywhere.
+ */
+function appliedDepositsByTender(
+  deposits: readonly RecordedDeposit[]
+): Map<string, number[]> {
+  const byTender = new Map<string, number[]>();
+  for (const deposit of deposits) {
+    if (deposit.notAppliedReason !== null) continue;
+    const recorded = byTender.get(deposit.salePaymentId);
+    if (recorded) recorded.push(deposit.verifiedAmount);
+    else byTender.set(deposit.salePaymentId, [deposit.verifiedAmount]);
+  }
+  return byTender;
+}
+
+/**
  * What the recorded deposits add up to, per tender of one sale.
  *
  * The sale read model needs the same arithmetic the reconciliation surface and
@@ -160,15 +214,9 @@ export function accumulateSaleDeposits(
   const accumulationByTender = new Map<string, DepositAccumulation>();
   if (args.tenders.length === 0) return accumulationByTender;
 
-  const amountsByTender = new Map<string, number[]>();
-  for (const deposit of readRecordedDeposits(db, {
-    tenantId: args.tenantId,
-    saleIds: [args.saleId],
-  })) {
-    const recorded = amountsByTender.get(deposit.salePaymentId);
-    if (recorded) recorded.push(deposit.verifiedAmount);
-    else amountsByTender.set(deposit.salePaymentId, [deposit.verifiedAmount]);
-  }
+  const amountsByTender = appliedDepositsByTender(
+    readRecordedDeposits(db, { tenantId: args.tenantId, saleIds: [args.saleId] })
+  );
 
   for (const tender of args.tenders) {
     const deposits = amountsByTender.get(tender.id);
@@ -239,15 +287,12 @@ export function listPendingTransfers(
   // The movements behind each tender, in one tenant-scoped read instead of one
   // query per row. Both the write path and this projection go through
   // `summarizeDeposits`, so the surface never invents its own client-side sum.
-  const depositsByTender = new Map<string, number[]>();
-  for (const deposit of readRecordedDeposits(db, {
-    tenantId: args.tenantId,
-    saleIds: [...new Set(rows.map(row => row.saleId))],
-  })) {
-    const recorded = depositsByTender.get(deposit.salePaymentId);
-    if (recorded) recorded.push(deposit.verifiedAmount);
-    else depositsByTender.set(deposit.salePaymentId, [deposit.verifiedAmount]);
-  }
+  const depositsByTender = appliedDepositsByTender(
+    readRecordedDeposits(db, {
+      tenantId: args.tenantId,
+      saleIds: [...new Set(rows.map(row => row.saleId))],
+    })
+  );
 
   return rows.map(row => {
     const accumulation = summarizeDeposits(
@@ -322,6 +367,13 @@ export function saleTransferTotals(
  * row, written in the same transaction as the tender update. Replaying a
  * movement (`idempotencyKey`) returns the recorded outcome instead of adding
  * the money twice.
+ *
+ * A deposit received against a tender that is already dead (`rejected` or
+ * `cancelled`) is NOT applied and NOT lost: nothing about the tender row
+ * changes, `sales.total` stays as it is, and the movement is recorded in the
+ * audit chain with `appliedAmount: 0`, `status: 'needs_reconciliation'` and a
+ * `notAppliedReason`, so the day close can report the money in its own bucket.
+ * It is an answer, not an error: the money did arrive.
  */
 export function registerManualDeposit(
   db: DatabaseInstance,
@@ -411,13 +463,47 @@ export function registerManualDeposit(
         });
       }
 
+      // The tender can be dead before the money lands: a replacement plan
+      // rejected it, or the operator cancelled it. Rewriting it would resurrect
+      // a superseded tender inside the sale — and `sales.total` with it — so the
+      // movement is recorded as evidence and nothing else changes.
+      const notAppliedReason = notAppliedReasonFor(target.confirmationStatus);
+      if (notAppliedReason !== null) {
+        writeAuditLog({
+          tx,
+          tenantId: args.tenantId,
+          actorId: args.actorId,
+          action: DEPOSIT_AUDIT_ACTION,
+          resourceType: 'sale',
+          resourceId: args.saleId,
+          before: { confirmationStatus: target.confirmationStatus, amount: target.amount },
+          after: {
+            salePaymentId: args.salePaymentId,
+            verifiedAmount,
+            appliedAmount: 0,
+            surplusAmount: 0,
+            status: 'needs_reconciliation',
+            notAppliedReason,
+            reference: args.reference ?? target.reference,
+            valueDate: args.valueDate,
+            note: args.note,
+            idempotencyKey: args.idempotencyKey ?? null,
+          },
+          ...(args.operationId !== undefined ? { operationId: args.operationId } : {}),
+        });
+
+        return { appliedAmount: 0, surplusAmount: 0, status: 'needs_reconciliation' };
+      }
+
       // A transfer is confirmed only when the accumulated money covers what the
       // sale expected. An excess or a shortfall both land in reconciliation:
       // neither is allowed to silently rewrite the sale, and a partial deposit
       // must not make the tender look paid while the customer still owes the
-      // rest.
+      // rest. Movements that were never applied stay out of the sum, so a tender
+      // reopened for review does not count money it never absorbed.
+      const appliedAmounts = appliedDepositsByTender(recorded).get(args.salePaymentId) ?? [];
       const accumulation = summarizeDeposits(target.amount, [
-        ...recorded.map(entry => entry.verifiedAmount),
+        ...appliedAmounts,
         verifiedAmount,
       ]);
       const status = accumulation.status;
@@ -455,6 +541,7 @@ export function registerManualDeposit(
           appliedAmount: accumulation.appliedAmount,
           surplusAmount: accumulation.surplusAmount,
           status,
+          reference: args.reference ?? target.reference,
           valueDate: args.valueDate,
           note: args.note,
           idempotencyKey: args.idempotencyKey ?? null,
