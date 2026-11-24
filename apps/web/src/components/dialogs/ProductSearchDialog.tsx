@@ -44,6 +44,8 @@ interface ProductSearchDialogProps {
   stockTrackedOnly?: boolean;
   /** Off: every pick sells the base unit and the unit details stay hidden. */
   showUnitPicker?: boolean;
+  /** Procurement shows the unit cost instead of the sale price. */
+  priceMode?: 'sale' | 'cost';
 }
 
 export function ProductSearchDialog({
@@ -62,6 +64,7 @@ export function ProductSearchDialog({
   priceTier = 1,
   siteId = null,
   showUnitPicker = true,
+  priceMode = 'sale',
 }: ProductSearchDialogProps) {
   const { t } = useTranslation('common');
   const categoryFilterId = useId();
@@ -221,11 +224,13 @@ export function ProductSearchDialog({
               quickCreateAvailable={Boolean(onQuickCreateRequested)}
               onQuickCreate={handleQuickCreate}
               onProductSelect={product => setSelection(getInitialProductSelection(product))}
+              priceMode={priceMode}
             />
             <ProductSearchSelectionPanel
               product={selectedProduct}
               unit={selectedUnit}
               showUnits={showUnitPicker}
+              priceMode={priceMode}
               alternatives={generic.elsewhere}
               onChooseAlternative={alternative => {
                 // Alternatives here are never in the results: search for it, then select it.

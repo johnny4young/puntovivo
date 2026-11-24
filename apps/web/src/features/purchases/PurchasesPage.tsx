@@ -345,6 +345,7 @@ export function PurchasesPage() {
         title={t('dialog.addProduct')}
         confirmLabel={t('dialog.addButton')}
         stockTrackedOnly
+        priceMode="cost"
       />
 
       <PurchaseFinalizeModal

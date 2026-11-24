@@ -75,7 +75,7 @@
   },
   "businessTypePicker": {
     "title": "What do you sell?",
-    "description": "This turns on the register surfaces your business needs. You can change any of them later under Modules.",
+    "description": "This turns on the register screens your business needs. You can change any of them later under Modules.",
     "applying": "Setting things up…",
     "applied": "Set up for {{vertical}}",
     "error": "The business type could not be applied",

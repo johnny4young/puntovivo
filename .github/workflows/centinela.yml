@@ -8,29 +8,65 @@ on:
     types: [opened, reopened, synchronize, edited, ready_for_review, labeled, unlabeled]
   issues:
     types: [opened, reopened, edited, labeled, unlabeled]
+  issue_comment:
+    types: [created]
+  # Daily reminders for items waiting on their author.
+  schedule:
+    - cron: '23 9 * * *'
+  workflow_dispatch:
 
 permissions: {}
-
-concurrency:
-  group: centinela-${{ github.event.pull_request.number || github.event.issue.number }}
-  cancel-in-progress: true
 
 jobs:
   review:
     name: Centinela
-    # Keep in sync with optInLabel, overrideLabel and issues.bugLabel.
+    # Keep in sync with optInLabel, overrideLabel, issues.bugLabel and labels.aiReview.
     if: >-
-      (github.event.action != 'labeled' && github.event.action != 'unlabeled') ||
-      contains(fromJSON('["triage", "triage: approved", "bug"]'), github.event.label.name)
+      (github.event_name == 'issue_comment' &&
+      startsWith(github.event.comment.body, '/centinela') &&
+      github.event.comment.user.type != 'Bot') ||
+      ((github.event_name == 'pull_request_target' || github.event_name == 'issues') &&
+      ((github.event.action != 'labeled' && github.event.action != 'unlabeled') ||
+      contains(fromJSON('["triage", "triage: approved", "bug"]'), github.event.label.name) ||
+      (github.event.action == 'labeled' && github.event.label.name == 'centinela: ai-review')))
+    concurrency:
+      group: centinela-${{ github.event.pull_request.number || github.event.issue.number }}
+      # A command or an AI review request waits for a running review instead of cancelling it.
+      cancel-in-progress: "${{ github.event_name != 'issue_comment' && github.event.label.name != 'centinela: ai-review' }}"
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: read
       issues: write
       pull-requests: write
       statuses: write
+      # Only for /centinela review: lets the job prove its identity to the Claude API.
+      id-token: write
     steps:
-      - uses: johnny4young/centinela@v1.1.2
+      - uses: johnny4young/centinela@v1
+        with:
+          app-client-id: ${{ vars.CENTINELA_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.CENTINELA_APP_PRIVATE_KEY }}
+          anthropic-federation-rule-id: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
+          anthropic-organization-id: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
+          anthropic-service-account-id: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          anthropic-workspace-id: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
+
+  lifecycle:
+    name: Centinela lifecycle
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    concurrency:
+      group: centinela-lifecycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      # It also gives a first review to open items Centinela never saw.
+      statuses: write
+    steps:
+      - uses: johnny4young/centinela@v1
         with:
           app-client-id: ${{ vars.CENTINELA_APP_CLIENT_ID }}
           app-private-key: ${{ secrets.CENTINELA_APP_PRIVATE_KEY }}

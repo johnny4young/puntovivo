@@ -1,7 +1,7 @@
 {
   "card": {
     "title": "Idioma y moneda",
-    "description": "Elija el país donde opera este negocio. Los valores por defecto vienen del catálogo global; los overrides aplican solo a este tenant.",
+    "description": "Elija el país donde opera este negocio. Los valores por defecto vienen del catálogo global; los cambios aplican solo a este negocio.",
     "countryLabel": "País",
     "countryPlaceholder": "Seleccione un país",
     "uiNotReadyWarning": "La interfaz operativa aún no tiene el paquete de {{language}}. Los números y fechas se muestran correctamente; los textos caerán al español.",

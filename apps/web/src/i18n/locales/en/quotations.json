@@ -5,7 +5,7 @@
   },
   "history": {
     "title": "Recent quotations",
-    "description": "The most recent quotations across the tenant. Use the actions to send, accept, reject, expire, or delete a draft.",
+    "description": "The most recent quotations across the business. Use the actions to send, accept, reject, expire, or delete a draft.",
     "loading": "Loading quotations…",
     "error": "Unable to load quotations",
     "empty": "No quotations yet. Click New quotation to create the first one.",

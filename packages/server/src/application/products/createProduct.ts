@@ -10,7 +10,9 @@ import { roundMoney } from '../../lib/money.js';
 import { resolveFractionPolicy } from '../../services/fraction-policy.js';
 import { applyInventoryBalanceDelta, getPrimarySiteId } from '../../services/inventory-balances.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
+import { productAuditSnapshot } from '../../services/products/catalog-audit.js';
 import { normalizeProductPricing } from '../../services/pricing.js';
+import { assertGs1CheckDigit } from '../../services/products/barcode-check-digit.js';
 import {
   assertCreateLotTrackingPolicy,
   assertCreateSerialTrackingPolicy,
@@ -42,7 +44,11 @@ import {
   replacePharmacyProductProfile,
 } from '../../services/pharmacy/product-profile.js';
 
-async function persistProduct(ctx: ProductMutationContext, input: CreateProductInput) {
+async function persistProduct(
+  ctx: ProductMutationContext,
+  input: CreateProductInput,
+  options: { auditCreate: boolean }
+) {
   assertCreateLotTrackingPolicy({ tracksLots: input.tracksLots, stock: input.stock });
   assertCreateStockTrackingPolicy({
     tracksStock: input.tracksStock,
@@ -56,6 +62,8 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
     tracksLots: input.tracksLots,
     tracksSerials: input.tracksSerials,
   });
+
+  assertGs1CheckDigit(input.barcode);
 
   const existingSku = await ctx.db
     .select({ id: products.id })
@@ -129,6 +137,11 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
   const productCurrencyCode = resolveTenantCurrency(ctx.db, ctx.tenantId);
 
   const openingMovementId = input.stock > 0 ? nanoid() : null;
+  // Opening stock with only a cost typed must still carry inventory value.
+  const openingInitialCost =
+    input.initialCost > 0 || input.stock <= 0
+      ? roundMoney(input.initialCost)
+      : normalizedPricing.cost;
   ctx.db.transaction(
     tx => {
       tx.insert(products)
@@ -154,7 +167,7 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
           vatRateId: taxSummary.vatRateId,
           providerId: normalizedProviderState?.providerId ?? null,
           locationId: resolvedLocationId,
-          initialCost: roundMoney(input.initialCost),
+          initialCost: openingInitialCost,
           currencyCode: productCurrencyCode,
           minStock: input.minStock,
           sellByFraction: resolvedFractionPolicy.sellByFraction,
@@ -172,6 +185,22 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
           updatedAt: now,
         })
         .run();
+
+      // Imports already write one summary row per run instead of one per product.
+      if (options.auditCreate) {
+        const created = tx.select().from(products).where(eq(products.id, id)).get()!;
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user.id,
+          action: 'product.create',
+          resourceType: 'product',
+          resourceId: id,
+          before: null,
+          after: productAuditSnapshot(created),
+          operationId: ctx.envelope?.operationId,
+        });
+      }
 
       replaceUnitAssignments(tx, id, resolvedUnitAssignments, now);
       replaceProductTaxComponents(tx, ctx.tenantId, id, resolvedTaxComponents, now);
@@ -343,7 +372,7 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
 
 /** Interactive creation retains the complete public read model and transport contract. */
 export async function createProduct(ctx: ProductMutationContext, input: CreateProductInput) {
-  const persisted = await persistProduct(ctx, input);
+  const persisted = await persistProduct(ctx, input, { auditCreate: true });
   const created = await getProductWithRelations(ctx.db, persisted.id, ctx.tenantId);
   return created!;
 }
@@ -359,5 +388,5 @@ export async function createProductForImport(
   ctx: ProductMutationContext,
   input: CreateProductInput
 ) {
-  return persistProduct(ctx, input);
+  return persistProduct(ctx, input, { auditCreate: false });
 }

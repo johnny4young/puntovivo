@@ -75,7 +75,7 @@
   },
   "businessTypePicker": {
     "title": "¿Qué vende?",
-    "description": "Esto activa las superficies de caja que su negocio necesita. Puede cambiar cualquiera después en Módulos.",
+    "description": "Esto activa las pantallas de caja que su negocio necesita. Puede cambiar cualquiera después en Módulos.",
     "applying": "Configurando…",
     "applied": "Configurado para {{vertical}}",
     "error": "No se pudo aplicar el tipo de negocio",

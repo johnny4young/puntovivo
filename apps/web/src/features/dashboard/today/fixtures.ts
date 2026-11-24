@@ -123,6 +123,7 @@ export function todayFixture(overrides: Partial<OperationsToday> = {}): Operatio
         count: 2,
       },
     ],
+    fiscalEnabled: true,
     ...overrides,
   };
 }

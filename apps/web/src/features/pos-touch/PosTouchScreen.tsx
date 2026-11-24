@@ -65,7 +65,8 @@ import {
   mergeCartItem,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
-import { getCartSummary } from '@/features/sales/saleCartTotals';
+import { getCartSummary, getPayableCartTotal } from '@/features/sales/saleCartTotals';
+import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { selectionFromHydratedProduct } from '@/features/sales/productSelection';
 import { QuickKeyValueForm } from '@/features/sales/QuickKeyValueForm';
 import { useWeighedItem } from '@/features/sales/useWeighedItem';
@@ -218,10 +219,12 @@ export function PosTouchScreen() {
     return quantities;
   }, [cartItems]);
 
-  const summary = useMemo(
-    () => getCartSummary(cartItems, priceIncludesTax),
-    [cartItems, priceIncludesTax]
-  );
+  const { currency } = useResolvedLocale();
+  // Shown and tendered as the payable total, the amount sales.create completes.
+  const summary = useMemo(() => {
+    const cart = getCartSummary(cartItems, priceIncludesTax);
+    return { ...cart, total: getPayableCartTotal(cart, currency).total };
+  }, [cartItems, currency, priceIncludesTax]);
 
   // The grid query is capped at perPage: 200 — surface the truncation
   // instead of silently hiding the tail of a bigger catalog.

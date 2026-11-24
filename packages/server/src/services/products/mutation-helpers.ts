@@ -24,6 +24,7 @@ import {
   type TaxKind,
 } from '../../db/schema.js';
 import type { DatabaseInstance } from '../../db/index.js';
+import { assertGs1CheckDigit } from './barcode-check-digit.js';
 import { roundMoney } from '../../lib/money.js';
 import type { CreateProductInput, UpdateProductInput } from '../../trpc/schemas/products.js';
 
@@ -37,7 +38,9 @@ export function validateUnitAssignments(
   input:
     | NonNullable<CreateProductInput['unitAssignments']>
     | NonNullable<UpdateProductInput['unitAssignments']>,
-  productBarcode?: string | null
+  productBarcode?: string | null,
+  // Already-stored codes are grandfathered so an unrelated edit never fails on them.
+  previousBarcodes?: ReadonlySet<string>
 ) {
   const baseAssignments = input.filter(assignment => assignment.isBase);
 
@@ -76,6 +79,7 @@ export function validateUnitAssignments(
   for (const assignment of input) {
     const barcode = 'barcode' in assignment ? assignment.barcode?.trim() : undefined;
     if (!barcode) continue;
+    if (!previousBarcodes?.has(barcode)) assertGs1CheckDigit(barcode);
     if (assignedBarcodes.has(barcode)) {
       throw new TRPCError({
         code: 'CONFLICT',
@@ -100,9 +104,10 @@ export async function resolveUnitAssignments(
   input:
     | NonNullable<CreateProductInput['unitAssignments']>
     | NonNullable<UpdateProductInput['unitAssignments']>,
-  productBarcode?: string | null
+  productBarcode?: string | null,
+  previousBarcodes?: ReadonlySet<string>
 ) {
-  validateUnitAssignments(input, productBarcode);
+  validateUnitAssignments(input, productBarcode, previousBarcodes);
 
   const availableUnits = await db
     .select({

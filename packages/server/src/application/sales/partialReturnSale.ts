@@ -1,7 +1,7 @@
 import { assertSerialValueUnchanged } from '../../services/serial-valuation.js';
 import { toInventoryCents } from '../../services/inventory-valuation.js';
 /** Normalized partial-return service with immutable provenance. */
-import { sumMoneySql } from '../../lib/money.js';
+import { roundMoney, sumMoneySql } from '../../lib/money.js';
 import { and, asc, eq, inArray, isNull, ne, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
@@ -41,7 +41,6 @@ import {
 } from '../../services/fiscal/orchestrator.js';
 import type { ResolvedLine } from '../../services/fiscal/orchestrator/types.js';
 import { createModuleLogger } from '../../logging/logger.js';
-import { buildReturnedSaleNotes } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
 import { broadcastSaleRetracted, materializeCommittedFiscalIntent } from './fiscalPostHook.js';
 import { restoreExactInventoryLot } from '../../services/inventory-lots/index.js';
@@ -907,7 +906,7 @@ export async function returnSale(
   const now = new Date().toISOString();
   const returnId = nanoid();
   const preparedFiscalIntent =
-    previewPlan.refundAmount > 0 && originalSaleSiteId
+    (previewPlan.refundAmount > 0 || previewPlan.grossRefundAmount > 0) && originalSaleSiteId
       ? await prepareSaleFiscalIntent({
           db: ctx.db,
           tenantId: ctx.tenantId,
@@ -920,7 +919,8 @@ export async function returnSale(
             subtotal: previewPlan.subtotal,
             taxAmount: previewPlan.taxAmount,
             discountAmount: previewPlan.discountAmount,
-            total: previewPlan.refundAmount,
+            // The note mirrors its lines; payable rounding is settlement only.
+            total: roundMoney(previewPlan.refundAmount - previewPlan.roundingAdjustment),
           },
           lines: buildReturnFiscalLines(previewPlan),
           completedAt: now,
@@ -995,7 +995,6 @@ export async function returnSale(
             // on the remaining lines does not change because part of the
             // ticket came back.
             returnState: committedPlan.nextReturnState,
-            notes: buildReturnedSaleNotes(current.notes, input.reason),
             updatedAt: now,
             syncStatus: 'pending',
             syncVersion: (current.syncVersion ?? 0) + 1,
@@ -1030,6 +1029,7 @@ export async function returnSale(
             discountAmount: committedPlan.discountAmount,
             taxAmount: committedPlan.taxAmount,
             refundAmount: committedPlan.refundAmount,
+            roundingAdjustment: committedPlan.roundingAdjustment,
             currencyCode: current.currencyCode,
             reason: input.reason ?? null,
             createdBy: ctx.user.id,

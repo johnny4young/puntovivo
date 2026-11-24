@@ -223,6 +223,12 @@ export async function runFreshSale(
     resolvedItems = applyPromotionQuote(manualResolvedItems, appliedPromotionQuote);
   }
 
+  // resolve the tenant default currency once per sale and
+  // propagate it to every row written below (sales header + each
+  // sale_item). settle = sale and rate = 1.0 until  lights up
+  // multi-currency operations.
+  const saleCurrencyCode = resolveTenantCurrency(ctx.db, ctx.tenantId);
+
   // fresh-sale header math (subtotal/tax re-round, header
   // discount + negative-base guard, tip + service charge folded into
   // total) lives in resolveFreshSaleTotals; see its JSDoc for the
@@ -235,7 +241,9 @@ export async function runFreshSale(
     tipMethod,
     serviceChargeAmount,
     serviceChargeRate,
+    grossTotal,
     total,
+    roundingAdjustment,
   } = await resolveFreshSaleTotals({
     db: ctx.db,
     tenantId: ctx.tenantId,
@@ -246,6 +254,7 @@ export async function runFreshSale(
     tipMethod: input.tipMethod,
     serviceChargeAmount: input.serviceChargeAmount,
     status: input.status,
+    currencyCode: saleCurrencyCode,
   });
 
   // resolve the tender list (split or legacy),
@@ -267,6 +276,7 @@ export async function runFreshSale(
     requestedStatus: input.paymentStatus,
     total,
     collectCash: input.status === 'completed',
+    currencyCode: saleCurrencyCode,
   });
   const loyaltySettings = await resolveLoyaltySettings(ctx.db, ctx.tenantId);
   assertCustomerValueTenderInputs({
@@ -316,12 +326,6 @@ export async function runFreshSale(
   /** points this sale accrued (0 when the program is off). */
   let loyaltyPointsEarned = 0;
 
-  // resolve the tenant default currency once per sale and
-  // propagate it to every row written below (sales header + each
-  // sale_item). settle = sale and rate = 1.0 until  lights up
-  // multi-currency operations.
-  const saleCurrencyCode = resolveTenantCurrency(ctx.db, ctx.tenantId);
-
   const fiscalLines: ResolvedLine[] = resolvedItems.rows.map((row, index) => ({
     lineNumber: index + 1,
     productId: row.productId,
@@ -351,7 +355,9 @@ export async function runFreshSale(
             subtotal,
             taxAmount,
             discountAmount: headerDiscount,
-            total,
+            // Fiscal documents keep the 2-decimal gross; payable rounding
+            // is a settlement detail recorded on the sale row.
+            total: grossTotal,
           },
           lines: fiscalLines,
           completedAt: now,
@@ -489,7 +495,7 @@ export async function runFreshSale(
         tx as unknown as typeof ctx.db,
         ctx,
         input,
-        { subtotal, taxAmount, total },
+        { subtotal, taxAmount, total: grossTotal },
         saleCurrencyCode,
         resolvedItems
       );
@@ -502,7 +508,7 @@ export async function runFreshSale(
           priceTier: appliedPriceTier,
           inputItems: input.items,
           resolvedItems,
-          saleTotals: { subtotal, taxAmount, total },
+          saleTotals: { subtotal, taxAmount, total: grossTotal },
           saleCurrency: {
             currencyCode: saleCurrencyCode,
             exchangeRateAtSale: 1,
@@ -652,6 +658,7 @@ export async function runFreshSale(
           serviceChargeAmount,
           serviceChargeRate,
           total,
+          roundingAdjustment,
           // Echo the dominant tender onto the legacy `paymentMethod`
           // column so older screens that read it directly keep
           // rendering sensibly.

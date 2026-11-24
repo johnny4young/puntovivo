@@ -175,6 +175,12 @@ beforeAll(async () => {
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
   userName = seededUser.name;
+  // These fixtures pin cent-level invariants; whole-peso payable rounding has its own suite.
+  await db
+    .update(tenants)
+    .set({ defaultCurrencyCode: 'USD' })
+    .where(eq(tenants.id, tenantId))
+    .run();
 
   const seededSite = await db
     .select()

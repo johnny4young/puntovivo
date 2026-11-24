@@ -42,6 +42,7 @@ const existingSequential: Sequential = {
 
 function renderModal({
   sequential = null,
+  siteOptions = sites,
   onClose = vi.fn(),
   onSubmit = vi
     .fn<(values: SequentialFormSubmission) => Promise<void>>()
@@ -49,6 +50,7 @@ function renderModal({
   controller = createNavigationGuardController(),
 }: {
   sequential?: Sequential | null;
+  siteOptions?: Site[];
   onClose?: () => void;
   onSubmit?: (values: SequentialFormSubmission) => Promise<void>;
   controller?: ReturnType<typeof createNavigationGuardController>;
@@ -58,7 +60,7 @@ function renderModal({
       <SequentialFormModal
         isOpen
         sequential={sequential}
-        sites={sites}
+        sites={siteOptions}
         isSaving={false}
         error={null}
         onClose={onClose}
@@ -113,6 +115,28 @@ describe('SequentialFormModal', () => {
       prefix: 'COM-',
     });
     expect(submission).not.toHaveProperty('currentValue');
+  });
+
+  it('preselects the site when only one is active', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi
+      .fn<(values: SequentialFormSubmission) => Promise<void>>()
+      .mockResolvedValue(undefined);
+    renderModal({ onSubmit });
+
+    expect(await screen.findByLabelText('Site')).toHaveValue('site-1');
+    await user.click(screen.getByRole('button', { name: 'Create sequence' }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+    expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ siteId: 'site-1' });
+  });
+
+  it('leaves the site unselected when several are active', async () => {
+    renderModal({
+      siteOptions: [...sites, { ...sites[0]!, id: 'site-2', name: 'North Site' }],
+    });
+
+    expect(await screen.findByLabelText('Site')).toHaveValue('');
   });
 
   it('preserves a concurrently advancing counter when only the prefix changes', async () => {

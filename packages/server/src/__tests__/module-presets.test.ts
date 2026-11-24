@@ -23,7 +23,7 @@ import {
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
-import { resolveModulesState } from '../services/modules/manifest.js';
+import { RING1_RETAIL_PROFILE, resolveModulesState } from '../services/modules/manifest.js';
 import {
   PRESET_SCOPED_MODULES,
   VERTICAL_PRESET_IDS,
@@ -219,6 +219,29 @@ describe('modules.applyPreset (router)', () => {
     expect(result.changed).toBe(true);
     const readiness = await appRouter.createCaller(fresh()).setupReadiness.get();
     expect(readiness.businessType).toBe('wholesale');
+  });
+
+  it('lists a fresh install as its business type, flagging only modules changed since', async () => {
+    await getDatabase()
+      .update(tenants)
+      .set({
+        settings: {
+          businessType: 'retail',
+          modules: { ...RING1_RETAIL_PROFILE, ...resolvePresetPatch('retail') },
+        },
+      })
+      .where(eq(tenants.id, tenantId))
+      .run();
+
+    const fresh1 = await appRouter.createCaller(fresh()).modules.list();
+    expect(fresh1.businessType).toBe('retail');
+    expect(fresh1.modules.filter(module => module.customized)).toEqual([]);
+
+    await appRouter.createCaller(fresh()).modules.setActive({ moduleId: 'kds', enabled: true });
+    const changed = await appRouter.createCaller(fresh()).modules.list();
+    expect(changed.modules.filter(module => module.customized).map(module => module.id)).toEqual([
+      'kds',
+    ]);
   });
 
   it('never touches the AI modules the operator configured', async () => {

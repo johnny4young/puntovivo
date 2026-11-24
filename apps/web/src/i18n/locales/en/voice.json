@@ -24,8 +24,8 @@
   "permissionDeniedHint": "Microphone access was denied. Allow the mic in your browser settings.",
   "noMicHint": "No microphone detected.",
   "unsupportedHint": "Your browser does not support audio recording.",
-  "disabledNoModule": "Voice commands are not active for this tenant.",
-  "disabledNoAi": "AI is disabled at the tenant level.",
+  "disabledNoModule": "Voice commands are not active for this business.",
+  "disabledNoAi": "AI is disabled for the whole business.",
   "disabledResumed": "Resume cart is locked; discard it to record voice commands.",
   "disabledNoSession": "Open a cash session before recording voice commands."
 }

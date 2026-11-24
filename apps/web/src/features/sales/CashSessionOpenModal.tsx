@@ -7,9 +7,9 @@ import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { formatCurrency } from '@/lib/utils';
 import type { CashSessionDenomination, RegisterAssignment } from '@/types';
 import {
-  cashSessionTotalsMatch,
   createCashSessionDenominations,
   getCashSessionCountedTotal,
+  resolveCashSessionAmount,
 } from './cashSessionDenominations';
 import { useSingleFlightSubmit } from '@/lib/useSingleFlightSubmit';
 
@@ -72,19 +72,18 @@ export function CashSessionOpenModal({
     control: form.control,
     name: 'denominations',
   });
-  const openingFloat = useWatch({
-    control: form.control,
-    name: 'openingFloat',
-  });
 
   const countedTotal = getCashSessionCountedTotal(denominations ?? []);
-  const isBalanced = cashSessionTotalsMatch(openingFloat ?? 0, denominations ?? []);
-  const shouldShowMismatch = (openingFloat ?? 0) > 0 || countedTotal > 0;
-  const mismatchMessage = shouldShowMismatch && !isBalanced ? t('cashSession.form.mismatch') : null;
-  // Mirrors the confirm button's disabled expression, so the Enter path
-  // cannot submit what the click path refuses.
-  const canSubmit = !isSaving && !mismatchMessage;
-  const handleSubmit = form.handleSubmit(useSingleFlightSubmit(canSubmit, onSubmit));
+  const usesDenominations = countedTotal > 0;
+  const canSubmit = !isSaving;
+  const handleSubmit = form.handleSubmit(
+    useSingleFlightSubmit(canSubmit, (values: CashSessionOpenValues) =>
+      onSubmit({
+        ...values,
+        openingFloat: resolveCashSessionAmount(values.openingFloat, values.denominations),
+      })
+    )
+  );
 
   return (
     <Overlay
@@ -111,7 +110,7 @@ export function CashSessionOpenModal({
           <ModalButton
             variant="primary"
             onClick={handleSubmit}
-            disabled={isSaving || !!mismatchMessage}
+            disabled={!canSubmit}
             className="sm:min-w-[10rem]"
           >
             {isSaving ? t('cashSession.form.opening') : t('cashSession.form.confirm')}
@@ -144,20 +143,30 @@ export function CashSessionOpenModal({
               <label htmlFor="cash-session-opening-float" className="label">
                 {t('cashSession.form.openingFloat')}
               </label>
-              <input
-                id="cash-session-opening-float"
-                type="number"
-                min={0}
-                step="0.01"
-                className="input mt-1"
-                {...form.register('openingFloat', {
-                  valueAsNumber: true,
-                  min: {
-                    value: 0,
-                    message: t('cashSession.form.openingFloatRequired'),
-                  },
-                })}
-              />
+              {usesDenominations ? (
+                <output
+                  id="cash-session-opening-float"
+                  aria-live="polite"
+                  className="input mt-1 flex items-center font-semibold tabular-nums"
+                >
+                  {formatCurrency(countedTotal)}
+                </output>
+              ) : (
+                <input
+                  id="cash-session-opening-float"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  className="input mt-1"
+                  {...form.register('openingFloat', {
+                    valueAsNumber: true,
+                    min: {
+                      value: 0,
+                      message: t('cashSession.form.openingFloatRequired'),
+                    },
+                  })}
+                />
+              )}
               {form.formState.errors.openingFloat && (
                 <p className="mt-1 text-sm text-danger-500">
                   {form.formState.errors.openingFloat.message}
@@ -165,57 +174,6 @@ export function CashSessionOpenModal({
               )}
             </div>
           </div>
-        </section>
-
-        <section
-          className={`relative overflow-hidden rounded-[12px] border px-4 py-4 sm:px-5 ${
-            mismatchMessage
-              ? 'border-warning-500/30 bg-warning-50/70'
-              : 'border-success-500/30 bg-success-50/40'
-          }`}
-        >
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background: mismatchMessage
-                ? 'radial-gradient(circle at 92% 0%, color-mix(in oklch, var(--warning-500) 18%, transparent), transparent 60%)'
-                : 'radial-gradient(circle at 92% 0%, color-mix(in oklch, var(--success-500) 16%, transparent), transparent 60%)',
-            }}
-          />
-          <div className="relative grid gap-4 sm:grid-cols-3">
-            <div>
-              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.22em] text-secondary-500">
-                {t('cashSession.form.countedTotal')}
-              </p>
-              <p className="mt-1.5 font-display text-2xl tabular-nums tracking-[-0.02em] text-secondary-950">
-                {formatCurrency(countedTotal)}
-              </p>
-            </div>
-            <div>
-              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.22em] text-secondary-500">
-                {t('cashSession.form.openingFloat')}
-              </p>
-              <p className="mt-1.5 font-display text-xl tabular-nums tracking-[-0.02em] text-secondary-900">
-                {formatCurrency(openingFloat || 0)}
-              </p>
-            </div>
-            <div>
-              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.22em] text-secondary-500">
-                {t('cashSession.form.differenceLabel', { defaultValue: 'Diferencia' })}
-              </p>
-              <p
-                className={`mt-1.5 font-display text-xl tabular-nums tracking-[-0.02em] ${
-                  mismatchMessage ? 'text-warning-700' : 'text-success-700'
-                }`}
-              >
-                {formatCurrency(countedTotal - (openingFloat || 0))}
-              </p>
-            </div>
-          </div>
-          {mismatchMessage && (
-            <p className="relative mt-3 text-[12.5px] text-warning-700">{mismatchMessage}</p>
-          )}
         </section>
 
         <section className="space-y-3">

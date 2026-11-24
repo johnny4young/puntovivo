@@ -31,6 +31,7 @@ import {
   type AuditLogResourceType,
 } from '../db/schema.js';
 import { getAuditReviewActions, type AuditReviewCategory } from './audit-review.js';
+import { auditResourceNameKey, resolveAuditResourceNames } from './audit-resource-names.js';
 import {
   computeAuditHeadMac,
   hasAuditAnchorKey,
@@ -1422,6 +1423,8 @@ export interface AuditLogEntry {
   action: AuditLogAction;
   resourceType: AuditLogResourceType;
   resourceId: string;
+  /** Current name or number of the resource, when it still exists in the tenant. */
+  resourceName: string | null;
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
   metadata: Record<string, unknown> | null;
@@ -1481,6 +1484,7 @@ export function listAuditLogs(
     .limit(limit)
     .all();
 
+  const resourceNames = resolveAuditResourceNames(db, tenantId, rows);
   return rows.map(row => ({
     id: row.id,
     actorId: row.actorId,
@@ -1489,6 +1493,7 @@ export function listAuditLogs(
     action: parseAuditLogAction(row.action),
     resourceType: parseAuditLogResourceType(row.resourceType),
     resourceId: row.resourceId,
+    resourceName: resourceNames.get(auditResourceNameKey(row.resourceType, row.resourceId)) ?? null,
     before: row.before,
     after: row.after,
     metadata: row.metadata,

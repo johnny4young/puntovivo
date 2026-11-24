@@ -11,6 +11,7 @@ import {
   getBarcodeCartItemKey,
   mergeBarcodeCartItem,
   mergeCartItem,
+  resolveRegisterAddQuantity,
   updateCartItem,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
@@ -18,6 +19,7 @@ import {
   areSerialSelectionsComplete,
   getCartSummary,
   getLineTotals,
+  getPayableCartTotal,
 } from '@/features/sales/saleCartTotals';
 import { getCartDiscountAmount, isCartPriceOverride } from '@/features/sales/saleApprovalPricing';
 import type { ProductSearchSelection } from '@/types';
@@ -93,6 +95,29 @@ describe('saleCart fraction policy helpers', () => {
     expect(getSaleQuantityStep(item)).toBe(1);
     expect(getSaleMinimumQuantity(item)).toBe(1);
     expect(item.quantity).toBe(1);
+  });
+
+  it('adds one whole unit of a fractional product when no weight or quantity was typed', () => {
+    const weighed = createSelection({
+      sellByFraction: true,
+      fractionStep: 0.001,
+      fractionMinimum: 0.001,
+    });
+    expect(resolveRegisterAddQuantity(weighed.product, null)).toBe(1);
+    expect(resolveRegisterAddQuantity(weighed.product, 0.25)).toBe(0.25);
+    expect(
+      resolveRegisterAddQuantity(
+        createSelection({ sellByFraction: true, fractionStep: 0.5, fractionMinimum: 2 }).product,
+        null
+      )
+    ).toBe(2);
+    expect(resolveRegisterAddQuantity(createSelection().product, null)).toBeNull();
+
+    const added = mergeBarcodeCartItem([], weighed, {
+      quantity: resolveRegisterAddQuantity(weighed.product, null),
+      price: null,
+    });
+    expect(added[0]?.quantity).toBe(1);
   });
 
   it('uses configured step and minimum for fractional products', () => {
@@ -333,6 +358,17 @@ describe('saleCart core helpers', () => {
     // Second line: total=100, taxAmount=0, subtotal=100
     expect(summary.subtotal).toBeCloseTo(184.03, 2);
     expect(summary.taxAmount).toBeCloseTo(15.97, 2);
+  });
+
+  it('getPayableCartTotal charges whole pesos for a fractional weight, like the server', () => {
+    // 1.25 kg x 2,990 COP = 3,737.50
+    const summary = getCartSummary(
+      [makeItem({ quantity: 1.25, unitPrice: 2990, taxRate: 0, sellByFraction: true })],
+      true
+    );
+    expect(summary.total).toBe(3737.5);
+    expect(getPayableCartTotal(summary, 'COP')).toEqual({ total: 3738, roundingAdjustment: 0.5 });
+    expect(getPayableCartTotal(summary, 'USD')).toEqual({ total: 3737.5, roundingAdjustment: 0 });
   });
 
   it('getLineTotals adds the tax on top in exclusive mode', () => {

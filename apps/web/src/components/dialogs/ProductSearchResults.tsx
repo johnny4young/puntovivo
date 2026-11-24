@@ -4,7 +4,7 @@ import { PlusCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/utils';
 import type { ProductSearchItem } from '@/types';
-import { getDefaultProductUnit } from './productSearchSelection';
+import { getDefaultProductUnit, productUnitCost } from './productSearchSelection';
 import { Badge } from '@/components/ui';
 import { PharmacyResultHints } from '@/features/sales/PharmacyResultHints';
 import { OtherSiteStock, UnitPriceChips } from '@/features/sales/HardwareResultHints';
@@ -30,6 +30,8 @@ interface ProductSearchResultsProps {
   quickCreateAvailable: boolean;
   onQuickCreate: () => void;
   onProductSelect: (product: ProductSearchItem) => void;
+  /** Procurement lists the unit cost instead of the sale price. */
+  priceMode?: 'sale' | 'cost';
 }
 export function ProductSearchResults({
   items,
@@ -48,6 +50,7 @@ export function ProductSearchResults({
   quickCreateAvailable,
   onQuickCreate,
   onProductSelect,
+  priceMode = 'sale',
 }: ProductSearchResultsProps) {
   const { t } = useTranslation('common');
   // roving tabindex state for keyboard navigation across
@@ -112,7 +115,7 @@ export function ProductSearchResults({
               <th>{t('productSearch.sku')}</th>
               <th>{t('productSearch.name')}</th>
               <th>{t('productSearch.stock')}</th>
-              <th>{t('productSearch.price')}</th>
+              <th>{t(priceMode === 'cost' ? 'productSearch.cost' : 'productSearch.price')}</th>
               <th>{t('productSearch.unit')}</th>
             </tr>
           </thead>
@@ -245,7 +248,11 @@ export function ProductSearchResults({
                         product.otherSites?.[0] && <OtherSiteStock product={product} />}
                     </td>
                     <td className="px-4 py-3 text-sm text-secondary-700">
-                      {formatCurrency(defaultUnit?.price ?? product.baseUnitPrice ?? product.price)}
+                      {formatCurrency(
+                        priceMode === 'cost'
+                          ? productUnitCost(product, defaultUnit)
+                          : (defaultUnit?.price ?? product.baseUnitPrice ?? product.price)
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-secondary-700">
                       {defaultUnit?.unitAbbreviation ?? product.baseUnitAbbreviation ?? 'UND'}

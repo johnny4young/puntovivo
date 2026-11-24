@@ -11,6 +11,16 @@ import type { AuditLogEntry } from '@/types';
 import { AuditLogSummary } from './AuditLogSummary';
 import { getAuditLogsExportColumns } from './auditLogsExport';
 
+// A deleted resource keeps the name its snapshot recorded.
+function resolveResourceName(entry: AuditLogEntry): string | null {
+  if (entry.resourceName) return entry.resourceName;
+  for (const snapshot of [entry.after, entry.before]) {
+    const name = snapshot?.name;
+    if (typeof name === 'string' && name.trim()) return name;
+  }
+  return null;
+}
+
 interface AuditLogsTableProps {
   items: AuditLogEntry[];
   isLoading: boolean;
@@ -79,12 +89,19 @@ export function AuditLogsTable({ items, isLoading, error, onRetry }: AuditLogsTa
           const typeLabel = t(typeKey, {
             defaultValue: row.original.resourceType,
           });
+          const name = resolveResourceName(row.original);
           return (
             <div className="flex flex-col">
               <span className="text-xs text-secondary-500">{typeLabel}</span>
-              <span className="font-mono text-xs text-secondary-700">
-                {row.original.resourceId}
-              </span>
+              {name ? (
+                <span className="text-sm text-secondary-900" title={row.original.resourceId}>
+                  {name}
+                </span>
+              ) : (
+                <span className="font-mono text-xs text-secondary-700">
+                  {row.original.resourceId}
+                </span>
+              )}
             </div>
           );
         },

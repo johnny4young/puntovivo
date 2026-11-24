@@ -25,7 +25,7 @@
     "PHARMACY_AUTHORIZATION_NOT_EFFECTIVE": "The professional authorization is not active for this site, country, or business date.",
     "PHARMACY_AUTHORIZATION_INVALID": "The professional credential could not be verified. Stop and contact an administrator.",
     "PHARMACY_AUTHORIZATION_STATE_INVALID": "This professional authorization can no longer perform that action.",
-    "PHARMACY_RECALL_NO_LOTS": "No tenant-owned batches match this recall.",
+    "PHARMACY_RECALL_NO_LOTS": "No batches from this business match this recall.",
     "PHARMACY_RECALL_NOT_FOUND": "This recall could not be found.",
     "PHARMACY_RECALL_ACTIVE": "This batch is covered by an active recall and cannot be released.",
     "PHARMACY_LOT_STATE_INVALID": "This batch cannot move to the requested state from its current state."

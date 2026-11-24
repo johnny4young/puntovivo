@@ -259,8 +259,8 @@
   "newEntry": "New Entry",
   "newAdjustment": "New Adjustment",
   "dialogs": {
-    "selectProductEntry": "Select Product for Initial Inventory",
-    "selectProductEntryForSite": "Select Product for Initial Inventory · {{site}}",
+    "selectProductEntry": "Select Product for Entry",
+    "selectProductEntryForSite": "Select Product for Entry · {{site}}",
     "recordEntry": "Record Entry",
     "selectProductAdjust": "Select Product for Adjustment",
     "selectProductAdjustForSite": "Select Product for Adjustment · {{site}}",
@@ -289,8 +289,9 @@
     "siteScope": "This adjustment updates the active site balance: {{site}}.",
     "lotTrackedHelp": "This product tracks lots. Receive a named lot instead of editing aggregate stock.",
     "serialTrackedHelp": "This product tracks serial numbers. Receive or sell exact units instead of editing aggregate stock.",
-    "notesPlaceholder": "Reason for the adjustment",
-    "stockMin": "Stock must be zero or greater"
+    "stockMin": "Stock must be zero or greater",
+    "reason": "Reason",
+    "reasonRequired": "Enter the reason for the adjustment"
   },
   "entry": {
     "titleInitial": "Record Initial Inventory",

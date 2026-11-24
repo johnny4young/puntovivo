@@ -8,6 +8,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
+import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import type { Sequential, Site, UserRole } from '@/types';
 import { formatSequentialPreview } from './sequentialForm.types';
@@ -269,7 +270,15 @@ export function SequentialsPage(): React.ReactElement {
             sequential={editingSequential}
             sites={activeSites}
             isSaving={upsertMutation.isPending}
-            error={upsertMutation.error?.message ?? null}
+            error={
+              upsertMutation.error
+                ? translateServerError(
+                    upsertMutation.error,
+                    t,
+                    t(editingSequential ? 'toast.updateError' : 'toast.createError')
+                  )
+                : null
+            }
             onClose={handleCloseModal}
             onSubmit={handleSubmit}
           />

@@ -834,6 +834,8 @@ export const saleReturns = sqliteTable(
     discountAmount: real('discount_amount').notNull().default(0),
     taxAmount: real('tax_amount').notNull().default(0),
     refundAmount: real('refund_amount').notNull().default(0),
+    /** Part of refundAmount that only snaps it to the currency's payable unit. */
+    roundingAdjustment: real('rounding_adjustment').notNull().default(0),
     currencyCode: text('currency_code')
       .notNull()
       .default('COP')

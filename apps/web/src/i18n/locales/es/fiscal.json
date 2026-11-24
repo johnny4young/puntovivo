@@ -39,7 +39,7 @@
   "list": {
     "title": "Documentos emitidos",
     "description": "Evidencia fiscal en orden cronológico inverso. Los registros demo o borrador conservan un identificador local, pero no son documentos aceptados por la autoridad.",
-    "empty": "Aún no hay documentos fiscales. Cuando el reporte DIAN esté habilitado para este tenant, las ventas completadas aparecerán aquí.",
+    "empty": "Aún no hay documentos fiscales. Cuando el reporte DIAN esté habilitado para esta empresa, las ventas completadas aparecerán aquí.",
     "loading": "Cargando documentos fiscales…",
     "error": "No se pudieron cargar los documentos fiscales",
     "columns": {
@@ -86,13 +86,13 @@
   "wizard": {
     "kicker": "Configuración",
     "title": "Asistente de habilitación DIAN",
-    "description": "El flujo guiado capturará el NIT, la resolución de numeración y las credenciales de autorización del tenant.",
+    "description": "El flujo guiado capturará el NIT, la resolución de numeración y las credenciales de autorización de la empresa.",
     "gated": "Requiere un contrato activo de facturación electrónica antes de la activación productiva.",
     "cta": "Más información"
   },
   "settings": {
     "tabTitle": "Fiscal",
-    "tabDescription": "Configuración fiscal por país. El paquete que se muestra abajo depende del código de país del tenant.",
+    "tabDescription": "Configuración fiscal por país. El paquete que se muestra abajo depende del país de la empresa.",
     "unsupported": {
       "title": "La facturación electrónica aún no está disponible aquí",
       "description": "Todavía no hay un paquete fiscal para {{country}}. Puede seguir vendiendo con normalidad — la facturación electrónica para este país llegará en una versión futura."

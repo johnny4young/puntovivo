@@ -1,4 +1,10 @@
-export { roundMoney } from './money.js';
+export {
+  payableDecimals,
+  resolvePayableTotal,
+  roundMoney,
+  roundPayable,
+  type PayableTotal,
+} from './money.js';
 export { splitLineTax, type TaxSplitInput, type TaxSplitResult } from './tax-split.js';
 export {
   PRICE_TIERS,

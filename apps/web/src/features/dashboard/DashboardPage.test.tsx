@@ -68,7 +68,9 @@ vi.mock('@/lib/trpc', () => ({
 
 vi.mock('@/features/dashboard/DashboardPanels', () => ({
   DashboardLoadingState: () => <div data-testid="dashboard-loading" />,
-  DashboardStatsGrid: () => <div data-testid="dashboard-stats" />,
+  DashboardStatsGrid: ({ metrics }: { metrics: Array<{ title: string }> }) => (
+    <div data-testid="dashboard-stats">{metrics.map(metric => metric.title).join(' | ')}</div>
+  ),
   LowStockAlertsCard: () => <div data-testid="low-stock-card" />,
   RecentSalesCard: () => <div data-testid="recent-sales-card" />,
   RevenueTrendCard: ({ hideLatestDay }: { hideLatestDay?: boolean }) => (
@@ -152,6 +154,13 @@ describe('DashboardPage audience', () => {
     render(<DashboardPage />);
     expect(screen.getByTestId('dashboard-briefing')).toBeInTheDocument();
     expect(screen.queryByTestId('today-overview')).not.toBeInTheDocument();
+    // The count metric counts completed sales, not purchase or customer orders.
+    expect(screen.getByTestId('dashboard-stats')).toHaveTextContent('Sales count today');
+    expect(screen.getByTestId('dashboard-stats')).not.toHaveTextContent(/orders/i);
+    // Viewers cannot open a till, so the briefing offers no way into sales.
+    expect(
+      screen.queryByRole('link', { name: /go to sales|ir a ventas/i })
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId('revenue-trend-card')).toHaveAttribute(
       'data-hide-latest-day',
       'false'

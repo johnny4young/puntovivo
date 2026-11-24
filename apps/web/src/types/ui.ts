@@ -257,7 +257,21 @@ export type AuditLogAction =
   | 'transfer_destination.create'
   | 'transfer_destination.update'
   | 'transfer_destination.delete'
-  | 'transfer_destination.reorder';
+  | 'transfer_destination.reorder'
+  | 'sequential.create'
+  | 'sequential.adjust'
+  | 'sequential.delete'
+  | 'product.create'
+  | 'product.update'
+  | 'category.create'
+  | 'category.update'
+  | 'category.delete'
+  | 'unit.create'
+  | 'unit.update'
+  | 'unit.delete'
+  | 'vat_rate.create'
+  | 'vat_rate.update'
+  | 'vat_rate.delete';
 
 export type AuditLogResourceType =
   | 'employment_contract'
@@ -349,7 +363,11 @@ export type AuditLogResourceType =
   | 'day_close_signoff'
   // a DIAN numbering range of one site.
   | 'fiscal_numbering_range'
-  | 'transfer_destination';
+  | 'transfer_destination'
+  | 'sequential'
+  | 'category'
+  | 'unit'
+  | 'vat_rate';
 
 export type PurchaseStatus = 'draft' | 'completed' | 'partial_returned' | 'returned' | 'voided';
 

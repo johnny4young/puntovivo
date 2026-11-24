@@ -3,7 +3,7 @@
  *
  * Sits inside `CompanyPage`'s admin grid under the `Modules` tab.
  * Reads `modules.list` to discover the current state per module + the
- * default-vs-explicit flag, writes via `modules.setActive` (a critical
+ * default-vs-customized flag, writes via `modules.setActive` (a critical
  * mutation — needs the device id + envelope), and surfaces a translated
  * label + description for each toggle.
  *
@@ -14,7 +14,7 @@
  * toast lands.
  *
  * Presentation (F5): modules group by surface (Inteligencia ·
- * Superficies de venta · Operación · Integraciones) under a section
+ * Pantallas de venta · Operación · Integraciones) under a section
  * `.label`, each row is a `.pv-check` with title + muted description +
  * an on/off `.pv-switch` on the right, and the header carries an active
  * count badge. The switch is a real `<button>` (not the proposal's
@@ -46,6 +46,8 @@ interface ModulesListItem {
   defaultEnabled: boolean;
   enabled: boolean;
   isExplicit: boolean;
+  /** Differs from the baseline of the tenant's business type. */
+  customized?: boolean;
   available: boolean;
 }
 
@@ -173,6 +175,7 @@ export function CompanyModulesCard() {
   );
 
   const activeCount = useMemo(() => items.filter(item => item.enabled).length, [items]);
+  const activePreset = listQuery.data?.businessType ?? null;
 
   // Group while preserving the server order within each surface.
   const grouped = useMemo(() => {
@@ -229,7 +232,8 @@ export function CompanyModulesCard() {
                 <button
                   key={presetId}
                   type="button"
-                  className="btn-outline"
+                  className={presetId === activePreset ? 'btn-primary' : 'btn-outline'}
+                  aria-pressed={presetId === activePreset}
                   disabled={pendingPreset !== null}
                   data-testid={`modules-preset-${presetId}`}
                   onClick={() => {
@@ -258,7 +262,7 @@ export function CompanyModulesCard() {
                 // A legacy tenant may still have a placeholder module enabled.
                 // Keep deactivation available, but never offer a new activation.
                 const unavailableToEnable = !item.available && !item.enabled;
-                const variantKey = item.isExplicit ? 'explicit' : 'default';
+                const variantKey = item.customized ? 'explicit' : 'default';
                 const switchLabel = unavailableToEnable
                   ? t('modules:toggle.unavailable')
                   : item.enabled

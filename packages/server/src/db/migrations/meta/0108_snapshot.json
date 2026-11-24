@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "d9e7bcc4-c48e-4f83-885c-bf93f3cc6b96",
+  "id": "c0f572e6-3fe4-4caf-864a-127ba0ee7463",
   "prevId": "4e098a55-caf2-4c18-8393-8aab827a198b",
   "tables": {
     "account_recovery_codes": {
@@ -13628,6 +13628,14 @@
           "autoincrement": false,
           "default": 0
         },
+        "rounding_adjustment": {
+          "name": "rounding_adjustment",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
         "currency_code": {
           "name": "currency_code",
           "type": "text",
@@ -15885,48 +15893,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "confirmation_status": {
-          "name": "confirmation_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "confirmation_source": {
-          "name": "confirmation_source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "confirmed_by": {
-          "name": "confirmed_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "confirmed_at": {
-          "name": "confirmed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "destination_snapshot": {
-          "name": "destination_snapshot",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "transfer_destination_id": {
-          "name": "transfer_destination_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "sync_status": {
           "name": "sync_status",
           "type": "text",
@@ -15973,14 +15939,6 @@
             "method"
           ],
           "isUnique": false
-        },
-        "idx_sale_payments_transfer_destination": {
-          "name": "idx_sale_payments_transfer_destination",
-          "columns": [
-            "tenant_id",
-            "transfer_destination_id"
-          ],
-          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -16009,28 +15967,11 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
-        },
-        "sale_payments_confirmed_by_users_id_fk": {
-          "name": "sale_payments_confirmed_by_users_id_fk",
-          "tableFrom": "sale_payments",
-          "tableTo": "users",
-          "columnsFrom": [
-            "confirmed_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {
-        "chk_sale_payments_confirmation_transfer_only": {
-          "name": "chk_sale_payments_confirmation_transfer_only",
-          "value": "(\"sale_payments\".\"method\" = 'transfer') OR (\"sale_payments\".\"confirmation_status\" IS NULL)"
-        },
         "chk_sale_payments_amount_2dec": {
           "name": "chk_sale_payments_amount_2dec",
           "value": "round(\"sale_payments\".\"amount\", 2) = \"sale_payments\".\"amount\""
@@ -17106,6 +17047,14 @@
         },
         "refund_amount": {
           "name": "refund_amount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "rounding_adjustment": {
+          "name": "rounding_adjustment",
           "type": "real",
           "primaryKey": false,
           "notNull": true,

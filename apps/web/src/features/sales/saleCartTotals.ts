@@ -1,4 +1,4 @@
-import { roundMoney } from '@/lib/money';
+import { resolvePayableTotal, roundMoney, type PayableTotal } from '@/lib/money';
 import { splitLineTax } from '@puntovivo/shared/tax-split';
 import { normalizedQuantity } from '@puntovivo/shared/unit-math';
 
@@ -88,4 +88,15 @@ export function getCartSummary(items: SaleCartItem[], priceIncludesTax: boolean)
       total: 0,
     }
   );
+}
+
+/**
+ * What the customer pays for the cart: the summary total rounded to the
+ * currency's payable unit, exactly as sales.create completes it.
+ */
+export function getPayableCartTotal(
+  summary: Pick<SaleCartSummary, 'total'>,
+  currencyCode: string
+): PayableTotal {
+  return resolvePayableTotal(summary.total, currencyCode);
 }

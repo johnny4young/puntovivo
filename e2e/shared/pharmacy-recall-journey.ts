@@ -53,7 +53,7 @@ export async function runPharmacyRecallReturnJourney(
   await target.navigate('/sales');
   await page.getByTestId('sales-open-history').click();
   const history = page.getByTestId('sales-history-drawer');
-  await history.getByPlaceholder('Search by invoice...').fill(saleNumber);
+  await history.getByPlaceholder('Search by sale number...').fill(saleNumber);
   await history.getByRole('button', { name: `View ${saleNumber}`, exact: true }).click();
   await expect(
     page.getByRole('heading', { name: `Sale ${saleNumber}`, exact: true })

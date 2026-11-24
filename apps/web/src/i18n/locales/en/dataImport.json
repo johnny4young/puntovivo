@@ -123,6 +123,7 @@
     "duplicate_existing_sku": "SKU already exists in this business",
     "duplicate_file_barcode": "Barcode is repeated in this file",
     "duplicate_existing_barcode": "Barcode already exists in this business",
+    "invalid_check_digit": "The barcode check digit is invalid",
     "concurrent_duplicate": "Another import created this product while this import was running",
     "import_failed": "The product could not be imported",
     "stock_failed": "The product was imported but opening stock could not be recorded"

@@ -645,6 +645,7 @@ describe('Audit Logs', () => {
       // Set newStock equal to the existing stock — the helper short-circuits
       // its delta math AND the audit write.
       await caller.inventory.adjustStock({
+        notes: 'Counted on the shelf',
         productId: product.id,
         newStock: 20,
       });

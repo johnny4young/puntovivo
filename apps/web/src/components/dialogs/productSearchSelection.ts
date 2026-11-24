@@ -1,4 +1,5 @@
 /** Product-search selection primitives shared by the dialog sections. */
+import { roundMoney } from '@/lib/money';
 import type { ProductSearchItem, ProductUnitAssignment } from '@/types';
 
 export interface ProductSelectionState {
@@ -34,4 +35,12 @@ export function getInitialProductSelection(
     productId: product.id,
     unitId: defaultUnit.unitId,
   };
+}
+
+/** Cost of one picked unit, matching what the procurement carts prefill. */
+export function productUnitCost(
+  product: ProductSearchItem,
+  unit: ProductUnitAssignment | null
+): number {
+  return roundMoney((product.cost ?? 0) * (unit?.equivalence ?? 1));
 }

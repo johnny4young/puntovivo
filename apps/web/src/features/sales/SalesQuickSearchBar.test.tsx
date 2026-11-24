@@ -1,5 +1,5 @@
 import { createRef, useState, type ComponentProps } from 'react';
-import { fireEvent } from '@testing-library/react';
+import { fireEvent, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@/test/utils';
 import { SalesQuickSearchBar } from './SalesQuickSearchBar';
@@ -98,6 +98,23 @@ describe('SalesQuickSearchBar', () => {
     fireEvent.submit(container.querySelector('form')!);
 
     expect(onSubmit).toHaveBeenCalledWith('arroz');
+  });
+
+  it('adds a typed exact code directly and searches only when it matches nothing', async () => {
+    const onSubmit = vi.fn();
+    const onSubmitCode = vi.fn<(query: string) => Promise<boolean>>();
+    const { container } = render(<Harness onSubmit={onSubmit} onSubmitCode={onSubmitCode} />);
+
+    onSubmitCode.mockResolvedValueOnce(true);
+    type('7702001000028');
+    fireEvent.submit(container.querySelector('form')!);
+    await waitFor(() => expect(onSubmitCode).toHaveBeenCalledWith('7702001000028'));
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    onSubmitCode.mockResolvedValueOnce(false);
+    type('arroz');
+    fireEvent.submit(container.querySelector('form')!);
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('arroz'));
   });
 
   it('turns 3* into a pending quantity chip that can be cleared', () => {

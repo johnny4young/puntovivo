@@ -176,6 +176,15 @@ export function SaleCartTable({
             unit: item.unitName,
             equivalence: item.unitEquivalence,
           });
+          // Two lines of one product (unit and pack) need their unit to tell them apart.
+          const sharesProduct = items.some(
+            other => other.key !== item.key && other.productId === item.productId
+          );
+          const unitText = isPresentation ? presentationLabel : item.unitName;
+          const lineName =
+            isPresentation || sharesProduct
+              ? `${item.productName} (${unitText})`
+              : item.productName;
           const showsUnitPicker =
             hardwareReady && !!onUnitChange && !itemsLocked && canChangeCartItemUnit(item);
           const listPrice = hardwareReady ? getCartItemListPrice(item, priceTier) : null;
@@ -212,11 +221,7 @@ export function SaleCartTable({
                   <button
                     type="button"
                     className="block w-full text-left"
-                    aria-label={t('cart.selectItem', {
-                      name: isPresentation
-                        ? `${item.productName} (${presentationLabel})`
-                        : item.productName,
-                    })}
+                    aria-label={t('cart.selectItem', { name: lineName })}
                     aria-expanded={isPhone ? isOpen : undefined}
                   >
                     <span className="line-clamp-2 text-base font-semibold leading-tight text-fg1">
@@ -234,7 +239,7 @@ export function SaleCartTable({
                       <select
                         className="sales-unit-select"
                         value={item.unitId}
-                        aria-label={th('line.unitFor', { name: item.productName })}
+                        aria-label={th('line.unitFor', { name: lineName })}
                         data-testid={`cart-unit-select-${item.productSku}`}
                         onChange={event => onUnitChange(item.key, event.target.value)}
                       >
@@ -271,12 +276,12 @@ export function SaleCartTable({
                         </SalesTag>
                       </>
                     )}
-                    {isPresentation && !showsUnitPicker && (
+                    {(isPresentation || sharesProduct) && !showsUnitPicker && (
                       <span
                         className="sales-tag bg-secondary-50 text-secondary-700"
                         data-testid={`cart-unit-presentation-${item.productSku}`}
                       >
-                        {presentationLabel}
+                        {unitText}
                       </span>
                     )}
                     {!isSelected && item.discount > 0 && (
@@ -338,7 +343,7 @@ export function SaleCartTable({
                     type="button"
                     className="sales-stepper"
                     aria-label={t('cart.decrement', {
-                      name: item.productName,
+                      name: lineName,
                     })}
                     disabled={itemsLocked || decrementDisabled}
                     onClick={() => {
@@ -367,7 +372,7 @@ export function SaleCartTable({
                       step={String(quantityStep)}
                       className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent text-center text-base font-semibold text-fg1 opacity-0 focus:opacity-100 focus:[appearance:textfield] focus-visible:opacity-100 focus-visible:rounded-md focus-visible:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
                       aria-label={t('cart.qtyFor', {
-                        name: item.productName,
+                        name: lineName,
                       })}
                       aria-keyshortcuts={
                         isSelected ? ariaKeyshortcutsFor('sales.focusQuantity') : undefined
@@ -400,7 +405,7 @@ export function SaleCartTable({
                   <Button
                     type="button"
                     aria-label={t('cart.increment', {
-                      name: item.productName,
+                      name: lineName,
                     })}
                     className="sales-stepper"
                     onClick={() => {
@@ -437,7 +442,7 @@ export function SaleCartTable({
                       type="button"
                       className="btn-ghost btn-icon h-11 w-11 text-danger-700"
                       aria-label={t('cart.removeItem', {
-                        name: item.productName,
+                        name: lineName,
                       })}
                       aria-keyshortcuts={
                         isSelected ? ariaKeyshortcutsFor('sales.removeItem') : undefined
@@ -488,7 +493,7 @@ export function SaleCartTable({
                     step={1}
                     className="input mt-0 h-9 w-16 px-2 py-1 text-center text-[13px]"
                     aria-label={t('cart.discountFor', {
-                      name: item.productName,
+                      name: lineName,
                     })}
                     aria-keyshortcuts={
                       isSelected ? ariaKeyshortcutsFor('sales.focusDiscount') : undefined

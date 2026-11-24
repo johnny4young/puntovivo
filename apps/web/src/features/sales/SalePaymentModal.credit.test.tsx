@@ -888,6 +888,8 @@ describe('SalePaymentModal ( credit branch)', () => {
     mockBalance = 0;
     renderModal({
       userRole: 'admin',
+      // Cents only exist in a two-decimal currency.
+      currencyCode: 'USD',
       total: 200,
       customers: [makeCustomer({ creditLimit: 500 })],
       onSubmit,

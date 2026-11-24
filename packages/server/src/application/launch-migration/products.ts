@@ -32,6 +32,7 @@ import {
   getSafeImportErrorMetadata,
 } from './safety.js';
 import { parseImportNumber } from './numbers.js';
+import { hasInvalidGs1CheckDigit } from '../../services/products/barcode-check-digit.js';
 
 const log = createModuleLogger('launch-migration');
 
@@ -229,6 +230,8 @@ function normalizeRow(
     issues.push({ code: 'too_long', field: 'description' });
   }
   if (barcode && barcode.length > 64) issues.push({ code: 'too_long', field: 'barcode' });
+  if (hasInvalidGs1CheckDigit(barcode))
+    issues.push({ code: 'invalid_check_digit', field: 'barcode' });
 
   const numericFields = [
     'price',

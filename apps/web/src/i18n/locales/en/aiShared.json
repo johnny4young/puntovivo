@@ -42,7 +42,7 @@
   },
   "audit": {
     "title": "AI activity log",
-    "subtitle": "Most recent AI events executed in this tenant.",
+    "subtitle": "Most recent AI events executed in this business.",
     "columns": {
       "occurredAt": "When",
       "actor": "User",

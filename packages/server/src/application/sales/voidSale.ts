@@ -38,6 +38,7 @@ import {
 } from '../../db/schema.js';
 import { getProductStockTotals } from '../../services/inventory-balances.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { roundMoney } from '../../lib/money.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   getPersistedSaleCashContribution,
@@ -219,7 +220,8 @@ export async function voidSale(
           subtotal: existing.subtotal,
           taxAmount: existing.taxAmount,
           discountAmount: existing.discountAmount,
-          total: existing.total,
+          // The void document mirrors the 2-decimal gross the sale was invoiced at.
+          total: roundMoney(existing.total - existing.roundingAdjustment),
         },
       })
     : null;

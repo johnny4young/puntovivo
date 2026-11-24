@@ -11,6 +11,7 @@
  */
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
+import { roundMoney } from '../../lib/money.js';
 import {
   cashSessions,
   companies,
@@ -79,6 +80,7 @@ const RECEIPT_LABELS: Record<'en' | 'es', ReceiptRenderLabels> = {
       taxInc: 'INC',
       tip: 'Tip',
       serviceCharge: 'Service',
+      rounding: 'Rounding',
       grandTotal: 'Total',
     },
     tendersTable: {
@@ -117,6 +119,7 @@ const RECEIPT_LABELS: Record<'en' | 'es', ReceiptRenderLabels> = {
       taxInc: 'INC',
       tip: 'Propina',
       serviceCharge: 'Servicio',
+      rounding: 'Redondeo',
       grandTotal: 'Total',
     },
     tendersTable: {
@@ -579,7 +582,11 @@ export async function resolveSaleReceiptTemplateContext(args: {
       tip: sale.tipAmount,
       serviceCharge: sale.serviceChargeAmount,
       serviceChargeRate: sale.serviceChargeRate,
-      grandTotal: receiptHeader?.totalAmount ?? sale.total,
+      rounding: sale.roundingAdjustment,
+      // A fiscal header carries the 2-decimal gross; the customer paid the rounded total.
+      grandTotal: receiptHeader
+        ? roundMoney(receiptHeader.totalAmount + sale.roundingAdjustment)
+        : sale.total,
       cashReceived: sale.cashReceivedSnapshot,
       changeDue: sale.cashChangeSnapshot ?? Math.max(0, tenderTotal - sale.total),
       notes: sale.notes,

@@ -30,6 +30,26 @@ function serializedSelection(): ProductSearchSelection {
 }
 
 describe('InventoryEntryModal', () => {
+  it('prefills the cost with the product cost when no initial cost was stored', () => {
+    render(
+      <InventoryEntryModal
+        isOpen
+        selection={{
+          ...trackedSelection(),
+          product: createMockProduct({ cost: 3100, initialCost: 0, tracksLots: false }),
+        }}
+        siteId="site-1"
+        siteName="Main site"
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText('Cost')).toHaveValue(3100);
+  });
+
   it('collects lot evidence instead of showing the aggregate count mode', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(

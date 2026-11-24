@@ -41,4 +41,20 @@ describe('OrderCartTable', () => {
 
     expect(onQuantityChange).toHaveBeenCalledWith(ITEM.key, 0.001);
   });
+  it('labels the cost input for assistive technology', () => {
+    const onCostChange = vi.fn();
+    render(
+      <OrderCartTable
+        items={[ITEM]}
+        onQuantityChange={vi.fn()}
+        onCostChange={onCostChange}
+        onRemove={vi.fn()}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Unit cost for Weighted cut'), {
+      target: { value: '18000' },
+    });
+    expect(onCostChange).toHaveBeenCalledWith(ITEM.key, 18_000);
+  });
 });

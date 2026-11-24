@@ -23,7 +23,7 @@
   "ownership": {
     "kicker": "Responsabilidad de recuperación",
     "title": "Cada señal tiene un responsable",
-    "description": "Una vista por nivel de servicio que indica quién responde, qué umbral abre una acción y cuál es la superficie de recuperación más segura. El estado siempre incluye texto; no depende solo del color.",
+    "description": "Una vista por nivel de servicio que indica quién responde, qué umbral abre una acción y cuál es la pantalla de recuperación más segura. El estado siempre incluye texto; no depende solo del color.",
     "loading": "Cargando responsables de recuperación operativa",
     "summary": {
       "ariaLabel": "Resumen de preparación operativa",
@@ -77,7 +77,7 @@
     },
     "observation": {
       "checking": "Leyendo la señal más reciente del servicio.",
-      "signalUnavailable": "No se pudo leer la señal. Continúe desde la superficie de recuperación.",
+      "signalUnavailable": "No se pudo leer la señal. Continúe desde la pantalla de recuperación.",
       "clear": "No hay umbrales abiertos en este momento.",
       "failedItems_one": "{{count}} elemento superó el umbral de fallo terminal.",
       "failedItems_other": "{{count}} elementos superaron el umbral de fallo terminal.",
@@ -146,7 +146,7 @@
       "modules": {
         "label": "Módulos",
         "value": "{{active}} / {{total}}",
-        "context": "Activos para este tenant",
+        "context": "Activos para este negocio",
         "loading": "Usando valores predeterminados durante la carga"
       },
       "devices": {
@@ -161,7 +161,7 @@
         "label": "Telemetría",
         "enabled": "Activada",
         "disabled": "Desactivada",
-        "context": "Consentimiento controlado por el tenant"
+        "context": "Consentimiento controlado por el negocio"
       }
     },
     "recovery": {
@@ -199,7 +199,7 @@
         },
         "telemetry": {
           "title": "Confirme la elección de telemetría",
-          "description": "Respete la decisión de consentimiento del tenant; soporte puede continuar si la telemetría está desactivada.",
+          "description": "Respete la decisión de consentimiento del negocio; soporte puede continuar si la telemetría está desactivada.",
           "status": {
             "enabled": "Activada",
             "disabled": "Desactivada por elección"
@@ -219,7 +219,7 @@
       "kicker": "Evidencia portátil",
       "title": "Resumen redactado",
       "description": "Copie o descargue JSON. Use Diagnóstico para obtener un paquete sanitizado más detallado.",
-      "privacyBoundary": "Solo contiene salud y versiones agregadas. No incluye nombres, identificadores, sedes, datos del tenant ni errores sin procesar.",
+      "privacyBoundary": "Solo contiene salud y versiones agregadas. No incluye nombres, identificadores, sedes, datos del negocio ni errores sin procesar.",
       "unavailable": "Espere todas las señales de soporte antes de compartir.",
       "actions": {
         "copy": "Copiar",
@@ -369,7 +369,7 @@
   },
   "cash": {
     "title": "Salud de caja",
-    "description": "Posición de caja a nivel de tenant: sesiones abiertas, cierres recientes y discrepancias por sede.",
+    "description": "Posición de caja de todo el negocio: sesiones abiertas, cierres recientes y discrepancias por sede.",
     "summary": {
       "openSessions": "Sesiones abiertas",
       "closedRecent": "Cerradas ({{days}} días)",
@@ -378,7 +378,7 @@
     },
     "bySite": {
       "title": "Resumen por sede",
-      "emptyState": "Aún no hay sedes con sesiones registradas en este tenant.",
+      "emptyState": "Aún no hay sedes con sesiones registradas en este negocio.",
       "columns": {
         "site": "Sede",
         "openSessions": "Abiertas",
@@ -442,8 +442,8 @@
       "dead_letter": "Dead letter"
     },
     "byRail": {
-      "title": "Resumen por rail",
-      "outboxRows": "Filas en outbox",
+      "title": "Resumen por proveedor",
+      "outboxRows": "Pagos en cola",
       "amount": "Monto"
     },
     "mismatches": {
@@ -451,7 +451,7 @@
       "emptyState": "No hay diferencias de pagos en la ventana actual.",
       "columns": {
         "type": "Tipo",
-        "rail": "Rail",
+        "rail": "Proveedor",
         "reference": "Referencia",
         "amount": "Monto",
         "status": "Estado",
@@ -516,10 +516,10 @@
       "noPermission": "Solo un administrador puede aprobar o rechazar una propuesta."
     },
     "outbox": {
-      "title": "Outbox de pagos",
-      "emptyState": "No hay filas en el outbox de pagos.",
+      "title": "Cola de pagos",
+      "emptyState": "No hay pagos en cola.",
       "columns": {
-        "rail": "Rail",
+        "rail": "Proveedor",
         "kind": "Tipo",
         "status": "Estado",
         "attempts": "Intentos",
@@ -530,7 +530,7 @@
       "actions": {
         "retry": "Reintentar",
         "retryConfirmTitle": "Reintentar este pago",
-        "retryConfirmMessage": "La fila vuelve a queued con un presupuesto de reintentos fresco. El worker la recoge en el siguiente tick.",
+        "retryConfirmMessage": "El pago vuelve a la cola con todos sus reintentos disponibles y se procesa en unos segundos.",
         "retrySuccess": "Pago encolado para reintento",
         "retryError": "No se pudo reintentar el pago",
         "retryUnavailable": "Solo los pagos rechazados, vencidos, en reintento o marcados como dead letter se pueden reintentar.",
@@ -548,12 +548,12 @@
       "emptyTitle": "Cola sin pendientes"
     },
     "breakdown": {
-      "title": "Volumen por rail y estado",
-      "description": "Conteos y montos agregados por rail en la ventana reciente.",
+      "title": "Volumen por proveedor y estado",
+      "description": "Cantidad y monto de pagos recientes por proveedor.",
       "emptyState": "No hay actividad de pagos en los últimos {{days}} días.",
       "windowDays": "Últimos {{days}} días",
       "columns": {
-        "rail": "Rail",
+        "rail": "Proveedor",
         "status": "Estado",
         "count": "Cantidad",
         "amount": "Monto"
@@ -562,9 +562,9 @@
     },
     "settings": {
       "title": "Credenciales de proveedores de pago",
-      "description": "Guarde las credenciales sandbox o de producción que cada rail necesita para enviar cobros reales. La integración en vivo llega en un slice posterior; por ahora los rails siguen deterministas hasta que se conecte un worker.",
+      "description": "Guarde las credenciales de prueba o de producción que cada proveedor de pago necesita para cobrar. Mientras la integración en vivo no esté disponible, los cobros funcionan en modo de prueba.",
       "liveBadge": "Integración en vivo",
-      "stubBadge": "Stub determinista",
+      "stubBadge": "Modo de prueba",
       "readiness": {
         "ready": "Listo",
         "notReady": "Faltan credenciales",
@@ -713,7 +713,7 @@
     },
     "devices": {
       "title": "Dispositivos registrados",
-      "description": "Nodos de autoridad, clientes web y terminales hub-client registrados para este tenant.",
+      "description": "Nodos de autoridad, clientes web y terminales hub-client registrados para este negocio.",
       "refresh": "Actualizar",
       "empty": "Aún no hay dispositivos registrados.",
       "revoke": "Revocar",
@@ -735,7 +735,7 @@
   },
   "diagnostics": {
     "title": "Exportar diagnóstico",
-    "description": "Descargue un ZIP con eventos de operación + outboxes (sincronización, fiscal, hardware) filtrados por rango de fechas. Útil para adjuntar a tickets de soporte.",
+    "description": "Descargue un ZIP con eventos de operación + colas (sincronización, fiscal, hardware) filtrados por rango de fechas. Útil para adjuntar a tickets de soporte.",
     "range": {
       "from": "Desde",
       "to": "Hasta",
@@ -753,9 +753,9 @@
       "results": {
         "operationEvents": "Eventos de operación",
         "operationEffects": "Efectos de operación",
-        "syncOutbox": "Outbox sincronización",
-        "fiscalOutbox": "Outbox fiscal",
-        "hardwareOutbox": "Outbox hardware",
+        "syncOutbox": "Cola de sincronización",
+        "fiscalOutbox": "Cola fiscal",
+        "hardwareOutbox": "Cola de hardware",
         "estimatedSize": "Tamaño estimado del paquete: {{size}}"
       },
       "checksTitle": "Contenido del paquete",
@@ -765,7 +765,7 @@
       "estimatedSizeHelp": "Peso aproximado de la exportación"
     },
     "includeOutboxes": {
-      "label": "Outboxes a incluir",
+      "label": "Colas a incluir",
       "sync": "Sincronización",
       "fiscal": "Fiscal",
       "hardware": "Hardware"

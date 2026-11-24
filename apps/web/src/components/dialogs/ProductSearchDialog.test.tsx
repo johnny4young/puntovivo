@@ -240,6 +240,42 @@ describe('<ProductSearchDialog /> empty-state CTA', () => {
     expect(screen.queryByTestId('product-search-empty-state')).not.toBeInTheDocument();
   });
 
+  it('lists the unit cost instead of the sale price for procurement', async () => {
+    trpcQueryState.data = {
+      items: [
+        {
+          id: 'p-1',
+          name: 'Gaseosa',
+          sku: 'GAS-01',
+          stock: 10,
+          price: 2500,
+          cost: 1550,
+          baseUnitPrice: 2500,
+          baseUnitAbbreviation: 'UND',
+          unitAssignments: [
+            {
+              unitId: 'u-1',
+              unitName: 'Unidad',
+              unitAbbreviation: 'UND',
+              equivalence: 1,
+              price: 2500,
+              isBase: true,
+            },
+          ],
+        },
+      ],
+      total: 1,
+    } as unknown as typeof trpcQueryState.data;
+    const user = userEvent.setup();
+    renderDialog({ priceMode: 'cost' });
+    await user.type(screen.getByPlaceholderText(/Search by SKU/i), 'gas');
+
+    expect(await screen.findByRole('columnheader', { name: 'Cost' })).toBeInTheDocument();
+    const row = screen.getByText('Gaseosa').closest('tr')!;
+    expect(row).toHaveTextContent(/1[.,]550/);
+    expect(row).not.toHaveTextContent(/2[.,]500/);
+  });
+
   it('requests stock-tracked products only for inventory workflows', async () => {
     const user = userEvent.setup();
     const { unmount } = renderDialog({ stockTrackedOnly: true });

@@ -586,7 +586,7 @@ function ReturnLineRow({
   currencyCode: string | undefined;
 }) {
   const { t } = useTranslation('tillReturns');
-  const name = lineName(line);
+  const name = lineName(line, selection.returnableLines);
   const remaining = lineRemaining(line);
   const quantity = selection.selectedQuantities[line.id];
   const selected = quantity !== undefined;

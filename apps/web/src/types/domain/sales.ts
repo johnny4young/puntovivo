@@ -32,6 +32,8 @@ export interface Sale {
   taxAmount: number;
   discountAmount: number;
   total: number;
+  /** What rounding the payable total to the currency's unit added; 0 for most sales. */
+  roundingAdjustment?: number;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   /** Return axis, separate from collection state. Null until returned. */

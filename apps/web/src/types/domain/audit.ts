@@ -10,6 +10,8 @@ export interface AuditLogEntry {
   action: AuditLogAction;
   resourceType: AuditLogResourceType;
   resourceId: string;
+  /** Current name or number of the resource; null once it no longer exists. */
+  resourceName?: string | null;
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
   metadata: Record<string, unknown> | null;

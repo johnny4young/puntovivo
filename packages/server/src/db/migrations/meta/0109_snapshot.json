@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8498d765-cd61-4813-9ffa-b722c6ad600e",
-  "prevId": "d9e7bcc4-c48e-4f83-885c-bf93f3cc6b96",
+  "id": "d9e7bcc4-c48e-4f83-885c-bf93f3cc6b96",
+  "prevId": "c0f572e6-3fe4-4caf-864a-127ba0ee7463",
   "tables": {
     "account_recovery_codes": {
       "name": "account_recovery_codes",
@@ -662,19 +662,11 @@
           "notNull": true,
           "autoincrement": false
         },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'human'"
-        },
         "email": {
           "name": "email",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
         "name": {
@@ -688,7 +680,7 @@
           "name": "password_hash",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
         "staff_pin_hash": {
@@ -760,15 +752,6 @@
             "email"
           ],
           "isUnique": true
-        },
-        "idx_users_tenant_service_name": {
-          "name": "idx_users_tenant_service_name",
-          "columns": [
-            "tenant_id",
-            "name"
-          ],
-          "isUnique": true,
-          "where": "kind = 'service'"
         }
       },
       "foreignKeys": {
@@ -788,12 +771,7 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {
-        "chk_users_service_has_no_credentials": {
-          "name": "chk_users_service_has_no_credentials",
-          "value": "(\"users\".\"kind\" = 'human'\n        AND \"users\".\"email\" IS NOT NULL\n        AND \"users\".\"password_hash\" IS NOT NULL)\n        OR (\"users\".\"kind\" = 'service'\n        AND \"users\".\"email\" IS NULL\n        AND \"users\".\"password_hash\" IS NULL\n        AND \"users\".\"staff_pin_hash\" IS NULL)"
-        }
-      }
+      "checkConstraints": {}
     },
     "employee_shift_breaks": {
       "name": "employee_shift_breaks",

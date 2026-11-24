@@ -47,7 +47,7 @@ export function SequentialFormModal({
   const wasExitConfirmationOpen = useRef(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const form = useForm<SequentialFormValues>({
-    defaultValues: createSequentialFormValues(sequential),
+    defaultValues: createSequentialFormValues(sequential, sites),
   });
   const documentTypeLabels: Record<Sequential['documentType'], string> = {
     sale: t('docTypes.sale'),

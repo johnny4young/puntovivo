@@ -112,6 +112,7 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
   const fiscalPending = today.pending.some(
     item => item.kind === 'attention' && item.area === 'fiscal'
   );
+  const showFiscalStatus = fiscalPending || today.fiscalEnabled;
   const toggleExpanded = () => {
     setExpanded(value => {
       try {
@@ -129,19 +130,22 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
         <h1 className="text-[2rem] leading-tight">
           {t('today.title', { date: formatters.longDate(today.generatedAt) })}
         </h1>
-        <span
-          className={
-            fiscalPending
-              ? 'ml-auto rounded-full bg-warning-50 px-3 py-1.5 text-sm font-semibold text-warning-700'
-              : 'ml-auto rounded-full bg-success-50 px-3 py-1.5 text-sm font-semibold text-success-700'
-          }
-          data-testid="today-status-pill"
-        >
-          {fiscalPending ? t('today.status.fiscalPending') : t('today.status.ready')}
-        </span>
+        {showFiscalStatus && (
+          <span
+            className={
+              fiscalPending
+                ? 'ml-auto rounded-full bg-warning-50 px-3 py-1.5 text-sm font-semibold text-warning-700'
+                : 'ml-auto rounded-full bg-success-50 px-3 py-1.5 text-sm font-semibold text-success-700'
+            }
+            data-testid="today-status-pill"
+          >
+            {fiscalPending ? t('today.status.fiscalPending') : t('today.status.ready')}
+          </span>
+        )}
         <Button
           variant="outline"
           size="compact"
+          className={showFiscalStatus ? undefined : 'ml-auto'}
           onClick={() => setCloseDate(businessDay)}
           data-testid="today-close-day"
         >

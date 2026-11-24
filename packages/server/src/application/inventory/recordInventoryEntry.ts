@@ -1,10 +1,12 @@
 /** Record an initial inventory or physical-count entry. */
 import { writeAuditLog } from '../../services/audit-logs.js';
-import { rebaseProductValuation } from '../../services/rebase-product-valuation.js';
+import { prepareProductReceipt } from '../../services/rebase-product-valuation.js';
 import {
   readProductValuation,
   inventoryMovementValueSnapshot,
+  syncCatalogCostFromPools,
 } from '../../services/product-valuation.js';
+import { legacyInventoryValue } from '../../services/inventory-valuation.js';
 import { TRPCError } from '@trpc/server';
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -145,10 +147,14 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
         })
         .where(and(eq(products.id, input.productId), eq(products.tenantId, ctx.tenantId)))
         .run();
-      rebaseProductValuation(tx, {
+      const receiptValue = stockDelta > 0 ? legacyInventoryValue(stockDelta, cost) : 0;
+      prepareProductReceipt(tx, {
         before: valuationBefore,
-        initialCost: cost,
-        cost: product.cost,
+        receipt: {
+          quantity: stockDelta,
+          value: receiptValue,
+          basis: { inventory: cost, cogs: product.cost },
+        },
         actorId: ctx.user.id,
         source: 'inventory_entry',
         referenceId: entryId,
@@ -161,12 +167,19 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
         siteId: entrySiteId,
         productId: input.productId,
         delta: stockDelta,
+        // Weighted average: the typed cost values only the units added, in both pools.
+        ...(stockDelta > 0
+          ? {
+              valueDelta: { inventoryValue: receiptValue, cogsValue: receiptValue },
+            }
+          : {}),
         onValueDelta: values => {
           movementValue = inventoryMovementValueSnapshot(values);
         },
         initialOnHandIfMissing: currentSiteStock,
         now,
       });
+      syncCatalogCostFromPools(tx, ctx.tenantId, input.productId, now);
 
       newStock = getProductStockTotal(tx, ctx.tenantId, input.productId);
 

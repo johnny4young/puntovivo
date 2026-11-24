@@ -34,7 +34,8 @@ import {
   unitXProduct,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { roundMoney } from '../../lib/money.js';
+import { resolveTenantCurrency } from '../../lib/currency.js';
+import { resolvePayableTotal, roundMoney } from '../../lib/money.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   evaluateCheckoutLossPrevention,
@@ -414,7 +415,9 @@ export async function runCompleteDraft(
     serviceChargeAmount,
   });
   const serviceChargeRate = serviceChargeAmount > 0 ? restaurantSettings.serviceChargeRate : null;
-  const total = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
+  const grossTotal = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
+  const saleCurrencyCode = existing.currencyCode ?? resolveTenantCurrency(ctx.db, ctx.tenantId);
+  const { total, roundingAdjustment } = resolvePayableTotal(grossTotal, saleCurrencyCode);
 
   // resolve the tender list (split or legacy),
   // payment status, change, and cash collected. The draft is always
@@ -434,6 +437,7 @@ export async function runCompleteDraft(
     requestedStatus: input.paymentStatus,
     total,
     collectCash: true,
+    currencyCode: saleCurrencyCode,
   });
 
   const persistedTaxComponents = await ctx.db
@@ -505,7 +509,7 @@ export async function runCompleteDraft(
       subtotal: draftSubtotal,
       taxAmount: draftTaxAmount,
       discountAmount: existing.discountAmount ?? 0,
-      total,
+      total: grossTotal,
     },
     lines: fiscalLines,
     completedAt: now,
@@ -640,7 +644,7 @@ export async function runCompleteDraft(
     creditAmount: creditSaleAmount,
     tipAmount,
     serviceChargeAmount,
-    currencyCode: existing.currencyCode ?? 'COP',
+    currencyCode: saleCurrencyCode,
   };
   const baselineApprovalActions = requiredCheckoutApprovalActions({
     role: ctx.user.role as UserRole,
@@ -829,6 +833,7 @@ export async function runCompleteDraft(
             subtotal: draftSubtotal,
             taxAmount: draftTaxAmount,
             total,
+            roundingAdjustment,
             ...checkoutTiming,
             syncStatus: 'pending',
             syncVersion: nextSyncVersion,

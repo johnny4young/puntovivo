@@ -141,14 +141,16 @@ function RefundConfirmOverlayContent({
                         checked={selected}
                         onChange={event => selection.selectLine(line, event.target.checked)}
                         aria-label={t('sales:refund.selectLine', {
-                          product: lineName(line),
+                          product: lineName(line, returnableLines),
                         })}
                         className="mt-1 h-4 w-4 rounded border-line-strong text-primary-600"
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
-                            <p className="font-medium text-secondary-950">{lineName(line)}</p>
+                            <p className="font-medium text-secondary-950">
+                              {lineName(line, returnableLines)}
+                            </p>
                             <p className="text-xs text-secondary-500">
                               {t('sales:refund.remainingLine', {
                                 quantity: remaining,

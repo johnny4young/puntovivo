@@ -324,7 +324,9 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
                 statusLabel={
                   step.status === 'optional'
                     ? tGuide('kind.optional')
-                    : `${tGuide(isGuidedStepRequired(step) ? 'kind.required' : 'kind.optional')} · ${tGuide(`status.${step.status}`)}`
+                    : step.status === 'blocker'
+                      ? tGuide('kind.required')
+                      : `${tGuide(isGuidedStepRequired(step) ? 'kind.required' : 'kind.optional')} · ${tGuide(`status.${step.status}`)}`
                 }
                 tone={STEP_TONES[step.status]}
                 active={isActive}

@@ -1,7 +1,10 @@
 import { inventoryValueGuard } from '../../services/inventory-value-errors.js';
 import { toInventoryCents } from '../../services/inventory-valuation.js';
-import { readProductValuation } from '../../services/product-valuation.js';
-import { rebaseProductValuation } from '../../services/rebase-product-valuation.js';
+import {
+  readProductValuation,
+  syncCatalogCostFromPools,
+} from '../../services/product-valuation.js';
+import { prepareProductReceipt } from '../../services/rebase-product-valuation.js';
 /**
  * Receive a purchase against an existing order (full or partial receipt).
  *
@@ -304,10 +307,13 @@ export async function createPurchaseFromOrder(
           .where(and(eq(products.id, row.productId), eq(products.tenantId, ctx.tenantId)))
           .run();
 
-        rebaseProductValuation(tx, {
+        prepareProductReceipt(tx, {
           before: valuationBefore,
-          initialCost: row.baseUnitCost,
-          cost: row.baseUnitCost,
+          receipt: {
+            quantity: row.normalizedQuantity,
+            value: row.total,
+            basis: { inventory: row.baseUnitCost, cogs: row.baseUnitCost },
+          },
           actorId: ctx.user.id,
           source: 'order_receipt',
           referenceId: purchaseId,
@@ -324,6 +330,7 @@ export async function createPurchaseFromOrder(
           serialAware: row.tracksSerials,
           now,
         });
+        syncCatalogCostFromPools(tx, ctx.tenantId, row.productId, now);
 
         tx.insert(inventoryMovements)
           .values({

@@ -24,12 +24,14 @@ import { restaurantServices, sales, tenants } from '../../db/schema.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   MODULES_MANIFEST,
+  RING1_RETAIL_PROFILE,
   resolveConfiguredModulesState,
   resolveModulesState,
   visibleDescriptors,
   type ModuleId,
 } from '../../services/modules/manifest.js';
 import { resolvePresetPatch } from '../../services/modules/presets.js';
+import { isVerticalPresetId } from '@puntovivo/shared/vertical-presets';
 import { router } from '../init.js';
 import { managerOrAdminProcedure } from '../middleware/roles.js';
 import { tenantProcedure } from '../middleware/tenant.js';
@@ -90,10 +92,18 @@ export const modulesRouter = router({
         ? ((blob as Record<string, unknown>).modules as Record<string, unknown> | undefined)
         : undefined;
     const configured = resolveConfiguredModulesState(stored);
+    const rawBusinessType = blob?.businessType;
+    const businessType = isVerticalPresetId(rawBusinessType) ? rawBusinessType : null;
+    // Installation writes the business type's preset over the retail profile, so
+    // that pair is the baseline; only a later change counts as customized.
+    const baseline: Partial<Record<ModuleId, boolean>> = businessType
+      ? { ...RING1_RETAIL_PROFILE, ...resolvePresetPatch(businessType) }
+      : {};
 
     const visible = visibleDescriptors(normalizeActorRole(ctx.user?.role));
 
     return {
+      businessType,
       modules: visible.map(descriptor => {
         const { id } = descriptor;
         const explicit = stored && typeof stored === 'object' ? stored[id] : undefined;
@@ -105,6 +115,7 @@ export const modulesRouter = router({
           defaultEnabled: descriptor.defaultEnabled,
           enabled: configured[id],
           isExplicit,
+          customized: configured[id] !== (baseline[id] ?? descriptor.defaultEnabled),
           available: descriptor.available !== false,
         };
       }),

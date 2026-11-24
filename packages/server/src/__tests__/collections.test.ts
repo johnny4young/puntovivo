@@ -1872,6 +1872,7 @@ describe('Collections tRPC Routers', () => {
 
         try {
           await cashierCaller.inventory.adjustStock({
+            notes: 'Counted on the shelf',
             productId: invProductId,
             newStock: 100,
           });
@@ -1895,7 +1896,11 @@ describe('Collections tRPC Routers', () => {
         expect(result.isLowStock).toBe(false);
 
         // Adjust to below minStock and verify isLowStock becomes true
-        await caller.inventory.adjustStock({ productId: invProductId, newStock: 3 });
+        await caller.inventory.adjustStock({
+          notes: 'Counted on the shelf',
+          productId: invProductId,
+          newStock: 3,
+        });
         const lowResult = await caller.inventory.productStock({ productId: invProductId });
         expect(lowResult.isLowStock).toBe(true);
       });

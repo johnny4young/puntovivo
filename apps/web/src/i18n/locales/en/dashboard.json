@@ -29,7 +29,7 @@
       "fallbackLabel": "all sites"
     },
     "ordersToday": {
-      "title": "Orders Today",
+      "title": "Sales count today",
       "fallbackLabel": "completed today"
     },
     "lowStockAlerts": {
@@ -50,7 +50,7 @@
     "chartLabel": "Daily revenue chart for the last 30 days",
     "empty": "There is no revenue to chart yet.",
     "periodTotal": "Period total",
-    "periodOrders": "Period orders",
+    "periodOrders": "Sales in period",
     "bestDay": "Best day"
   },
   "recentSales": {
@@ -77,8 +77,8 @@
   },
   "unitsSold_one": "{{count}} unit sold",
   "unitsSold_other": "{{count}} units sold",
-  "ordersCount_one": "{{count}} order",
-  "ordersCount_other": "{{count}} orders",
+  "ordersCount_one": "{{count}} sale",
+  "ordersCount_other": "{{count}} sales",
   "stockCount_one": "{{count}} in stock",
   "stockCount_other": "{{count}} in stock",
   "today": {

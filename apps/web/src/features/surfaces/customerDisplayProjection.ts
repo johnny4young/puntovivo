@@ -1,7 +1,7 @@
 import type { SaleCartItem, SaleCartSummary } from '@/features/sales/saleCart';
 import { getLineTotals } from '@/features/sales/saleCartTotals';
 import { TRANSFER_DESTINATION_LIMITS } from '@puntovivo/shared/transfer-destinations';
-import { roundMoney } from '@/lib/money';
+import { resolvePayableTotal, roundMoney } from '@/lib/money';
 import {
   CUSTOMER_DISPLAY_CHANNEL_NAME,
   CUSTOMER_DISPLAY_STORAGE_PREFIX,
@@ -154,7 +154,8 @@ export function buildCustomerDisplayProjection(args: {
       itemCount: finiteQuantity(args.summary.itemCount),
       subtotal: finiteMoney(args.summary.subtotal),
       taxAmount: finiteMoney(args.summary.taxAmount),
-      total: finiteMoney(args.summary.total),
+      // The customer sees the payable total the register will charge.
+      total: finiteMoney(resolvePayableTotal(args.summary.total, args.currency).total),
     },
     ...(args.transfer && args.transfer.qrPayload.length <= TRANSFER_DESTINATION_LIMITS.qrPayload
       ? {

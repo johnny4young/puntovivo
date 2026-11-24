@@ -613,6 +613,21 @@ export const auditLogActionEnum = [
   'transfer_destination.update',
   'transfer_destination.delete',
   'transfer_destination.reorder',
+  // Catalog and document numbering changes.
+  'sequential.create',
+  'sequential.adjust',
+  'sequential.delete',
+  'product.create',
+  'product.update',
+  'category.create',
+  'category.update',
+  'category.delete',
+  'unit.create',
+  'unit.update',
+  'unit.delete',
+  'vat_rate.create',
+  'vat_rate.update',
+  'vat_rate.delete',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -724,6 +739,10 @@ export const auditLogResourceTypeEnum = [
   'day_close_signoff',
   'fiscal_numbering_range',
   'transfer_destination',
+  'sequential',
+  'category',
+  'unit',
+  'vat_rate',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 

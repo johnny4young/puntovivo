@@ -654,6 +654,28 @@ describe('ProductFormModal — AI category suggestion', () => {
     );
   });
 
+  it('blocks a GTIN with a bad check digit but accepts internal codes', async () => {
+    onSubmitMock.mockResolvedValue(undefined);
+    renderModal();
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Arroz' } });
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'ARROZ-01' } });
+    const barcode = screen.getByLabelText('Barcode');
+    fireEvent.change(barcode, { target: { value: '7701234567890' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Create Product' }));
+      await Promise.resolve();
+    });
+    expect(onSubmitMock).not.toHaveBeenCalled();
+    expect(screen.getByText(/check digit is invalid/)).toBeVisible();
+
+    fireEvent.change(barcode, { target: { value: '10001' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Create Product' }));
+      await Promise.resolve();
+    });
+    expect(onSubmitMock).toHaveBeenCalledWith(expect.objectContaining({ barcode: '10001' }));
+  });
+
   it('shows the primary rate separately from the combined compatibility total on edit', () => {
     const vatRates: VatRateOption[] = [
       ...VAT_RATES,

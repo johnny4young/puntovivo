@@ -301,8 +301,9 @@ describe('Purchases tRPC Router', () => {
 
     const updatedProduct = await db.select().from(products).where(eq(products.id, productId)).get();
     expect(getProductStockTotal(db, tenantId, productId)).toBe(13);
-    expect(updatedProduct?.cost).toBeCloseTo(6);
-    expect(updatedProduct?.initialCost).toBeCloseTo(6);
+    // Weighted average: 5 on hand at 3 plus 8 received at 6.
+    expect(updatedProduct?.cost).toBeCloseTo(63 / 13);
+    expect(updatedProduct?.initialCost).toBeCloseTo(63 / 13);
 
     const balances = await caller.inventory.listBalancesBySite({ siteId });
     expect(balances.items.find(item => item.productId === productId)?.onHand).toBe(13);
