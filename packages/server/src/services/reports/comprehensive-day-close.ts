@@ -16,6 +16,7 @@ import {
   saleReturns,
   sales,
   type FiscalDocumentStatus,
+  type TransferConfirmationStatus,
   paymentMethodEnum,
 } from '../../db/schema.js';
 import { roundMoney, sumMoneySql } from '../../lib/money.js';
@@ -35,6 +36,192 @@ import {
 const ANOMALY_BASELINE_DAYS = 30;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 type PaymentMethod = (typeof paymentMethodEnum)[number];
+
+/** Only a proven confirmation counts as received money. */
+const CONFIRMED_TRANSFER_STATUSES: readonly TransferConfirmationStatus[] = [
+  'manual_confirmed',
+  'provider_confirmed',
+];
+
+/** Reported or parked for a human: the money is not proven yet. */
+const PENDING_TRANSFER_STATUSES: readonly TransferConfirmationStatus[] = [
+  'pending',
+  'customer_reported',
+  'needs_reconciliation',
+];
+
+/** Superseded tenders: replaced by a correction, never money owed. */
+const REJECTED_TRANSFER_STATUSES: readonly TransferConfirmationStatus[] = ['rejected', 'cancelled'];
+
+const TRANSFER_STATUSES: readonly TransferConfirmationStatus[] = [
+  'pending',
+  'customer_reported',
+  'manual_confirmed',
+  'provider_confirmed',
+  'rejected',
+  'needs_reconciliation',
+  'cancelled',
+];
+
+/** One transfer tender of the day, with the sale total it belongs to. */
+export interface TransferTenderRow {
+  saleId: string;
+  amount: number;
+  reference: string | null;
+  confirmationStatus: TransferConfirmationStatus | null;
+  destinationSnapshot: { id: string; label: string; kind: string } | null;
+  transferDestinationId: string | null;
+  saleTotal: number;
+}
+
+export interface TransferConfirmationDestinationSummary {
+  destinationId: string | null;
+  label: string | null;
+  kind: string | null;
+  /** Proven money for this destination. */
+  confirmed: number;
+  /** Reported but unproven money for this destination. */
+  pending: number;
+  /** Transfer tenders grouped here, whatever their state. */
+  count: number;
+  /** Distinct bank references the operator recorded, sorted. */
+  references: string[];
+}
+
+export interface TransferConfirmationSummary {
+  /** Total of the day's sales that carry at least one transfer tender. */
+  saleTotal: number;
+  /** Every transfer tender of the day: nothing is dropped from the evidence. */
+  reported: number;
+  /** Proven received money. Never merged with `pending`. */
+  confirmed: number;
+  /** Reported, unproven or parked money. Never merged with `confirmed`. */
+  pending: number;
+  /** Superseded tenders, kept visible so the totals reconcile. */
+  rejected: number;
+  /**
+   * Tenders written before the confirmation lifecycle existed. They stay their
+   * own bucket: reporting them as confirmed would invent evidence, and
+   * reporting them as pending would claim money already counted in revenue.
+   */
+  legacy: number;
+  /** Money received above what the sale expected; never applied to a sale. */
+  unapplied: number;
+  byStatus: Record<TransferConfirmationStatus | 'legacy', number>;
+  destinations: TransferConfirmationDestinationSummary[];
+}
+
+function zeroTransferStatusCounts(): Record<TransferConfirmationStatus | 'legacy', number> {
+  return {
+    ...(Object.fromEntries(TRANSFER_STATUSES.map(status => [status, 0])) as Record<
+      TransferConfirmationStatus,
+      number
+    >),
+    legacy: 0,
+  };
+}
+
+/**
+ * Split the day's transfer tenders into confirmed, pending, rejected and
+ * legacy money, per frozen destination. Confirmed and pending are reported
+ * separately on purpose: a single transfer figure would let a manager read
+ * unconfirmed money as cash in the drawer.
+ */
+export function summarizeTransferConfirmations(
+  rows: readonly TransferTenderRow[],
+  unapplied: number
+): TransferConfirmationSummary {
+  const byStatus = zeroTransferStatusCounts();
+  const saleTotals = new Map<string, number>();
+  const destinations = new Map<string, TransferConfirmationDestinationSummary>();
+  const referencesByDestination = new Map<string, Set<string>>();
+  let reported = 0;
+  let confirmed = 0;
+  let pending = 0;
+  let rejected = 0;
+  let legacy = 0;
+
+  for (const row of rows) {
+    const amount = roundMoney(row.amount);
+    reported = roundMoney(reported + amount);
+    saleTotals.set(row.saleId, roundMoney(row.saleTotal));
+
+    const status = row.confirmationStatus;
+    if (status === null) {
+      legacy = roundMoney(legacy + amount);
+      byStatus.legacy += 1;
+    } else {
+      byStatus[status] += 1;
+      if (CONFIRMED_TRANSFER_STATUSES.includes(status)) {
+        confirmed = roundMoney(confirmed + amount);
+      } else if (PENDING_TRANSFER_STATUSES.includes(status)) {
+        pending = roundMoney(pending + amount);
+      } else if (REJECTED_TRANSFER_STATUSES.includes(status)) {
+        rejected = roundMoney(rejected + amount);
+      }
+    }
+
+    // The frozen destination id, falling back to the snapshot's own id so a
+    // tender whose indexed column is missing still groups with its snapshot.
+    const destinationId = row.transferDestinationId ?? row.destinationSnapshot?.id ?? null;
+    const key = destinationId ?? `snapshotless:${row.saleId}`;
+    const group = destinations.get(key) ?? {
+      destinationId,
+      label: row.destinationSnapshot?.label ?? null,
+      kind: row.destinationSnapshot?.kind ?? null,
+      confirmed: 0,
+      pending: 0,
+      count: 0,
+      references: [],
+    };
+    group.count += 1;
+    if (status !== null && CONFIRMED_TRANSFER_STATUSES.includes(status)) {
+      group.confirmed = roundMoney(group.confirmed + amount);
+    } else if (status !== null && PENDING_TRANSFER_STATUSES.includes(status)) {
+      group.pending = roundMoney(group.pending + amount);
+    }
+    destinations.set(key, group);
+
+    const reference = row.reference?.trim();
+    if (reference) {
+      const set = referencesByDestination.get(key) ?? new Set<string>();
+      set.add(reference);
+      referencesByDestination.set(key, set);
+    }
+  }
+
+  const destinationRows = [...destinations.entries()]
+    .map(([key, group]) => ({
+      ...group,
+      references: [...(referencesByDestination.get(key) ?? [])].sort(),
+    }))
+    // Deterministic order: labelled destinations first, then by id.
+    .sort((left, right) => {
+      const leftLabel = left.label ?? '\uffff';
+      const rightLabel = right.label ?? '\uffff';
+      return (
+        leftLabel.localeCompare(rightLabel) ||
+        (left.destinationId ?? '').localeCompare(right.destinationId ?? '')
+      );
+    });
+
+  let saleTotal = 0;
+  for (const total of saleTotals.values()) {
+    saleTotal = roundMoney(saleTotal + total);
+  }
+
+  return {
+    saleTotal,
+    reported,
+    confirmed,
+    pending,
+    rejected,
+    legacy,
+    unapplied: roundMoney(unapplied),
+    byStatus,
+    destinations: destinationRows,
+  };
+}
 
 const FISCAL_STATUSES: readonly FiscalDocumentStatus[] = [
   'pending',
@@ -109,6 +296,14 @@ export interface ComprehensiveDayCloseReport {
     netRevenue: number;
   };
   payments: Array<{ method: PaymentMethod; amount: number; transactionCount: number }>;
+  /**
+   * Transfer confirmation evidence for the day. Additive: it never rewrites
+   * `sales`, `payments` or `cash` — those keep their historical meaning.
+   *
+   * Optional so a close computed (and signed) before the section existed stays
+   * structurally valid; the service always fills it for a fresh report.
+   */
+  transferConfirmations?: TransferConfirmationSummary;
   cash: {
     closedSessions: number;
     openSessions: number;
@@ -217,6 +412,54 @@ export async function computeComprehensiveDayCloseReport(
     .groupBy(salePayments.method)
     .orderBy(salePayments.method)
     .all();
+
+  // Transfer confirmation evidence. Read straight from the tender rows and the
+  // audit trail the confirmation service already writes: no financial service
+  // is changed, and the historical `payments` block above keeps its meaning.
+  const transferRows = db
+    .select({
+      saleId: salePayments.saleId,
+      amount: salePayments.amount,
+      reference: salePayments.reference,
+      confirmationStatus: salePayments.confirmationStatus,
+      destinationSnapshot: salePayments.destinationSnapshot,
+      transferDestinationId: salePayments.transferDestinationId,
+      saleTotal: sales.total,
+    })
+    .from(salePayments)
+    .innerJoin(sales, eq(salePayments.saleId, sales.id))
+    .where(
+      and(
+        eq(salePayments.tenantId, input.tenantId),
+        eq(salePayments.method, 'transfer'),
+        saleFilter
+      )
+    )
+    // Oldest first, so the first frozen snapshot seen for a destination is the
+    // earliest one the store printed.
+    .orderBy(salePayments.createdAt, salePayments.id)
+    .all();
+
+  const surplusRows = db
+    .select({ after: auditLogs.after })
+    .from(auditLogs)
+    .where(
+      and(
+        eq(auditLogs.tenantId, input.tenantId),
+        eq(auditLogs.action, 'sale_payment.transfer_manual_confirmed'),
+        gte(auditLogs.createdAt, startIso),
+        lt(auditLogs.createdAt, endExclusiveIso)
+      )
+    )
+    .all();
+  let unapplied = 0;
+  for (const row of surplusRows) {
+    const surplus = (row.after as { surplusAmount?: unknown } | null)?.surplusAmount;
+    if (typeof surplus === 'number' && Number.isFinite(surplus)) {
+      unapplied = roundMoney(unapplied + surplus);
+    }
+  }
+  const transferConfirmations = summarizeTransferConfirmations(transferRows, unapplied);
 
   const closedSessionRows = db
     .select({
@@ -374,6 +617,7 @@ export async function computeComprehensiveDayCloseReport(
       amount: roundMoney(row.amount),
       transactionCount: row.transactionCount,
     })),
+    transferConfirmations,
     cash: {
       closedSessions: closedSessionRows.length,
       openSessions: openAtDayEnd,

@@ -125,6 +125,24 @@
       "amount": "Monto",
       "note": "Medios de pago brutos de las ventas registradas este día; las anulaciones y devoluciones aparecen por separado en los ajustes."
     },
+    "transferConfirmations": {
+      "title": "Confirmaciones de transferencia",
+      "description": "Las transferencias confirmadas son dinero comprobado; las pendientes están reportadas pero no comprobadas. Se informan por separado a propósito y nunca se suman.",
+      "saleTotal": "Ventas con transferencia",
+      "reported": "Transferencias reportadas",
+      "confirmed": "Transferencias confirmadas",
+      "pending": "Pendiente de confirmación",
+      "rejected": "Transferencias reemplazadas",
+      "legacy": "Transferencias sin estado de confirmación",
+      "unapplied": "Dinero no aplicado",
+      "destination": "Destino",
+      "references": "Referencias bancarias",
+      "count_one": "{{count}} transferencia",
+      "count_other": "{{count}} transferencias",
+      "unknownDestination": "Destino sin etiqueta",
+      "emptyTitle": "Sin transferencias este día",
+      "emptyDescription": "No se registró ningún pago por transferencia en este día de operación."
+    },
     "paymentMethods": {
       "cash": "Efectivo",
       "card": "Tarjeta",

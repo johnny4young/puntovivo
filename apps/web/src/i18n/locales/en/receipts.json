@@ -33,6 +33,26 @@
       "return": "Return credit note"
     }
   },
+  "transfer": {
+    "sectionTitle": "Transfer confirmation",
+    "destination": "Destination",
+    "reference": "Reference",
+    "status": "Status",
+    "amount": "Amount",
+    "saleTotal": "Sale total",
+    "confirmedTotal": "Confirmed total",
+    "pendingTotal": "Pending confirmation",
+    "unapplied": "Unapplied money",
+    "statuses": {
+      "pending": "Pending",
+      "customer_reported": "Reported by customer",
+      "manual_confirmed": "Manually confirmed",
+      "provider_confirmed": "Provider confirmed",
+      "rejected": "Rejected",
+      "needs_reconciliation": "Needs reconciliation",
+      "cancelled": "Cancelled"
+    }
+  },
   "fallback": {
     "title": "Receipt {{number}}",
     "taxId": "Tax ID {{value}}",

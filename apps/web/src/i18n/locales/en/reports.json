@@ -125,6 +125,24 @@
       "amount": "Amount",
       "note": "Gross tenders for sales recorded on this day; voids and refunds appear separately under adjustments."
     },
+    "transferConfirmations": {
+      "title": "Transfer confirmations",
+      "description": "Confirmed transfers are proven money; pending transfers are reported but not proven. They are listed apart on purpose and are never added up.",
+      "saleTotal": "Sales with transfers",
+      "reported": "Reported transfers",
+      "confirmed": "Confirmed transfers",
+      "pending": "Pending confirmation",
+      "rejected": "Superseded transfers",
+      "legacy": "Transfers without a confirmation state",
+      "unapplied": "Unapplied money",
+      "destination": "Destination",
+      "references": "Bank references",
+      "count_one": "{{count}} transfer",
+      "count_other": "{{count}} transfers",
+      "unknownDestination": "Unlabelled destination",
+      "emptyTitle": "No transfers on this day",
+      "emptyDescription": "No transfer tender was recorded for this business day."
+    },
     "paymentMethods": {
       "cash": "Cash",
       "card": "Card",

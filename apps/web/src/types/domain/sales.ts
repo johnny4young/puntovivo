@@ -113,9 +113,54 @@ export interface SalePayment {
   amount: number;
   loyaltyPoints?: number | null;
   reference?: string | null;
+  /**
+   * Transfer confirmation lifecycle of this tender. Null (or absent) for every
+   * non-transfer method and for transfer tenders written before the lifecycle
+   * existed — a receipt must never invent a state for those.
+   */
+  confirmationStatus?: TransferConfirmationStatus | null;
+  confirmationSource?: TransferConfirmationSource | null;
+  confirmedAt?: string | null;
+  /**
+   * Destination frozen at tender creation. Receipts read this, never the live
+   * configuration, so renaming or removing a destination later never rewrites
+   * what a historical receipt printed.
+   */
+  destinationSnapshot?: TransferDestinationSnapshot | null;
+  /**
+   * Received money the tender can absorb, as the server accumulated it from the
+   * recorded deposits. Absent when the tender has no manual deposit chain, in
+   * which case `amount` is the applied figure.
+   */
+  appliedAmount?: number | null;
+  /**
+   * Received money above the tender. Reported separately, never added to the
+   * sale total; absent means the server reported no surplus for this tender.
+   */
+  surplusAmount?: number | null;
   createdAt: string;
   returnedAmount?: number;
   remainingAmount?: number;
+}
+
+/** Mirrors the server `transferConfirmationStatusEnum` (design V3.3). */
+export type TransferConfirmationStatus =
+  | 'pending'
+  | 'customer_reported'
+  | 'manual_confirmed'
+  | 'provider_confirmed'
+  | 'rejected'
+  | 'needs_reconciliation'
+  | 'cancelled';
+
+/** Mirrors the server `transferConfirmationSourceEnum`. */
+export type TransferConfirmationSource = 'operator' | 'provider_api' | 'provider_webhook';
+
+/** Frozen `{ id, label, kind }` destination snapshot copied onto the tender. */
+export interface TransferDestinationSnapshot {
+  id: string;
+  label: string;
+  kind: string;
 }
 
 export interface SaleItemLotProvenance {

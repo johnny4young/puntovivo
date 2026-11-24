@@ -73,6 +73,104 @@ function buildPaymentBreakdownSection(payments: SalePayment[] | undefined, t: TF
   `;
 }
 
+/** Only these two count as received money; every other state is still in doubt. */
+function isConfirmedTransfer(status: SalePayment['confirmationStatus']): boolean {
+  return status === 'manual_confirmed' || status === 'provider_confirmed';
+}
+
+/** Reported by the customer or parked for reconciliation: received? not proven. */
+function isPendingTransfer(status: SalePayment['confirmationStatus']): boolean {
+  return (
+    status === 'pending' || status === 'customer_reported' || status === 'needs_reconciliation'
+  );
+}
+
+/**
+ * Transfer-confirmation evidence for the customer copy (Fase 5.7).
+ *
+ * Renders nothing unless at least one tender actually carries a confirmation
+ * state, so a receipt reprinted from a sale recorded before the lifecycle
+ * existed keeps its exact current layout. Confirmed and pending money are
+ * reported as separate figures: adding them together would print unreceived
+ * money as if it were collected.
+ */
+function buildTransferConfirmationSection(sale: ReceiptSale, t: TFunction): string {
+  const transfers = (sale.payments ?? []).filter(
+    payment => payment.method === 'transfer' && payment.confirmationStatus != null
+  );
+  if (transfers.length === 0) {
+    return '';
+  }
+
+  // A tender repays what its movements actually added up to. A partially
+  // deposited transfer leaves the rest pending, and money that arrived above
+  // the tender is never counted as sale revenue.
+  let confirmed = 0;
+  let pending = 0;
+  let reportedUnapplied = 0;
+  let hasReportedUnapplied = false;
+  for (const transfer of transfers) {
+    const confirmedStatus = isConfirmedTransfer(transfer.confirmationStatus);
+    const applied =
+      typeof transfer.appliedAmount === 'number'
+        ? transfer.appliedAmount
+        : confirmedStatus
+          ? transfer.amount
+          : 0;
+    if (confirmedStatus) {
+      confirmed = roundMoney(confirmed + applied);
+    } else if (isPendingTransfer(transfer.confirmationStatus)) {
+      pending = roundMoney(pending + Math.max(0, roundMoney(transfer.amount - applied)));
+    }
+    if (typeof transfer.surplusAmount === 'number') {
+      hasReportedUnapplied = true;
+      reportedUnapplied = roundMoney(reportedUnapplied + transfer.surplusAmount);
+    }
+  }
+
+  const row = (label: string, value: string) =>
+    `<div class="summary-row"><span class="muted">${escapeHtml(label)}</span><span>${value}</span></div>`;
+
+  const transferRows = transfers
+    .map(transfer => {
+      const destination = escapeHtml(transfer.destinationSnapshot?.label?.trim() ?? '');
+      const reference = escapeHtml(transfer.reference?.trim() ?? '');
+      const status = escapeHtml(
+        t(`receipts:transfer.statuses.${transfer.confirmationStatus}`, {
+          defaultValue: String(transfer.confirmationStatus),
+        })
+      );
+      return [
+        row(t('receipts:transfer.destination'), destination || '&mdash;'),
+        row(t('receipts:transfer.reference'), reference || '&mdash;'),
+        row(t('receipts:transfer.status'), status),
+        row(t('receipts:transfer.amount'), escapeHtml(formatCurrency(transfer.amount))),
+      ].join('');
+    })
+    .join('');
+
+  // A known zero is evidence; an absent figure is not, so it prints nothing.
+  // The per-tender surplus the server reports wins over any sale-level figure.
+  const unappliedAmount = hasReportedUnapplied ? reportedUnapplied : sale.unappliedTransferAmount;
+  const unappliedRow =
+    typeof unappliedAmount === 'number'
+      ? row(t('receipts:transfer.unapplied'), escapeHtml(formatCurrency(unappliedAmount)))
+      : '';
+
+  return `
+    <section class="summary transfer-confirmation">
+      <span class="section-label">${escapeHtml(t('receipts:transfer.sectionTitle'))}</span>
+      <div class="summary-grid">${transferRows}</div>
+      <div class="summary-grid">
+        ${row(t('receipts:transfer.saleTotal'), escapeHtml(formatCurrency(sale.total)))}
+        ${row(t('receipts:transfer.confirmedTotal'), escapeHtml(formatCurrency(confirmed)))}
+        ${row(t('receipts:transfer.pendingTotal'), escapeHtml(formatCurrency(pending)))}
+        ${unappliedRow}
+      </div>
+    </section>
+  `;
+}
+
 function buildReceiptRows(items: SaleItem[], t: TFunction): string {
   return items
     .map(item => {
@@ -455,6 +553,8 @@ export async function buildSaleReceiptHtml(
           ${sale.cashReceivedSnapshot != null ? `<section class="summary"><div class="summary-row"><span>${escapeHtml(t('receipts:fallback.cashReceived'))}</span><span>${escapeHtml(formatCurrency(sale.cashReceivedSnapshot))}</span></div><div class="summary-row"><span>${escapeHtml(t('receipts:fallback.change'))}</span><span>${escapeHtml(formatCurrency(sale.cashChangeSnapshot ?? 0))}</span></div></section>` : ''}
 
           ${buildPaymentBreakdownSection(sale.payments, t)}
+
+          ${buildTransferConfirmationSection(sale, t)}
 
           ${fiscalSection}
 
