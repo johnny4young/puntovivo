@@ -171,6 +171,45 @@ function readRecordedDeposits(
 }
 
 /**
+ * One recorded movement by its idempotency key, tenant-wide.
+ *
+ * Keys are minted per movement, so a key identifies the same money no matter
+ * which tender or sale a caller names now. Looking the key up across the whole
+ * tenant (not just the tender being written) is what stops a replayed key from
+ * landing a second time against a different tender: scoping the lookup to the
+ * tender made every cross-tender replay look like brand-new money. The SQL
+ * prefilter keeps the read on `idx_audit_logs_tenant_action_created` and the
+ * payload is still validated by `readDepositPayload` before it is trusted.
+ */
+function findRecordedDepositByKey(
+  db: DatabaseInstance,
+  args: { tenantId: string; idempotencyKey: string }
+): RecordedDeposit | null {
+  const row = db
+    .select({ after: auditLogs.after })
+    .from(auditLogs)
+    .where(
+      and(
+        eq(auditLogs.tenantId, args.tenantId),
+        eq(auditLogs.action, DEPOSIT_AUDIT_ACTION),
+        sql`json_extract(${auditLogs.after}, '$.idempotencyKey') = ${args.idempotencyKey}`
+      )
+    )
+    // A pre-existing duplicate would be damage this rule no longer creates;
+    // the earliest row is the movement the key was minted for, so it is the one
+    // the replay reflects.
+    .orderBy(auditLogs.createdAt)
+    .get();
+  if (!row) return null;
+
+  const deposit = readDepositPayload(row.after);
+  // The SQL match is a prefilter over JSON text: confirm the payload says the
+  // same thing before any of it is used.
+  if (!deposit || deposit.idempotencyKey !== args.idempotencyKey) return null;
+  return deposit;
+}
+
+/**
  * Only the movements that were actually APPLIED, grouped by tender.
  *
  * A movement recorded against a tender that was already rejected or cancelled
@@ -366,7 +405,9 @@ export function saleTransferTotals(
  * Each call keeps its own immutable `sale_payment.transfer_manual_confirmed`
  * row, written in the same transaction as the tender update. Replaying a
  * movement (`idempotencyKey`) returns the recorded outcome instead of adding
- * the money twice.
+ * the money twice, and a key already recorded for another tender or amount is
+ * refused: the key names one movement, so reusing it is a mistake, never two
+ * movements.
  *
  * A deposit received against a tender that is already dead (`rejected` or
  * `cancelled`) is NOT applied and NOT lost: nothing about the tender row
@@ -442,25 +483,43 @@ export function registerManualDeposit(
         saleIds: [args.saleId],
       }).filter(entry => entry.salePaymentId === args.salePaymentId);
 
-      // A retried movement is not new money: answer with what was already
-      // recorded for that key, without a second audit row or tender update.
-      if (args.idempotencyKey !== undefined) {
-        const replay = recorded.find(entry => entry.idempotencyKey === args.idempotencyKey);
-        if (replay) {
-          return {
-            appliedAmount: replay.appliedAmount,
-            surplusAmount: replay.surplusAmount,
-            status: replay.status,
-          };
-        }
-      }
-
       const verifiedAmount = roundMoney(args.verifiedAmount);
       if (!Number.isFinite(verifiedAmount) || verifiedAmount <= 0) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'A deposit requires a positive verified amount',
         });
+      }
+
+      // A retried movement is not new money: answer with what was already
+      // recorded for that key, without a second audit row or tender update.
+      // The key is resolved across the tenant, not across the tender being
+      // written, because a key names ONE movement (one tender of one sale). A
+      // retry replays the same tender and the same amount; anything else — the
+      // key used against another tender or sale, or for another amount — would
+      // write money for a movement that never happened, so it is refused inside
+      // this transaction instead of being applied.
+      if (args.idempotencyKey !== undefined) {
+        const replay = findRecordedDepositByKey(tx, {
+          tenantId: args.tenantId,
+          idempotencyKey: args.idempotencyKey,
+        });
+        if (replay) {
+          const sameMovement =
+            replay.salePaymentId === args.salePaymentId &&
+            roundMoney(replay.verifiedAmount) === verifiedAmount;
+          if (!sameMovement) {
+            throw new TRPCError({
+              code: 'CONFLICT',
+              message: 'This idempotency key already recorded a different deposit',
+            });
+          }
+          return {
+            appliedAmount: replay.appliedAmount,
+            surplusAmount: replay.surplusAmount,
+            status: replay.status,
+          };
+        }
       }
 
       // The tender can be dead before the money lands: a replacement plan

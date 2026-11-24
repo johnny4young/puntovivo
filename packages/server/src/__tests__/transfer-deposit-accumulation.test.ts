@@ -252,6 +252,136 @@ describe('transfer deposit accumulation', () => {
     expect(depositPayloads(saleId)).toHaveLength(1);
   });
 
+  it('does not confirm a one-cent shortfall', () => {
+    const { saleId, salePaymentId } = saleWithTransfer(100.01);
+
+    // The tolerance may absorb IEEE-754 drift; it may never absorb a real cent.
+    expect(deposit(saleId, salePaymentId, 100)).toEqual({
+      appliedAmount: 100,
+      surplusAmount: 0,
+      status: 'needs_reconciliation',
+    });
+    expect(tenderStatus(salePaymentId)).toBe('needs_reconciliation');
+    expect(saleTotal(saleId)).toBe(100.01);
+    // The reconciliation surface sees the same shortfall the write path saw.
+    expect(pendingRow(salePaymentId)?.appliedAmount).toBe(100);
+  });
+
+  it('confirms once the missing cent actually arrives', () => {
+    const { saleId, salePaymentId } = saleWithTransfer(100.01);
+
+    deposit(saleId, salePaymentId, 100, { idempotencyKey: 'cent-1' });
+    const completing = deposit(saleId, salePaymentId, 0.01, { idempotencyKey: 'cent-2' });
+
+    expect(completing).toEqual({
+      appliedAmount: 100.01,
+      surplusAmount: 0,
+      status: 'manual_confirmed',
+    });
+    expect(tenderStatus(salePaymentId)).toBe('manual_confirmed');
+    expect(saleTotal(saleId)).toBe(100.01);
+  });
+
+  it('keeps an exact cent-for-cent match confirmed', () => {
+    const { saleId, salePaymentId } = saleWithTransfer(100.01);
+
+    expect(deposit(saleId, salePaymentId, 100.01)).toEqual({
+      appliedAmount: 100.01,
+      surplusAmount: 0,
+      status: 'manual_confirmed',
+    });
+    expect(tenderStatus(salePaymentId)).toBe('manual_confirmed');
+  });
+
+  it('reports a one-cent excess as surplus instead of confirming', () => {
+    const { saleId, salePaymentId } = saleWithTransfer(100);
+
+    expect(deposit(saleId, salePaymentId, 100.01)).toEqual({
+      appliedAmount: 100,
+      surplusAmount: 0.01,
+      status: 'needs_reconciliation',
+    });
+    expect(tenderStatus(salePaymentId)).toBe('needs_reconciliation');
+    expect(saleTotal(saleId)).toBe(100);
+  });
+
+  it('keeps confirming when the sum only drifts in floating point', () => {
+    // 0.1 + 0.2 === 0.30000000000000004 in IEEE-754: drift, not a shortfall.
+    const drift = saleWithTransfer(0.3);
+    deposit(drift.saleId, drift.salePaymentId, 0.1, { idempotencyKey: 'drift-1' });
+    const drifted = deposit(drift.saleId, drift.salePaymentId, 0.2, {
+      idempotencyKey: 'drift-2',
+    });
+    expect(drifted).toEqual({
+      appliedAmount: 0.3,
+      surplusAmount: 0,
+      status: 'manual_confirmed',
+    });
+    expect(tenderStatus(drift.salePaymentId)).toBe('manual_confirmed');
+
+    // The same rule across three cent-granular instalments (33.33 × 3).
+    const thirds = saleWithTransfer(99.99);
+    deposit(thirds.saleId, thirds.salePaymentId, 33.33, { idempotencyKey: 'drift-3' });
+    deposit(thirds.saleId, thirds.salePaymentId, 33.33, { idempotencyKey: 'drift-4' });
+    const third = deposit(thirds.saleId, thirds.salePaymentId, 33.33, {
+      idempotencyKey: 'drift-5',
+    });
+    expect(third).toEqual({
+      appliedAmount: 99.99,
+      surplusAmount: 0,
+      status: 'manual_confirmed',
+    });
+    expect(tenderStatus(thirds.salePaymentId)).toBe('manual_confirmed');
+  });
+
+  it('rejects the same key sent against a second tender without writing money', () => {
+    const { saleId, salePaymentId } = saleWithTransfer(100000);
+    const siblingTenderId = addTransferTender(saleId, 50000);
+    const key = 'mv-cross-tender';
+
+    const recorded = deposit(saleId, salePaymentId, 50000, { idempotencyKey: key });
+    expect(recorded.appliedAmount).toBe(50000);
+
+    // A key names ONE movement. Naming a different tender with it is a caller
+    // mistake or a retry aimed at the wrong row: it is refused, and nothing
+    // moves — no second audit row, no applied money on the other tender.
+    expect(() => deposit(saleId, siblingTenderId, 50000, { idempotencyKey: key })).toThrow(
+      /already recorded/i
+    );
+
+    expect(depositPayloads(saleId)).toHaveLength(1);
+    expect(tenderStatus(salePaymentId)).toBe('needs_reconciliation');
+    expect(tenderStatus(siblingTenderId)).toBe('pending');
+    expect(pendingRow(siblingTenderId)?.appliedAmount).toBe(0);
+    expect(saleTotal(saleId)).toBe(100000);
+  });
+
+  it('rejects a replay whose amount differs from the recorded movement', () => {
+    const { saleId, salePaymentId } = saleWithTransfer(100000);
+    deposit(saleId, salePaymentId, 50000, { idempotencyKey: 'mv-amount' });
+
+    expect(() => deposit(saleId, salePaymentId, 60000, { idempotencyKey: 'mv-amount' })).toThrow(
+      /already recorded/i
+    );
+    expect(depositPayloads(saleId)).toHaveLength(1);
+    expect(tenderStatus(salePaymentId)).toBe('needs_reconciliation');
+    expect(pendingRow(salePaymentId)?.appliedAmount).toBe(50000);
+  });
+
+  it('rejects a key recorded on another sale instead of moving money there', () => {
+    const first = saleWithTransfer(100000);
+    const other = saleWithTransfer(100000);
+    deposit(first.saleId, first.salePaymentId, 50000, { idempotencyKey: 'mv-cross-sale' });
+
+    expect(() =>
+      deposit(other.saleId, other.salePaymentId, 50000, { idempotencyKey: 'mv-cross-sale' })
+    ).toThrow(/already recorded/i);
+
+    expect(depositPayloads(other.saleId)).toHaveLength(0);
+    expect(tenderStatus(other.salePaymentId)).toBe('pending');
+    expect(saleTotal(other.saleId)).toBe(100000);
+  });
+
   it('returns the recorded outcome instead of adding money twice when a movement is replayed', () => {
     const { saleId, salePaymentId } = saleWithTransfer(100000);
 

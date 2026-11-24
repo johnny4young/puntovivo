@@ -205,8 +205,11 @@ describe('transfer deposit evidence on a dead tender', () => {
       const before = tenderRow(salePaymentId);
       const key = `${state}-replay`;
 
+      // A replay is the same movement sent again: same tender, same amount.
+      // (A key naming a different tender or amount is refused — see
+      // transfer-deposit-accumulation.test.ts.)
       const original = deposit(saleId, salePaymentId, 50000, { idempotencyKey: key });
-      const replay = deposit(saleId, salePaymentId, 70000, { idempotencyKey: key });
+      const replay = deposit(saleId, salePaymentId, 50000, { idempotencyKey: key });
 
       expect(original).toEqual({
         appliedAmount: 0,

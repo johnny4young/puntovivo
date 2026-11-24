@@ -76,6 +76,18 @@ export interface DepositAccumulation {
 }
 
 /**
+ * A monetary value as whole cents.
+ *
+ * Money is 2-decimal by schema and `roundMoney` has already removed IEEE-754
+ * drift, so the product is within a rounding error of an integer and
+ * `Math.round` recovers it exactly. Deciding coverage in cents is what keeps a
+ * tolerance from swallowing a real cent: there is no tolerance left to widen.
+ */
+function toCents(value: number): number {
+  return Math.round(roundMoney(value) * 100);
+}
+
+/**
  * The single derivation of "how much of this tender is paid".
  *
  * A transfer tender is confirmed by its MOVEMENTS, not by the last report: the
@@ -94,25 +106,29 @@ export function summarizeDeposits(
   tenderAmount: number,
   deposits: readonly number[]
 ): DepositAccumulation {
-  const target = roundMoney(tenderAmount);
-  let receivedAmount = 0;
+  const targetCents = toCents(tenderAmount);
+  let receivedCents = 0;
   for (const deposit of deposits) {
-    const amount = roundMoney(deposit);
-    if (!Number.isFinite(amount) || amount <= 0) continue;
-    receivedAmount = roundMoney(receivedAmount + amount);
+    const cents = toCents(deposit);
+    if (!Number.isFinite(cents) || cents <= 0) continue;
+    receivedCents += cents;
   }
-  const appliedAmount = roundMoney(Math.min(receivedAmount, Math.max(target, 0)));
-  const remainingAmount = roundMoney(Math.max(0, roundMoney(target - receivedAmount)));
-  const surplusAmount = roundMoney(Math.max(0, roundMoney(receivedAmount - target)));
-  // Same tolerance the single-deposit path has always used: IEEE-754 drift is
-  // not a shortfall, a real cent is.
-  const covered = roundMoney(receivedAmount + PAYMENT_SUM_EPSILON) >= target;
-  const exact = covered && surplusAmount <= PAYMENT_SUM_EPSILON;
+  const appliedCents = Math.min(receivedCents, Math.max(targetCents, 0));
+  const remainingCents = Math.max(0, targetCents - receivedCents);
+  const surplusCents = Math.max(0, receivedCents - targetCents);
+  // "Covered" is an integer-cent comparison and nothing else. The previous
+  // shape — `roundMoney(received + 0.005) >= target` — re-rounded the tolerance
+  // into a whole cent, so a 100 deposit confirmed a 100.01 tender with 0.01
+  // still owed. A half-cent epsilon must absorb drift only, and here there is
+  // none left to absorb: each movement becomes whole cents before it is summed,
+  // so the sum is exact and a real cent of shortfall or excess cannot vanish.
+  const covered = receivedCents >= targetCents;
+  const exact = covered && surplusCents === 0;
   return {
-    receivedAmount,
-    appliedAmount,
-    remainingAmount,
-    surplusAmount,
+    receivedAmount: receivedCents / 100,
+    appliedAmount: appliedCents / 100,
+    remainingAmount: remainingCents / 100,
+    surplusAmount: surplusCents / 100,
     status: exact ? 'manual_confirmed' : 'needs_reconciliation',
   };
 }
