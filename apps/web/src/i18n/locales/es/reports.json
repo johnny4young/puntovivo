@@ -132,7 +132,7 @@
       "reported": "Transferencias reportadas",
       "confirmed": "Transferencias confirmadas",
       "pending": "Pendiente de confirmación",
-      "rejected": "Transferencias reemplazadas",
+      "rejected": "Transferencias rechazadas",
       "legacy": "Transferencias sin estado de confirmación",
       "unapplied": "Dinero no aplicado",
       "destination": "Destino",
@@ -141,7 +141,21 @@
       "count_other": "{{count}} transferencias",
       "unknownDestination": "Destino sin etiqueta",
       "emptyTitle": "Sin transferencias este día",
-      "emptyDescription": "No se registró ningún pago por transferencia en este día de operación."
+      "emptyDescription": "No se registró ningún pago por transferencia en este día de operación.",
+      "superseded": "Reemplazadas por una corrección (no contabilizadas)",
+      "transfers": "Transferencias",
+      "notApplied": {
+        "title": "Dinero que ninguna venta absorbió",
+        "description": "Abonos recibidos para una transferencia que ya estaba rechazada o cancelada. Ese dinero es evidencia que usted todavía debe resolver; nunca es dinero de venta y no se suma a ninguna cifra anterior.",
+        "amount": "No aplicado",
+        "count_one": "{{count}} movimiento",
+        "count_other": "{{count}} movimientos",
+        "reasons": {
+          "tender_rejected": "Transferencia rechazada",
+          "tender_cancelled": "Transferencia cancelada",
+          "other": "Otro motivo"
+        }
+      }
     },
     "paymentMethods": {
       "cash": "Efectivo",

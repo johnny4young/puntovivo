@@ -28,6 +28,7 @@ import { isTaskActivationKey, useTaskMeasurementController } from '@/lib/taskMea
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { downloadFile } from '@/services/export/exportService';
 import { DayCloseSignoffCard } from './DayCloseSignoffCard';
+import { deriveDayCloseTransferSection } from './dayCloseTransferSection';
 type DayCloseReport = inferRouterOutputs<AppRouter>['reports']['dayClose']['preview'];
 type ReadinessCode = DayCloseReport['readiness']['warnings'][number];
 const SECTION_CLASS = 'card space-y-4 p-5 sm:p-6';
@@ -42,9 +43,19 @@ function formatReportMoney(amount: number, currencyCode: string): string {
   );
 }
 
-function Metric({ label, value, detail }: { label: string; value: string; detail?: string }) {
+function Metric({
+  label,
+  value,
+  detail,
+  testId,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+  testId?: string;
+}) {
   return (
-    <div className={METRIC_CLASS}>
+    <div className={METRIC_CLASS} data-testid={testId}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-secondary-500">
         {label}
       </p>
@@ -94,6 +105,12 @@ export function DayCloseReportPage() {
     }
   );
   const report = signoff?.report ?? reportQuery.data;
+  // The transfer split is derived once per report and only ever appears next to
+  // the payments it explains; it never feeds cash or revenue figures.
+  const transferSection = useMemo(
+    () => deriveDayCloseTransferSection(report?.transferConfirmations),
+    [report]
+  );
   useEffect(() => {
     if (signoffQuery.isSuccess && !signoff) {
       dayCloseMeasurement.ensure('close_day');
@@ -399,6 +416,128 @@ export function DayCloseReportPage() {
                 </div>
               )}
             </section>
+
+            {transferSection && (
+              <section
+                className={SECTION_CLASS}
+                data-testid="day-close-transfer-confirmation-section"
+              >
+                <SectionTitle icon={Landmark} title={t('dayClose.transferConfirmations.title')} />
+                <p className="text-xs leading-5 text-secondary-500">
+                  {t('dayClose.transferConfirmations.description')}
+                </p>
+                {!transferSection.hasTransfers ? (
+                  <EmptyState
+                    icon={Landmark}
+                    title={t('dayClose.transferConfirmations.emptyTitle')}
+                    description={t('dayClose.transferConfirmations.emptyDescription')}
+                  />
+                ) : (
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {transferSection.figures.map(figure => (
+                        <Metric
+                          key={figure.key}
+                          testId={`day-close-transfer-figure-${figure.key}`}
+                          label={t(`dayClose.transferConfirmations.${figure.key}`)}
+                          value={formatReportMoney(figure.amount, report.currencyCode)}
+                        />
+                      ))}
+                    </div>
+                    {transferSection.notApplied && (
+                      <div
+                        className="space-y-3 rounded-2xl border border-warning-200 bg-warning-50/60 p-4"
+                        data-testid="day-close-transfer-not-applied"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-secondary-950">
+                            {t('dayClose.transferConfirmations.notApplied.title')}
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-secondary-600">
+                            {t('dayClose.transferConfirmations.notApplied.description')}
+                          </p>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                          <Metric
+                            testId="day-close-transfer-not-applied-amount"
+                            label={t('dayClose.transferConfirmations.notApplied.amount')}
+                            value={formatReportMoney(
+                              transferSection.notApplied.amount,
+                              report.currencyCode
+                            )}
+                            detail={t('dayClose.transferConfirmations.notApplied.count', {
+                              count: transferSection.notApplied.count,
+                            })}
+                          />
+                          {transferSection.notApplied.byReason.map(bucket => (
+                            <Metric
+                              key={bucket.reason}
+                              testId={`day-close-transfer-not-applied-reason-${bucket.reason}`}
+                              label={t(
+                                `dayClose.transferConfirmations.notApplied.reasons.${bucket.reason}`
+                              )}
+                              value={formatReportMoney(bucket.amount, report.currencyCode)}
+                              detail={t('dayClose.transferConfirmations.notApplied.count', {
+                                count: bucket.count,
+                              })}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {transferSection.destinations.length > 0 && (
+                      <div className="overflow-x-auto" data-testid="day-close-transfer-destinations">
+                        <table className="pv-table [&_td:first-child]:min-w-0 [&_td]:px-2 [&_th:first-child]:min-w-0 [&_th]:px-2 sm:[&_td]:px-3 sm:[&_th]:px-3">
+                          <thead>
+                            <tr>
+                              <th>{t('dayClose.transferConfirmations.destination')}</th>
+                              <th className="num">
+                                {t('dayClose.transferConfirmations.transfers')}
+                              </th>
+                              <th className="num">
+                                {t('dayClose.transferConfirmations.confirmed')}
+                              </th>
+                              <th className="num">{t('dayClose.transferConfirmations.pending')}</th>
+                              <th>{t('dayClose.transferConfirmations.references')}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {transferSection.destinations.map(destination => (
+                              <tr
+                                key={destination.key}
+                                data-testid={`day-close-transfer-destination-${destination.key}`}
+                              >
+                                <td className="pname">
+                                  {destination.label?.trim()
+                                    ? destination.label
+                                    : t('dayClose.transferConfirmations.unknownDestination')}
+                                </td>
+                                <td className="num">
+                                  {t('dayClose.transferConfirmations.count', {
+                                    count: destination.count,
+                                  })}
+                                </td>
+                                <td className="num">
+                                  {formatReportMoney(destination.confirmed, report.currencyCode)}
+                                </td>
+                                <td className="num">
+                                  {formatReportMoney(destination.pending, report.currencyCode)}
+                                </td>
+                                <td className="text-xs text-secondary-500">
+                                  {destination.references.length > 0
+                                    ? destination.references.join(' · ')
+                                    : '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                )}
+              </section>
+            )}
 
             <section className={SECTION_CLASS} data-testid="day-close-cash-section">
               <SectionTitle icon={Scale} title={t('dayClose.sections.cash')} />

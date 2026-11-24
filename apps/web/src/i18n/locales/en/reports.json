@@ -132,7 +132,7 @@
       "reported": "Reported transfers",
       "confirmed": "Confirmed transfers",
       "pending": "Pending confirmation",
-      "rejected": "Superseded transfers",
+      "rejected": "Rejected transfers",
       "legacy": "Transfers without a confirmation state",
       "unapplied": "Unapplied money",
       "destination": "Destination",
@@ -141,7 +141,21 @@
       "count_other": "{{count}} transfers",
       "unknownDestination": "Unlabelled destination",
       "emptyTitle": "No transfers on this day",
-      "emptyDescription": "No transfer tender was recorded for this business day."
+      "emptyDescription": "No transfer tender was recorded for this business day.",
+      "superseded": "Replaced by a correction (not counted)",
+      "transfers": "Transfers",
+      "notApplied": {
+        "title": "Money no sale absorbed",
+        "description": "Deposits received for a transfer that was already rejected or cancelled. This money is evidence you still have to resolve; it is never sale money and it is not added to any figure above.",
+        "amount": "Not applied",
+        "count_one": "{{count}} movement",
+        "count_other": "{{count}} movements",
+        "reasons": {
+          "tender_rejected": "Rejected transfer",
+          "tender_cancelled": "Cancelled transfer",
+          "other": "Other reason"
+        }
+      }
     },
     "paymentMethods": {
       "cash": "Cash",
