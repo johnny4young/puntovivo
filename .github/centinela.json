@@ -91,5 +91,8 @@
       "en": ".github/triage/REVIEW.md",
       "es": "docs/es/repository/TRIAGE-REVIEW.md"
     }
+  },
+  "ai": {
+    "rules": [".github/triage/REVIEW.md", "CONTRIBUTING.md"]
   }
 }
