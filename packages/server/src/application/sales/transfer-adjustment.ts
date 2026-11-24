@@ -58,6 +58,65 @@ export interface TransferAdjustmentInput {
   saleTotal: number;
 }
 
+/** The only two states an accumulated deposit can leave a tender in. */
+export type DepositAccumulationStatus = 'manual_confirmed' | 'needs_reconciliation';
+
+/** What the deposits recorded against one tender add up to. */
+export interface DepositAccumulation {
+  /** Everything the store actually received for the tender. */
+  receivedAmount: number;
+  /** The part of `receivedAmount` the tender can absorb (never above it). */
+  appliedAmount: number;
+  /** Still owed on this tender. */
+  remainingAmount: number;
+  /** Received money above the tender: reported, never applied to the sale. */
+  surplusAmount: number;
+  /** Manual confirmation only when the sum covers the tender with no excess. */
+  status: DepositAccumulationStatus;
+}
+
+/**
+ * The single derivation of "how much of this tender is paid".
+ *
+ * A transfer tender is confirmed by its MOVEMENTS, not by the last report: the
+ * deposits accumulate, so two legitimate 50 instalments complete a 100
+ * tender. The sum is capped at the tender (anything above it is surplus, never
+ * sale money), and the status stays `needs_reconciliation` for any shortfall or
+ * excess because a human has to decide what to do with the difference.
+ *
+ * Both sides of the database use this function: the write path feeds it the
+ * deposits already on record plus the new movement, and the read path feeds it
+ * the recorded chain, so the reconciliation surface can never disagree with the
+ * tender. Noise is skipped instead of counted: a value that is not a finite
+ * positive number is corrupt evidence, not money.
+ */
+export function summarizeDeposits(
+  tenderAmount: number,
+  deposits: readonly number[]
+): DepositAccumulation {
+  const target = roundMoney(tenderAmount);
+  let receivedAmount = 0;
+  for (const deposit of deposits) {
+    const amount = roundMoney(deposit);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    receivedAmount = roundMoney(receivedAmount + amount);
+  }
+  const appliedAmount = roundMoney(Math.min(receivedAmount, Math.max(target, 0)));
+  const remainingAmount = roundMoney(Math.max(0, roundMoney(target - receivedAmount)));
+  const surplusAmount = roundMoney(Math.max(0, roundMoney(receivedAmount - target)));
+  // Same tolerance the single-deposit path has always used: IEEE-754 drift is
+  // not a shortfall, a real cent is.
+  const covered = roundMoney(receivedAmount + PAYMENT_SUM_EPSILON) >= target;
+  const exact = covered && surplusAmount <= PAYMENT_SUM_EPSILON;
+  return {
+    receivedAmount,
+    appliedAmount,
+    remainingAmount,
+    surplusAmount,
+    status: exact ? 'manual_confirmed' : 'needs_reconciliation',
+  };
+}
+
 /**
  * Plan the replacement distribution for one transfer tender.
  *
@@ -69,6 +128,10 @@ export interface TransferAdjustmentInput {
  *  - **match or surplus** `verified >= target`: a single confirmed row of the
  *    target amount. Money above the target is surplus — reported separately
  *    and never added to the sale.
+ *
+ * The arithmetic is `summarizeDeposits`, the same derivation the deposit write
+ * path and the reconciliation read path use; this planner only decides how to
+ * distribute the result across tender rows.
  */
 export function planTransferAdjustment(input: TransferAdjustmentInput): TransferAdjustmentPlan {
   const row = input.tenders[input.targetIndex];
@@ -84,9 +147,10 @@ export function planTransferAdjustment(input: TransferAdjustmentInput): Transfer
     throw new Error('Transfer adjustment requires a positive verified amount');
   }
 
-  const appliedAmount = roundMoney(Math.min(verified, target));
-  const remainingAmount = roundMoney(Math.max(0, roundMoney(target - verified)));
-  const surplusAmount = roundMoney(Math.max(0, roundMoney(verified - target)));
+  const accumulation = summarizeDeposits(target, [verified]);
+  const appliedAmount = accumulation.appliedAmount;
+  const remainingAmount = accumulation.remainingAmount;
+  const surplusAmount = accumulation.surplusAmount;
 
   const others = input.tenders.filter((_, index) => index !== input.targetIndex);
 

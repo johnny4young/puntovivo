@@ -185,3 +185,37 @@ export const registerManualDepositInput = z
     idempotencyKey: z.string().min(1).max(128).optional(),
   })
   .strict();
+
+/**
+ * Output row of `payments.pendingTransfers` and
+ * `payments.transferReconciliation`.
+ *
+ * The procedures return the service row directly, so this schema is the
+ * documented row contract the reconciliation surface and the deposit dialog
+ * type against. `appliedAmount` and `surplusAmount` are the accumulated
+ * deposit figures the server derives from the tender's movement chain, so the
+ * client never sums deposits on its own. Purely additive: no input contract
+ * changes.
+ */
+export const pendingTransferRowOutput = z
+  .object({
+    salePaymentId: z.string().min(1),
+    saleId: z.string().min(1),
+    saleNumber: z.string().nullable(),
+    siteId: z.string().nullable(),
+    amount: z.number(),
+    reference: z.string().nullable(),
+    confirmationStatus: z.string().nullable(),
+    confirmationSource: z.string().nullable(),
+    confirmedAt: z.string().nullable(),
+    destinationSnapshot: z
+      .object({ id: z.string(), label: z.string(), kind: z.string() })
+      .nullable(),
+    createdAt: z.string(),
+    /** Money the deposit chain applied to the tender, accumulated and capped. */
+    appliedAmount: z.number().nonnegative(),
+    /** Received money above the tender: reported, never applied to the sale. */
+    surplusAmount: z.number().nonnegative(),
+  })
+  .strict();
+export type PendingTransferRowOutput = z.infer<typeof pendingTransferRowOutput>;
