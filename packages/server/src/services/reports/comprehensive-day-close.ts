@@ -20,6 +20,7 @@ import {
   paymentMethodEnum,
 } from '../../db/schema.js';
 import { roundMoney, sumMoneySql } from '../../lib/money.js';
+import { PAYMENT_SUM_EPSILON } from '../../application/sales/policies.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { detectAnomalies, type AnomalyKind } from '../ai/index.js';
 import { resolveTenantLocale } from '../tenant-locale.js';
@@ -65,13 +66,219 @@ const TRANSFER_STATUSES: readonly TransferConfirmationStatus[] = [
 
 /** One transfer tender of the day, with the sale total it belongs to. */
 export interface TransferTenderRow {
+  /** The tender row id, so audit evidence can be matched to it. */
+  id: string;
   saleId: string;
+  /**
+   * The tender method. Only transfers enter the money buckets; the other rows
+   * of the sale are read for one reason only: to know whether a rejected
+   * transfer was replaced (see `summarizeTransferConfirmations`).
+   */
+  method: PaymentMethod;
   amount: number;
   reference: string | null;
   confirmationStatus: TransferConfirmationStatus | null;
   destinationSnapshot: { id: string; label: string; kind: string } | null;
   transferDestinationId: string | null;
   saleTotal: number;
+}
+
+/**
+ * Why a deposit was recorded without applying it to a tender (contract K6).
+ *
+ * The contract treats the reason as open-ended: any non-empty value means
+ * "recorded, never applied". These are the values this build knows how to name;
+ * anything else is still money, so it lands in `other` instead of disappearing.
+ */
+export const NOT_APPLIED_DEPOSIT_REASONS = ['tender_rejected', 'tender_cancelled'] as const;
+
+export type NotAppliedDepositReason = (typeof NOT_APPLIED_DEPOSIT_REASONS)[number];
+
+/** One side of the not-applied split; `other` catches reasons this build lacks. */
+export interface NotAppliedDepositBucket {
+  count: number;
+  amount: number;
+}
+
+/**
+ * Money the day's deposits reported that no tender could absorb.
+ *
+ * This is not sale money and never becomes sale money: the tender it arrived
+ * against was rejected or cancelled, so the deposit is recorded as evidence
+ * with `appliedAmount: 0`. It is counted here, split by why, and nowhere else.
+ */
+export interface NotAppliedDepositsSummary {
+  /** Deposit movements recorded with a reason. */
+  count: number;
+  /** Money those movements reported, never applied to any tender. */
+  amount: number;
+  byReason: Record<NotAppliedDepositReason | 'other', NotAppliedDepositBucket>;
+}
+
+/** One deposit movement, as `audit_logs` keeps it. */
+export interface DepositMovementRow {
+  id: string;
+  createdAt: string;
+  after: unknown;
+}
+
+/** What the day's deposit audit chain says without reading a single tender. */
+export interface DepositEvidenceSummary {
+  /** Received money above a tender that WAS applied to its sale. */
+  unapplied: number;
+  /** Received money no tender could absorb. */
+  notApplied: NotAppliedDepositsSummary;
+  /**
+   * Tenders the audit chain proves were dead when money was recorded on them.
+   * The proof outlives the tender's state: a late provider verdict can reopen a
+   * rejected tender, and the movement that recorded its money as not applied is
+   * still evidence of what happened.
+   */
+  deadTenderIds: ReadonlySet<string>;
+}
+
+/** One parsed movement. Corrupt evidence never becomes a movement. */
+interface ParsedMovement {
+  id: string;
+  createdAt: string;
+  salePaymentId: string;
+  /** The movement's own amount, never the tender's running total. */
+  verifiedAmount: number;
+  /** Non-empty reason when the money was recorded but never applied. */
+  notAppliedReason: string | null;
+  surplusAmount: number;
+}
+
+function zeroNotAppliedDeposits(): NotAppliedDepositsSummary {
+  return {
+    count: 0,
+    amount: 0,
+    byReason: {
+      tender_rejected: { count: 0, amount: 0 },
+      tender_cancelled: { count: 0, amount: 0 },
+      other: { count: 0, amount: 0 },
+    },
+  };
+}
+
+function notAppliedReasonBucket(reason: string): NotAppliedDepositReason | 'other' {
+  return (NOT_APPLIED_DEPOSIT_REASONS as readonly string[]).includes(reason)
+    ? (reason as NotAppliedDepositReason)
+    : 'other';
+}
+
+function readReason(after: Record<string, unknown>): string | null {
+  const reason = after['notAppliedReason'];
+  if (typeof reason !== 'string') return null;
+  const trimmed = reason.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * Read one movement without trusting the payload.
+ *
+ * The chain is evidence, not a schema: a row can predate a field or come from
+ * an older build. A movement without a readable tender and a finite positive
+ * amount is skipped instead of counted, so corrupt evidence can never move
+ * money.
+ */
+function parseMovement(row: DepositMovementRow): ParsedMovement | null {
+  const after = (row.after ?? null) as Record<string, unknown> | null;
+  if (!after) return null;
+  const salePaymentId = after['salePaymentId'];
+  if (typeof salePaymentId !== 'string' || salePaymentId.length === 0) return null;
+  const verified = after['verifiedAmount'];
+  if (typeof verified !== 'number' || !Number.isFinite(verified)) return null;
+  const verifiedAmount = roundMoney(verified);
+  if (verifiedAmount <= 0) return null;
+  const surplus = after['surplusAmount'];
+  return {
+    id: row.id,
+    createdAt: row.createdAt,
+    salePaymentId,
+    verifiedAmount,
+    notAppliedReason: readReason(after),
+    surplusAmount:
+      typeof surplus === 'number' && Number.isFinite(surplus) ? roundMoney(surplus) : 0,
+  };
+}
+
+/** Chronological order, with the id as the deterministic tie-break. */
+function compareMovements(left: ParsedMovement, right: ParsedMovement): number {
+  return left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id);
+}
+
+function isRecordedAfter(candidate: ParsedMovement, reference: ParsedMovement): boolean {
+  return compareMovements(candidate, reference) > 0;
+}
+
+/**
+ * Split the day's deposit movements into money above a tender (`unapplied`) and
+ * money no tender absorbed (`notApplied`).
+ *
+ * The two are different facts and never merge: `unapplied` is money the sale did
+ * not need and the store kept, while `notApplied` is money the sale could not
+ * accept because the tender it arrived for was already rejected or cancelled.
+ *
+ * Two rules keep the same pesos from being stated twice:
+ *  - a movement that declares a reason is never surplus — there is no tender
+ *    behind it that could be exceeded — and an unknown reason is still money, so
+ *    it lands in `other` instead of being dropped;
+ *  - a not-applied movement is NOT counted when the same tender recorded an
+ *    applied movement afterwards: that later movement absorbed the money, and
+ *    the not-applied row is the history of a movement that was re-applied. The
+ *    comparison is chronological because the opposite order is a different fact
+ *    (money applied first, more money arriving later against a dead tender).
+ *
+ * Only `dayMovements` are money. `tenderHistory` is the wider read of the day's
+ * sales: it supplies the dead-tender proof and the "applied later" fact, both of
+ * which are properties of the tender rather than of the day being closed.
+ */
+export function summarizeDepositEvidence(input: {
+  dayMovements: readonly DepositMovementRow[];
+  tenderHistory: readonly DepositMovementRow[];
+}): DepositEvidenceSummary {
+  const notApplied = zeroNotAppliedDeposits();
+  const deadTenderIds = new Set<string>();
+  let unapplied = 0;
+
+  const history = input.tenderHistory
+    .map(parseMovement)
+    .filter((movement): movement is ParsedMovement => movement !== null)
+    .sort(compareMovements);
+  const appliedByTender = new Map<string, ParsedMovement[]>();
+  for (const movement of history) {
+    if (movement.notAppliedReason !== null) {
+      deadTenderIds.add(movement.salePaymentId);
+      continue;
+    }
+    const applied = appliedByTender.get(movement.salePaymentId);
+    if (applied) applied.push(movement);
+    else appliedByTender.set(movement.salePaymentId, [movement]);
+  }
+
+  const ofDay = input.dayMovements
+    .map(parseMovement)
+    .filter((movement): movement is ParsedMovement => movement !== null)
+    .sort(compareMovements);
+
+  for (const movement of ofDay) {
+    if (movement.notAppliedReason === null) {
+      unapplied = roundMoney(unapplied + movement.surplusAmount);
+      continue;
+    }
+    const appliedLater = (appliedByTender.get(movement.salePaymentId) ?? []).some(applied =>
+      isRecordedAfter(applied, movement)
+    );
+    if (appliedLater) continue;
+    notApplied.count += 1;
+    notApplied.amount = roundMoney(notApplied.amount + movement.verifiedAmount);
+    const bucket = notApplied.byReason[notAppliedReasonBucket(movement.notAppliedReason)];
+    bucket.count += 1;
+    bucket.amount = roundMoney(bucket.amount + movement.verifiedAmount);
+  }
+
+  return { unapplied, notApplied, deadTenderIds };
 }
 
 export interface TransferConfirmationDestinationSummary {
@@ -82,7 +289,10 @@ export interface TransferConfirmationDestinationSummary {
   confirmed: number;
   /** Reported but unproven money for this destination. */
   pending: number;
-  /** Transfer tenders grouped here, whatever their state. */
+  /**
+   * Active transfer tenders grouped here. A superseded tender is no longer
+   * money of this destination, so it is not counted as one.
+   */
   count: number;
   /** Distinct bank references the operator recorded, sorted. */
   references: string[];
@@ -91,13 +301,21 @@ export interface TransferConfirmationDestinationSummary {
 export interface TransferConfirmationSummary {
   /** Total of the day's sales that carry at least one transfer tender. */
   saleTotal: number;
-  /** Every transfer tender of the day: nothing is dropped from the evidence. */
+  /**
+   * Every active transfer tender of the day, so each peso of tender is counted
+   * once. `reported = confirmed + pending + rejected + legacy` always holds,
+   * and a tender this block treats as superseded is in none of those buckets.
+   */
   reported: number;
   /** Proven received money. Never merged with `pending`. */
   confirmed: number;
   /** Reported, unproven or parked money. Never merged with `confirmed`. */
   pending: number;
-  /** Superseded tenders, kept visible so the totals reconcile. */
+  /**
+   * Rejected or cancelled tenders that were NOT replaced: the sale's tenders do
+   * not cover its total, so the money they were meant to carry is still unproven
+   * and stays visible as evidence.
+   */
   rejected: number;
   /**
    * Tenders written before the confirmation lifecycle existed. They stay their
@@ -105,8 +323,19 @@ export interface TransferConfirmationSummary {
    * reporting them as pending would claim money already counted in revenue.
    */
   legacy: number;
+  /**
+   * Rejected or cancelled tenders whose money was re-issued on the same sale
+   * (the original row is superseded and new rows are written), plus the same
+   * thing after a late provider verdict reopened the original. Reported as
+   * evidence and deliberately outside every money bucket: `reported +
+   * superseded` is the sum of every transfer tender row of the day, so nothing
+   * is hidden and no peso is counted twice.
+   */
+  superseded: number;
   /** Money received above what the sale expected; never applied to a sale. */
   unapplied: number;
+  /** Money received that no tender absorbed: never sale money, never revenue. */
+  notApplied: NotAppliedDepositsSummary;
   byStatus: Record<TransferConfirmationStatus | 'legacy', number>;
   destinations: TransferConfirmationDestinationSummary[];
 }
@@ -126,10 +355,15 @@ function zeroTransferStatusCounts(): Record<TransferConfirmationStatus | 'legacy
  * legacy money, per frozen destination. Confirmed and pending are reported
  * separately on purpose: a single transfer figure would let a manager read
  * unconfirmed money as cash in the drawer.
+ *
+ * `tenders` is the WHOLE tender distribution of the day's sales, not just the
+ * transfer rows the buckets are built from. The other methods are needed for
+ * one question only: who absorbed the money of a rejected transfer? See
+ * `supersededSales` below.
  */
 export function summarizeTransferConfirmations(
-  rows: readonly TransferTenderRow[],
-  unapplied: number
+  tenders: readonly TransferTenderRow[],
+  evidence: DepositEvidenceSummary
 ): TransferConfirmationSummary {
   const byStatus = zeroTransferStatusCounts();
   const saleTotals = new Map<string, number>();
@@ -140,13 +374,76 @@ export function summarizeTransferConfirmations(
   let pending = 0;
   let rejected = 0;
   let legacy = 0;
+  let superseded = 0;
 
-  for (const row of rows) {
+  // Pass 1 — per sale, how much tender is still active and whether any tender
+  // could have been superseded. Two proofs qualify a tender: its CURRENT state
+  // is rejected/cancelled, or the audit chain recorded money on it while it was
+  // dead (`deadTenderIds`) — the second one survives the late provider verdict
+  // that reopens a rejected tender into `needs_reconciliation`.
+  //
+  // A sale whose remaining tenders already add up to its total has had its money
+  // re-issued: the superseded row is history, not a second copy of the same
+  // pesos. This is the invariant the adjustment planner asserts before it writes
+  // (`activeTotal` must match the sale total), read back from evidence instead of
+  // trusted from a status.
+  const isSupersededCandidate = (row: TransferTenderRow): boolean => {
+    if (row.method !== 'transfer') return false;
+    if (
+      row.confirmationStatus !== null &&
+      REJECTED_TRANSFER_STATUSES.includes(row.confirmationStatus)
+    ) {
+      return true;
+    }
+    return evidence.deadTenderIds.has(row.id);
+  };
+  const perSale = new Map<
+    string,
+    { saleTotal: number; activeTotal: number; hasSupersededCandidate: boolean }
+  >();
+  for (const row of tenders) {
     const amount = roundMoney(row.amount);
-    reported = roundMoney(reported + amount);
+    const aggregate = perSale.get(row.saleId) ?? {
+      saleTotal: roundMoney(row.saleTotal),
+      activeTotal: 0,
+      hasSupersededCandidate: false,
+    };
+    if (isSupersededCandidate(row)) aggregate.hasSupersededCandidate = true;
+    else aggregate.activeTotal = roundMoney(aggregate.activeTotal + amount);
+    perSale.set(row.saleId, aggregate);
+  }
+  const supersededSales = new Set<string>();
+  for (const [saleId, aggregate] of perSale) {
+    if (!aggregate.hasSupersededCandidate) continue;
+    // A zero-total sale gives the comparison nothing to hold on to.
+    if (aggregate.saleTotal <= 0) continue;
+    if (
+      Math.abs(aggregate.activeTotal - aggregate.saleTotal) < PAYMENT_SUM_EPSILON
+    ) {
+      supersededSales.add(saleId);
+    }
+  }
+
+  // Pass 2 — money buckets. Non-transfer tenders carry no confirmation state
+  // and are not part of this section's money.
+  for (const row of tenders) {
+    if (row.method !== 'transfer') continue;
+
+    const amount = roundMoney(row.amount);
     saleTotals.set(row.saleId, roundMoney(row.saleTotal));
 
     const status = row.confirmationStatus;
+    if (isSupersededCandidate(row) && supersededSales.has(row.saleId)) {
+      // The row is still counted in its lifecycle state…
+      if (status === null) byStatus.legacy += 1;
+      else byStatus[status] += 1;
+      // …but its amount is evidence, never a second copy of the money.
+      superseded = roundMoney(superseded + amount);
+      continue;
+    }
+
+    reported = roundMoney(reported + amount);
+
     if (status === null) {
       legacy = roundMoney(legacy + amount);
       byStatus.legacy += 1;
@@ -217,7 +514,9 @@ export function summarizeTransferConfirmations(
     pending,
     rejected,
     legacy,
-    unapplied: roundMoney(unapplied),
+    superseded,
+    unapplied: roundMoney(evidence.unapplied),
+    notApplied: evidence.notApplied,
     byStatus,
     destinations: destinationRows,
   };
@@ -416,9 +715,15 @@ export async function computeComprehensiveDayCloseReport(
   // Transfer confirmation evidence. Read straight from the tender rows and the
   // audit trail the confirmation service already writes: no financial service
   // is changed, and the historical `payments` block above keeps its meaning.
-  const transferRows = db
+  //
+  // The whole tender distribution of the day is read, not only the transfer
+  // rows: a rejected transfer can only be told apart from a replaced one by the
+  // tenders of its own sale (see `summarizeTransferConfirmations`).
+  const tenderRows = db
     .select({
+      id: salePayments.id,
       saleId: salePayments.saleId,
+      method: salePayments.method,
       amount: salePayments.amount,
       reference: salePayments.reference,
       confirmationStatus: salePayments.confirmationStatus,
@@ -428,20 +733,23 @@ export async function computeComprehensiveDayCloseReport(
     })
     .from(salePayments)
     .innerJoin(sales, eq(salePayments.saleId, sales.id))
-    .where(
-      and(
-        eq(salePayments.tenantId, input.tenantId),
-        eq(salePayments.method, 'transfer'),
-        saleFilter
-      )
-    )
+    .where(and(eq(salePayments.tenantId, input.tenantId), saleFilter))
     // Oldest first, so the first frozen snapshot seen for a destination is the
     // earliest one the store printed.
     .orderBy(salePayments.createdAt, salePayments.id)
     .all();
 
-  const surplusRows = db
-    .select({ after: auditLogs.after })
+  // The movements themselves, on any date: a tender's history is a property of
+  // the tender, not of the day being closed.
+  const daySaleIds = [...new Set(tenderRows.map(row => row.saleId))];
+  const depositColumns = {
+    id: auditLogs.id,
+    createdAt: auditLogs.createdAt,
+    after: auditLogs.after,
+  };
+  // Money: the tenant's movements recorded inside the day window.
+  const dayDepositRows = db
+    .select(depositColumns)
     .from(auditLogs)
     .where(
       and(
@@ -451,15 +759,28 @@ export async function computeComprehensiveDayCloseReport(
         lt(auditLogs.createdAt, endExclusiveIso)
       )
     )
+    .orderBy(auditLogs.createdAt, auditLogs.id)
     .all();
-  let unapplied = 0;
-  for (const row of surplusRows) {
-    const surplus = (row.after as { surplusAmount?: unknown } | null)?.surplusAmount;
-    if (typeof surplus === 'number' && Number.isFinite(surplus)) {
-      unapplied = roundMoney(unapplied + surplus);
-    }
-  }
-  const transferConfirmations = summarizeTransferConfirmations(transferRows, unapplied);
+  // Proof: everything ever recorded against the day's sales.
+  const tenderHistoryRows =
+    daySaleIds.length === 0
+      ? []
+      : db
+          .select(depositColumns)
+          .from(auditLogs)
+          .where(
+            and(
+              eq(auditLogs.tenantId, input.tenantId),
+              eq(auditLogs.action, 'sale_payment.transfer_manual_confirmed'),
+              inArray(auditLogs.resourceId, daySaleIds)
+            )
+          )
+          .orderBy(auditLogs.createdAt, auditLogs.id)
+          .all();
+  const transferConfirmations = summarizeTransferConfirmations(
+    tenderRows,
+    summarizeDepositEvidence({ dayMovements: dayDepositRows, tenderHistory: tenderHistoryRows })
+  );
 
   const closedSessionRows = db
     .select({

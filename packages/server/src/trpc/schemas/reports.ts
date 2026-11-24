@@ -261,6 +261,36 @@ export const transferConfirmationDestinationOutput = z.object({
 });
 
 /**
+ * Money the day's deposits reported that no tender could absorb because the
+ * tender was already rejected or cancelled. It is not sale money: it is
+ * evidence of a movement a human still has to resolve, and it is never added to
+ * confirmed, pending or legacy.
+ */
+export const notAppliedDepositsOutput = z.object({
+  count: z.number().int().nonnegative(),
+  amount: money,
+  byReason: z.object({
+    tender_rejected: z.object({
+      count: z.number().int().nonnegative(),
+      amount: money,
+    }),
+    tender_cancelled: z.object({
+      count: z.number().int().nonnegative(),
+      amount: money,
+    }),
+    /**
+     * Any reason this build does not name. The contract treats the reason as
+     * open-ended, so unknown reasons are still money and are kept here instead
+     * of being dropped.
+     */
+    other: z.object({
+      count: z.number().int().nonnegative(),
+      amount: money,
+    }),
+  }),
+});
+
+/**
  * Transfer confirmation evidence for one business day. Confirmed and pending
  * money are separate fields on purpose: a single transfer figure would report
  * unconfirmed money as if it were collected.
@@ -273,6 +303,17 @@ export const transferConfirmationsOutput = z.object({
   rejected: money,
   legacy: money,
   unapplied: money,
+  /**
+   * Rejected or cancelled tenders whose money was re-issued on the same sale:
+   * reported as evidence and never part of `reported`, so each peso of tender
+   * is counted once.
+   *
+   * Optional because a close signed before this field existed must keep
+   * verifying byte for byte.
+   */
+  superseded: money.optional(),
+  /** Money received that no tender absorbed. Additive, never sale money. */
+  notApplied: notAppliedDepositsOutput.optional(),
   byStatus: z.object({
     pending: z.number().int().nonnegative(),
     customer_reported: z.number().int().nonnegative(),
