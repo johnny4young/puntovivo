@@ -36,8 +36,9 @@ import {
   sales,
   tenants,
 } from '../../db/schema.js';
-import { roundMoney } from '../../lib/money.js';
+import { isCashOnlyTender, roundMoney } from '../../lib/money.js';
 import { resolveTenantCurrency } from '../../lib/currency.js';
+import { resolveCashCloseSettings } from '../../services/cash-close-settings.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { QUANTITY_EPSILON } from '../../lib/quantity.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
@@ -226,6 +227,12 @@ export async function runFreshSale(
   // sale_item). settle = sale and rate = 1.0 until  lights up
   // multi-currency operations.
   const saleCurrencyCode = resolveTenantCurrency(ctx.db, ctx.tenantId);
+  const cashCloseSettings = await resolveCashCloseSettings(ctx.db, ctx.tenantId);
+  const cashRoundingStep =
+    input.status !== 'draft' &&
+    isCashOnlyTender({ paymentMethod: input.paymentMethod, payments: input.payments })
+      ? cashCloseSettings.cashRoundingStep
+      : null;
 
   // fresh-sale header math (subtotal/tax re-round, header
   // discount + negative-base guard, tip + service charge folded into
@@ -253,6 +260,7 @@ export async function runFreshSale(
     serviceChargeAmount: input.serviceChargeAmount,
     status: input.status,
     currencyCode: saleCurrencyCode,
+    cashRoundingStep,
   });
 
   // resolve the tender list (split or legacy),

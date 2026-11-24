@@ -1,7 +1,7 @@
-import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { sites } from '../../db/schema.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 
 /**
  * Multi-tenant site-scope guard.
@@ -21,7 +21,11 @@ export async function ensureTenantSite(db: DatabaseInstance, tenantId: string, s
     .get();
 
   if (!site) {
-    throw new TRPCError({ code: 'NOT_FOUND', message: 'Site not found' });
+    throwServerError({
+      trpcCode: 'NOT_FOUND',
+      errorCode: 'AUTHORITY_SITE_NOT_FOUND',
+      message: 'Site not found',
+    });
   }
 
   return site;

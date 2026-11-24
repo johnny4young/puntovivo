@@ -15,7 +15,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
-    "test:coverage": "vitest --coverage",
+    "test:coverage": "vitest run --coverage",
     "clean": "node ../../scripts/clean-paths.mjs dist node_modules",
     "predev": "node ../../scripts/ensure-shared-build.mjs",
     "prebuild": "node ../../scripts/ensure-shared-build.mjs",

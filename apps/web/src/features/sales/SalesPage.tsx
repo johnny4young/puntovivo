@@ -67,6 +67,7 @@ export function SalesPage() {
   // setting into `SalePaymentModal`. 0 means disabled (default for
   // retail tenants); positive values auto-apply on every checkout.
   const serviceChargeRate = tenantSettings?.restaurant?.serviceChargeRate ?? 0;
+  const cashRoundingStep = tenantSettings?.cashClose?.cashRoundingStep ?? null;
   const { user } = useAuth();
   const shouldRenderQuickCreateProductGate = useQuickCreateStore(
     state => state.requestedCreateProduct !== null
@@ -739,6 +740,7 @@ export function SalesPage() {
         paymentModalKey={paymentModalKey}
         isPaymentSaving={createMutation.isPending || completeDraftMutation.isPending}
         serviceChargeRate={serviceChargeRate}
+        cashRoundingStep={cashRoundingStep}
         fastCashTrigger={fastCashTrigger}
         setIsPaymentModalOpen={setIsPaymentModalOpen}
         setFastCashTrigger={setFastCashTrigger}

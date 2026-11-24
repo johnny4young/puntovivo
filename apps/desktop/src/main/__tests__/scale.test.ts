@@ -13,6 +13,7 @@ import { readScaleWeight, type ScalePortHandle } from '../scale/reader.ts';
 import { createScalePreferences } from '../scale/preferences.ts';
 import { openErrorCode, ScaleOpenError } from '../scale/serial-port.ts';
 import {
+  createBoundedScaleReadQueue,
   getScaleSettings,
   getScaleStatus,
   readScale,
@@ -307,5 +308,29 @@ describe('scale preferences', () => {
     await preferences.write('tenant-a', null);
     assert.equal(await preferences.read('tenant-a'), null);
     assert.equal((await readdir(directory)).length, 1);
+  });
+});
+
+describe('bounded scale read queue', () => {
+  it('serializes reads and returns SCALE_BUSY when the queue ceiling is reached', async () => {
+    const releases: Array<() => void> = [];
+    const queuedRead = createBoundedScaleReadQueue(
+      () =>
+        new Promise(resolve => {
+          releases.push(() => resolve({ status: 'ok', kilograms: 0.5 }));
+        }),
+      2
+    );
+
+    const first = queuedRead(config);
+    const second = queuedRead(config);
+    const rejected = await queuedRead(config);
+    assert.deepEqual(rejected, { status: 'error', code: 'SCALE_BUSY' });
+
+    releases[0]!();
+    assert.deepEqual(await first, { status: 'ok', kilograms: 0.5 });
+    await new Promise(resolve => setImmediate(resolve));
+    releases[1]!();
+    assert.deepEqual(await second, { status: 'ok', kilograms: 0.5 });
   });
 });

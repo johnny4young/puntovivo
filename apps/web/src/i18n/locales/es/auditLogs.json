@@ -249,7 +249,14 @@
     "unit.delete": "Unidad eliminada",
     "vat_rate.create": "Tarifa de impuesto creada",
     "vat_rate.update": "Tarifa de impuesto modificada",
-    "vat_rate.delete": "Tarifa de impuesto eliminada"
+    "vat_rate.delete": "Tarifa de impuesto eliminada",
+    "customer.ledger.adjust": "Saldo de cliente ajustado",
+    "fiscal.settings.update": "Ajustes fiscales actualizados",
+    "cash_close.settings.update": "Ajustes de cierre de caja actualizados",
+    "product.delete": "Producto desactivado",
+    "product.variant_matrix.create": "Matriz de variantes creada",
+    "inventory.serial.receive": "Seriales recibidos en inventario",
+    "sync.conflict.resolve": "Conflicto de sincronización resuelto"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",

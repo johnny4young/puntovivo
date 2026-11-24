@@ -60,6 +60,7 @@ export interface TenantSettings {
    */
   cashClose?: {
     blindClose: boolean;
+    cashRoundingStep?: number | null;
   };
   /**
    * tenant-tuned expiry-discount ladder (first match wins,

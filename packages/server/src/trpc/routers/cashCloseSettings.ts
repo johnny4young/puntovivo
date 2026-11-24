@@ -17,6 +17,8 @@ import { z } from 'zod';
 
 import { router } from '../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
+import { isValidCashRoundingStep } from '../../lib/money.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   DEFAULT_CASH_CLOSE_SETTINGS,
   resolveCashCloseSettings,
@@ -25,6 +27,12 @@ import {
 
 export const updateCashCloseSettingsInput = z.object({
   blindClose: z.boolean().optional(),
+  cashRoundingStep: z
+    .number()
+    .int()
+    .refine(value => isValidCashRoundingStep(value), 'Unsupported cash rounding step')
+    .nullable()
+    .optional(),
 });
 
 export const cashCloseSettingsRouter = router({
@@ -32,16 +40,39 @@ export const cashCloseSettingsRouter = router({
     const settings = await resolveCashCloseSettings(ctx.db, ctx.tenantId);
     return {
       blindClose: settings.blindClose,
+      cashRoundingStep: settings.cashRoundingStep,
       defaults: DEFAULT_CASH_CLOSE_SETTINGS,
     };
   }),
 
   update: adminProcedure.input(updateCashCloseSettingsInput).mutation(async ({ ctx, input }) => {
-    // Conditional spread so an absent optional truly omits the field
-    // (exactOptionalPropertyTypes — same shape as restaurantSettings).
-    const patch = input.blindClose !== undefined ? { blindClose: input.blindClose } : {};
+    const patch = {
+      ...(input.blindClose !== undefined ? { blindClose: input.blindClose } : {}),
+      ...(input.cashRoundingStep !== undefined ? { cashRoundingStep: input.cashRoundingStep } : {}),
+    };
+    const before = await resolveCashCloseSettings(ctx.db, ctx.tenantId);
     const settings = await writeCashCloseSettings(ctx.db, ctx.tenantId, patch);
-    return { blindClose: settings.blindClose };
+    if (
+      before.blindClose !== settings.blindClose ||
+      before.cashRoundingStep !== settings.cashRoundingStep
+    ) {
+      ctx.db.transaction(tx => {
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'cash_close.settings.update',
+          resourceType: 'tenant',
+          resourceId: ctx.tenantId,
+          before: { ...before },
+          after: { ...settings },
+        });
+      });
+    }
+    return {
+      blindClose: settings.blindClose,
+      cashRoundingStep: settings.cashRoundingStep,
+    };
   }),
 });
 

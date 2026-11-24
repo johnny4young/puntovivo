@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { payableDecimals, resolvePayableTotal, roundPayable } from './money.ts';
+import {
+  defaultCashRoundingStep,
+  isCashOnlyTender,
+  isValidCashRoundingStep,
+  payableDecimals,
+  resolvePayableTotal,
+  roundPayable,
+} from './money.ts';
 
 describe('resolvePayableTotal', () => {
   it('rounds a fractional-weight COP total to whole pesos and keeps the difference', () => {
@@ -13,6 +20,55 @@ describe('resolvePayableTotal', () => {
       total: 37569,
       roundingAdjustment: -0.49,
     });
+  });
+
+  it('applies optional cash coin rounding step for COP/CLP/PYG', () => {
+    // 0.33 kg x 16,800 = 5,544 -> 5,550 (+6); 5,524 -> 5,500 (-24); midpoint 5,525 -> 5,550 (+25)
+    assert.deepEqual(resolvePayableTotal(5544, 'COP', 50), {
+      total: 5550,
+      roundingAdjustment: 6,
+    });
+    assert.deepEqual(resolvePayableTotal(5524, 'COP', 50), {
+      total: 5500,
+      roundingAdjustment: -24,
+    });
+    assert.deepEqual(resolvePayableTotal(5525, 'COP', 50), {
+      total: 5550,
+      roundingAdjustment: 25,
+    });
+    assert.deepEqual(resolvePayableTotal(1004, 'CLP', 10), {
+      total: 1000,
+      roundingAdjustment: -4,
+    });
+    assert.deepEqual(resolvePayableTotal(1005, 'CLP', 10), {
+      total: 1010,
+      roundingAdjustment: 5,
+    });
+    assert.equal(defaultCashRoundingStep('COP'), 50);
+    assert.equal(defaultCashRoundingStep('CLP'), 10);
+    assert.equal(defaultCashRoundingStep('PYG'), 50);
+    assert.equal(defaultCashRoundingStep('USD'), null);
+    assert.equal(isValidCashRoundingStep(50), true);
+    assert.equal(isValidCashRoundingStep(25), false);
+    assert.equal(isCashOnlyTender({ paymentMethod: 'cash' }), true);
+    assert.equal(isCashOnlyTender({ paymentMethod: 'card' }), false);
+    assert.equal(
+      isCashOnlyTender({
+        paymentMethod: 'cash',
+        payments: [
+          { method: 'cash', amount: 3000 },
+          { method: 'card', amount: 2544 },
+        ],
+      }),
+      false
+    );
+    assert.equal(
+      isCashOnlyTender({
+        paymentMethod: 'card',
+        payments: [{ method: 'cash', amount: 5550 }],
+      }),
+      true
+    );
   });
 
   it('treats CLP and PYG like COP and is case-insensitive', () => {

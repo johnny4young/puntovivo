@@ -9,7 +9,7 @@
  */
 
 import { eq, and, desc, inArray } from 'drizzle-orm';
-import { tenantProcedure } from '../../middleware/tenant.js';
+import { cashierManagerOrAdminProcedure } from '../../middleware/roles.js';
 import { syncOutbox } from '../../../db/schema.js';
 import { pushSyncInput } from '../../schemas/sync.js';
 import {
@@ -28,7 +28,7 @@ export const syncPushProcedures = {
    * Process pending sync_outbox rows and mark them as synced
    * locally; this does not deliver to a remote peer.
    */
-  push: tenantProcedure.input(pushSyncInput).mutation(async ({ ctx, input }) => {
+  push: cashierManagerOrAdminProcedure.input(pushSyncInput).mutation(async ({ ctx, input }) => {
     const items = await ctx.db
       .select({
         id: syncOutbox.id,

@@ -2,10 +2,10 @@
  * tenant-level cash-close settings (blind close toggle).
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { tenants, users } from '../db/schema.js';
+import { auditLogs, tenants, users } from '../db/schema.js';
 import { resolveCashCloseSettings } from '../services/cash-close-settings.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
@@ -98,5 +98,31 @@ describe('cashCloseSettings', () => {
         blindClose: false,
       })
     ).rejects.toThrow();
+  });
+
+  it('persists cashRoundingStep, rejects unsupported steps, and writes an audit row', async () => {
+    const caller = appRouter.createCaller(buildContext('admin'));
+    expect((await caller.cashCloseSettings.get()).cashRoundingStep).toBeNull();
+
+    const enabled = await caller.cashCloseSettings.update({ cashRoundingStep: 50 });
+    expect(enabled.cashRoundingStep).toBe(50);
+    expect((await resolveCashCloseSettings(getDatabase(), tenantId)).cashRoundingStep).toBe(50);
+
+    await expect(
+      caller.cashCloseSettings.update({ cashRoundingStep: 25 as never })
+    ).rejects.toThrow();
+
+    const disabled = await caller.cashCloseSettings.update({ cashRoundingStep: null });
+    expect(disabled.cashRoundingStep).toBeNull();
+
+    const audit = await getDatabase()
+      .select()
+      .from(auditLogs)
+      .where(
+        and(eq(auditLogs.tenantId, tenantId), eq(auditLogs.action, 'cash_close.settings.update'))
+      )
+      .orderBy(desc(auditLogs.createdAt))
+      .get();
+    expect(audit).toBeDefined();
   });
 });

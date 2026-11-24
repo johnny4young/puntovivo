@@ -60,13 +60,28 @@ import { sql, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 
 import {
+  ALLOWED_CASH_ROUNDING_STEPS,
+  defaultCashRoundingStep,
+  isCashOnlyTender,
+  isValidCashRoundingStep,
   payableDecimals,
   resolvePayableTotal,
   roundMoney,
   roundPayable,
+  type AllowedCashRoundingStep,
 } from '@puntovivo/shared/money';
 
-export { payableDecimals, resolvePayableTotal, roundMoney, roundPayable };
+export {
+  ALLOWED_CASH_ROUNDING_STEPS,
+  defaultCashRoundingStep,
+  isCashOnlyTender,
+  isValidCashRoundingStep,
+  payableDecimals,
+  resolvePayableTotal,
+  roundMoney,
+  roundPayable,
+  type AllowedCashRoundingStep,
+};
 
 /**
  * Round a value and return it only when its integer-cent representation is

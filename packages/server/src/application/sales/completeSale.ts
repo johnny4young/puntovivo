@@ -41,17 +41,10 @@ const fallbackLog = createModuleLogger('application/sales/completeSale');
  * (`mode: 'fromDraft'`, formerly `sales.completeDraft`).
  *
  * Invariants (shared by both paths):
- * - MONEY ROUNDING IS UNIFORM 2-DECIMAL. Every monetary intermediate and
- * every running accumulation passes through `roundMoney()`
- * (`Math.round((v + EPSILON) * 100) / 100`, half-away-from-zero) — per
- * line (`resolveSaleItems`), at the header re-round, and on tip / service
- * charge / total. This holds REGARDLESS of the tenant's country: there is
- * NO per-country rounding branch in this file. Per-country rounding
- * (Chile integer peso, Peru ICBPER) is NOT implemented in the
- * transactional money path today; the only integer rounding that exists
- * is `roundClp` in the Chile DTE XML serializer, which never touches the
- * live POS money columns. Implementing per-country transactional rounding
- * would be a separate code ticket, not a documentation change.
+ * - Line calculations and fiscal documents stay at 2-decimal `roundMoney()`.
+ *   The payable grand total snaps to the currency payable unit (whole pesos
+ *   for COP/CLP/PYG) and, on pure-cash sales, applies the tenant's optional
+ *   `cashRoundingStep`, recording the delta in `roundingAdjustment`.
  * - One synchronous `db.transaction(...)` writes every row the sale touches
  * (sequential, header, items, payments, stock, inventory movement +
  * balance, cash movement, customer ledger receivable, sync queue, audit

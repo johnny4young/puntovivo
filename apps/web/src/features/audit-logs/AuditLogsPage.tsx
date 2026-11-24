@@ -174,6 +174,13 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'vat_rate.create',
   'vat_rate.update',
   'vat_rate.delete',
+  'customer.ledger.adjust',
+  'fiscal.settings.update',
+  'cash_close.settings.update',
+  'product.delete',
+  'product.variant_matrix.create',
+  'inventory.serial.receive',
+  'sync.conflict.resolve',
 ];
 
 const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [

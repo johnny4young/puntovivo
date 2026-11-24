@@ -249,7 +249,14 @@
     "unit.delete": "Unit deleted",
     "vat_rate.create": "Tax rate created",
     "vat_rate.update": "Tax rate changed",
-    "vat_rate.delete": "Tax rate deleted"
+    "vat_rate.delete": "Tax rate deleted",
+    "customer.ledger.adjust": "Customer balance adjusted",
+    "fiscal.settings.update": "Fiscal settings updated",
+    "cash_close.settings.update": "Cash close settings updated",
+    "product.delete": "Product deactivated",
+    "product.variant_matrix.create": "Variant matrix created",
+    "inventory.serial.receive": "Serials received into stock",
+    "sync.conflict.resolve": "Sync conflict resolved"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",

@@ -1296,4 +1296,22 @@ describe('SalePaymentModal — cash change hero', () => {
     expect(screen.queryByTestId('quick-denomination-selector')).not.toBeInTheDocument();
     expect(screen.queryByTestId('payment-settlement')).not.toBeInTheDocument();
   });
+
+  it('applies cashRoundingStep to cash-only checkouts and clears it on card', async () => {
+    render(
+      <SalePaymentModal
+        {...createProps({ total: 5544, currencyCode: 'COP', cashRoundingStep: 50 })}
+      />
+    );
+    const user = userEvent.setup();
+    const summary = await screen.findByTestId('sale-payment-summary');
+    expect(summary).toHaveTextContent(formatCurrency(5550));
+    expect(screen.getByTestId('sale-payment-total-detail')).toHaveTextContent(
+      formatCurrency(6, undefined, undefined, 2)
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Card' }));
+    expect(summary).toHaveTextContent(formatCurrency(5544));
+    expect(screen.queryByTestId('sale-payment-total-detail')).not.toBeInTheDocument();
+  });
 });

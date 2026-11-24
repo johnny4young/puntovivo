@@ -8,9 +8,14 @@
  * `@puntovivo/shared/money` owns the cross-runtime implementation.
  */
 export {
+  ALLOWED_CASH_ROUNDING_STEPS,
+  defaultCashRoundingStep,
+  isCashOnlyTender,
+  isValidCashRoundingStep,
   payableDecimals,
   resolvePayableTotal,
   roundMoney,
   roundPayable,
+  type AllowedCashRoundingStep,
   type PayableTotal,
 } from '@puntovivo/shared/money';

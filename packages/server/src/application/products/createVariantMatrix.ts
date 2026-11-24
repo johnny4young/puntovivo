@@ -16,6 +16,7 @@ import {
   type ProductVariantValues,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import { getProductTaxComponents, legacyComponent } from '../../services/tax-components.js';
 import type { CreateProductVariantMatrixInput } from '../../trpc/schemas/products.js';
@@ -446,6 +447,19 @@ export async function createProductVariantMatrix(
         },
       });
     }
+    writeAuditLog({
+      tx,
+      tenantId: ctx.tenantId,
+      actorId: ctx.user.id,
+      action: 'product.variant_matrix.create',
+      resourceType: 'product',
+      resourceId: parent.id,
+      after: {
+        parentProductId: parent.id,
+        variantCount: variants.length,
+        axes: axes.map(axis => axis.name),
+      },
+    });
 
     return {
       parent: parentProduct,

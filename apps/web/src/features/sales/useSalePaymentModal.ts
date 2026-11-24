@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useRegisterZone } from '@/features/modules/useRegisterZone';
-import { resolvePayableTotal, roundMoney, roundPayable } from '@/lib/money';
+import { isCashOnlyTender, resolvePayableTotal, roundMoney, roundPayable } from '@/lib/money';
 import { sumBy } from '@/lib/numbers';
 import { trpc } from '@/lib/trpc';
 import { extractServerErrorCode, translateServerError } from '@/lib/translateServerError';
@@ -62,6 +62,7 @@ export interface UseSalePaymentModalParams {
   customers: Customer[];
   isSaving: boolean;
   serviceChargeRate?: number | undefined;
+  cashRoundingStep?: number | null | undefined;
   userRole?: 'admin' | 'manager' | 'cashier' | 'viewer' | undefined;
   approvalSaleId?: string | null | undefined;
   approvalCustomerId?: string | null | undefined;
@@ -83,6 +84,7 @@ export function useSalePaymentModal({
   customers,
   isSaving,
   serviceChargeRate = 0,
+  cashRoundingStep = null,
   userRole,
   approvalSaleId = null,
   approvalCustomerId = null,
@@ -357,10 +359,21 @@ export function useSalePaymentModal({
     () => percentOf(checkoutBaseTotal, serviceChargeRate),
     [checkoutBaseTotal, serviceChargeRate]
   );
-  // Same payable-unit rounding the server applies on completion (whole pesos for COP).
+  const effectiveCashRoundingStep =
+    cashRoundingStep &&
+    isCashOnlyTender({
+      paymentMethod,
+      payments: splitMode
+        ? tenders.map(tender => ({ method: tender.method, amount: Number(tender.amount) || 0 }))
+        : undefined,
+    })
+      ? cashRoundingStep
+      : null;
+  // Same payable-unit rounding the server applies on completion (whole pesos for COP, coin step for cash-only).
   const { total: grandTotal, roundingAdjustment } = resolvePayableTotal(
     checkoutBaseTotal + serviceChargeAmount + tipAmount,
-    currencyCode
+    currencyCode,
+    effectiveCashRoundingStep
   );
   const isCash = paymentMethod === 'cash';
   const isCredit = paymentMethod === 'credit';
@@ -745,7 +758,8 @@ export function useSalePaymentModal({
     // auto-sync of amountReceived / first tender consistent.
     const nextGrandTotal = resolvePayableTotal(
       checkoutBaseTotal + serviceChargeAmount + nextTipAmount,
-      currencyCode
+      currencyCode,
+      effectiveCashRoundingStep
     ).total;
 
     if (splitMode) {

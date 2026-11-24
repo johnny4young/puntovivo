@@ -94,12 +94,17 @@ describe('tenant settings projection', () => {
     // Passing `restaurant` through whole would reopen the hole one level down.
     const projected = projectTenantSettingsForClient({
       restaurant: { serviceChargeRate: 0.1, posProviderSecret: 'sk_live_nested' },
-      cashClose: { blindClose: true, overrideToken: 'tok_nested' },
+      cashClose: { blindClose: true, cashRoundingStep: 50, overrideToken: 'tok_nested' },
     });
     expect(projected).toEqual({
       restaurant: { serviceChargeRate: 0.1 },
-      cashClose: { blindClose: true },
+      cashClose: { blindClose: true, cashRoundingStep: 50 },
     });
+    expect(
+      projectTenantSettingsForClient({
+        cashClose: { blindClose: true, cashRoundingStep: 25 },
+      })
+    ).toEqual({ cashClose: { blindClose: true } });
   });
 
   it('leaves an absent setting absent rather than explicitly undefined', () => {

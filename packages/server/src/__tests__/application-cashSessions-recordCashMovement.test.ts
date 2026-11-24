@@ -113,16 +113,30 @@ describe('recordCashMovement', () => {
   });
 
   it('rounds sub-cent movement input before cash CHECK writes', async () => {
-    const before = await readSessionExpectedBalance();
-    const result = await recordCashMovement(buildContext(), {
-      type: 'paid_in',
-      amount: 0.1 + 0.2,
-      note: 'Floating point drift top up',
-    });
+    const db = getDatabase();
+    await db
+      .update(tenants)
+      .set({ defaultCurrencyCode: 'USD' })
+      .where(eq(tenants.id, tenantId))
+      .run();
+    try {
+      const before = await readSessionExpectedBalance();
+      const result = await recordCashMovement(buildContext(), {
+        type: 'paid_in',
+        amount: 0.1 + 0.2,
+        note: 'Floating point drift top up',
+      });
 
-    expect(result.movement.amount).toBe(0.3);
-    const after = await readSessionExpectedBalance();
-    expect(after - before).toBeCloseTo(0.3, 2);
+      expect(result.movement.amount).toBe(0.3);
+      const after = await readSessionExpectedBalance();
+      expect(after - before).toBeCloseTo(0.3, 2);
+    } finally {
+      await db
+        .update(tenants)
+        .set({ defaultCurrencyCode: 'COP' })
+        .where(eq(tenants.id, tenantId))
+        .run();
+    }
   });
 
   it('paid_out decreases expectedBalance', async () => {
