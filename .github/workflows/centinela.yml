@@ -20,18 +20,19 @@ permissions: {}
 jobs:
   review:
     name: Centinela
-    # Keep in sync with optInLabel, overrideLabel and issues.bugLabel.
+    # Keep in sync with optInLabel, overrideLabel, issues.bugLabel and labels.aiReview.
     if: >-
       (github.event_name == 'issue_comment' &&
       startsWith(github.event.comment.body, '/centinela') &&
       github.event.comment.user.type != 'Bot') ||
       ((github.event_name == 'pull_request_target' || github.event_name == 'issues') &&
       ((github.event.action != 'labeled' && github.event.action != 'unlabeled') ||
-      contains(fromJSON('["triage", "triage: approved", "bug"]'), github.event.label.name)))
+      contains(fromJSON('["triage", "triage: approved", "bug"]'), github.event.label.name) ||
+      (github.event.action == 'labeled' && github.event.label.name == 'centinela: ai-review')))
     concurrency:
       group: centinela-${{ github.event.pull_request.number || github.event.issue.number }}
-      # A command waits for a running review instead of cancelling it.
-      cancel-in-progress: ${{ github.event_name != 'issue_comment' }}
+      # A command or an AI review request waits for a running review instead of cancelling it.
+      cancel-in-progress: "${{ github.event_name != 'issue_comment' && github.event.label.name != 'centinela: ai-review' }}"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -42,7 +43,7 @@ jobs:
       # Only for /centinela review: lets the job prove its identity to the Claude API.
       id-token: write
     steps:
-      - uses: johnny4young/centinela@v1.5.0
+      - uses: johnny4young/centinela@v1.5.1
         with:
           app-client-id: ${{ vars.CENTINELA_APP_CLIENT_ID }}
           app-private-key: ${{ secrets.CENTINELA_APP_PRIVATE_KEY }}
@@ -63,7 +64,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: johnny4young/centinela@v1.5.0
+      - uses: johnny4young/centinela@v1.5.1
         with:
           app-client-id: ${{ vars.CENTINELA_APP_CLIENT_ID }}
           app-private-key: ${{ secrets.CENTINELA_APP_PRIVATE_KEY }}
