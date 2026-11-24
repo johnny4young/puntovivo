@@ -474,8 +474,7 @@ export function summarizeTransferConfirmations(
       const saleCovered = liveTotal + PAYMENT_SUM_EPSILON >= aggregate.saleTotal;
       // Or the sale has no room for it: no money bucket may state more transfer
       // money than the sale asked for.
-      const noRoom =
-        transferTotal + candidate.amount > aggregate.saleTotal + PAYMENT_SUM_EPSILON;
+      const noRoom = transferTotal + candidate.amount > aggregate.saleTotal + PAYMENT_SUM_EPSILON;
       if (saleCovered || noRoom) {
         supersededTenderIds.add(candidate.id);
         continue;

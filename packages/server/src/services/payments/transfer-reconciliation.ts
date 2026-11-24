@@ -130,9 +130,7 @@ function readDepositPayload(after: Record<string, unknown> | null): RecordedDepo
     idempotencyKey:
       typeof idempotencyKey === 'string' && idempotencyKey.length > 0 ? idempotencyKey : null,
     notAppliedReason:
-      typeof notAppliedReason === 'string' && notAppliedReason.length > 0
-        ? notAppliedReason
-        : null,
+      typeof notAppliedReason === 'string' && notAppliedReason.length > 0 ? notAppliedReason : null,
   };
 }
 
@@ -220,9 +218,7 @@ function findRecordedDepositByKey(
  * tender whose only movement was not applied carries no applied amount
  * anywhere.
  */
-function appliedDepositsByTender(
-  deposits: readonly RecordedDeposit[]
-): Map<string, number[]> {
+function appliedDepositsByTender(deposits: readonly RecordedDeposit[]): Map<string, number[]> {
   const byTender = new Map<string, number[]>();
   for (const deposit of deposits) {
     if (deposit.notAppliedReason !== null) continue;
@@ -561,10 +557,7 @@ export function registerManualDeposit(
       // rest. Movements that were never applied stay out of the sum, so a tender
       // reopened for review does not count money it never absorbed.
       const appliedAmounts = appliedDepositsByTender(recorded).get(args.salePaymentId) ?? [];
-      const accumulation = summarizeDeposits(target.amount, [
-        ...appliedAmounts,
-        verifiedAmount,
-      ]);
+      const accumulation = summarizeDeposits(target.amount, [...appliedAmounts, verifiedAmount]);
       const status = accumulation.status;
 
       tx.update(salePayments)

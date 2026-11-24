@@ -94,9 +94,12 @@ describe('database foundation seed', () => {
       .get();
 
     expect(seededUser).toBeDefined();
-    expect(await argon2.verify(requireHumanCredentials(seededUser!).passwordHash, DEFAULT_DEVELOPMENT_ADMIN_PASSWORD)).toBe(
-      true
-    );
+    expect(
+      await argon2.verify(
+        requireHumanCredentials(seededUser!).passwordHash,
+        DEFAULT_DEVELOPMENT_ADMIN_PASSWORD
+      )
+    ).toBe(true);
   });
 
   it('adopts a legacy DB that already has the migrated purchase_items shape without regressing its columns or indexes', async () => {

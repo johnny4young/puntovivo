@@ -166,7 +166,7 @@ describe('transfer reconciliation', () => {
     expect(Object.keys(counters).length).toBeGreaterThan(0);
   });
 
-  it('refuses a deposit against a sale that is not this tenant\'s', () => {
+  it("refuses a deposit against a sale that is not this tenant's", () => {
     const { salePaymentId } = saleWithTransfer(10000);
     expect(() =>
       registerManualDeposit(getDatabase(), {

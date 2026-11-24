@@ -204,9 +204,9 @@ describe('comprehensive day close — superseded tenders (S13)', () => {
     // outside every money bucket.
     expect(transfers.superseded).toBe(100);
     expect(transfers.reported + transfers.superseded).toBe(200);
-    expect(
-      transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy
-    ).toBe(transfers.reported);
+    expect(transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy).toBe(
+      transfers.reported
+    );
 
     // One row per destino, counted once: the superseded row is not a tender of
     // this destination any more, and its reference is gone with it.
@@ -320,12 +320,12 @@ describe('comprehensive day close — superseded tenders (S13)', () => {
     expect(transfers.reported).toBe(50);
     expect(transfers.rejected).toBe(0);
     expect(transfers.superseded).toBe(50);
-    expect(
-      transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy
-    ).toBe(transfers.reported);
-    expect(new Map(transfers.destinations.map(row => [row.label, row])).get(WALLET.label)).toMatchObject(
-      { confirmed: 20, pending: 30, count: 2 }
+    expect(transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy).toBe(
+      transfers.reported
     );
+    expect(
+      new Map(transfers.destinations.map(row => [row.label, row])).get(WALLET.label)
+    ).toMatchObject({ confirmed: 20, pending: 30, count: 2 });
     // The historical settlement block still reports every tender row of the day.
     expect(report.payments).toEqual([
       { method: 'cash', amount: 50, transactionCount: 1 },
@@ -457,9 +457,9 @@ describe('comprehensive day close — superseded tenders (S13)', () => {
     expect(transfers.rejected).toBe(0);
     expect(transfers.reported).toBe(100);
     expect(transfers.superseded).toBe(100);
-    expect(
-      transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy
-    ).toBe(transfers.reported);
+    expect(transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy).toBe(
+      transfers.reported
+    );
     // Nothing is dropped: every transfer row of the day is in exactly one figure.
     expect(transfers.reported + transfers.superseded).toBe(200);
 
@@ -478,9 +478,9 @@ describe('comprehensive day close — superseded tenders (S13)', () => {
     expect(transfers.unapplied).toBe(0);
 
     // The destination counts the money once as well.
-    expect(new Map(transfers.destinations.map(row => [row.label, row])).get(BANK.label)).toMatchObject(
-      { confirmed: 40, pending: 60, count: 2 }
-    );
+    expect(
+      new Map(transfers.destinations.map(row => [row.label, row])).get(BANK.label)
+    ).toMatchObject({ confirmed: 40, pending: 60, count: 2 });
     expect(report.sales.grossRevenue).toBe(100);
   });
 
@@ -563,9 +563,9 @@ describe('comprehensive day close — superseded tenders (S13)', () => {
     expect(transfers.saleTotal).toBe(100);
     // The ceiling: the buckets can never state more money than the sale asked
     // for, in either form of the same comparison.
-    expect(
-      transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy
-    ).toBe(100);
+    expect(transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy).toBe(
+      100
+    );
     expect(transfers.reported).toBeLessThanOrEqual(transfers.saleTotal);
     // Nothing is hidden: every transfer row of the day is in exactly one figure.
     expect(transfers.reported + transfers.superseded).toBe(200);
@@ -582,9 +582,9 @@ describe('comprehensive day close — superseded tenders (S13)', () => {
         other: { count: 0, amount: 0 },
       },
     });
-    expect(new Map(transfers.destinations.map(row => [row.label, row])).get(BANK.label)).toMatchObject(
-      { confirmed: 40, pending: 60, count: 2 }
-    );
+    expect(
+      new Map(transfers.destinations.map(row => [row.label, row])).get(BANK.label)
+    ).toMatchObject({ confirmed: 40, pending: 60, count: 2 });
 
     // Read-only blocks keep their historical meaning.
     expect(report.sales.grossRevenue).toBe(100);
@@ -693,9 +693,9 @@ describe('comprehensive day close — superseded tenders (S13)', () => {
     expect(transfers.superseded).toBe(0);
     expect(transfers.saleTotal).toBe(200);
     expect(transfers.reported + transfers.superseded).toBe(160);
-    expect(
-      transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy
-    ).toBe(160);
+    expect(transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy).toBe(
+      160
+    );
     // The rejected money stays visible per status too, so the operator can find
     // the tender that still needs a decision.
     expect(transfers.byStatus.rejected).toBe(1);
@@ -764,9 +764,9 @@ describe('comprehensive day close — superseded tenders (S13)', () => {
     expect(transfers.superseded).toBe(100);
     expect(transfers.reported).toBe(100);
     expect(transfers.reported).toBeLessThanOrEqual(transfers.saleTotal);
-    expect(
-      transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy
-    ).toBe(100);
+    expect(transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy).toBe(
+      100
+    );
     expect(transfers.reported + transfers.superseded).toBe(200);
     expect(transfers.unapplied).toBe(0);
     expect(report.sales.grossRevenue).toBe(100);
@@ -834,9 +834,9 @@ describe('comprehensive day close — superseded tenders (S13)', () => {
     expect(transfers.confirmed).toBe(0);
     expect(transfers.legacy).toBe(0);
     expect(transfers.reported).toBeLessThanOrEqual(transfers.saleTotal);
-    expect(
-      transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy
-    ).toBe(60);
+    expect(transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy).toBe(
+      60
+    );
     expect(transfers.reported + transfers.superseded).toBe(120);
     expect(report.sales.grossRevenue).toBe(100);
     expect(report.payments).toEqual([{ method: 'transfer', amount: 120, transactionCount: 2 }]);
@@ -1102,9 +1102,9 @@ describe('comprehensive day close — deposits no tender absorbed (S11)', () => 
     expect(transfers.legacy).toBe(0);
     expect(transfers.rejected).toBe(50);
     expect(transfers.reported).toBe(150);
-    expect(
-      transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy
-    ).toBe(transfers.reported);
+    expect(transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy).toBe(
+      transfers.reported
+    );
     // Not-applied money is disjoint from every tender bucket and from surplus.
     expect(transfers.notApplied.amount).not.toBe(transfers.unapplied);
     expect(transfers.reported + transfers.notApplied.amount).toBe(217);

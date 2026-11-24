@@ -142,7 +142,12 @@ export const paymentsRouter = router({
     .input(startPresentationInput)
     .mutation(async ({ ctx, input }) => {
       await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
-      const destination = requireDestination(ctx.db, ctx.tenantId, input.siteId, input.destinationId);
+      const destination = requireDestination(
+        ctx.db,
+        ctx.tenantId,
+        input.siteId,
+        input.destinationId
+      );
       return startPresentation(ctx.db, {
         tenantId: ctx.tenantId,
         siteId: input.siteId,
@@ -155,9 +160,7 @@ export const paymentsRouter = router({
 
   presentation: cashierManagerOrAdminProcedure
     .input(presentationInput)
-    .query(({ ctx, input }) =>
-      getPresentation(ctx.db, ctx.tenantId, input.presentationId)
-    ),
+    .query(({ ctx, input }) => getPresentation(ctx.db, ctx.tenantId, input.presentationId)),
 
   openPresentations: cashierManagerOrAdminProcedure
     .input(openPresentationsInput)

@@ -493,10 +493,7 @@ export const salePayments = sqliteTable(
     index('idx_sale_payments_tenant').on(table.tenantId),
     index('idx_sale_payments_sale').on(table.saleId),
     index('idx_sale_payments_method').on(table.method),
-    index('idx_sale_payments_transfer_destination').on(
-      table.tenantId,
-      table.transferDestinationId
-    ),
+    index('idx_sale_payments_transfer_destination').on(table.tenantId, table.transferDestinationId),
     // The confirmation lifecycle exists only for transfer tenders. Historical
     // transfer rows keep NULL; other methods can never carry a state.
     check(

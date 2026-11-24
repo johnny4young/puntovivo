@@ -44,9 +44,7 @@ export function ensureServiceIdentity(
   const existing = db
     .select({ id: users.id, tenantId: users.tenantId, name: users.name })
     .from(users)
-    .where(
-      and(eq(users.tenantId, args.tenantId), eq(users.kind, 'service'), eq(users.name, name))
-    )
+    .where(and(eq(users.tenantId, args.tenantId), eq(users.kind, 'service'), eq(users.name, name)))
     .get();
   if (existing) return existing;
 

@@ -75,7 +75,10 @@ describe('auth.login timing equality', () => {
 
     const caller = appRouter.createCaller(loginContext(server));
     await expect(
-      caller.auth.login({ email: toHumanSessionIdentity(seededAdmin).email, password: 'AnythingP@ss1' })
+      caller.auth.login({
+        email: toHumanSessionIdentity(seededAdmin).email,
+        password: 'AnythingP@ss1',
+      })
     ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
 
     // The disabled branch must still pay the Argon2 cost — and it must
@@ -173,7 +176,10 @@ describe('auth.login timing equality', () => {
     const verifySpy = vi.spyOn(passwords, 'verifyPasswordSecurely');
 
     const caller = appRouter.createCaller(loginContext(server));
-    const login = caller.auth.login({ email: toHumanSessionIdentity(seededAdmin).email, password: 'AnythingP@ss1' });
+    const login = caller.auth.login({
+      email: toHumanSessionIdentity(seededAdmin).email,
+      password: 'AnythingP@ss1',
+    });
     await new Promise(resolve => setTimeout(resolve, 50));
     expect(verifySpy).not.toHaveBeenCalled();
 

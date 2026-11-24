@@ -276,9 +276,7 @@ async function handle(command: WorkerCommand): Promise<WorkerReplyBody> {
           `SELECT COUNT(*) AS n FROM audit_logs
             WHERE tenant_id = ? AND action = ? AND resource_id = ?`
         )
-        .get(command.tenantId, DEPOSIT_AUDIT_ACTION, command.saleId) as
-        | { n?: number }
-        | undefined;
+        .get(command.tenantId, DEPOSIT_AUDIT_ACTION, command.saleId) as { n?: number } | undefined;
       const observedRows = row?.n ?? 0;
       control = { salePaymentId: command.salePaymentId, observedRows };
       return { kind: 'naive-snapshot', observedRows };

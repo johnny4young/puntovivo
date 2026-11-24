@@ -115,10 +115,15 @@ class SecondConnection {
     });
   }
 
-  static async open(dbPath: string): Promise<{ connection: SecondConnection; journalMode: string }> {
-    const worker = new Worker(new URL('./fixtures/transfer-concurrency-worker.ts', import.meta.url), {
-      execArgv: ['--import', tsxLoaderUrl()],
-    });
+  static async open(
+    dbPath: string
+  ): Promise<{ connection: SecondConnection; journalMode: string }> {
+    const worker = new Worker(
+      new URL('./fixtures/transfer-concurrency-worker.ts', import.meta.url),
+      {
+        execArgv: ['--import', tsxLoaderUrl()],
+      }
+    );
     const connection = new SecondConnection(worker);
     const reply = replyOf(await connection.send({ kind: 'open', dbPath }), 'opened');
     return { connection, journalMode: reply.journalMode };
@@ -232,7 +237,10 @@ function depositFromMain(
   verifiedAmount: number,
   idempotencyKey: string
 ): DepositOutcome {
-  return registerManualDeposit(getDatabase(), requestFor(saleId, salePaymentId, verifiedAmount, idempotencyKey));
+  return registerManualDeposit(
+    getDatabase(),
+    requestFor(saleId, salePaymentId, verifiedAmount, idempotencyKey)
+  );
 }
 
 /** A deposit through connection B (the worker's own connection to the file). */
@@ -519,7 +527,9 @@ describe('transfer deposit accumulation across two connections to one file', () 
 
     // The tender the two connections wrote together is exactly settled.
     expect(tenderStatus(salePaymentId)).toBe('manual_confirmed');
-    expect(transferRow(salePaymentId, 'manual_confirmed')?.appliedAmount).toBe(EXPECTED_ROWS * UNIT);
+    expect(transferRow(salePaymentId, 'manual_confirmed')?.appliedAmount).toBe(
+      EXPECTED_ROWS * UNIT
+    );
     expect(saleTotal(saleId)).toBe(EXPECTED_ROWS * UNIT);
 
     // And the other connection agrees on the final state.

@@ -79,12 +79,7 @@ const ALLOWED_TRANSITIONS: Readonly<
     'needs_reconciliation',
     'cancelled',
   ],
-  customer_reported: [
-    'manual_confirmed',
-    'provider_confirmed',
-    'rejected',
-    'needs_reconciliation',
-  ],
+  customer_reported: ['manual_confirmed', 'provider_confirmed', 'rejected', 'needs_reconciliation'],
   needs_reconciliation: ['manual_confirmed', 'provider_confirmed', 'rejected'],
   // Late authentic verdicts reopen into reconciliation for human review.
   rejected: ['needs_reconciliation'],

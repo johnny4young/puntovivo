@@ -118,31 +118,29 @@ async function seedOtherTenant(): Promise<void> {
 /** A presentation row for the other tenant, written without going through a site. */
 async function otherTenantPresentation(id: string, createdAgeMs: number): Promise<void> {
   const createdAt = new Date(Date.now() - createdAgeMs).toISOString();
-  await getDatabase()
-    .insert(paymentOutbox)
-    .values({
-      id,
-      tenantId: OTHER_TENANT_ID,
-      salePaymentId: null,
-      railId: 'static_qr',
-      kind: 'presentation',
-      status: 'presented',
-      amount: 30_000,
-      currencyCode: 'COP',
-      reference: 'EXPIRY-TICK-OTHER',
-      providerTransactionId: null,
-      payload: { destination },
-      payloadVersion: 1,
-      attempts: 0,
-      nextRetryAt: null,
-      lastError: null,
-      priority: 0,
-      claimToken: null,
-      lockedAt: null,
-      idempotencyKey: null,
-      createdAt,
-      updatedAt: createdAt,
-    });
+  await getDatabase().insert(paymentOutbox).values({
+    id,
+    tenantId: OTHER_TENANT_ID,
+    salePaymentId: null,
+    railId: 'static_qr',
+    kind: 'presentation',
+    status: 'presented',
+    amount: 30_000,
+    currencyCode: 'COP',
+    reference: 'EXPIRY-TICK-OTHER',
+    providerTransactionId: null,
+    payload: { destination },
+    payloadVersion: 1,
+    attempts: 0,
+    nextRetryAt: null,
+    lastError: null,
+    priority: 0,
+    claimToken: null,
+    lockedAt: null,
+    idempotencyKey: null,
+    createdAt,
+    updatedAt: createdAt,
+  });
 }
 
 /**
@@ -186,8 +184,7 @@ describe('presentation expiry on the periodic tick', () => {
     const worker = createPaymentWorker({ db: getDatabase(), outboxTickMs: TICK_MS });
     await runPeriodicTicks(
       worker,
-      () =>
-        !listOpenPresentations(getDatabase(), tenantId, siteId).some(row => row.id === stale.id)
+      () => !listOpenPresentations(getDatabase(), tenantId, siteId).some(row => row.id === stale.id)
     );
 
     expect(listOpenPresentations(getDatabase(), tenantId, siteId).map(row => row.id)).not.toContain(

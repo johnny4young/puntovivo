@@ -164,7 +164,14 @@ export const pendingTransfersInput = z
   .object({
     siteId: z.string().min(1).max(64).optional(),
     status: z
-      .enum(['pending', 'customer_reported', 'manual_confirmed', 'provider_confirmed', 'rejected', 'needs_reconciliation'])
+      .enum([
+        'pending',
+        'customer_reported',
+        'manual_confirmed',
+        'provider_confirmed',
+        'rejected',
+        'needs_reconciliation',
+      ])
       .optional(),
     from: z.string().min(1).max(40).optional(),
     to: z.string().min(1).max(40).optional(),

@@ -259,7 +259,11 @@ export const authMutationProcedures = {
       // commits. A failed switch must not grant brute-force amnesty.
       registerStaffPinSuccess(ctx.db, rateIdentity);
 
-      const token = signAccessToken(ctx.req.server, toHumanSessionIdentity(handoff.target), sessionClaims);
+      const token = signAccessToken(
+        ctx.req.server,
+        toHumanSessionIdentity(handoff.target),
+        sessionClaims
+      );
       const refreshToken = signRefreshToken(
         ctx.req.server,
         toHumanSessionIdentity(handoff.target),

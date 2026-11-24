@@ -207,7 +207,13 @@ describe('planTransferAdjustment', () => {
         confirmationStatus: 'manual_confirmed',
         confirmationSource: 'operator',
       },
-      { method: 'transfer', amount: 10, reference: null, confirmationStatus: 'pending', confirmationSource: null },
+      {
+        method: 'transfer',
+        amount: 10,
+        reference: null,
+        confirmationStatus: 'pending',
+        confirmationSource: null,
+      },
     ]);
   });
 

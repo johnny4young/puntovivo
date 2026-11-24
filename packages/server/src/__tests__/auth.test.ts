@@ -870,7 +870,10 @@ describe('Auth tRPC Router', () => {
       const db = getDatabase();
       const updatedUser = await db.select().from(users).where(eq(users.id, testUserId)).get();
       expect(updatedUser).toBeDefined();
-      const isNewPasswordValid = await verify(requireHumanCredentials(updatedUser!).passwordHash, 'NewPassword456!');
+      const isNewPasswordValid = await verify(
+        requireHumanCredentials(updatedUser!).passwordHash,
+        'NewPassword456!'
+      );
       expect(isNewPasswordValid).toBe(true);
 
       // Reset password for other tests

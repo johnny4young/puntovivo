@@ -5,10 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { paymentOutbox, salePayments, sales, sites, users } from '../db/schema.js';
-import {
-  linkPresentationToTender,
-  startPresentation,
-} from '../services/payments/presentation.js';
+import { linkPresentationToTender, startPresentation } from '../services/payments/presentation.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
