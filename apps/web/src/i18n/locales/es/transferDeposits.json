@@ -1,0 +1,71 @@
+{
+  "title": "Abono manual",
+  "subtitle": "Registre el dinero que el banco acreditó realmente para esta transferencia.",
+  "tender": {
+    "heading": "Pago por transferencia",
+    "sale": "Venta",
+    "expectedAmount": "Importe esperado",
+    "destination": "Destino",
+    "destinationMissing": "Sin destino registrado",
+    "reportedReference": "Referencia reportada",
+    "presentation": "Presentación",
+    "presentationMissing": "Sin presentación vinculada",
+    "confirmationStatus": "Estado de confirmación"
+  },
+  "state": {
+    "heading": "Estado informado por el servidor",
+    "appliedAmount": "Aplicado a este pago",
+    "surplusAmount": "Excedente no aplicado",
+    "status": "Estado de confirmación",
+    "pending": "El servidor todavía no informa un abono para este pago."
+  },
+  "fields": {
+    "reference": "Referencia bancaria",
+    "referenceHint": "La referencia que aparece en el extracto bancario.",
+    "amount": "Importe real",
+    "amountHint": "Exactamente lo que acreditó el banco; el servidor suma los abonos.",
+    "valueDate": "Fecha de valor",
+    "note": "Notas"
+  },
+  "validation": {
+    "referenceRequired": "Escriba la referencia bancaria.",
+    "amountRequired": "Escriba el importe que acreditó el banco.",
+    "valueDateRequired": "Escriba la fecha de valor.",
+    "noteTooLong": "La nota no puede superar los 500 caracteres."
+  },
+  "actions": {
+    "cancel": "Cancelar",
+    "submit": "Registrar abono",
+    "saving": "Registrando…"
+  },
+  "permission": {
+    "denied": "Solo un gerente o un administrador puede registrar un abono."
+  },
+  "statuses": {
+    "pending": "Pendiente",
+    "customer_reported": "Reportada por el cliente",
+    "manual_confirmed": "Confirmada manualmente",
+    "provider_confirmed": "Confirmada por el proveedor",
+    "rejected": "Rechazada",
+    "needs_reconciliation": "Requiere conciliación"
+  },
+  "history": {
+    "heading": "Historial de abonos",
+    "description": "Movimientos que esta venta reporta al servidor.",
+    "loading": "Cargando el historial…",
+    "error": "No se pudo cargar el historial.",
+    "refresh": "Actualizar",
+    "empty": "El servidor no reporta movimientos de transferencia para esta venta todavía.",
+    "notReported": "Sin informar",
+    "columns": {
+      "tenderAmount": "Importe del pago",
+      "appliedAmount": "Aplicado",
+      "surplusAmount": "Excedente",
+      "reference": "Referencia",
+      "confirmedAt": "Confirmado el"
+    }
+  },
+  "errors": {
+    "failed": "No se pudo registrar el abono."
+  }
+}
