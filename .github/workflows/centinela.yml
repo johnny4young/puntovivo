@@ -43,7 +43,7 @@ jobs:
       # Only for /centinela review: lets the job prove its identity to the Claude API.
       id-token: write
     steps:
-      - uses: johnny4young/centinela@v1.6.0
+      - uses: johnny4young/centinela@v1.6.1
         with:
           app-client-id: ${{ vars.CENTINELA_APP_CLIENT_ID }}
           app-private-key: ${{ secrets.CENTINELA_APP_PRIVATE_KEY }}
@@ -64,7 +64,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: johnny4young/centinela@v1.6.0
+      - uses: johnny4young/centinela@v1.6.1
         with:
           app-client-id: ${{ vars.CENTINELA_APP_CLIENT_ID }}
           app-private-key: ${{ secrets.CENTINELA_APP_PRIVATE_KEY }}
