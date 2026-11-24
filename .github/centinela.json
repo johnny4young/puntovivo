@@ -1,5 +1,5 @@
 {
-  "maintainers": ["johnny4young"],
+  "extends": "johnny4young/centinela-memory/base.json@main",
   "license": "MIT",
   "size": {
     "ignore": [
@@ -19,8 +19,6 @@
     "sensitive": [
       "scripts/ensure-*.mjs",
       "apps/desktop/src/main/window-config.ts",
-      "apps/desktop/src/preload/**",
-      "apps/desktop/electron-builder.yml",
       "packages/server/src/trpc/middleware/**"
     ]
   },
@@ -36,7 +34,6 @@
     }
   },
   "rules": {
-    "electron": true,
     "custom": [
       {
         "id": "desktop-server-import",
@@ -71,7 +68,10 @@
       {
         "id": "tenant-scope",
         "severity": "suggestion",
-        "paths": ["packages/server/src/trpc/routers/**"],
+        "paths": [
+          "packages/server/src/trpc/routers/**",
+          "packages/server/src/application/**"
+        ],
         "message": {
           "en": "Please confirm every query scopes by `ctx.tenantId` and every procedure that takes a `siteId` calls `ensureTenantSite`.",
           "es": "Por favor confirme que cada consulta filtra por `ctx.tenantId` y que cada procedimiento que recibe un `siteId` llama a `ensureTenantSite`."
@@ -93,6 +93,12 @@
     }
   },
   "ai": {
-    "rules": [".github/triage/REVIEW.md", "CONTRIBUTING.md"]
+    "rules": [".github/triage/REVIEW.md", "CONTRIBUTING.md"],
+    "deepPaths": [
+      "packages/server/src/db/**",
+      "packages/server/src/application/**",
+      "packages/server/src/trpc/middleware/**",
+      "apps/desktop/src/main/**"
+    ]
   }
 }

@@ -10,7 +10,9 @@ on:
     types: [opened, reopened, edited, labeled, unlabeled]
   issue_comment:
     types: [created]
-  # Daily reminders for items waiting on their author.
+  pull_request_review_comment:
+    types: [created]
+  # Daily reminders, backfill and weekly self-learning pass.
   schedule:
     - cron: '23 9 * * *'
   workflow_dispatch:
@@ -23,7 +25,10 @@ jobs:
     # Keep in sync with optInLabel, overrideLabel, issues.bugLabel and labels.aiReview.
     if: >-
       (github.event_name == 'issue_comment' &&
-      startsWith(github.event.comment.body, '/centinela') &&
+      github.event.comment.user.type != 'Bot' &&
+      (startsWith(github.event.comment.body, '/centinela') ||
+      contains(github.event.comment.body, '@centinela'))) ||
+      (github.event_name == 'pull_request_review_comment' &&
       github.event.comment.user.type != 'Bot') ||
       ((github.event_name == 'pull_request_target' || github.event_name == 'issues') &&
       ((github.event.action != 'labeled' && github.event.action != 'unlabeled') ||
@@ -31,20 +36,22 @@ jobs:
       (github.event.action == 'labeled' && github.event.label.name == 'centinela: ai-review')))
     concurrency:
       group: centinela-${{ github.event.pull_request.number || github.event.issue.number }}
-      # A command or an AI review request waits for a running review instead of cancelling it.
-      cancel-in-progress: "${{ github.event_name != 'issue_comment' && github.event.label.name != 'centinela: ai-review' }}"
+      # A command, thread reply or AI review request waits for a running review instead of cancelling it.
+      cancel-in-progress: "${{ github.event_name != 'issue_comment' && github.event_name != 'pull_request_review_comment' && github.event.label.name != 'centinela: ai-review' }}"
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     permissions:
       contents: read
+      checks: read
       issues: write
       pull-requests: write
       statuses: write
-      # Only for /centinela review: lets the job prove its identity to the Claude API.
+      # Lets the job prove its identity to the Claude API (WIF).
       id-token: write
     steps:
       - uses: johnny4young/centinela@v1
         with:
+          shared-memory-repo: ${{ vars.CENTINELA_MEMORY_REPO }}
           app-client-id: ${{ vars.CENTINELA_APP_CLIENT_ID }}
           app-private-key: ${{ secrets.CENTINELA_APP_PRIVATE_KEY }}
           anthropic-federation-rule-id: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
@@ -58,15 +65,22 @@ jobs:
     concurrency:
       group: centinela-lifecycle
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
-      contents: read
+      contents: write
+      checks: read
       issues: write
       pull-requests: write
-      # It also gives a first review to open items Centinela never saw.
       statuses: write
+      id-token: write
     steps:
       - uses: johnny4young/centinela@v1
         with:
+          shared-memory-repo: ${{ vars.CENTINELA_MEMORY_REPO }}
+          allow-learning-prs: 'true'
           app-client-id: ${{ vars.CENTINELA_APP_CLIENT_ID }}
           app-private-key: ${{ secrets.CENTINELA_APP_PRIVATE_KEY }}
+          anthropic-federation-rule-id: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
+          anthropic-organization-id: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
+          anthropic-service-account-id: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          anthropic-workspace-id: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
