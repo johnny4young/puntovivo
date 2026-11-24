@@ -51,8 +51,25 @@ const PENDING_TRANSFER_STATUSES: readonly TransferConfirmationStatus[] = [
   'needs_reconciliation',
 ];
 
-/** Superseded tenders: replaced by a correction, never money owed. */
+/** Transfer states that never count as received money. */
 const REJECTED_TRANSFER_STATUSES: readonly TransferConfirmationStatus[] = ['rejected', 'cancelled'];
+
+/**
+ * Transfer states a replacement can leave behind, and therefore the only states
+ * a superseded row is ever judged from.
+ *
+ * `rejected`/`cancelled` are the rows the adjustment planner abandons. A late
+ * authentic provider verdict reopens such a row — only ever into
+ * `needs_reconciliation` (`application/sales/transfer-confirmation.ts`), which
+ * is why that state is here too — and `needs_reconciliation` is ALSO where a
+ * legitimately parked shortfall lives. The state alone never decides anything:
+ * see `summarizeTransferConfirmations`.
+ */
+const SUPERSEDED_CANDIDATE_STATUSES: readonly TransferConfirmationStatus[] = [
+  'rejected',
+  'cancelled',
+  'needs_reconciliation',
+];
 
 const TRANSFER_STATUSES: readonly TransferConfirmationStatus[] = [
   'pending',
@@ -302,9 +319,9 @@ export interface TransferConfirmationSummary {
   /** Total of the day's sales that carry at least one transfer tender. */
   saleTotal: number;
   /**
-   * Every active transfer tender of the day, so each peso of tender is counted
-   * once. `reported = confirmed + pending + rejected + legacy` always holds,
-   * and a tender this block treats as superseded is in none of those buckets.
+   * The live transfer tenders of the day, so each peso of tender is counted
+   * once. Every transfer row lands either here or in `superseded`, and
+   * `reported = confirmed + pending + rejected + legacy` always holds.
    */
   reported: number;
   /** Proven received money. Never merged with `pending`. */
@@ -312,9 +329,9 @@ export interface TransferConfirmationSummary {
   /** Reported, unproven or parked money. Never merged with `confirmed`. */
   pending: number;
   /**
-   * Rejected or cancelled tenders that were NOT replaced: the sale's tenders do
-   * not cover its total, so the money they were meant to carry is still unproven
-   * and stays visible as evidence.
+   * Rejected or cancelled tenders the sale still needs: its other tenders do
+   * NOT cover its total, so nothing replaced them and the money they were meant
+   * to carry is still unproven. Stays visible as evidence.
    */
   rejected: number;
   /**
@@ -324,12 +341,13 @@ export interface TransferConfirmationSummary {
    */
   legacy: number;
   /**
-   * Rejected or cancelled tenders whose money was re-issued on the same sale
-   * (the original row is superseded and new rows are written), plus the same
-   * thing after a late provider verdict reopened the original. Reported as
-   * evidence and deliberately outside every money bucket: `reported +
-   * superseded` is the sum of every transfer tender row of the day, so nothing
-   * is hidden and no peso is counted twice.
+   * Transfer tenders the sale's own money already covered — the leftover row of
+   * a replacement (the original leaves `rejected`, or a late verdict reopens it
+   * into `needs_reconciliation`, while the re-issued rows stay active).
+   *
+   * Reported as evidence and deliberately outside every money bucket:
+   * `reported + superseded` is the sum of every transfer tender row of the day,
+   * so nothing is hidden and no peso is counted twice.
    */
   superseded: number;
   /** Money received above what the sale expected; never applied to a sale. */
@@ -351,6 +369,22 @@ function zeroTransferStatusCounts(): Record<TransferConfirmationStatus | 'legacy
 }
 
 /**
+ * One sale's tender distribution, as the supersession rule reads it.
+ *
+ * The rule is per sale because the sale total is the only thing that says how
+ * much money the tenders are allowed to state.
+ */
+interface SaleDistribution {
+  saleTotal: number;
+  /** Money of this sale that no candidate claims: what it always keeps. */
+  liveTotal: number;
+  /** The transfer part of `liveTotal`: what the transfer buckets already state. */
+  transferLiveTotal: number;
+  /** Rows that only the distribution can settle, in row order. */
+  candidates: Array<{ id: string; amount: number }>;
+}
+
+/**
  * Split the day's transfer tenders into confirmed, pending, rejected and
  * legacy money, per frozen destination. Confirmed and pending are reported
  * separately on purpose: a single transfer figure would let a manager read
@@ -358,8 +392,8 @@ function zeroTransferStatusCounts(): Record<TransferConfirmationStatus | 'legacy
  *
  * `tenders` is the WHOLE tender distribution of the day's sales, not just the
  * transfer rows the buckets are built from. The other methods are needed for
- * one question only: who absorbed the money of a rejected transfer? See
- * `supersededSales` below.
+ * one question only: who absorbed the money of a dead transfer? See
+ * `supersededTenderIds` below.
  */
 export function summarizeTransferConfirmations(
   tenders: readonly TransferTenderRow[],
@@ -376,51 +410,78 @@ export function summarizeTransferConfirmations(
   let legacy = 0;
   let superseded = 0;
 
-  // Pass 1 — per sale, how much tender is still active and whether any tender
-  // could have been superseded. Two proofs qualify a tender: its CURRENT state
-  // is rejected/cancelled, or the audit chain recorded money on it while it was
-  // dead (`deadTenderIds`) — the second one survives the late provider verdict
-  // that reopens a rejected tender into `needs_reconciliation`.
+  // Pass 1 — who could be the leftover of a replacement, and whether the sale's
+  // own money already covers its total without them.
   //
-  // A sale whose remaining tenders already add up to its total has had its money
-  // re-issued: the superseded row is history, not a second copy of the same
-  // pesos. This is the invariant the adjustment planner asserts before it writes
-  // (`activeTotal` must match the sale total), read back from evidence instead of
-  // trusted from a status.
+  // Two proofs are combined, because neither is enough on its own:
+  //  - EVIDENCE places a row in the candidate set: its current state is dead
+  //    (`rejected`/`cancelled`) or the audit chain recorded money on it while it
+  //    was dead (`deadTenderIds`). Both survive a late provider verdict, which
+  //    reopens a rejected tender into `needs_reconciliation` — and a reopen that
+  //    left no audit row at all is still a reopen, so the state counts too.
+  //  - DISTRIBUTION decides it, on the invariant the adjustment planner asserts
+  //    before writing a replacement (`activeTotal` must match the sale total). A
+  //    candidate is superseded exactly when the sale has no room for it: the
+  //    other tenders already cover the total, or counting it would state more
+  //    transfer money than the sale ever asked for. A candidate the sale still
+  //    needs — a rejection with nothing behind it, a shortfall parked for a
+  //    human — keeps its money visible in its own bucket.
+  //
+  // Candidates are released one at a time, in row order, so two dead rows that
+  // each state the whole sale cannot be two debts: once the first one settles
+  // the sale, the second one is the copy.
   const isSupersededCandidate = (row: TransferTenderRow): boolean => {
     if (row.method !== 'transfer') return false;
     if (
       row.confirmationStatus !== null &&
-      REJECTED_TRANSFER_STATUSES.includes(row.confirmationStatus)
+      SUPERSEDED_CANDIDATE_STATUSES.includes(row.confirmationStatus)
     ) {
       return true;
     }
     return evidence.deadTenderIds.has(row.id);
   };
-  const perSale = new Map<
-    string,
-    { saleTotal: number; activeTotal: number; hasSupersededCandidate: boolean }
-  >();
+  const perSale = new Map<string, SaleDistribution>();
   for (const row of tenders) {
     const amount = roundMoney(row.amount);
-    const aggregate = perSale.get(row.saleId) ?? {
-      saleTotal: roundMoney(row.saleTotal),
-      activeTotal: 0,
-      hasSupersededCandidate: false,
-    };
-    if (isSupersededCandidate(row)) aggregate.hasSupersededCandidate = true;
-    else aggregate.activeTotal = roundMoney(aggregate.activeTotal + amount);
-    perSale.set(row.saleId, aggregate);
+    let aggregate = perSale.get(row.saleId);
+    if (!aggregate) {
+      aggregate = {
+        saleTotal: roundMoney(row.saleTotal),
+        liveTotal: 0,
+        transferLiveTotal: 0,
+        candidates: [],
+      };
+      perSale.set(row.saleId, aggregate);
+    }
+    if (isSupersededCandidate(row)) {
+      aggregate.candidates.push({ id: row.id, amount });
+      continue;
+    }
+    aggregate.liveTotal = roundMoney(aggregate.liveTotal + amount);
+    if (row.method === 'transfer') {
+      aggregate.transferLiveTotal = roundMoney(aggregate.transferLiveTotal + amount);
+    }
   }
-  const supersededSales = new Set<string>();
-  for (const [saleId, aggregate] of perSale) {
-    if (!aggregate.hasSupersededCandidate) continue;
+  const supersededTenderIds = new Set<string>();
+  for (const aggregate of perSale.values()) {
+    if (aggregate.candidates.length === 0) continue;
     // A zero-total sale gives the comparison nothing to hold on to.
     if (aggregate.saleTotal <= 0) continue;
-    if (
-      Math.abs(aggregate.activeTotal - aggregate.saleTotal) < PAYMENT_SUM_EPSILON
-    ) {
-      supersededSales.add(saleId);
+    let liveTotal = aggregate.liveTotal;
+    let transferTotal = aggregate.transferLiveTotal;
+    for (const candidate of aggregate.candidates) {
+      // Covered without it: this is the copy a replacement left behind.
+      const saleCovered = liveTotal + PAYMENT_SUM_EPSILON >= aggregate.saleTotal;
+      // Or the sale has no room for it: no money bucket may state more transfer
+      // money than the sale asked for.
+      const noRoom =
+        transferTotal + candidate.amount > aggregate.saleTotal + PAYMENT_SUM_EPSILON;
+      if (saleCovered || noRoom) {
+        supersededTenderIds.add(candidate.id);
+        continue;
+      }
+      liveTotal = roundMoney(liveTotal + candidate.amount);
+      transferTotal = roundMoney(transferTotal + candidate.amount);
     }
   }
 
@@ -433,7 +494,7 @@ export function summarizeTransferConfirmations(
     saleTotals.set(row.saleId, roundMoney(row.saleTotal));
 
     const status = row.confirmationStatus;
-    if (isSupersededCandidate(row) && supersededSales.has(row.saleId)) {
+    if (supersededTenderIds.has(row.id)) {
       // The row is still counted in its lifecycle state…
       if (status === null) byStatus.legacy += 1;
       else byStatus[status] += 1;

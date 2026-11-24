@@ -483,6 +483,364 @@ describe('comprehensive day close — superseded tenders (S13)', () => {
     );
     expect(report.sales.grossRevenue).toBe(100);
   });
+
+  it('supersedes a reopened tender from the money distribution alone', async () => {
+    const db = getDatabase();
+    const tenant = await seedTenant('s13dist');
+    const at = '2026-07-14T14:00:00.000Z';
+
+    // The reproduction an independent review reported: a late provider verdict
+    // reopened the original into `needs_reconciliation`, and the close has NO
+    // audit row that ever recorded money on it while it was dead. The audit
+    // chain therefore proves nothing here, and only the sale's own money
+    // distribution can tell that 40 + 60 already cover the 100 it asked for.
+    await db.insert(sales).values({
+      id: 's13-dist-sale',
+      tenantId: tenant.tenantId,
+      saleNumber: 'S13-4',
+      total: 100,
+      paymentMethod: 'transfer',
+      status: 'completed',
+      createdBy: tenant.userId,
+      cashSessionId: tenant.sessionId,
+      createdAt: at,
+      updatedAt: at,
+    });
+    await db.insert(salePayments).values([
+      {
+        id: 's13-dist-original',
+        tenantId: tenant.tenantId,
+        saleId: 's13-dist-sale',
+        method: 'transfer',
+        amount: 100,
+        reference: 'REF-DIST-ORIGINAL',
+        confirmationStatus: 'needs_reconciliation',
+        destinationSnapshot: BANK,
+        transferDestinationId: BANK.id,
+        createdAt: at,
+      },
+      {
+        id: 's13-dist-confirmed',
+        tenantId: tenant.tenantId,
+        saleId: 's13-dist-sale',
+        method: 'transfer',
+        amount: 40,
+        reference: 'REF-DIST-VERIFIED',
+        confirmationStatus: 'manual_confirmed',
+        confirmationSource: 'operator',
+        destinationSnapshot: BANK,
+        transferDestinationId: BANK.id,
+        createdAt: at,
+      },
+      {
+        id: 's13-dist-pending',
+        tenantId: tenant.tenantId,
+        saleId: 's13-dist-sale',
+        method: 'transfer',
+        amount: 60,
+        confirmationStatus: 'pending',
+        destinationSnapshot: BANK,
+        transferDestinationId: BANK.id,
+        createdAt: at,
+      },
+    ]);
+
+    const report = await computeComprehensiveDayCloseReport(db, {
+      tenantId: tenant.tenantId,
+      date: DAY,
+      now: new Date('2026-07-15T12:00:00.000Z'),
+    });
+    const transfers = report.transferConfirmations!;
+
+    // The rows that replaced the original are the money that exists.
+    expect(transfers.confirmed).toBe(40);
+    expect(transfers.pending).toBe(60);
+    expect(transfers.rejected).toBe(0);
+    expect(transfers.legacy).toBe(0);
+    // Before the distribution proof this close reported 200 on a 100 sale.
+    expect(transfers.reported).toBe(100);
+    expect(transfers.superseded).toBe(100);
+    expect(transfers.saleTotal).toBe(100);
+    // The ceiling: the buckets can never state more money than the sale asked
+    // for, in either form of the same comparison.
+    expect(
+      transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy
+    ).toBe(100);
+    expect(transfers.reported).toBeLessThanOrEqual(transfers.saleTotal);
+    // Nothing is hidden: every transfer row of the day is in exactly one figure.
+    expect(transfers.reported + transfers.superseded).toBe(200);
+
+    // The reopened row is evidence, not money: no bucket and no destination
+    // counts it, and it never becomes unapplied money either.
+    expect(transfers.unapplied).toBe(0);
+    expect(transfers.notApplied).toEqual({
+      count: 0,
+      amount: 0,
+      byReason: {
+        tender_rejected: { count: 0, amount: 0 },
+        tender_cancelled: { count: 0, amount: 0 },
+        other: { count: 0, amount: 0 },
+      },
+    });
+    expect(new Map(transfers.destinations.map(row => [row.label, row])).get(BANK.label)).toMatchObject(
+      { confirmed: 40, pending: 60, count: 2 }
+    );
+
+    // Read-only blocks keep their historical meaning.
+    expect(report.sales.grossRevenue).toBe(100);
+    expect(report.cash.expected).toBe(50);
+    expect(report.cash.counted).toBe(50);
+    expect(report.payments).toEqual([{ method: 'transfer', amount: 200, transactionCount: 3 }]);
+  });
+
+  it('keeps a rejected or parked transfer the sale still needs', async () => {
+    const db = getDatabase();
+    const tenant = await seedTenant('s13keep');
+    const at = '2026-07-14T14:00:00.000Z';
+
+    // The other proof has to hold too: these rows are candidates by state, but
+    // the sale's remaining tenders do NOT cover its total, so nothing replaced
+    // them and their money is still missing.
+    await db.insert(sales).values([
+      {
+        id: 's13-keep-sale-rejected',
+        tenantId: tenant.tenantId,
+        saleNumber: 'S13-5',
+        total: 100,
+        paymentMethod: 'transfer',
+        status: 'completed',
+        createdBy: tenant.userId,
+        cashSessionId: tenant.sessionId,
+        createdAt: at,
+        updatedAt: at,
+      },
+      {
+        id: 's13-keep-sale-parked',
+        tenantId: tenant.tenantId,
+        saleNumber: 'S13-6',
+        total: 100,
+        paymentMethod: 'transfer',
+        status: 'completed',
+        createdBy: tenant.userId,
+        cashSessionId: tenant.sessionId,
+        createdAt: at,
+        updatedAt: at,
+      },
+    ]);
+    await db.insert(salePayments).values([
+      // 60 transfer rejected and 40 in cash: the cash does not cover the sale,
+      // so the rejected 60 is money the store never received.
+      {
+        id: 's13-keep-rejected',
+        tenantId: tenant.tenantId,
+        saleId: 's13-keep-sale-rejected',
+        method: 'transfer',
+        amount: 60,
+        reference: 'REF-KEEP-REJECTED',
+        confirmationStatus: 'rejected',
+        destinationSnapshot: BANK,
+        transferDestinationId: BANK.id,
+        createdAt: at,
+      },
+      {
+        id: 's13-keep-cash',
+        tenantId: tenant.tenantId,
+        saleId: 's13-keep-sale-rejected',
+        method: 'cash',
+        amount: 40,
+        createdAt: at,
+      },
+      // A shortfall parked for a human, plus the rest still pending: the parked
+      // claim is the money of this sale, not a leftover copy of it.
+      {
+        id: 's13-keep-parked',
+        tenantId: tenant.tenantId,
+        saleId: 's13-keep-sale-parked',
+        method: 'transfer',
+        amount: 60,
+        reference: 'REF-KEEP-PARKED',
+        confirmationStatus: 'needs_reconciliation',
+        destinationSnapshot: WALLET,
+        transferDestinationId: WALLET.id,
+        createdAt: at,
+      },
+      {
+        id: 's13-keep-pending',
+        tenantId: tenant.tenantId,
+        saleId: 's13-keep-sale-parked',
+        method: 'transfer',
+        amount: 40,
+        confirmationStatus: 'pending',
+        destinationSnapshot: WALLET,
+        transferDestinationId: WALLET.id,
+        createdAt: at,
+      },
+    ]);
+
+    const report = await computeComprehensiveDayCloseReport(db, {
+      tenantId: tenant.tenantId,
+      date: DAY,
+      now: new Date('2026-07-15T12:00:00.000Z'),
+    });
+    const transfers = report.transferConfirmations!;
+
+    expect(transfers.confirmed).toBe(0);
+    // 60 parked + 40 pending on one sale, and the rejected 60 on the other.
+    expect(transfers.pending).toBe(100);
+    expect(transfers.rejected).toBe(60);
+    expect(transfers.legacy).toBe(0);
+    expect(transfers.reported).toBe(160);
+    expect(transfers.superseded).toBe(0);
+    expect(transfers.saleTotal).toBe(200);
+    expect(transfers.reported + transfers.superseded).toBe(160);
+    expect(
+      transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy
+    ).toBe(160);
+    // The rejected money stays visible per status too, so the operator can find
+    // the tender that still needs a decision.
+    expect(transfers.byStatus.rejected).toBe(1);
+    expect(transfers.byStatus.needs_reconciliation).toBe(1);
+    expect(report.sales.grossRevenue).toBe(200);
+    expect(report.payments).toEqual([
+      { method: 'cash', amount: 40, transactionCount: 1 },
+      { method: 'transfer', amount: 160, transactionCount: 3 },
+    ]);
+  });
+
+  it('supersedes the second of two dead rows that state the whole sale', async () => {
+    const db = getDatabase();
+    const tenant = await seedTenant('s13double');
+    const at = '2026-07-14T14:00:00.000Z';
+
+    // A 100 sale with two rejected 100 rows: the sale can only have owed 100, so
+    // one of the two is a copy. Counting both would state 200 of a 100 sale.
+    await db.insert(sales).values({
+      id: 's13-double-sale',
+      tenantId: tenant.tenantId,
+      saleNumber: 'S13-7',
+      total: 100,
+      paymentMethod: 'transfer',
+      status: 'completed',
+      createdBy: tenant.userId,
+      cashSessionId: tenant.sessionId,
+      createdAt: at,
+      updatedAt: at,
+    });
+    await db.insert(salePayments).values([
+      {
+        id: 's13-double-first',
+        tenantId: tenant.tenantId,
+        saleId: 's13-double-sale',
+        method: 'transfer',
+        amount: 100,
+        reference: 'REF-DOUBLE-FIRST',
+        confirmationStatus: 'rejected',
+        destinationSnapshot: BANK,
+        transferDestinationId: BANK.id,
+        createdAt: at,
+      },
+      {
+        id: 's13-double-second',
+        tenantId: tenant.tenantId,
+        saleId: 's13-double-sale',
+        method: 'transfer',
+        amount: 100,
+        reference: 'REF-DOUBLE-SECOND',
+        confirmationStatus: 'cancelled',
+        destinationSnapshot: BANK,
+        transferDestinationId: BANK.id,
+        createdAt: at,
+      },
+    ]);
+
+    const report = await computeComprehensiveDayCloseReport(db, {
+      tenantId: tenant.tenantId,
+      date: DAY,
+      now: new Date('2026-07-15T12:00:00.000Z'),
+    });
+    const transfers = report.transferConfirmations!;
+
+    expect(transfers.rejected).toBe(100);
+    expect(transfers.superseded).toBe(100);
+    expect(transfers.reported).toBe(100);
+    expect(transfers.reported).toBeLessThanOrEqual(transfers.saleTotal);
+    expect(
+      transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy
+    ).toBe(100);
+    expect(transfers.reported + transfers.superseded).toBe(200);
+    expect(transfers.unapplied).toBe(0);
+    expect(report.sales.grossRevenue).toBe(100);
+  });
+
+  it('never states more transfer money than the sale when dead rows over-subscribe it', async () => {
+    const db = getDatabase();
+    const tenant = await seedTenant('s13over');
+    const at = '2026-07-14T14:00:00.000Z';
+
+    // Two independent rejected attempts of 60 on a 100 sale: neither one alone
+    // covers the sale, and together they ask for more than it ever did. The
+    // buckets keep the money the sale still needs and stop at its total; the
+    // row that has no room is evidence, so 120 of dead rows reads as 60 owed.
+    await db.insert(sales).values({
+      id: 's13-over-sale',
+      tenantId: tenant.tenantId,
+      saleNumber: 'S13-8',
+      total: 100,
+      paymentMethod: 'transfer',
+      status: 'completed',
+      createdBy: tenant.userId,
+      cashSessionId: tenant.sessionId,
+      createdAt: at,
+      updatedAt: at,
+    });
+    await db.insert(salePayments).values([
+      {
+        id: 's13-over-first',
+        tenantId: tenant.tenantId,
+        saleId: 's13-over-sale',
+        method: 'transfer',
+        amount: 60,
+        reference: 'REF-OVER-FIRST',
+        confirmationStatus: 'rejected',
+        destinationSnapshot: BANK,
+        transferDestinationId: BANK.id,
+        createdAt: at,
+      },
+      {
+        id: 's13-over-second',
+        tenantId: tenant.tenantId,
+        saleId: 's13-over-sale',
+        method: 'transfer',
+        amount: 60,
+        reference: 'REF-OVER-SECOND',
+        confirmationStatus: 'cancelled',
+        destinationSnapshot: BANK,
+        transferDestinationId: BANK.id,
+        createdAt: at,
+      },
+    ]);
+
+    const report = await computeComprehensiveDayCloseReport(db, {
+      tenantId: tenant.tenantId,
+      date: DAY,
+      now: new Date('2026-07-15T12:00:00.000Z'),
+    });
+    const transfers = report.transferConfirmations!;
+
+    expect(transfers.rejected).toBe(60);
+    expect(transfers.superseded).toBe(60);
+    expect(transfers.reported).toBe(60);
+    expect(transfers.pending).toBe(0);
+    expect(transfers.confirmed).toBe(0);
+    expect(transfers.legacy).toBe(0);
+    expect(transfers.reported).toBeLessThanOrEqual(transfers.saleTotal);
+    expect(
+      transfers.confirmed + transfers.pending + transfers.rejected + transfers.legacy
+    ).toBe(60);
+    expect(transfers.reported + transfers.superseded).toBe(120);
+    expect(report.sales.grossRevenue).toBe(100);
+    expect(report.payments).toEqual([{ method: 'transfer', amount: 120, transactionCount: 2 }]);
+  });
 });
 
 describe('comprehensive day close — deposits no tender absorbed (S11)', () => {
