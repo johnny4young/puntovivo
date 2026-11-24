@@ -332,6 +332,17 @@ describe('reports.accounting settings', () => {
     expect(persisted.lastSiteId).toBe(harness.siteBId);
   });
 
+  it('keeps the stored rounding account when a save omits it', async () => {
+    const harness = await seedHarness('settings-rounding');
+    const caller = appRouter.createCaller(buildCtx(harness.tenantId, harness.adminId, 'admin'));
+    await caller.reports.accounting.updateAccounts(customAccounts);
+
+    const { rounding: _omitted, ...withoutRounding } = customAccounts;
+    await caller.reports.accounting.updateAccounts(withoutRounding);
+
+    expect((await caller.reports.accounting.settings()).accounts.rounding).toBe('429582');
+  });
+
   it('rejects malformed accounts, foreign sites and non-admin access', async () => {
     const harness = await seedHarness('settings-guard');
     const other = await seedHarness('settings-foreign');

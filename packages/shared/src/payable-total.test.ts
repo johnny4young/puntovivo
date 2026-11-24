@@ -84,6 +84,11 @@ describe('resolvePayableTotal', () => {
     assert.equal(payableDecimals('XYZ'), 2);
   });
 
+  it('ignores a cash step on currencies that have no coin step', () => {
+    assert.deepEqual(resolvePayableTotal(2.4, 'USD', 100), { total: 2.4, roundingAdjustment: 0 });
+    assert.equal(roundPayable(5.44, 'MXN', 50), 5.44);
+  });
+
   it('rounds negative amounts half away from zero without a negative zero', () => {
     assert.equal(roundPayable(-0.5, 'COP'), -1);
     assert.ok(Object.is(roundPayable(-0.4, 'COP'), 0));

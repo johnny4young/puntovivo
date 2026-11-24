@@ -75,7 +75,8 @@ export function resolvePayableTotal(
   roundingStep?: number | null
 ): PayableTotal {
   const gross = roundMoney(grossTotal);
-  if (roundingStep !== undefined && roundingStep !== null && roundingStep > 0) {
+  // Coin steps exist only for whole-unit currencies; a stale step must not zero a USD sale.
+  if (roundingStep && roundingStep > 0 && defaultCashRoundingStep(currencyCode) !== null) {
     const stepped = Math.round(Math.abs(gross) / roundingStep + Number.EPSILON) * roundingStep;
     const total = roundMoney(Math.sign(gross) * stepped);
     return { total, roundingAdjustment: roundMoney(total - gross) };

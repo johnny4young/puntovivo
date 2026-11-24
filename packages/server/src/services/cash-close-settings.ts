@@ -81,37 +81,49 @@ export async function resolveCashCloseSettings(
 }
 
 /**
- * Persist (a partial patch of) `tenants.settings.cashClose`. Returns the
- * resolved settings after merge.
+ * Persist (a partial patch of) `tenants.settings.cashClose` with synchronous
+ * calls, so a router can write it and its audit row in one transaction.
  */
-export async function writeCashCloseSettings(
+export function writeCashCloseSettingsSync(
   db: DatabaseInstance,
   tenantId: string,
   patch: Partial<CashCloseSettings>
-): Promise<CashCloseSettings> {
-  const current = await resolveCashCloseSettings(db, tenantId);
-  if (patch.blindClose === undefined && patch.cashRoundingStep === undefined) {
-    return current;
-  }
-  const next: CashCloseSettings = {
-    blindClose:
-      patch.blindClose === undefined ? current.blindClose : normalizeBlindClose(patch.blindClose),
-    cashRoundingStep:
-      patch.cashRoundingStep === undefined
-        ? current.cashRoundingStep
-        : normalizeCashRoundingStep(patch.cashRoundingStep),
-  };
-
-  const tenant = await db
+): { before: CashCloseSettings; after: CashCloseSettings } {
+  const tenant = db
     .select({ settings: tenants.settings })
     .from(tenants)
     .where(eq(tenants.id, tenantId))
     .get();
   const settings = (tenant?.settings ?? {}) as Record<string, unknown>;
-  settings.cashClose = next;
-  await db
-    .update(tenants)
+  const stored = (settings.cashClose ?? {}) as Partial<CashCloseSettings>;
+  const before: CashCloseSettings = {
+    blindClose: normalizeBlindClose(stored.blindClose),
+    cashRoundingStep: normalizeCashRoundingStep(stored.cashRoundingStep),
+  };
+  if (patch.blindClose === undefined && patch.cashRoundingStep === undefined) {
+    return { before, after: before };
+  }
+  const after: CashCloseSettings = {
+    blindClose:
+      patch.blindClose === undefined ? before.blindClose : normalizeBlindClose(patch.blindClose),
+    cashRoundingStep:
+      patch.cashRoundingStep === undefined
+        ? before.cashRoundingStep
+        : normalizeCashRoundingStep(patch.cashRoundingStep),
+  };
+  settings.cashClose = after;
+  db.update(tenants)
     .set({ settings, updatedAt: new Date().toISOString() })
-    .where(eq(tenants.id, tenantId));
-  return next;
+    .where(eq(tenants.id, tenantId))
+    .run();
+  return { before, after };
+}
+
+/** Async wrapper for callers outside a transaction. Returns the merged settings. */
+export async function writeCashCloseSettings(
+  db: DatabaseInstance,
+  tenantId: string,
+  patch: Partial<CashCloseSettings>
+): Promise<CashCloseSettings> {
+  return writeCashCloseSettingsSync(db, tenantId, patch).after;
 }

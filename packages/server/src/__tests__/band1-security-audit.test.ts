@@ -105,7 +105,7 @@ describe('Band 1 security guards and audit coverage', () => {
     expect(viewerSummary).toBeDefined();
   });
 
-  it('rejects cross-tenant siteId in productSerials.list via ensureTenantSite', async () => {
+  it('rejects cross-tenant siteId in productSerials.list', async () => {
     const adminCaller = appRouter.createCaller(makeCtx('admin'));
     await expect(
       adminCaller.productSerials.list({ productId: 'any-prod', siteId: otherTenantSiteId })

@@ -535,6 +535,44 @@ describe('payable total rounding', () => {
     }
   });
 
+  it('refunds a sale rung up before the cash step was enabled on its own payable unit', async () => {
+    const beefId = await seedProduct(16800);
+    const sale = await completeSale(context(), {
+      mode: 'fresh',
+      customerId: null,
+      items: [{ productId: beefId, unitId, quantity: 0.33, unitPrice: 16800, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 6000,
+      discountAmount: 0,
+    });
+    const saleId = (sale.sale as { id: string }).id;
+    expect(await saleRow(saleId)).toMatchObject({ total: 5544 });
+
+    await writeCashCloseSettings(getDatabase(), tenantId, { cashRoundingStep: 50 });
+    try {
+      const [line] = await getDatabase()
+        .select({ id: saleItems.id })
+        .from(saleItems)
+        .where(eq(saleItems.saleId, saleId))
+        .all();
+      await returnSale(context(), {
+        id: saleId,
+        items: [{ saleItemId: line!.id, quantity: 0.1 }],
+        reason: 'step enabled after sale',
+      });
+      const [refund] = await getDatabase()
+        .select({ refundAmount: saleReturns.refundAmount })
+        .from(saleReturns)
+        .where(eq(saleReturns.saleId, saleId))
+        .all();
+      expect(refund?.refundAmount).toBe(1680);
+    } finally {
+      await writeCashCloseSettings(getDatabase(), tenantId, { cashRoundingStep: null });
+    }
+  });
+
   it('keeps partial return subtotal + taxAmount === total on odd-cent IVA-inclusive lines', async () => {
     const db = getDatabase();
     const productId = await seedProduct(4500);

@@ -18,9 +18,9 @@ import {
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { assertCatalogStockMutationAllowed } from '../../services/products/lot-tracking.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
+import { assertTenantSite } from '../../services/devices/authority/helpers.js';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
-import { ensureTenantSite } from '../middleware/tenantSite.js';
 import { managerOrAdminProcedure } from '../middleware/roles.js';
 import {
   listProductSerialsInput,
@@ -32,7 +32,7 @@ export const productSerialsRouter = router({
   receive: managerOrAdminProcedure
     .input(receiveProductSerialsInput)
     .mutation(async ({ ctx, input }) => {
-      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      await assertTenantSite(ctx.db, ctx.tenantId, input.siteId);
       const product = await ctx.db
         .select({
           id: products.id,
@@ -147,7 +147,7 @@ export const productSerialsRouter = router({
     }),
 
   list: tenantProcedure.input(listProductSerialsInput).query(async ({ ctx, input }) => {
-    await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    await assertTenantSite(ctx.db, ctx.tenantId, input.siteId);
     return {
       items: listProductSerialUnits(ctx.db, {
         tenantId: ctx.tenantId,

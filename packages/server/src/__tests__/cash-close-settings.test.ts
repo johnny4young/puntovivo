@@ -1,6 +1,7 @@
 /**
  * tenant-level cash-close settings (blind close toggle).
  */
+import type Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, desc, eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -124,5 +125,21 @@ describe('cashCloseSettings', () => {
       .orderBy(desc(auditLogs.createdAt))
       .get();
     expect(audit).toBeDefined();
+  });
+
+  it('keeps the previous settings when the audit row cannot be written', async () => {
+    const caller = appRouter.createCaller(buildContext('admin'));
+    const client = (
+      getDatabase() as ReturnType<typeof getDatabase> & { $client: Database.Database }
+    ).$client;
+    client.exec(
+      `CREATE TEMP TRIGGER fail_cash_close_audit BEFORE INSERT ON audit_logs WHEN NEW.action = 'cash_close.settings.update' BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END`
+    );
+    try {
+      await expect(caller.cashCloseSettings.update({ cashRoundingStep: 50 })).rejects.toThrow();
+    } finally {
+      client.exec('DROP TRIGGER fail_cash_close_audit');
+    }
+    expect((await resolveCashCloseSettings(getDatabase(), tenantId)).cashRoundingStep).toBeNull();
   });
 });

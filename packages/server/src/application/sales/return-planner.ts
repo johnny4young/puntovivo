@@ -29,7 +29,13 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import type { ServerErrorCode } from '../../lib/errorCodes.js';
-import { isCashOnlyTender, payableDecimals, roundMoney, roundPayable } from '../../lib/money.js';
+import {
+  defaultCashRoundingStep,
+  isCashOnlyTender,
+  payableDecimals,
+  roundMoney,
+  roundPayable,
+} from '../../lib/money.js';
 import { resolveCashCloseSettingsSync } from '../../services/cash-close-settings.js';
 import {
   addInventoryValues,
@@ -980,10 +986,17 @@ export function buildReturnPlan(
     .where(and(eq(salePayments.tenantId, tenantId), eq(salePayments.saleId, sale.id)))
     .orderBy(salePayments.createdAt, salePayments.id)
     .all();
-  const cashRoundingStep =
+  const currentCashStep =
     input.destination === 'original' &&
     isCashOnlyTender({ paymentMethod: sale.paymentMethod, payments })
       ? resolveCashCloseSettingsSync(db, tenantId).cashRoundingStep
+      : null;
+  // The step may have changed since the sale; a total off the step was not rung up with it.
+  const cashRoundingStep =
+    currentCashStep !== null &&
+    defaultCashRoundingStep(sale.currencyCode) !== null &&
+    roundPayable(sale.total, sale.currencyCode, currentCashStep) === roundMoney(sale.total)
+      ? currentCashStep
       : null;
 
   // A sale paid in whole units (or cash coin steps) refunds on that same unit.

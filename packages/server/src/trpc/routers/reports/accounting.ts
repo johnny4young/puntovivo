@@ -184,7 +184,10 @@ export const accountingReportsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const settings = await writeAccountingPucAccounts(ctx.db, ctx.tenantId, {
         ...input,
-        rounding: input.rounding ?? DEFAULT_ACCOUNTING_PUC_ACCOUNTS.rounding,
+        // Older clients omit rounding; keep the stored account instead of resetting it.
+        rounding:
+          input.rounding ??
+          (await resolveAccountingExportSettings(ctx.db, ctx.tenantId)).accounts.rounding,
       });
       return {
         schemaVersion: settings.schemaVersion,

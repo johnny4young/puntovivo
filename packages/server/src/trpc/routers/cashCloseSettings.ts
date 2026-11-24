@@ -9,7 +9,7 @@
  * - `.get` — managerOrAdmin (serves the admin settings card; the POS
  * modal reads the value from the `auth.me` session payload instead).
  * - `.update` — admin-only. Writes the partial patch back via
- * `writeCashCloseSettings`.
+ * `writeCashCloseSettingsSync` in one transaction with its audit row.
  *
  * @module trpc/routers/cashCloseSettings
  */
@@ -22,7 +22,7 @@ import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   DEFAULT_CASH_CLOSE_SETTINGS,
   resolveCashCloseSettings,
-  writeCashCloseSettings,
+  writeCashCloseSettingsSync,
 } from '../../services/cash-close-settings.js';
 
 export const updateCashCloseSettingsInput = z.object({
@@ -50,13 +50,12 @@ export const cashCloseSettingsRouter = router({
       ...(input.blindClose !== undefined ? { blindClose: input.blindClose } : {}),
       ...(input.cashRoundingStep !== undefined ? { cashRoundingStep: input.cashRoundingStep } : {}),
     };
-    const before = await resolveCashCloseSettings(ctx.db, ctx.tenantId);
-    const settings = await writeCashCloseSettings(ctx.db, ctx.tenantId, patch);
-    if (
-      before.blindClose !== settings.blindClose ||
-      before.cashRoundingStep !== settings.cashRoundingStep
-    ) {
-      ctx.db.transaction(tx => {
+    const settings = ctx.db.transaction(tx => {
+      const { before, after } = writeCashCloseSettingsSync(tx, ctx.tenantId, patch);
+      if (
+        before.blindClose !== after.blindClose ||
+        before.cashRoundingStep !== after.cashRoundingStep
+      ) {
         writeAuditLog({
           tx,
           tenantId: ctx.tenantId,
@@ -65,10 +64,11 @@ export const cashCloseSettingsRouter = router({
           resourceType: 'tenant',
           resourceId: ctx.tenantId,
           before: { ...before },
-          after: { ...settings },
+          after: { ...after },
         });
-      });
-    }
+      }
+      return after;
+    });
     return {
       blindClose: settings.blindClose,
       cashRoundingStep: settings.cashRoundingStep,
