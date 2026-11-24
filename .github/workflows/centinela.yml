@@ -63,9 +63,10 @@ jobs:
       contents: read
       issues: write
       pull-requests: write
+      # It also gives a first review to open items Centinela never saw.
+      statuses: write
     steps:
       - uses: johnny4young/centinela@v1
         with:
           app-client-id: ${{ vars.CENTINELA_APP_CLIENT_ID }}
           app-private-key: ${{ secrets.CENTINELA_APP_PRIVATE_KEY }}
-          typos: 'false'
