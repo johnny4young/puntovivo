@@ -13650,6 +13650,14 @@
           "autoincrement": false,
           "default": 0
         },
+        "rounding_adjustment": {
+          "name": "rounding_adjustment",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
         "currency_code": {
           "name": "currency_code",
           "type": "text",
@@ -17128,6 +17136,14 @@
         },
         "refund_amount": {
           "name": "refund_amount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "rounding_adjustment": {
+          "name": "rounding_adjustment",
           "type": "real",
           "primaryKey": false,
           "notNull": true,
