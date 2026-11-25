@@ -79,11 +79,17 @@ export type CriticalCommandPath =
   // same rationale as `changeTable`); the client must mint an
   // envelope AND the panel CTA must gate on role + catalog presence.
   | 'sales.splitDraft'
+  | 'sales.carryOver'
   | 'restaurantServices.openCheck'
+  | 'restaurantServices.regroupChecks'
   | 'restaurantModifiers.save'
+  | 'restaurantModifiers.saveGroup'
   | 'cashSessions.open'
   | 'cashSessions.close'
   | 'cashSessions.recordMovement'
+  | 'cashSessions.startHandoff'
+  | 'cashSessions.receiveHandoff'
+  | 'cashSessions.explainDifference'
   | 'inventory.adjustStock'
   | 'inventory.createMovement'
   | 'inventoryLots.receive'
@@ -114,6 +120,7 @@ export type CriticalCommandPath =
   // neither is reversible from the UI, so a repeated confirm has to collapse
   // onto one idempotency key rather than pay the debt down twice.
   | 'customerLedger.addPayment'
+  | 'customerLedger.addTillPayment'
   | 'customerLedger.addAdjustment'
   | 'users.create'
   | 'users.update'

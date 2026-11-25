@@ -10,11 +10,16 @@ import { getDatabase, type DatabaseInstance } from '../db/index.js';
 import {
   auditLogs,
   companies,
+  customers,
   managerApprovalRequests,
+  products,
+  saleItems,
   sales,
   sites,
   syncOutbox,
   tenants,
+  units,
+  unitXProduct,
   users,
 } from '../db/schema.js';
 import { hashStaffPin } from '../security/staffPins.js';
@@ -45,6 +50,8 @@ let db: DatabaseInstance;
 let tenantId: string;
 let siteId: string;
 let approvalSaleId: string;
+let seededAdminId: string;
+let seededCashSessionId: string;
 
 type EmployeeRole = 'admin' | 'manager' | 'cashier' | 'viewer';
 
@@ -191,6 +198,7 @@ describe('manager approvals router', () => {
       .get();
     if (!seededAdmin) throw new Error('Expected seeded admin user');
     tenantId = seededAdmin.tenantId;
+    seededAdminId = seededAdmin.id;
     const seededSite = await db
       .select({ id: sites.id })
       .from(sites)
@@ -203,6 +211,7 @@ describe('manager approvals router', () => {
       cashierId: seededAdmin.id,
       siteId,
     });
+    seededCashSessionId = cashSessionId;
     approvalSaleId = nanoid();
     const now = new Date().toISOString();
     await db.insert(sales).values({
@@ -316,6 +325,338 @@ describe('manager approvals router', () => {
       label: 'checkout',
       amount: 25,
       currencyCode: 'COP',
+    });
+  });
+
+  describe('decision context', () => {
+    const DAY_MS = 86_400_000;
+    let unitId: string;
+
+    async function seedProduct(args: {
+      price: number;
+      cost: number;
+      taxRate: number;
+      sellByFraction?: boolean;
+    }) {
+      const id = nanoid();
+      const now = new Date().toISOString();
+      await db.insert(products).values({
+        id,
+        tenantId,
+        name: `Context product ${id}`,
+        sku: `CTX-${id}`,
+        price: args.price,
+        cost: args.cost,
+        taxRate: args.taxRate,
+        sellByFraction: args.sellByFraction ?? false,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(unitXProduct).values({
+        id: nanoid(),
+        productId: id,
+        unitId,
+        equivalence: 1,
+        price: args.price,
+        isBase: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return id;
+    }
+
+    async function seedCustomer(customerTenantId = tenantId) {
+      const id = nanoid();
+      const now = new Date().toISOString();
+      await db.insert(customers).values({
+        id,
+        tenantId: customerTenantId,
+        name: `Context customer ${id}`,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return id;
+    }
+
+    async function seedCompletedSale(
+      customerId: string,
+      productId: string,
+      daysAgo: number,
+      discount: { header?: number; line?: number },
+      returnState: 'refunded' | null = null
+    ) {
+      const id = nanoid();
+      const at = new Date(Date.now() - daysAgo * DAY_MS).toISOString();
+      const gross = 100;
+      const lineDiscount = (gross * (discount.line ?? 0)) / 100;
+      const headerDiscount = (gross * (discount.header ?? 0)) / 100;
+      const subtotal = gross - lineDiscount;
+      await db.insert(sales).values({
+        id,
+        tenantId,
+        saleNumber: `CTX-SALE-${id}`,
+        customerId,
+        subtotal,
+        discountAmount: headerDiscount,
+        total: subtotal - headerDiscount,
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        returnState,
+        cashSessionId: seededCashSessionId,
+        createdBy: seededAdminId,
+        checkoutCompletedAt: at,
+        createdAt: at,
+        updatedAt: at,
+      });
+      await db.insert(saleItems).values({
+        id: nanoid(),
+        saleId: id,
+        productId,
+        quantity: 1,
+        unitPrice: gross,
+        unitEquivalence: 1,
+        discount: discount.line ?? 0,
+        taxRate: 0,
+        taxAmount: 0,
+        costAtSale: 50,
+        total: subtotal,
+      });
+    }
+
+    function checkout(args: {
+      customerId: string | null;
+      items: { productId: string; quantity: number; unitPrice: number; discount: number }[];
+      discountAmount: number;
+      total: number;
+      serviceChargeAmount?: number;
+    }) {
+      return {
+        mode: 'fresh' as const,
+        saleId: null,
+        customerId: args.customerId,
+        items: args.items.map(item => ({ ...item, unitId })),
+        paymentMethod: 'cash' as const,
+        payments: [],
+        amountReceived: args.total,
+        discountAmount: args.discountAmount,
+        total: args.total,
+        creditAmount: 0,
+        tipAmount: 0,
+        serviceChargeAmount: args.serviceChargeAmount ?? 0,
+        currencyCode: 'COP',
+      };
+    }
+
+    beforeAll(async () => {
+      const unit = await db
+        .select({ id: units.id })
+        .from(units)
+        .where(and(eq(units.tenantId, tenantId), eq(units.abbreviation, 'UND')))
+        .get();
+      if (!unit) throw new Error('Expected seeded unit UND');
+      unitId = unit.id;
+    });
+
+    it('freezes the role limit, margin and customer habit for the approver', async () => {
+      const previous = resolveLossPreventionSettings(db, tenantId);
+      const next = structuredClone(previous);
+      next.roles.cashier.maxDiscountPercent = 5;
+      writeLossPreventionSettings(db, tenantId, next);
+      try {
+        const cashier = await createEmployee('cashier');
+        const manager = await createEmployee('manager');
+        const taxed = await seedProduct({ price: 11_900, cost: 8_900, taxRate: 19 });
+        const untaxed = await seedProduct({ price: 6_400, cost: 4_800, taxRate: 0 });
+        const customerId = await seedCustomer();
+        await seedCompletedSale(customerId, untaxed, 21, { header: 8 });
+        // A line-only discount must count, or the median would fall to 8.
+        await seedCompletedSale(customerId, untaxed, 14, { line: 9 });
+        await seedCompletedSale(customerId, untaxed, 7, { header: 10 });
+        await seedCompletedSale(customerId, untaxed, 120, { header: 50 });
+        await seedCompletedSale(customerId, untaxed, 3, { header: 40 }, 'refunded');
+
+        const created = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+          action: 'sale_discount',
+          reason: 'Takes the whole month order today',
+          resourceType: 'sale_checkout',
+          checkoutContext: checkout({
+            customerId,
+            items: [
+              { productId: taxed, quantity: 2, unitPrice: 11_900, discount: 12 },
+              { productId: untaxed, quantity: 1, unitPrice: 6_400, discount: 0 },
+            ],
+            discountAmount: 2_856,
+            total: 27_344,
+          }),
+          summary: { label: 'checkout', amount: 2_856, currencyCode: 'COP' },
+        });
+
+        const expected = {
+          version: 1,
+          discount: { percent: 9.5, roleLimitPercent: 5 },
+          margin: { withDiscountPercent: 5.8, withoutDiscountPercent: 14.4 },
+          customer: {
+            id: customerId,
+            name: `Context customer ${customerId}`,
+            windowDays: 90,
+            purchases: 3,
+            daysPerVisit: 7,
+            usualDiscountPercent: 9,
+          },
+          ticket: { totalBefore: 30_200, total: 27_344, itemCount: 3 },
+        };
+        expect(created).not.toHaveProperty('decisionContext');
+        const queue = await appRouter
+          .createCaller(manager.fresh())
+          .managerApprovals.queue({ limit: 50 });
+        expect(queue.items.find(item => item.id === created.id)?.decisionContext).toEqual(expected);
+
+        // The stored snapshot carries no name, so anonymizing the customer reaches the queue.
+        const stored = await db
+          .select({ decisionContext: managerApprovalRequests.decisionContext })
+          .from(managerApprovalRequests)
+          .where(eq(managerApprovalRequests.id, created.id))
+          .get();
+        expect(stored?.decisionContext?.customer).not.toHaveProperty('name');
+        await db.update(customers).set({ name: '—' }).where(eq(customers.id, customerId));
+        const anonymized = await appRouter
+          .createCaller(manager.fresh())
+          .managerApprovals.queue({ limit: 50 });
+        expect(
+          anonymized.items.find(item => item.id === created.id)?.decisionContext?.customer?.name
+        ).toBe('—');
+      } finally {
+        writeLossPreventionSettings(db, tenantId, previous);
+      }
+    });
+
+    it('takes the pre-tax share of a ticket discount and omits unknown cost or foreign customers', async () => {
+      const cashier = await createEmployee('cashier');
+      const manager = await createEmployee('manager');
+      const contextOf = async (id: string) =>
+        (
+          await appRouter.createCaller(manager.fresh()).managerApprovals.queue({ limit: 50 })
+        ).items.find(item => item.id === id)?.decisionContext;
+      const taxed = await seedProduct({ price: 11_900, cost: 5_000, taxRate: 19 });
+      const free = await seedProduct({ price: 1_000, cost: 0, taxRate: 0 });
+      const foreignTenantId = nanoid();
+      const now = new Date().toISOString();
+      await db.insert(tenants).values({
+        id: foreignTenantId,
+        name: 'Foreign context tenant',
+        slug: `foreign-context-${foreignTenantId}`,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const foreignCustomer = await seedCustomer(foreignTenantId);
+
+      const headerOnly = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+        action: 'sale_discount',
+        reason: 'Ticket discount',
+        resourceType: 'sale_checkout',
+        checkoutContext: checkout({
+          customerId: foreignCustomer,
+          items: [{ productId: taxed, quantity: 1, unitPrice: 11_900, discount: 0 }],
+          discountAmount: 1_190,
+          total: 10_710,
+        }),
+        summary: { label: 'checkout', amount: 1_190, currencyCode: 'COP' },
+      });
+      // 10 000 base, 1 000 pre-tax share of the 1 190 ticket discount.
+      expect(await contextOf(headerOnly.id)).toEqual({
+        version: 1,
+        discount: { percent: 10, roleLimitPercent: 0 },
+        margin: { withDiscountPercent: 44.4, withoutDiscountPercent: 50 },
+        customer: null,
+        ticket: { totalBefore: 11_900, total: 10_710, itemCount: 1 },
+      });
+
+      // A line sold by fraction is one article even at a whole 2 kg; counted lines are their quantity.
+      const cheese = await seedProduct({
+        price: 1_000,
+        cost: 500,
+        taxRate: 0,
+        sellByFraction: true,
+      });
+      const weighed = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+        action: 'sale_discount',
+        reason: 'Weighed and counted',
+        resourceType: 'sale_checkout',
+        checkoutContext: checkout({
+          customerId: null,
+          items: [
+            { productId: taxed, quantity: 2, unitPrice: 11_900, discount: 0 },
+            { productId: cheese, quantity: 2, unitPrice: 1_000, discount: 0 },
+          ],
+          discountAmount: 2_000,
+          total: 23_800,
+        }),
+        summary: { label: 'checkout', amount: 2_000, currencyCode: 'COP' },
+      });
+      expect((await contextOf(weighed.id))?.ticket).toEqual({
+        totalBefore: 25_800,
+        total: 23_800,
+        itemCount: 3,
+      });
+
+      // A service charge is taken on the discounted base, so the sum would understate the before.
+      const withService = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+        action: 'sale_discount',
+        reason: 'Table with service',
+        resourceType: 'sale_checkout',
+        checkoutContext: checkout({
+          customerId: null,
+          items: [{ productId: taxed, quantity: 1, unitPrice: 11_900, discount: 10 }],
+          discountAmount: 1_190,
+          total: 11_781,
+          serviceChargeAmount: 1_071,
+        }),
+        summary: { label: 'checkout', amount: 1_190, currencyCode: 'COP' },
+      });
+      expect((await contextOf(withService.id))?.ticket).toEqual({
+        totalBefore: null,
+        total: 11_781,
+        itemCount: 1,
+      });
+
+      const justOver = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+        action: 'sale_discount',
+        reason: 'Slightly over the limit',
+        resourceType: 'sale_checkout',
+        checkoutContext: checkout({
+          customerId: null,
+          items: [{ productId: taxed, quantity: 1, unitPrice: 11_900, discount: 0 }],
+          discountAmount: 1_195,
+          total: 10_705,
+        }),
+        summary: { label: 'checkout', amount: 1_195, currencyCode: 'COP' },
+      });
+      // 10.04 % must not read as 10 % next to a 10 % limit.
+      expect((await contextOf(justOver.id))?.discount?.percent).toBe(10.1);
+
+      const unknownCost = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+        action: 'sale_discount',
+        reason: 'Gift with purchase',
+        resourceType: 'sale_checkout',
+        checkoutContext: checkout({
+          customerId: null,
+          items: [
+            { productId: taxed, quantity: 1, unitPrice: 11_900, discount: 0 },
+            { productId: free, quantity: 1, unitPrice: 1_000, discount: 100 },
+          ],
+          discountAmount: 1_000,
+          total: 11_900,
+        }),
+        summary: { label: 'checkout', amount: 1_000, currencyCode: 'COP' },
+      });
+      expect((await contextOf(unknownCost.id))?.margin).toBeNull();
+
+      const drawer = await appRouter
+        .createCaller(cashier.fresh())
+        .managerApprovals.request(requestInput('cash_drawer_open'));
+      expect(await contextOf(drawer.id)).toBeNull();
     });
   });
 
@@ -574,12 +915,20 @@ describe('manager approvals router', () => {
       .createCaller(cashier.fresh())
       .managerApprovals.request(requestInput('credit_sale'));
 
+    const broadcast = vi.spyOn(server.app.sse, 'broadcast');
     const decided = await appRouter.createCaller(cashier.fresh()).managerApprovals.decideWithPin({
       requestId: request.id,
       approverId: manager.id,
       pin: '864209',
       decision: 'approved',
     });
+    // Other owner phones drop the card at once instead of on the next poll.
+    expect(broadcast).toHaveBeenCalledWith(
+      'companion.invalidated',
+      expect.objectContaining({ scope: 'operations' }),
+      tenantId
+    );
+    broadcast.mockRestore();
     expect(decided).toMatchObject({
       id: request.id,
       status: 'approved',

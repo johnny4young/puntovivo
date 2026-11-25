@@ -2,7 +2,8 @@
  * SplitBillModal.
  *
  * Lets a manager/admin carve a subset of items out of a suspended
- * draft into a brand-new suspended draft. Wires the server-side
+ * draft into a brand-new suspended draft. Restaurant checks split in
+ * `RestaurantSplitSheet` instead. Wires the server-side
  * `sales.splitDraft` mutation that lands in the same slice.
  *
  * Reads `sales.getById` for the source draft's items (no new read
@@ -23,7 +24,7 @@ import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
-import { invalidateCommittedGroups } from '@/lib/invalidateGroups';
+import { invalidateCommittedGroups, RESTAURANT_TABLE_INVALIDATIONS } from '@/lib/invalidateGroups';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
@@ -65,9 +66,7 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
   // again. Default selection: empty (operator must opt in to each
   // line). Default target: "Misma mesa" (keep the same FK as the
   // source) — that's the most common restaurant flow ("split the
-  // check, leave the table assignment alone"). A table-backed normalized
-  // check intentionally has no clear-table option because the server keeps a
-  // live restaurant account attached to a physical table.
+  // check, leave the table assignment alone").
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(() => new Set());
   const [selectedTableValue, setSelectedTableValue] = useState<string>(() =>
     draft?.tableId ? SAME_TABLE_VALUE : CLEAR_TABLE_VALUE
@@ -88,8 +87,7 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
       onClose();
       const refreshed = await invalidateCommittedGroups(utils, [
         u => u.sales.listDrafts,
-        u => u.restaurantTables.listWithDraftStatus,
-        u => u.restaurantServices.getTableState,
+        ...RESTAURANT_TABLE_INVALIDATIONS,
       ]);
       if (refreshed) {
         toast.success({ title: successTitle });
@@ -305,11 +303,6 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
                 <option value={CLEAR_TABLE_VALUE}>{t('restaurants:split.clearOption')}</option>
               )}
               {tables.map(row => {
-                // A normalized check shares service-level diners with every
-                // account at its table. Moving only selected lines to another
-                // table would invent a party allocation the operator never
-                // supplied, so keep that split inside the current service.
-                if (draft.hasRestaurantCheck) return null;
                 const isSource = row.id === draft.tableId;
                 const isOccupiedElsewhere = !isSource && row.openDraft !== null;
                 const suffix = isSource
@@ -324,14 +317,6 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
                 );
               })}
             </select>
-          )}
-          {draft.hasRestaurantCheck && (
-            <p
-              className="mt-2 text-xs text-secondary-600"
-              data-testid="split-modal-same-table-hint"
-            >
-              {t('restaurants:split.sameTableOnlyHint')}
-            </p>
           )}
         </div>
 

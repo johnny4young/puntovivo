@@ -24,6 +24,7 @@ describe('ReceiptShareSection', () => {
     render(<ReceiptShareSection saleId="sale-1" />);
 
     expect(screen.queryByText('Customer share review')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Share receipt')).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Share receipt' }));
     expect(screen.getByText('Customer share review')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Close review' }));

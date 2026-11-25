@@ -1,8 +1,13 @@
 import type { ComponentProps } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { render } from '@/test/utils';
 import { SalesHeaderSection } from '@/features/sales/SalesHeaderSection';
+
+const zones = vi.hoisted(() => ({ quote: true }));
+vi.mock('@/features/modules/useRegisterZone', () => ({
+  useRegisterZone: (zone: string) => zone !== 'quote-delivery' || zones.quote,
+}));
 
 vi.mock('@/features/sales/PaceToggleButton', () => ({
   PaceToggleButton: () => null,
@@ -31,6 +36,16 @@ function renderHeader(overrides: Partial<ComponentProps<typeof SalesHeaderSectio
 }
 
 describe('SalesHeaderSection', () => {
+  beforeEach(() => {
+    zones.quote = true;
+  });
+
+  it('leaves out the parked-sales key when the register does not park sales', () => {
+    renderHeader({ onOpenSuspended: undefined });
+    expect(screen.queryByTestId('sales-open-suspended')).not.toBeInTheDocument();
+    expect(screen.getByTestId('sales-open-history')).toBeInTheDocument();
+  });
+
   it('names the register, the cashier and the site', () => {
     renderHeader({ status: <span data-testid="status-slot" /> });
 
@@ -45,6 +60,17 @@ describe('SalesHeaderSection', () => {
   it('says so when no register is open', () => {
     renderHeader({ registerName: null });
     expect(screen.getByTestId('sales-register-identity')).toHaveTextContent('No open cash session');
+    expect(screen.getByTestId('sales-register-state')).toHaveTextContent('Register closed');
+    expect(screen.getByTestId('sales-register-state')).not.toHaveClass('is-open');
+  });
+
+  it('gives phones a register state pill that keeps the register name as its title', () => {
+    renderHeader();
+    const pill = screen.getByTestId('sales-register-state');
+    expect(pill).toHaveTextContent('Register open');
+    expect(pill).toHaveClass('is-open', 'md:hidden');
+    expect(pill).toHaveAttribute('title', 'Register 2');
+    expect(screen.getByTestId('sales-register-identity')).toHaveClass('max-md:hidden');
   });
 
   it('advertises the suspended-sales shortcut only when a draft can be opened', () => {
@@ -71,9 +97,51 @@ describe('SalesHeaderSection', () => {
     expect(screen.queryByTestId('sales-price-tier')).not.toBeInTheDocument();
   });
 
+  const quotationWorkspace = (overrides: Record<string, unknown> = {}) =>
+    ({
+      sourceQuotationNumber: 'COT-000042',
+      sourceQuotationValidUntil: null,
+      items: [],
+      ...overrides,
+    }) as never;
+
   it('shows the accepted-quotation lock', () => {
-    renderHeader({ activeWorkspace: { sourceQuotationNumber: 'COT-000042' } as never });
-    expect(screen.getByTestId('quotation-cart-banner')).toHaveTextContent('COT-000042');
+    renderHeader({ activeWorkspace: quotationWorkspace() });
+    const banner = screen.getByTestId('quotation-cart-banner');
+    expect(banner).toHaveTextContent('From quotation COT-000042 · prices and terms locked');
+    // No end date, no serial lines: nothing else to say.
+    expect(screen.queryByTestId('quotation-cart-expiry')).not.toBeInTheDocument();
+    expect(banner).not.toHaveTextContent('serials');
+  });
+
+  it('says how many days the quotation still holds, and asks for serials only when needed', () => {
+    const validUntil = new Date();
+    validUntil.setDate(validUntil.getDate() + 4);
+    renderHeader({
+      activeWorkspace: quotationWorkspace({
+        sourceQuotationValidUntil: validUntil.toISOString(),
+        items: [{ tracksSerials: true }],
+      }),
+    });
+    expect(screen.getByTestId('quotation-cart-expiry')).toHaveTextContent('expires in 4 days');
+    expect(screen.getByTestId('quotation-cart-banner')).toHaveTextContent(
+      'Select the required serials before charging.'
+    );
+  });
+
+  it('marks a quotation past its last day as expired', () => {
+    const validUntil = new Date();
+    validUntil.setDate(validUntil.getDate() - 1);
+    renderHeader({
+      activeWorkspace: quotationWorkspace({ sourceQuotationValidUntil: validUntil.toISOString() }),
+    });
+    expect(screen.getByTestId('quotation-cart-expiry')).toHaveTextContent('expired');
+  });
+
+  it('leaves out the quotation banner while the quotation zone is off', () => {
+    zones.quote = false;
+    renderHeader({ activeWorkspace: quotationWorkspace() });
+    expect(screen.queryByTestId('quotation-cart-banner')).not.toBeInTheDocument();
   });
 
   it('offers the customer display action only when the module is active', () => {

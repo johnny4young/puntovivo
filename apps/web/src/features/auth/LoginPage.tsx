@@ -172,7 +172,10 @@ export function LoginPage() {
                     </div>
                   ) : (
                     errorMessage && (
-                      <div className="rounded-[11px] border border-danger-500/20 bg-danger-50 px-4 py-3 text-sm text-danger-700">
+                      <div
+                        role="alert"
+                        className="rounded-[11px] border border-danger-500/20 bg-danger-50 px-4 py-3 text-sm text-danger-700"
+                      >
                         {errorMessage}
                       </div>
                     )

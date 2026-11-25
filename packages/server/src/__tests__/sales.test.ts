@@ -14,6 +14,7 @@ import {
   fiscalNumberingResolutions,
   inventoryBalances,
   inventoryMovements,
+  paymentOutbox,
   products,
   productTaxComponents,
   salePayments,
@@ -458,8 +459,10 @@ describe('Sales tRPC Router', () => {
     expect(result.paymentStatus).toBe('paid');
     expect(result.subtotal).toBeCloseTo(20);
     expect(result.taxAmount).toBeCloseTo(3.8);
-    expect(result.total).toBeCloseTo(23.8);
-    expect(result.change).toBeCloseTo(6.2);
+    // A COP tenant charges whole pesos; the 0.20 lives on the rounding adjustment.
+    expect(result.total).toBe(24);
+    expect(result.roundingAdjustment).toBe(0.2);
+    expect(result.change).toBe(6);
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toMatchObject({
       productId,
@@ -639,6 +642,73 @@ describe('Sales tRPC Router', () => {
         amountReceived: 127,
       })
     ).rejects.toMatchObject({ cause: { errorCode: 'TAX_COMPONENTS_INVALID' } });
+  });
+
+  it('reads sale lines back in the order the cashier rang them up', async () => {
+    const db = getDatabase();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Ordered Lines Product',
+      sku: 'ORDER-LINES-01',
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 4,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 4,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 100,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext());
+    const rungUp = [5, 1, 4, 2, 3, 6];
+    const created = await caller.sales.create({
+      items: rungUp.map(quantity => ({
+        productId,
+        unitId: baseUnitId,
+        quantity,
+        unitPrice: 10,
+        discount: 0,
+      })),
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'completed',
+      discountAmount: 0,
+    });
+
+    const read = await caller.sales.getById({ id: created.id });
+    expect(read.items?.map(item => item.quantity)).toEqual(rungUp);
   });
 
   it('rejects sales that exceed available stock across repeated lines for the same product', async () => {
@@ -1528,6 +1598,7 @@ describe('Sales tRPC Router', () => {
       status: 'completed',
       amountReceived: 36,
       discountAmount: 0,
+      notes: 'Entregar en bodega',
     });
 
     const summaryBeforeRefund = await caller.sales.summary();
@@ -1544,7 +1615,8 @@ describe('Sales tRPC Router', () => {
     expect(refunded.returnState).toBe('refunded');
     expect(refunded.returnReason).toBe('Items returned');
     expect(refunded.refundAmount).toBeCloseTo(created.total);
-    expect(refunded.notes).toContain('Refunded: Items returned');
+    // The reason lives on the return; the cashier's note stays as written.
+    expect(refunded.notes).toBe('Entregar en bodega');
 
     const storedRefund = await db
       .select()
@@ -2238,6 +2310,67 @@ describe('Sales tRPC Router', () => {
       // Cash session balance should rise by exactly the cash tender (15),
       // not the full total (50) or the transfer piece.
       expect(sessionAfter?.expected).toBeCloseTo((sessionBefore?.expected ?? 0) + 15);
+    });
+
+    it('links an approved register wallet charge to the transfer tender it paid', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const db = getDatabase();
+      const productId = await createPaymentTestProduct({
+        name: 'Payment Wallet Link',
+        sku: 'PAY-WALLET',
+        barcode: 'PAY-10007',
+        price: 42,
+        stock: 5,
+      });
+      const charge = (status: 'approved' | 'submitting', providerTransactionId: string) => ({
+        id: nanoid(),
+        tenantId,
+        railId: 'nequi' as const,
+        kind: 'charge' as const,
+        status,
+        amount: 42,
+        reference: `pv-${providerTransactionId}`,
+        providerTransactionId,
+        payload: { source: 'register' },
+      });
+      const approved = charge('approved', 'nequi_link_ok');
+      const pending = charge('submitting', 'nequi_link_pending');
+      await db.insert(paymentOutbox).values([approved, pending]);
+
+      const sale = await caller.sales.create({
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 42, discount: 0 }],
+        paymentMethod: 'transfer',
+        paymentStatus: 'paid',
+        status: 'completed',
+        discountAmount: 0,
+        payments: [{ method: 'transfer', amount: 42, reference: 'nequi_link_ok' }],
+      });
+      const tender = await db
+        .select({ id: salePayments.id })
+        .from(salePayments)
+        .where(eq(salePayments.saleId, sale.id))
+        .get();
+      const linked = await db
+        .select({ salePaymentId: paymentOutbox.salePaymentId })
+        .from(paymentOutbox)
+        .where(eq(paymentOutbox.id, approved.id))
+        .get();
+      expect(linked?.salePaymentId).toBe(tender?.id);
+
+      await caller.sales.create({
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 42, discount: 0 }],
+        paymentMethod: 'transfer',
+        paymentStatus: 'paid',
+        status: 'completed',
+        discountAmount: 0,
+        payments: [{ method: 'transfer', amount: 42, reference: 'nequi_link_pending' }],
+      });
+      const unlinked = await db
+        .select({ salePaymentId: paymentOutbox.salePaymentId })
+        .from(paymentOutbox)
+        .where(eq(paymentOutbox.id, pending.id))
+        .get();
+      expect(unlinked?.salePaymentId).toBeNull();
     });
 
     it('sales.getById returns the payments array for split and legacy sales', async () => {

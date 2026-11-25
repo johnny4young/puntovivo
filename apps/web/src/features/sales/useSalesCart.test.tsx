@@ -58,6 +58,22 @@ describe('useSalesCart clear cart', () => {
       customerName: null,
     });
   });
+
+  it('drops the delivery mark once the ticket is emptied', async () => {
+    const { result } = renderSalesCart();
+    await waitFor(() => expect(result.current.activeWorkspace).not.toBeNull());
+    const id = result.current.activeWorkspace!.id;
+    act(() => result.current.setCartItems([sampleItem()]));
+    act(() => useCartWorkspaceStore.getState().setDeliveryRequested(id, true));
+
+    act(() => result.current.handleRemoveItem('product-1:unit-1'));
+    expect(useCartWorkspaceStore.getState().workspaces[id]?.deliveryRequested).toBe(false);
+
+    act(() => result.current.setCartItems([sampleItem()]));
+    act(() => useCartWorkspaceStore.getState().setDeliveryRequested(id, true));
+    act(() => result.current.handleClearCart());
+    expect(useCartWorkspaceStore.getState().workspaces[id]?.deliveryRequested).toBe(false);
+  });
 });
 
 describe('useSalesCart locked-workspace mutations', () => {
@@ -116,14 +132,49 @@ describe('useSalesCart locked-workspace mutations', () => {
     ).toBe(1);
 
     act(() =>
-      hook.result.current.handleSerialSelectionChange(
-        quotationLine.key,
-        ['serial-1'],
-        'site-1'
-      )
+      hook.result.current.handleSerialSelectionChange(quotationLine.key, ['serial-1'], 'site-1')
     );
     expect(
       useCartWorkspaceStore.getState().workspaces[quotationWorkspaceId]?.items[0]
     ).toMatchObject({ quantity: 1, serialIds: ['serial-1'], serialSiteId: 'site-1' });
+  });
+});
+
+describe('useSalesCart unit change', () => {
+  beforeEach(() => {
+    useCartWorkspaceStore.getState().resetAllWorkspaces();
+    localStorage.clear();
+  });
+
+  const units = [
+    { unitId: 'unit-1', unitName: 'Unit', equivalence: 1, price: 100, isBase: true },
+    { unitId: 'box', unitName: 'Box', equivalence: 10, price: 900, isBase: false },
+  ];
+
+  it('moves the line to the new unit and selects it, merging into a line already there', async () => {
+    const { result } = renderSalesCart();
+    await waitFor(() => expect(result.current.activeWorkspace).not.toBeNull());
+    act(() =>
+      result.current.setCartItems([
+        sampleItem({ quantity: 20, unitOptions: units }),
+        sampleItem({
+          key: 'product-1:box',
+          unitId: 'box',
+          unitName: 'Box',
+          unitEquivalence: 10,
+          unitPrice: 900,
+          catalogUnitPrice: 900,
+          quantity: 1,
+          unitOptions: units,
+        }),
+      ])
+    );
+
+    act(() => result.current.handleUnitChange('product-1:unit-1', 'box'));
+
+    expect(result.current.cartItems).toEqual([
+      expect.objectContaining({ key: 'product-1:box', quantity: 3, unitPrice: 900 }),
+    ]);
+    expect(result.current.activeSelectedCartItemKey).toBe('product-1:box');
   });
 });

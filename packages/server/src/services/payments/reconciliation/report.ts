@@ -4,12 +4,13 @@
  * @module services/payments/reconciliation/report
  */
 
-import { and, eq, gte } from 'drizzle-orm';
+import { and, eq, gte, not } from 'drizzle-orm';
 import { paymentOutbox, salePayments } from '../../../db/schema.js';
 import type { PaymentOutboxStatus, PaymentRailId } from '../../../db/schema.js';
 import type { DatabaseInstance } from '../../../db/index.js';
 import { roundMoney } from '../../../lib/money.js';
 import { PAYMENT_RAIL_IDS } from '../manifest.js';
+import { isCancelledByRegister } from '../wallet-confirmation.js';
 import {
   AMOUNT_EPSILON,
   PROVIDER_ISSUE_STATUSES,
@@ -87,7 +88,14 @@ export async function getPaymentReconciliation(
   const rows = await db
     .select()
     .from(paymentOutbox)
-    .where(and(eq(paymentOutbox.tenantId, tenantId), gte(paymentOutbox.createdAt, since)))
+    .where(
+      and(
+        eq(paymentOutbox.tenantId, tenantId),
+        gte(paymentOutbox.createdAt, since),
+        // A charge the register left was never money owed to the store.
+        not(isCancelledByRegister())
+      )
+    )
     .all();
 
   const rowsBySalePayment = new Map<string, PaymentOutboxRow[]>();

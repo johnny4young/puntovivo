@@ -1,0 +1,36 @@
+name: Bug report / Reporte de error
+description: Something does not work as expected / Algo no funciona como se espera
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: Steps to reproduce / Pasos para reproducir
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Expected behavior / Comportamiento esperado
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Actual behavior / Comportamiento actual
+      description: Attach screenshots or a recording if you can / Adjunte capturas o una grabación si puede
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Puntovivo version / Versión de Puntovivo
+      placeholder: 1.20.0
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Operating system / Sistema operativo
+      options: [Windows, macOS, Linux, Web]
+    validations:
+      required: true

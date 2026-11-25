@@ -101,6 +101,9 @@ export const sales = sqliteTable(
     taxAmount: real('tax_amount').notNull().default(0),
     discountAmount: real('discount_amount').notNull().default(0),
     total: real('total').notNull().default(0),
+    // total minus the 2-decimal gross (subtotal + tax - discount + tip +
+    // service): what rounding to the currency's payable unit added or removed.
+    roundingAdjustment: real('rounding_adjustment').notNull().default(0),
     // multi-currency seam. `currencyCode` is the currency
     // the sale was priced in (subtotal/taxAmount/tipAmount/total are
     // all denominated in it). `exchangeRateAtSale` is the factor that
@@ -170,6 +173,10 @@ export const sales = sqliteTable(
       onDelete: 'set null',
     }),
     suspendedLabel: text('suspended_label'),
+    // Left for the next business day at the close. Counts only while it is not
+    // older than suspendedAt, so parking the draft again clears the decision.
+    carriedOverAt: text('carried_over_at'),
+    carriedOverBy: text('carried_over_by').references(() => users.id),
     // receipt reprint counters. Incremented inside
     // `sales.getForReprint`; the audit trail lives in `audit_logs` as
     // one `sale.reprint` row per invocation.
@@ -271,6 +278,9 @@ export const salesRelations = relations(sales, ({ one, many }) => ({
 // CASH SESSIONS
 // ============================================================================
 
+export const cashDifferenceReasonEnum = ['wrong_change', 'unrecorded_withdrawal', 'other'] as const;
+export type CashDifferenceReason = (typeof cashDifferenceReasonEnum)[number];
+
 /** A cash session tracks the opening float, running expected balance, and reconciliation state for a cashier on a specific register/site. */
 export const cashSessions = sqliteTable(
   'cash_sessions',
@@ -306,6 +316,11 @@ export const cashSessions = sqliteTable(
     // materialized at close so the private HUD can read a
     // personal best without rescanning all historical sale items.
     paceItemsPerMinute: real('pace_items_per_minute'),
+    // A manager's explanation of a non-zero over/short after the close.
+    differenceReason: text('difference_reason', { enum: cashDifferenceReasonEnum }),
+    differenceNote: text('difference_note'),
+    differenceExplainedBy: text('difference_explained_by').references(() => users.id),
+    differenceExplainedAt: text('difference_explained_at'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },

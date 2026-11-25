@@ -18,6 +18,11 @@ import { extractServerErrorCode, translateServerError } from '@/lib/translateSer
 import { trpc } from '@/lib/trpc';
 import type { ProductSearchItem } from '@/types';
 
+/** One token with a digit: barcodes and presentation codes, never a product name. */
+export function isCodeShaped(text: string): boolean {
+  return /^\S+$/.test(text) && /\d/.test(text);
+}
+
 /** Functional or value update for the active cart, mirroring SalesPage's `setCartItems` wrapper. */
 type SetCartItemsArg = SaleCartItem[] | ((previous: SaleCartItem[]) => SaleCartItem[]);
 
@@ -81,12 +86,13 @@ export function useBarcodeProductScanner({
   const utils = trpc.useUtils();
   const { currentSite } = useTenant();
 
-  const handleBarcodeScan = useCallback(
-    async (rawCode: string) => {
-      if (!currentSite) return;
+  /** Resolves false only for a typed code that matched nothing, so the caller can search. */
+  const addByCode = useCallback(
+    async (rawCode: string, typed: boolean): Promise<boolean> => {
+      if (!currentSite) return true;
       if (isResumedCart) {
         toast.info({ title: t('sales:scanner.resumedCartLocked') });
-        return;
+        return true;
       }
       // A fast `3*` right before the scan lands in the same burst; the bar already took the quantity.
       const code = parseQuantityPrefix(rawCode)?.rest || rawCode;
@@ -99,9 +105,10 @@ export function useBarcodeProductScanner({
           { retry: false }
         );
         if (!result) {
+          if (typed) return false;
           playScanError();
           toast.warning({ title: t('sales:scanner.notFound') });
-          return;
+          return true;
         }
         // The tRPC output carries SQLite-shaped nullable fields where the
         // ProductSearchItem domain type expects non-null booleans. The
@@ -117,13 +124,13 @@ export function useBarcodeProductScanner({
         if (!resolved) {
           playScanError();
           toast.error({ title: t('sales:scanner.noBaseUnit') });
-          return;
+          return true;
         }
         const { selection, quantityOverride: labelQuantity } = resolved;
         // A weight label states its own quantity, so the typed one waits for the next read.
         const commandQuantity =
           labelQuantity === null ? (takePendingQuantity?.(product) ?? null) : null;
-        if (commandQuantity === 'rejected') return;
+        if (commandQuantity === 'rejected') return true;
         const overrideQuantity = labelQuantity ?? commandQuantity;
         const overridePrice = result.suggestedPrice;
         const itemKey = getBarcodeCartItemKey(selection, overridePrice);
@@ -142,17 +149,22 @@ export function useBarcodeProductScanner({
         } else if (overridePrice !== null) {
           toast.success({ title: t('sales:scanner.priceFromLabel') });
         }
+        return true;
       } catch (error) {
+        const invalidCheckDigit = extractServerErrorCode(error) === 'GS1_CHECK_DIGIT_INVALID';
+        // Typed text that only looks like a code may still be a product name or SKU.
+        if (typed && invalidCheckDigit) return false;
         playScanError();
-        if (extractServerErrorCode(error) === 'GS1_CHECK_DIGIT_INVALID') {
+        if (invalidCheckDigit) {
           toast.warning({ title: translateServerError(error, t, t('sales:scanner.notFound')) });
-          return;
+          return true;
         }
         const fallback = t('sales:scanner.lookupFailed');
         toast.error({
           title: fallback,
           description: translateServerError(error, t, fallback),
         });
+        return true;
       }
     },
     [
@@ -172,6 +184,26 @@ export function useBarcodeProductScanner({
     ]
   );
 
+  const handleBarcodeScan = useCallback(
+    async (rawCode: string) => {
+      await addByCode(rawCode, false);
+    },
+    [addByCode]
+  );
+
+  /**
+   * A code typed by hand and confirmed with Enter adds like a scan, keeping
+   * the presentation its code names; false means search for the text instead.
+   */
+  const handleTypedCode = useCallback(
+    (query: string): Promise<boolean> => {
+      const code = query.trim();
+      if (!isCodeShaped(code)) return Promise.resolve(false);
+      return addByCode(code, true);
+    },
+    [addByCode]
+  );
+
   useBarcodeWedgeListener({
     config: scannerConfig,
     onScan: handleBarcodeScan,
@@ -187,4 +219,6 @@ export function useBarcodeProductScanner({
     // resets the buffer before it reaches `minLength`.
     scannerInputRef: productInputRef,
   });
+
+  return { handleBarcodeScan, handleTypedCode };
 }

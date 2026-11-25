@@ -48,6 +48,7 @@ interface MockProduct {
 }
 
 let mockSiteId: string | null = 'site-1';
+let mockLoadingSites = false;
 let mockProducts: MockProduct[] = [];
 let mockCategories: Array<{ id: string; name: string }> = [];
 let mockCustomers: Array<{
@@ -235,6 +236,7 @@ vi.mock('@/lib/trpc', () => ({
       },
       restaurantTables: {
         listWithDraftStatus: { invalidate: vi.fn() },
+        listSummary: { invalidate: vi.fn() },
       },
       restaurantServices: {
         getTableState: { invalidate: vi.fn() },
@@ -284,6 +286,7 @@ vi.mock('@/features/tenant/TenantProvider', () => ({
   useTenant: () => ({
     currentTenant: { id: 'tenant-1', name: 'Tenant 1' },
     currentSite: mockSiteId ? { id: mockSiteId, name: 'Site 1' } : null,
+    isLoadingSites: mockLoadingSites,
     tenantSettings: { currency: 'USD' },
   }),
 }));
@@ -299,6 +302,11 @@ vi.mock('@/hooks/useEmbeddedServerState', () => ({
 
 vi.mock('@/features/modules', () => ({
   useIsModuleActive: () => mockDineInActive,
+}));
+
+const zones = vi.hoisted(() => ({ weightValue: true }));
+vi.mock('@/features/modules/useRegisterZone', () => ({
+  useRegisterZone: (zone: string) => zone !== 'weight-value' || zones.weightValue,
 }));
 
 function makeProduct(overrides: Partial<MockProduct> = {}): MockProduct {
@@ -357,11 +365,13 @@ describe('PosTouchScreen', () => {
     vi.clearAllMocks();
     await i18next.changeLanguage('en');
     mockSiteId = 'site-1';
+    mockLoadingSites = false;
     mockActiveSession = { id: 'session-1' };
     mockQuickKeys = [];
     mockQuickKeysLoading = false;
     mockDineInActive = true;
     productFetchOverride = null;
+    zones.weightValue = true;
     mockCustomers = [];
     mockInvoiceAvailability = { available: false, identificationTypes: [] };
     mockProducts = [
@@ -396,6 +406,14 @@ describe('PosTouchScreen', () => {
     mockSiteId = null;
     render(<PosTouchScreen />);
     expect(screen.getByTestId('pos-touch-no-site')).toBeInTheDocument();
+    expect(screen.getByTestId('pos-touch-till-link')).toHaveAttribute('href', '/sales');
+  });
+
+  it('waits for sites instead of warning that none is active', () => {
+    mockSiteId = null;
+    mockLoadingSites = true;
+    render(<PosTouchScreen />);
+    expect(screen.queryByTestId('pos-touch-no-site')).not.toBeInTheDocument();
   });
 
   it('declares a two-track grid so the cart renders as a right rail', () => {
@@ -413,6 +431,8 @@ describe('PosTouchScreen', () => {
     expect(screen.getByTestId('pos-touch-cart-charge-hint')).toHaveTextContent(
       'Open the cash register'
     );
+    expect(screen.getByTestId('pos-touch-till-link')).toHaveAttribute('href', '/sales');
+    expect(screen.getByTestId('pos-touch-till-link')).toHaveTextContent('Till and shift');
   });
 
   it('hides voice ordering when dine-in is disabled', () => {
@@ -554,6 +574,86 @@ describe('PosTouchScreen', () => {
     const line = await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
     expect(within(line).getByText(/Arroz Diana 500g/)).toBeInTheDocument();
     expect(toastSuccess).toHaveBeenCalledWith({ title: 'Added Arroz Diana 500g to the cart' });
+  });
+
+  describe('by-weight products', () => {
+    beforeEach(() => {
+      mockProducts = [
+        makeProduct({
+          id: 'p-kg',
+          name: 'Queso costeño',
+          price: 24000,
+          price2: 24000,
+          price3: 24000,
+          sellByFraction: true,
+        }),
+      ];
+      productFetchOverride = async ({ id }) => {
+        const product = hydrateProductForTest(id);
+        const [unit] = product.unitAssignments as Array<Record<string, unknown>>;
+        return {
+          ...product,
+          fractionStep: 0.001,
+          fractionMinimum: 0.05,
+          unitAssignments: [
+            { ...unit, unitName: 'kg', unitDimension: 'mass', unitReferenceFactor: 1000 },
+          ],
+        };
+      };
+    });
+
+    it('asks how much it weighed and corrects the same line', async () => {
+      const user = userEvent.setup();
+      render(<PosTouchScreen />);
+      await user.click(screen.getByTestId('pos-touch-tile-p-kg'));
+
+      const panel = await screen.findByTestId('weighed-item-panel');
+      expect(panel).toHaveTextContent('Queso costeño · how much did it weigh?');
+      expect(screen.getByTestId('pos-touch-tile-p-kg')).toHaveAttribute('data-weighing', 'true');
+      expect(screen.queryByTestId('pos-touch-cart-line-p-kg:p-kg-unit-1')).not.toBeInTheDocument();
+
+      await user.click(screen.getByTestId('weighed-item-preset-0.25'));
+      expect(screen.getByTestId('weighed-item-readout')).toHaveTextContent('0.250 kg = $6,000');
+      await user.click(screen.getByTestId('weighed-item-preset-0.5'));
+      const line = screen.getByTestId('pos-touch-cart-line-p-kg:p-kg-unit-1');
+      expect(line).toHaveTextContent('0.5 kg');
+      expect(toastSuccess).not.toHaveBeenCalled();
+
+      await user.click(screen.getByTestId('pos-touch-cart-charge'));
+      const call = createMutate.mock.calls.at(0)?.at(0) as { items: Array<{ quantity: number }> };
+      expect(call.items).toEqual([expect.objectContaining({ quantity: 0.5 })]);
+      expect(screen.queryByTestId('weighed-item-panel')).not.toBeInTheDocument();
+    });
+
+    it('closes the panel when its line is removed', async () => {
+      const user = userEvent.setup();
+      render(<PosTouchScreen />);
+      await user.click(screen.getByTestId('pos-touch-tile-p-kg'));
+      await user.click(await screen.findByTestId('weighed-item-preset-1'));
+      await user.click(screen.getByTestId('pos-touch-cart-line-p-kg:p-kg-unit-1-remove'));
+      expect(screen.queryByTestId('weighed-item-panel')).not.toBeInTheDocument();
+    });
+
+    it('closes an untouched panel when the ticket is cleared', async () => {
+      mockProducts.push(makeProduct({ id: 'p-1', name: 'Arroz Diana 500g' }));
+      const user = userEvent.setup();
+      render(<PosTouchScreen />);
+      await user.click(screen.getByTestId('pos-touch-tile-p-1'));
+      await user.click(screen.getByTestId('pos-touch-tile-p-kg'));
+      expect(await screen.findByTestId('weighed-item-panel')).toBeInTheDocument();
+      await user.click(screen.getByTestId('pos-touch-cart-clear'));
+      expect(screen.queryByTestId('weighed-item-panel')).not.toBeInTheDocument();
+    });
+
+    it('adds the minimum as before while the weight and value zone is off', async () => {
+      zones.weightValue = false;
+      const user = userEvent.setup();
+      render(<PosTouchScreen />);
+      await user.click(screen.getByTestId('pos-touch-tile-p-kg'));
+      const line = await screen.findByTestId('pos-touch-cart-line-p-kg:p-kg-unit-1');
+      expect(line).toHaveTextContent('0.05 kg');
+      expect(screen.queryByTestId('weighed-item-panel')).not.toBeInTheDocument();
+    });
   });
 
   it('opens on the site keys and sells a key by tap or by amount', async () => {
@@ -869,6 +969,7 @@ describe('PosTouchScreen', () => {
     expect(screen.getByTestId('pos-touch-cart-line-p-1:p-1-unit-1-remove')).toBeDisabled();
     expect(screen.getByTestId('pos-touch-cart-clear')).toBeDisabled();
     expect(screen.getByTestId('pos-touch-voice-link')).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByTestId('pos-touch-till-link')).toHaveAttribute('aria-disabled', 'true');
     expect(createMutate).toHaveBeenCalledTimes(1);
 
     await act(async () => {

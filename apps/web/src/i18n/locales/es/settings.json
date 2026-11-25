@@ -234,13 +234,13 @@
     },
     "logo": {
       "title": "Biblioteca de logos",
-      "description": "Gestione logos reutilizables del tenant y elija cuál representa a la empresa.",
+      "description": "Gestione logos reutilizables de la empresa y elija cuál representa a la empresa.",
       "addLogo": "Agregar logo",
       "currentLogo": "Logo actual de la empresa",
       "selectedLogo": "Logo seleccionado",
       "noLogoSelected": "No hay logo seleccionado para la empresa.",
       "loadingTitle": "Biblioteca de logos",
-      "loadingDescription": "Cargando logos guardados del tenant.",
+      "loadingDescription": "Cargando logos guardados de la empresa.",
       "loadError": "No se pudieron cargar los logos",
       "emptyLibrary": "Aún no hay logos guardados. Agregue uno para comenzar a construir una biblioteca de marca reutilizable.",
       "companyAssignments_one": "{{count}} asignación de empresa",
@@ -633,6 +633,9 @@
       "blindLabel": "Cierre ciego",
       "blindOnHint": "Los cajeros cuentan sin ver el saldo esperado; gerentes y administradores ven el indicador de sobrante o faltante en vivo.",
       "blindOffHint": "Todos los roles ven el indicador de sobrante o faltante en vivo mientras cuentan.",
+      "cashRoundingLabel": "Redondear efectivo a múltiplos de {{step}}",
+      "cashRoundingOnHint": "Los cobros en efectivo se redondean al múltiplo de {{step}} para cuadrar con monedas físicas; tarjeta y transferencia siguen al peso exacto.",
+      "cashRoundingOffHint": "Todos los cobros usan la unidad exacta de la moneda sin ajuste a moneda física.",
       "sessionNote": "Los cambios llegan a cada registro en el próximo inicio de sesión o al refrescar la página.",
       "toast": {
         "saved": "Ajustes de cierre de caja guardados",
@@ -872,7 +875,7 @@
       "roleDescriptions": {
         "admin": "Configuración completa, controles financieros, personal y operación diaria.",
         "manager": "Operación diaria, catálogo, inventario, compras y clientes.",
-        "cashier": "Ventas y superficies de punto de venta habilitadas.",
+        "cashier": "Ventas y pantallas de caja habilitadas.",
         "viewer": "Acceso de solo lectura al resumen del panel."
       },
       "note": "Esta matriz muestra el acceso predeterminado a espacios de trabajo. Los módulos activos pueden ocultar herramientas individuales y el servidor siempre valida la autorización de cada acción."

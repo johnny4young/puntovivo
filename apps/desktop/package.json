@@ -50,6 +50,7 @@
     "@electron-stagewright/host-supervisor": "0.2.0",
     "@electron/rebuild": "4.2.0",
     "@puntovivo/server": "workspace:*",
+    "@serialport/bindings-cpp": "^13.0.1",
     "archiver": "^8.0.0",
     "electron-updater": "^6.8.11",
     "sanitize-html": "^2.18.1",

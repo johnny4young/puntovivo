@@ -43,6 +43,11 @@ export { getDatabase, type DatabaseInstance } from './db/index.js';
 // the same immutable audit table as server-side sensitive operations.
 export { writeAuditLog, type WriteAuditLogArgs } from './services/audit-logs.js';
 export { SseManager, type SseClient } from './realtime/sse.js';
+// Main publishes scheduled-snapshot outcomes under this key for the owner's phone.
+export {
+  BACKUP_STATUS_SETTING_KEY,
+  readBackupStatus,
+} from './services/operations/backup-status.js';
 export type { AppRouter } from './trpc/router.js';
 // `desktopSession` (apps/desktop/src/main) imports this to
 // validate the renderer's access token without a FastifyRequest.

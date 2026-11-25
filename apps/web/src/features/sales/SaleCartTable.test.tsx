@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { SaleCartTable } from '@/features/sales/SaleCartTable';
 import { render } from '@/test/utils';
 import type { SaleCartItem } from '@/features/sales/saleCart';
+import type { PharmacyLineHint } from '@/features/sales/pharmacyRegister';
 
 // the cart lines read the expiry-radar suggestions through this
 // hook (a trpc query underneath); mock it so the suite stays network-free.
@@ -11,6 +12,8 @@ let mockDiscountSuggestions = new Map<string, number>();
 vi.mock('@/features/sales/useDiscountSuggestions', () => ({
   useDiscountSuggestions: () => mockDiscountSuggestions,
 }));
+const phone = vi.hoisted(() => ({ layout: false }));
+vi.mock('@/features/sales/usePhoneLayout', () => ({ usePhoneLayout: () => phone.layout }));
 
 function createCartItem(overrides?: Partial<SaleCartItem>): SaleCartItem {
   return {
@@ -39,6 +42,7 @@ describe('SaleCartTable', () => {
 
   beforeEach(() => {
     mockDiscountSuggestions = new Map();
+    phone.layout = false;
   });
 
   it('lays each line out as a table row under one header', () => {
@@ -82,6 +86,112 @@ describe('SaleCartTable', () => {
     const second = screen.getByTestId('sale-cart-item-SKU-002');
     expect(second).toHaveAttribute('data-selected', 'true');
     expect(second.querySelector('.sales-ticket-unit')).toHaveTextContent('Box');
+  });
+
+  it('opens a line for its keys only when it is tapped, and closes it on a second tap', async () => {
+    phone.layout = true;
+    const user = userEvent.setup();
+    const onSelectItem = vi.fn();
+    const props = {
+      items: [createCartItem({ discount: 0 })],
+      onQuantityChange: vi.fn(),
+      onDiscountChange: vi.fn(),
+      onRemove: vi.fn(),
+      onSelectItem,
+      quantityInputRefFor,
+      discountInputRefFor,
+    };
+    const { rerender } = render(<SaleCartTable {...props} selectedItemKey="product-1:unit-1" />);
+    const line = screen.getByTestId('sale-cart-item-SKU-001');
+    const name = line.querySelector<HTMLButtonElement>('.sales-ticket-name > button')!;
+    expect(line).toHaveAttribute('data-open', 'false');
+
+    await user.click(name);
+    expect(onSelectItem).toHaveBeenCalledWith('product-1:unit-1');
+    expect(line).toHaveAttribute('data-open', 'true');
+    expect(name).toHaveAttribute('aria-expanded', 'true');
+
+    await user.click(name);
+    expect(line).toHaveAttribute('data-open', 'false');
+
+    await user.click(name);
+    rerender(<SaleCartTable {...props} selectedItemKey={null} />);
+    expect(line).toHaveAttribute('data-open', 'false');
+
+    // A scan back onto the line selects it without reopening its keys.
+    rerender(<SaleCartTable {...props} selectedItemKey="product-1:unit-1" />);
+    expect(line).toHaveAttribute('data-open', 'false');
+  });
+
+  it('leaves aria-expanded off the desktop line, whose keys always show', async () => {
+    const user = userEvent.setup();
+    render(
+      <SaleCartTable
+        items={[createCartItem({ discount: 0 })]}
+        selectedItemKey="product-1:unit-1"
+        onQuantityChange={vi.fn()}
+        onDiscountChange={vi.fn()}
+        onRemove={vi.fn()}
+        onSelectItem={vi.fn()}
+        quantityInputRefFor={quantityInputRefFor}
+        discountInputRefFor={discountInputRefFor}
+      />
+    );
+    const name = screen
+      .getByTestId('sale-cart-item-SKU-001')
+      .querySelector<HTMLButtonElement>('.sales-ticket-name > button')!;
+    await user.click(name);
+    expect(name).not.toHaveAttribute('aria-expanded');
+  });
+
+  it('gives phones a compact quantity: a count for units, the amount and unit otherwise', () => {
+    render(
+      <SaleCartTable
+        items={[
+          createCartItem({ discount: 0, quantity: 6 }),
+          createCartItem({
+            key: 'product-2:unit-2',
+            productId: 'product-2',
+            productName: 'Cheese',
+            productSku: 'SKU-002',
+            unitName: 'kg',
+            quantity: 0.25,
+            discount: 0,
+          }),
+          createCartItem({
+            key: 'product-3:unit-3',
+            productId: 'product-3',
+            productName: 'Rice',
+            productSku: 'SKU-003',
+            unitName: 'kg',
+            quantity: 2,
+            discount: 0,
+            sellByFraction: true,
+            fractionStep: 0.25,
+          }),
+        ]}
+        selectedItemKey={null}
+        onQuantityChange={vi.fn()}
+        onDiscountChange={vi.fn()}
+        onRemove={vi.fn()}
+        onSelectItem={vi.fn()}
+        quantityInputRefFor={quantityInputRefFor}
+        discountInputRefFor={discountInputRefFor}
+      />
+    );
+
+    const units = screen.getByTestId('sale-cart-item-SKU-001');
+    expect(units.querySelector('.sales-ticket-qty-compact')).toHaveTextContent('× 6');
+    // The phone reading still names the quantity for screen readers.
+    expect(units.querySelector('.sales-ticket-qty-compact .sr-only')).toHaveTextContent(
+      'Quantity 6 Bottle'
+    );
+    expect(
+      screen.getByTestId('sale-cart-item-SKU-002').querySelector('.sales-ticket-qty-compact')
+    ).toHaveTextContent('0.25 kg');
+    expect(
+      screen.getByTestId('sale-cart-item-SKU-003').querySelector('.sales-ticket-qty-compact')
+    ).toHaveTextContent('2 kg');
   });
 
   it('brings a newly selected line into view, but leaves a restored ticket alone', () => {
@@ -351,6 +461,41 @@ describe('SaleCartTable', () => {
 
     expect(screen.queryByTestId('cart-unit-presentation-SKU-001')).not.toBeInTheDocument();
   });
+  it('names the unit of each line when one product is on the ticket twice', () => {
+    render(
+      <SaleCartTable
+        items={[
+          createCartItem({ discount: 0, isBaseUnit: true }),
+          createCartItem({
+            key: 'product-1:unit-pack',
+            unitId: 'unit-pack',
+            unitName: 'Pack',
+            unitEquivalence: 6,
+            isBaseUnit: false,
+            discount: 0,
+          }),
+        ]}
+        selectedItemKey={null}
+        onQuantityChange={vi.fn()}
+        onDiscountChange={vi.fn()}
+        onRemove={vi.fn()}
+        onSelectItem={vi.fn()}
+        quantityInputRefFor={quantityInputRefFor}
+        discountInputRefFor={discountInputRefFor}
+      />
+    );
+
+    expect(
+      screen.getAllByTestId('cart-unit-presentation-SKU-001').map(tag => tag.textContent)
+    ).toEqual(['Bottle', 'Pack × 6']);
+    expect(
+      screen.getByRole('button', { name: 'Select Sparkling Water (Bottle)' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Select Sparkling Water (Pack × 6)' })
+    ).toBeInTheDocument();
+  });
+
   it('labels a non-base unit even when its equivalence is 1', () => {
     render(
       <SaleCartTable
@@ -366,6 +511,196 @@ describe('SaleCartTable', () => {
     );
 
     expect(screen.getByTestId('cart-unit-presentation-SKU-001')).toHaveTextContent('Kilo × 1');
-    expect(screen.getByRole('button', { name: /Kilo × 1/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Select Sparkling Water (Kilo × 1)' })
+    ).toBeInTheDocument();
+  });
+});
+
+describe('SaleCartTable pharmacy lines', () => {
+  const lot = { lotNumber: 'L2311', expiresAt: '2027-08-20', daysToExpiry: 270, nearExpiry: false };
+
+  function renderLines(pharmacyLines: Map<string, PharmacyLineHint>) {
+    render(
+      <SaleCartTable
+        items={[
+          createCartItem({ productId: 'amox', productSku: 'AMOX', key: 'amox:u', discount: 0 }),
+          createCartItem({ productId: 'lora', productSku: 'LORA', key: 'lora:u', discount: 0 }),
+          createCartItem({ productId: 'clona', productSku: 'CLONA', key: 'clona:u', discount: 0 }),
+          createCartItem({ productId: 'water', productSku: 'WATER', key: 'water:u', discount: 0 }),
+        ]}
+        pharmacyLines={pharmacyLines}
+        selectedItemKey={null}
+        onQuantityChange={vi.fn()}
+        onDiscountChange={vi.fn()}
+        onRemove={vi.fn()}
+        onSelectItem={vi.fn()}
+        quantityInputRefFor={() => () => {}}
+        discountInputRefFor={() => () => {}}
+      />
+    );
+  }
+
+  it('shows the next lot, the class and the prescription state of each medicine', () => {
+    renderLines(
+      new Map<string, PharmacyLineHint>([
+        [
+          'amox',
+          {
+            classification: 'prescription',
+            nextLot: lot,
+            status: { kind: 'ready', approverName: 'Daniela Ortiz' },
+          },
+        ],
+        [
+          'lora',
+          {
+            classification: 'otc',
+            nextLot: { ...lot, lotNumber: 'L2402', daysToExpiry: 12, nearExpiry: true },
+            status: null,
+          },
+        ],
+        ['clona', { classification: 'controlled', nextLot: null, status: null }],
+      ])
+    );
+
+    expect(screen.getByTestId('cart-pharmacy-lot-AMOX')).toHaveTextContent(
+      'Lot L2311 · expires Aug 2027'
+    );
+    expect(screen.getByTestId('cart-pharmacy-class-AMOX')).toHaveTextContent('Prescription');
+    expect(screen.getByTestId('cart-pharmacy-status-AMOX')).toHaveTextContent(
+      'Prescription on file · approved by Daniela Ortiz'
+    );
+    expect(screen.getByTestId('cart-pharmacy-lot-LORA')).toHaveTextContent(
+      'Expires in 12 days · sell this lot first'
+    );
+    expect(screen.queryByTestId('cart-pharmacy-status-LORA')).not.toBeInTheDocument();
+    // A controlled line says so once, in its class.
+    expect(screen.getByTestId('cart-pharmacy-class-CLONA')).toHaveTextContent('Controlled');
+    expect(screen.queryByTestId('cart-pharmacy-status-CLONA')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('cart-pharmacy-WATER')).not.toBeInTheDocument();
+  });
+
+  it('warns when a prescription line has no prescription yet', () => {
+    renderLines(
+      new Map<string, PharmacyLineHint>([
+        ['amox', { classification: 'prescription', nextLot: null, status: { kind: 'missing' } }],
+      ])
+    );
+    expect(screen.getByTestId('cart-pharmacy-status-AMOX')).toHaveTextContent(
+      'Prescription missing'
+    );
+    expect(screen.queryByTestId('cart-pharmacy-lot-AMOX')).not.toBeInTheDocument();
+  });
+  describe('hardware lines', () => {
+    const quantityInputRefFor = () => () => {};
+    const discountInputRefFor = () => () => {};
+    const units = [
+      { unitId: 'm', unitName: 'Metre', equivalence: 1, price: 2150, isBase: true },
+      { unitId: 'roll', unitName: 'Roll', equivalence: 100, price: 198000, isBase: false },
+    ];
+    const baseProps = {
+      selectedItemKey: null,
+      onQuantityChange: vi.fn(),
+      onDiscountChange: vi.fn(),
+      onRemove: vi.fn(),
+      onSelectItem: vi.fn(),
+      quantityInputRefFor,
+      discountInputRefFor,
+    };
+    const cable = (overrides?: Partial<SaleCartItem>) =>
+      createCartItem({
+        key: 'cable:m',
+        productId: 'cable',
+        productName: 'THHN cable',
+        productSku: 'CAB-12',
+        unitId: 'm',
+        unitName: 'Metre',
+        unitDimension: 'length',
+        sellByFraction: true,
+        fractionStep: 0.1,
+        quantity: 37.5,
+        unitPrice: 2150,
+        discount: 0,
+        unitOptions: units,
+        ...overrides,
+      });
+
+    it('lets a line with several units switch unit in place, cut to measure', async () => {
+      const user = userEvent.setup();
+      const onUnitChange = vi.fn();
+      const onSelectItem = vi.fn();
+      render(
+        <SaleCartTable
+          {...baseProps}
+          items={[cable()]}
+          onSelectItem={onSelectItem}
+          onUnitChange={onUnitChange}
+        />
+      );
+      const picker = screen.getByRole('combobox', { name: 'Unit for THHN cable' });
+      expect(
+        within(picker)
+          .getAllByRole('option')
+          .map(option => option.textContent)
+      ).toEqual(['Metre', 'Roll × 100']);
+      await user.selectOptions(picker, 'roll');
+      expect(onUnitChange).toHaveBeenCalledWith('cable:m', 'roll');
+      // Picking a unit is not a tap on the line.
+      expect(onSelectItem).not.toHaveBeenCalled();
+      expect(screen.getByTestId('cart-cut-to-measure-CAB-12')).toHaveTextContent('cut to measure');
+    });
+
+    it('shows no picker while the ticket is locked, for one-unit products or without the zone', () => {
+      const { rerender } = render(
+        <SaleCartTable {...baseProps} items={[cable()]} onUnitChange={vi.fn()} itemsLocked />
+      );
+      expect(screen.queryByTestId('cart-unit-select-CAB-12')).not.toBeInTheDocument();
+      rerender(
+        <SaleCartTable
+          {...baseProps}
+          items={[cable({ unitOptions: undefined })]}
+          onUnitChange={vi.fn()}
+        />
+      );
+      expect(screen.queryByTestId('cart-unit-select-CAB-12')).not.toBeInTheDocument();
+      rerender(<SaleCartTable {...baseProps} items={[cable()]} />);
+      expect(screen.queryByTestId('cart-unit-select-CAB-12')).not.toBeInTheDocument();
+    });
+
+    it('strikes the list price beside a cheaper tier price and names service lines', () => {
+      render(
+        <SaleCartTable
+          {...baseProps}
+          priceTier={2}
+          items={[
+            createCartItem({
+              key: 'cement:bag',
+              productSku: 'CEM-50',
+              productName: 'Cement',
+              unitPrice: 31500,
+              catalogUnitPrice: 33900,
+              isBaseUnit: true,
+              tierPrices: { price: 33900, price2: 31500, price3: 30500 },
+              discount: 0,
+            }),
+            createCartItem({
+              key: 'cut:u',
+              productId: 'cut',
+              productSku: 'SRV-CUT',
+              productName: 'Pipe cut',
+              tracksStock: false,
+              discount: 0,
+            }),
+          ]}
+        />
+      );
+      const listPrice = screen.getByTestId('cart-list-price-CEM-50');
+      expect(listPrice.querySelector('s')).toHaveTextContent('$33,900.00');
+      expect(listPrice).toHaveTextContent('List price');
+      expect(screen.getByTestId('sale-cart-item-CEM-50')).toHaveTextContent('Price 2');
+      expect(screen.getByTestId('cart-service-SRV-CUT')).toHaveTextContent('Service');
+      expect(screen.queryByTestId('cart-list-price-SRV-CUT')).not.toBeInTheDocument();
+    });
   });
 });

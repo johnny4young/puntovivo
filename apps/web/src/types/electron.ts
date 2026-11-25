@@ -11,6 +11,37 @@ export interface ServerRestartStats {
   entries: Array<Record<string, unknown>>;
 }
 
+export type ScaleProtocol = 'continuous' | 'toledo' | 'enq';
+export type ScaleFraming = '8N1' | '7E1';
+export type ScaleBaudRate = 2400 | 4800 | 9600 | 19200;
+export interface ScaleConfig {
+  path: string;
+  protocol: ScaleProtocol;
+  baudRate: ScaleBaudRate;
+  framing: ScaleFraming;
+}
+export type ScaleErrorCode =
+  | 'SCALE_NOT_CONFIGURED'
+  | 'SCALE_DRIVER_UNAVAILABLE'
+  | 'SCALE_DISCONNECTED'
+  | 'SCALE_BUSY'
+  | 'SCALE_NO_RESPONSE'
+  | 'SCALE_UNSTABLE'
+  | 'SCALE_OVERLOAD'
+  | 'SCALE_NEGATIVE'
+  | 'SCALE_EMPTY'
+  | 'SCALE_UNSUPPORTED_UNIT';
+export type ScaleReadResult =
+  { status: 'ok'; kilograms: number } | { status: 'error'; code: ScaleErrorCode };
+export interface ScaleSettingsState {
+  available: boolean;
+  ports: Array<{ path: string; label: string }>;
+  config: ScaleConfig | null;
+}
+export type ScaleSaveResult =
+  | { status: 'saved'; settings: ScaleSettingsState }
+  | { status: 'error'; code: 'SCALE_INVALID_CONFIG' | 'SCALE_PORT_UNAVAILABLE' };
+
 export interface ElectronAPI {
   /** Embedded server state; the web build has no embedded server. */
   getServerState?: () => Promise<EmbeddedServerState>;
@@ -103,6 +134,16 @@ export interface ElectronAPI {
   }>;
   /** Opens a real print dialog for a synthetic test receipt; never records a sale. */
   testSystemPrinter?: () => Promise<{ success: boolean; errorCode?: string; error?: string }>;
+  /** Whether this device has a saved scale the register can read. */
+  getScaleStatus?: () => Promise<{ configured: boolean }>;
+  /** Admin/manager: enumerated serial ports and this device's saved scale. */
+  getScaleSettings?: () => Promise<ScaleSettingsState>;
+  /** Only an enumerated port is accepted; null removes the scale. */
+  saveScaleSettings?: (config: ScaleConfig | null) => Promise<ScaleSaveResult>;
+  /** Reads once with an unsaved configuration. */
+  testScale?: (config: ScaleConfig) => Promise<ScaleReadResult>;
+  /** One stable weight from the saved scale, in kilograms. */
+  readScale?: () => Promise<ScaleReadResult>;
   getReceiptPrintSettings: () => Promise<{
     silent: boolean;
     printBackground: boolean;

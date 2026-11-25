@@ -113,7 +113,10 @@ function card(overrides: Partial<KdsCardData> = {}): KdsCardData {
         roundLabel: 'Ronda 2',
         courseKey: 'starter',
         dinerLabel: 'Ana',
-        modifiers: [{ name: 'Salsa', quantity: 2 }],
+        modifiers: [
+          { name: 'Salsa', quantity: 2 },
+          { name: 'Chicharrón', quantity: 1, kind: 'without' },
+        ],
         status: 'pending',
         currentSaleId: 'sale-1',
         currentSaleNumber: 'VTA-001',
@@ -168,6 +171,8 @@ describe('KdsBoard', () => {
     expect(screen.getByText('Round: Ronda 2')).toBeInTheDocument();
     expect(screen.getByText('Guest: Ana')).toBeInTheDocument();
     expect(screen.getByText('2 × Salsa')).toBeInTheDocument();
+    expect(screen.getByTestId('kds-modifier-without')).toHaveTextContent('No Chicharrón');
+    expect(screen.queryByText('1 × Chicharrón')).not.toBeInTheDocument();
     expect(screen.getByText('Sin sal')).toBeInTheDocument();
     expect(screen.getByText(/Sin cebolla/)).toBeInTheDocument();
   });

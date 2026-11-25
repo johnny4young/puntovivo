@@ -34,7 +34,9 @@ import {
   unitXProduct,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { roundMoney } from '../../lib/money.js';
+import { resolveTenantCurrency } from '../../lib/currency.js';
+import { isCashOnlyTender, resolvePayableTotal, roundMoney } from '../../lib/money.js';
+import { resolveCashCloseSettings } from '../../services/cash-close-settings.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   evaluateCheckoutLossPrevention,
@@ -113,6 +115,7 @@ import {
   prepareSaleFiscalIntent,
 } from '../../services/fiscal/orchestrator/intents.js';
 import type { ResolvedLine } from '../../services/fiscal/orchestrator/types.js';
+import { linkWalletChargeToTender } from '../../services/payments/wallet-confirmation.js';
 import { resolveElectronicInvoiceBuyer } from './electronicInvoice.js';
 
 function assertDraftLotsRemainSellable(
@@ -411,7 +414,20 @@ export async function runCompleteDraft(
     serviceChargeAmount,
   });
   const serviceChargeRate = serviceChargeAmount > 0 ? restaurantSettings.serviceChargeRate : null;
-  const total = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
+  const grossTotal = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
+  const saleCurrencyCode = existing.currencyCode ?? resolveTenantCurrency(ctx.db, ctx.tenantId);
+  const cashCloseSettings = await resolveCashCloseSettings(ctx.db, ctx.tenantId);
+  const cashRoundingStep = isCashOnlyTender({
+    paymentMethod: input.paymentMethod,
+    payments: input.payments,
+  })
+    ? cashCloseSettings.cashRoundingStep
+    : null;
+  const { total, roundingAdjustment } = resolvePayableTotal(
+    grossTotal,
+    saleCurrencyCode,
+    cashRoundingStep
+  );
 
   // resolve the tender list (split or legacy),
   // payment status, change, and cash collected. The draft is always
@@ -431,6 +447,7 @@ export async function runCompleteDraft(
     requestedStatus: input.paymentStatus,
     total,
     collectCash: true,
+    currencyCode: saleCurrencyCode,
   });
 
   const persistedTaxComponents = await ctx.db
@@ -502,7 +519,7 @@ export async function runCompleteDraft(
       subtotal: draftSubtotal,
       taxAmount: draftTaxAmount,
       discountAmount: existing.discountAmount ?? 0,
-      total,
+      total: grossTotal,
     },
     lines: fiscalLines,
     completedAt: now,
@@ -637,7 +654,7 @@ export async function runCompleteDraft(
     creditAmount: creditSaleAmount,
     tipAmount,
     serviceChargeAmount,
-    currencyCode: existing.currencyCode ?? 'COP',
+    currencyCode: saleCurrencyCode,
   };
   const baselineApprovalActions = requiredCheckoutApprovalActions({
     role: ctx.user.role as UserRole,
@@ -826,6 +843,7 @@ export async function runCompleteDraft(
             subtotal: draftSubtotal,
             taxAmount: draftTaxAmount,
             total,
+            roundingAdjustment,
             ...checkoutTiming,
             syncStatus: 'pending',
             syncVersion: nextSyncVersion,
@@ -995,6 +1013,13 @@ export async function runCompleteDraft(
           paymentEffects.push({
             id: paymentId,
             method: payment.method,
+            amount: tenderAmount,
+          });
+          linkWalletChargeToTender(tx, {
+            tenantId: ctx.tenantId,
+            salePaymentId: paymentId,
+            method: payment.method,
+            reference: payment.reference ?? null,
             amount: tenderAmount,
           });
           redeemCustomerValueTender(tx, {

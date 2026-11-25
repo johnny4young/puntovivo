@@ -11,6 +11,7 @@
  */
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { formatSystemNote } from '@/lib/systemNotes';
 import { Drawer } from '@/components/feedback/Drawer';
 import { cn, formatDateTime, formatNumber } from '@/lib/utils';
 import type { InventoryMovement } from '@/types';
@@ -86,7 +87,10 @@ export function InventoryMovementDetailsDrawer({
           />
           <DetailField label={t('table.stockAfter')} value={formatNumber(item.newStock)} />
           <DetailField label={t('table.reference')} value={item.reference || '—'} />
-          <DetailField label={t('table.notes')} value={item.notes || '—'} />
+          <DetailField
+            label={t('table.notes')}
+            value={item.notes ? formatSystemNote(item.notes, t) : '—'}
+          />
         </dl>
       )}
     </Drawer>

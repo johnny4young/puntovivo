@@ -16,8 +16,8 @@ export function suggestCashTenders(total: number, count = 2): number[] {
   return [...new Set(amounts)].sort((a, b) => a - b).slice(0, count);
 }
 
-/** Service charge on a total at a percentage rate; zero when the rate is off. */
-export function serviceChargeFor(total: number, ratePercent: number): number {
+/** A percentage of a total (service charge, tip preset); zero when the rate is off. */
+export function percentOf(total: number, ratePercent: number): number {
   return ratePercent > 0 ? roundMoney((total * ratePercent) / 100) : 0;
 }
 

@@ -7,6 +7,7 @@
  */
 
 import type { BackupRestoreDrillCounts } from '../backup/backup-bundle/inspection.ts';
+import { BACKUP_STATUS_SETTING_KEY } from '../backup/status-publisher.ts';
 
 /** The routes main may inject; the server side refuses any other. */
 export const MAIN_INJECT_PATHS = [
@@ -20,6 +21,7 @@ export const MAIN_INJECT_PATHS = [
 
 /** The only app_settings rows main reads and writes. */
 export const MAIN_APP_SETTING_KEYS = [
+  BACKUP_STATUS_SETTING_KEY,
   'receipt_print_settings',
   'theme_preference',
   'tray_settings',

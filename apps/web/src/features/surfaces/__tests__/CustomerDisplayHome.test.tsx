@@ -196,6 +196,19 @@ describe('CustomerDisplayHome', () => {
     expect(screen.queryByText('El cajero confirmará el valor final.')).not.toBeInTheDocument();
   });
 
+  it('shows only the provider name beside a per-charge provider QR', async () => {
+    mocks.projection = {
+      ...displayProjection(),
+      transfer: { label: 'Nequi', account: '', qrPayload: 'NEQUI-QR', amount: 24_000 },
+    };
+    mocks.connection = 'live';
+    renderHome();
+
+    expect(await screen.findByTestId('customer-display-transfer-account')).toHaveTextContent(
+      /^Nequi$/
+    );
+  });
+
   it('renders the same live workflow in English', async () => {
     mocks.language = 'en';
     mocks.projection = displayProjection();

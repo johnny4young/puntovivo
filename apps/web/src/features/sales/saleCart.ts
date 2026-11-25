@@ -1,7 +1,21 @@
 import { roundMoney } from '@/lib/money';
 import { resolveTierUnitPrice, type PriceTier } from '@puntovivo/shared/price-tier';
 import { MIN_OPERATIONAL_QUANTITY, roundQuantity } from '@puntovivo/shared/unit-math';
-import type { ProductSearchSelection } from '@/types';
+import type { ProductSearchSelection, ProductUnitAssignment } from '@/types';
+
+/** A unit the line can switch to; the product's own unit assignment. */
+export type SaleUnitOption = Pick<
+  ProductUnitAssignment,
+  | 'unitId'
+  | 'unitName'
+  | 'unitAbbreviation'
+  | 'unitDimension'
+  | 'equivalence'
+  | 'price'
+  | 'price2'
+  | 'price3'
+  | 'isBase'
+>;
 
 // explicit `| undefined` on optional fields.
 export interface SaleCartItem {
@@ -14,10 +28,16 @@ export interface SaleCartItem {
   unitId: string;
   unitName: string;
   unitEquivalence: number;
+  /** 'length' lines sold by fraction are cut to measure. */
+  unitDimension?: ProductUnitAssignment['unitDimension'] | undefined;
+  /** Every unit of the product when it has more than one. */
+  unitOptions?: SaleUnitOption[] | undefined;
   quantity: number;
   unitPrice: number;
   discount: number;
   taxRate: number;
+  /** Absent on carts persisted before it existed; read as VAT. */
+  taxKind?: 'iva' | 'inc' | undefined;
   /** Frozen tax-rate identities from an accepted quotation. */
   taxComponents?: Array<{ vatRateId: string }> | undefined;
   availableStock: number;
@@ -56,6 +76,8 @@ export interface SaleCartSummary {
   itemCount: number;
   subtotal: number;
   taxAmount: number;
+  /** Impoconsumo part of taxAmount; projections that do not split it leave it out. */
+  consumptionTaxAmount?: number | undefined;
   total: number;
 }
 
@@ -76,16 +98,63 @@ export function getSaleMinimumQuantity(
   return Math.max(item.fractionMinimum ?? step, step);
 }
 
+/**
+ * Quantity a plain add (quick key, search pick) puts on the register when no
+ * weight was entered: one whole unit, fitted to the product's step and minimum.
+ * The bare minimum (often 0.001) would ring up a near-zero line.
+ */
+export function getSaleDefaultAddQuantity(
+  item: Pick<SaleCartItem, 'sellByFraction' | 'fractionStep' | 'fractionMinimum'>
+): number {
+  if (!item.sellByFraction) return 1;
+  const step = getSaleQuantityStep(item);
+  const fitted = roundQuantity(Math.max(1, Math.round(1 / step)) * step, 6);
+  return Math.max(fitted, getSaleMinimumQuantity(item));
+}
+
+/** Typed quantity wins; a fractional product without one gets its default add. */
+export function resolveRegisterAddQuantity(
+  item: Pick<SaleCartItem, 'sellByFraction' | 'fractionStep' | 'fractionMinimum'>,
+  quantity: number | null
+): number | null {
+  if (quantity !== null) return quantity;
+  return item.sellByFraction ? getSaleDefaultAddQuantity(item) : null;
+}
+
 export function getCartItemKey(productId: string, unitId: string) {
   return `${productId}:${unitId}`;
 }
 
+export function unitLabel(
+  unit: Pick<ProductUnitAssignment, 'unitId' | 'unitName' | 'unitAbbreviation'>,
+  fallback?: string | null
+): string {
+  return unit.unitName ?? unit.unitAbbreviation ?? fallback ?? unit.unitId;
+}
+
+function toUnitOption(unit: ProductUnitAssignment): SaleUnitOption {
+  // Only what the picker and repricing read, without nulls: every line persists it.
+  const { unitId, unitName, unitAbbreviation, unitDimension, equivalence, price } = unit;
+  return {
+    unitId,
+    equivalence,
+    price,
+    isBase: unit.isBase,
+    ...(unitName ? { unitName } : {}),
+    ...(unitAbbreviation ? { unitAbbreviation } : {}),
+    ...(unitDimension ? { unitDimension } : {}),
+    ...(unit.price2 ? { price2: unit.price2 } : {}),
+    ...(unit.price3 ? { price3: unit.price3 } : {}),
+  };
+}
+
+function finitePrice(value: number | undefined): number | undefined {
+  return Number.isFinite(value) ? value : undefined;
+}
+
 export function buildCartItem(selection: ProductSearchSelection): SaleCartItem {
-  const unitName =
-    selection.unit.unitName ??
-    selection.unit.unitAbbreviation ??
-    selection.product.baseUnitAbbreviation ??
-    selection.unit.unitId;
+  const unitName = unitLabel(selection.unit, selection.product.baseUnitAbbreviation);
+  const assignments = selection.product.unitAssignments ?? [];
 
   return {
     key: getCartItemKey(selection.product.id, selection.unit.unitId),
@@ -95,10 +164,13 @@ export function buildCartItem(selection: ProductSearchSelection): SaleCartItem {
     unitId: selection.unit.unitId,
     unitName,
     unitEquivalence: selection.unit.equivalence,
+    unitDimension: selection.unit.unitDimension ?? null,
+    unitOptions: assignments.length > 1 ? assignments.map(toUnitOption) : undefined,
     quantity: getSaleMinimumQuantity(selection.product),
     unitPrice: selection.price,
     discount: 0,
     taxRate: selection.product.taxRate ?? 0,
+    taxKind: selection.product.taxKind,
     // A sale can only take stock from its own site, so prefer that figure.
     availableStock: selection.product.siteStock ?? selection.product.stock,
     tracksStock: selection.product.tracksStock !== false,
@@ -125,8 +197,8 @@ export function buildCartItem(selection: ProductSearchSelection): SaleCartItem {
     catalogUnitPrice: Number.isFinite(selection.unit.price ?? selection.product.price)
       ? (selection.unit.price ?? selection.product.price)
       : undefined,
-    catalogUnitPrice2: Number.isFinite(selection.unit.price2) ? selection.unit.price2 : undefined,
-    catalogUnitPrice3: Number.isFinite(selection.unit.price3) ? selection.unit.price3 : undefined,
+    catalogUnitPrice2: finitePrice(selection.unit.price2),
+    catalogUnitPrice3: finitePrice(selection.unit.price3),
     isBaseUnit: selection.unit.isBase === true,
     priceEdited: false,
   };
@@ -147,6 +219,92 @@ export function updateCartItem(
       ? { priceEdited: true }
       : {}),
   };
+}
+
+/** Lines built from a catalog pick carry their units; quotation and price-label lines do not. */
+export function canChangeCartItemUnit(item: SaleCartItem): boolean {
+  // Serialized products sell one serial per base unit only.
+  return !item.tracksSerials && (item.unitOptions?.length ?? 0) > 1;
+}
+
+/**
+ * Sell the line in another of the product's units at that unit's catalog price
+ * (the cart's tier pass reprices it). The quantity keeps the same base amount
+ * when it is a valid quantity in the new unit, otherwise the minimum.
+ */
+export function changeCartItemUnit(item: SaleCartItem, unitId: string): SaleCartItem {
+  const option = item.unitOptions?.find(candidate => candidate.unitId === unitId);
+  if (!option || unitId === item.unitId || !canChangeCartItemUnit(item)) return item;
+  const minimum = getSaleMinimumQuantity(item);
+  const converted = roundQuantity((item.quantity * item.unitEquivalence) / option.equivalence, 6);
+  // The server rejects a quantity off the product's step in the sold unit.
+  const steps = converted / getSaleQuantityStep(item);
+  const keepsAmount = converted >= minimum && Math.abs(steps - Math.round(steps)) < 1e-9;
+  return {
+    ...item,
+    key: getCartItemKey(item.productId, unitId),
+    unitId,
+    unitName: unitLabel(option),
+    unitEquivalence: option.equivalence,
+    unitDimension: option.unitDimension ?? null,
+    quantity: keepsAmount ? converted : minimum,
+    unitPrice: option.price,
+    catalogUnitPrice: option.price,
+    catalogUnitPrice2: finitePrice(option.price2),
+    catalogUnitPrice3: finitePrice(option.price3),
+    isBaseUnit: option.isBase,
+    priceEdited: false,
+    serialIds: [],
+    serialSiteId: null,
+  };
+}
+
+/** Switches one line's unit; a line already in that unit absorbs it. */
+export function replaceCartItemUnit(
+  items: SaleCartItem[],
+  itemKey: string,
+  unitId: string
+): SaleCartItem[] {
+  const line = items.find(item => item.key === itemKey);
+  const changed = line ? changeCartItemUnit(line, unitId) : line;
+  if (!line || changed === line || !changed) return items;
+  const existing = items.find(item => item.key === changed.key);
+  if (!existing) return items.map(item => (item === line ? changed : item));
+  return items
+    .filter(item => item !== line)
+    .map(item =>
+      item === existing
+        ? updateCartItem(item, { quantity: roundQuantity(item.quantity + changed.quantity, 6) })
+        : item
+    );
+}
+
+/**
+ * The tier the line is priced at when it sits below its list (tier-1) price,
+ * or null. Hand-edited and off-grid prices never count.
+ */
+export function getCartItemListPrice(
+  item: SaleCartItem,
+  tier: PriceTier
+): { listPrice: number; tier: 2 | 3 } | null {
+  if (
+    tier === 1 ||
+    item.priceEdited === true ||
+    !item.tierPrices ||
+    item.catalogUnitPrice === undefined ||
+    item.unitPrice >= item.catalogUnitPrice
+  ) {
+    return null;
+  }
+  const tierPrice = resolveTierUnitPrice({
+    tier,
+    assignmentPrice: item.catalogUnitPrice,
+    assignmentPrice2: item.catalogUnitPrice2,
+    assignmentPrice3: item.catalogUnitPrice3,
+    isBaseUnit: item.isBaseUnit === true,
+    productPrices: item.tierPrices,
+  });
+  return tierPrice === item.unitPrice ? { listPrice: item.catalogUnitPrice, tier } : null;
 }
 
 /**
@@ -252,6 +410,8 @@ export function mergeBarcodeCartItem(
           // A scale-encoded package price is not a catalog tier suggestion,
           // even if it happens to equal one of the configured tier prices.
           priceEdited: true,
+          // The label prices this package, so it stays in its unit.
+          unitOptions: undefined,
         }),
   };
   const existingIndex = items.findIndex(item => item.key === nextItem.key);

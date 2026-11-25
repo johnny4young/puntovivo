@@ -16,7 +16,9 @@ se registran en cola, son observables y se pueden recuperar.
 | ESC/POS directo por USB             | No implementado; la configuración no debe afirmar que está soportado.                            |
 | ESC/POS directo por puerto serie    | No implementado; la configuración no debe afirmar que está soportado.                            |
 | Cajón RJ11 mediante ESC/POS         | Implementado si el transporte de la impresora seleccionada admite el pulso del cajón.            |
+| Báscula serial                      | La app de escritorio lee básculas continuas, Toledo 8217 y ENQ por equipo.                       |
 | Lector de códigos USB HID           | Implementado como entrada de teclado, con protección del foco del cajero.                        |
+| Cámara del teléfono                 | Lee códigos en el navegador del teléfono, con decodificador propio y linterna; nada sale de él.  |
 | Terminal de pago manual             | Implementada como registro de un medio de pago manual.                                           |
 | SDK/API de terminal de un proveedor | Existe el punto de integración; ningún proveedor está homologado para producción.                |
 | Puente local de cliente Hub         | Implementado como puente IPC de renderer a main que envía bytes localmente sin acceso a la base. |
@@ -39,6 +41,8 @@ se registran en cola, son observables y se pueden recuperar.
 - `packages/server/src/db/schema/hardware.ts`: persistencia de periféricos y bandeja de hardware.
 - `apps/desktop/src/main/peripherals/`: puente local y transporte Electron.
 - `apps/desktop/src/main/ipc/peripherals.ts`: registro y validación IPC.
+- `apps/desktop/src/main/scale/` e `ipc/scale*.ts`: protocolos de báscula serial,
+  lector y selección por equipo ([ADR-0039](./architecture/0039-serial-scale-reader.md)).
 - `apps/web/src/features/peripherals/`: configuración administrativa y pruebas.
 
 ## Requisitos de homologación física

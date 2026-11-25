@@ -249,7 +249,7 @@ test.describe('launch data import', () => {
     await page.goto('/inventory');
     await page.getByRole('button', { name: 'New Entry' }).click();
     const inventoryDialog = page.getByRole('dialog', {
-      name: /Select Product for Initial Inventory/i,
+      name: /Select Product for Entry/i,
     });
     await inventoryDialog.getByPlaceholder('Search by SKU, name, or barcode').fill(serviceSku);
     await expect(
@@ -352,7 +352,7 @@ test.describe('launch data import', () => {
     await page.goto('/inventory');
     await page.getByRole('button', { name: 'Nueva entrada' }).click();
     const productSearch = page.getByRole('dialog', {
-      name: /Seleccionar producto para inventario inicial/,
+      name: /Seleccionar producto para la entrada/,
     });
     await productSearch
       .getByPlaceholder('Buscar por SKU, nombre o código de barras')
@@ -737,7 +737,7 @@ test.describe('launch data import', () => {
       .filter({ has: page.getByRole('heading', { name: 'Open cash session' }) })
       .last();
     await expect(openDialog.locator('#cash-session-register')).toHaveValue(registerName);
-    await expect(openDialog.locator('#cash-session-opening-float')).toHaveValue('120000');
+    await expect(openDialog.locator('#cash-session-opening-float')).toHaveText(/120[.,]000/);
     await expect(openDialog.locator('#cash-session-count-0')).toHaveValue('2');
     await expect(openDialog.locator('#cash-session-count-1')).toHaveValue('1');
     await expect(openDialog.getByRole('button', { name: 'Open session' })).toBeEnabled();

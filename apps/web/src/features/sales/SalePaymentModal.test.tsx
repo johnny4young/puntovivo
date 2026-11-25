@@ -292,15 +292,52 @@ describe('SalePaymentModal — customer price tier', () => {
 });
 
 describe('SalePaymentModal — stable drawer shell', () => {
-  it('asks for the tender before the customer and the tip', async () => {
+  it('asks for the tip above the total, then the tender, then the customer', async () => {
     render(<SalePaymentModal {...createProps({ allowTip: true })} />);
 
+    const tip = await screen.findByRole('group', { name: 'Voluntary tip' });
+    const total = screen.getByRole('status', { name: 'Sale total' });
     const amount = await screen.findByLabelText('Amount received');
     const customer = screen.getByLabelText('Customer');
-    const tip = await screen.findByLabelText('Custom amount');
 
+    expect(screen.getByTestId('sale-payment-summary')).toContainElement(tip);
+    expect(tip.compareDocumentPosition(total)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(total.compareDocumentPosition(amount)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(amount.compareDocumentPosition(customer)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(customer.compareDocumentPosition(tip)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it('shows the impoconsumo included in the total', async () => {
+    render(<SalePaymentModal {...createProps({ total: 108, consumptionTaxAmount: 8 })} />);
+    expect(screen.getByTestId('sale-payment-total-detail')).toHaveTextContent(
+      'Consumption tax included $8.00'
+    );
+  });
+
+  it('charges whole pesos for a fractional COP total and names the rounding', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => undefined);
+    render(<SalePaymentModal {...createProps({ total: 3737.5, currencyCode: 'COP', onSubmit })} />);
+    expect(screen.getByRole('status', { name: 'Sale total' })).toHaveTextContent(
+      formatCurrency(3738)
+    );
+    expect(screen.getByTestId('sale-payment-total-detail')).toHaveTextContent('Rounding $0.50');
+    const amountInput = screen.getByLabelText(/Amount received/i) as HTMLInputElement;
+    await waitFor(() => expect(amountInput.value).toBe('3738'));
+
+    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    const submitted = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
+    expect(submitted.amountReceived).toBe(3738);
+  });
+
+  it('blocks cash received with cents in a whole-peso currency', async () => {
+    const user = userEvent.setup();
+    render(<SalePaymentModal {...createProps({ total: 3737.5, currencyCode: 'COP' })} />);
+    const amountInput = screen.getByLabelText(/Amount received/i) as HTMLInputElement;
+    await waitFor(() => expect(amountInput.value).toBe('3738'));
+    await user.clear(amountInput);
+    await user.type(amountInput, '4000.5');
+    const confirm = screen.getByRole('button', { name: /Use whole amounts/i });
+    expect(confirm).toBeDisabled();
   });
 
   beforeAll(async () => {
@@ -494,13 +531,19 @@ describe('SalePaymentModal — tip / propina', () => {
     render(<SalePaymentModal {...createProps({ onSubmit, total: 100 })} />);
 
     const user = userEvent.setup();
-    // Three preset buttons render: "No tip", "10%", "15%".
-    await user.click(screen.getByRole('button', { name: '10%' }));
+    // Each preset shows what it adds: "10% $10.00".
+    const preset = await screen.findByRole('button', { name: '10% $10.00' });
+    expect(screen.getByRole('button', { name: '15% $15.00' })).toBeInTheDocument();
+    await user.click(preset);
 
-    // Grand total header updates to base+tip = 110.
+    // The total includes the tip and the consumption stays readable under it.
     await waitFor(() => {
-      expect(screen.getByText(/Base \$100\.00 \+ tip \$10\.00/i)).toBeInTheDocument();
+      expect(screen.getByRole('status', { name: 'Sale total' })).toHaveTextContent('$110.00');
     });
+    expect(preset).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('sale-payment-total-detail')).toHaveTextContent(
+      'Consumption $100.00'
+    );
 
     await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
 
@@ -516,12 +559,18 @@ describe('SalePaymentModal — tip / propina', () => {
     render(<SalePaymentModal {...createProps({ onSubmit, total: 80 })} />);
 
     const user = userEvent.setup();
-    const customInput = screen.getByLabelText('Custom amount') as HTMLInputElement;
+    expect(screen.queryByLabelText('Tip amount')).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Other amount' }));
+    const customInput = screen.getByLabelText('Tip amount') as HTMLInputElement;
     fireEvent.change(customInput, { target: { value: '7' } });
 
     await waitFor(() => {
-      expect(screen.getByText(/Base \$80\.00 \+ tip \$7\.00/i)).toBeInTheDocument();
+      expect(screen.getByRole('status', { name: 'Sale total' })).toHaveTextContent('$87.00');
     });
+    expect(screen.getByRole('button', { name: 'Other amount' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
 
     await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
 
@@ -530,6 +579,20 @@ describe('SalePaymentModal — tip / propina', () => {
     expect(submittedValues.amountReceived).toBeCloseTo(87, 2);
     expect(submittedValues.tipAmount).toBeCloseTo(7, 2);
     expect(submittedValues.tipMethod).toBe('fixed');
+  });
+
+  it('keeps the custom tip field while its amount is cleared and retyped', async () => {
+    const user = userEvent.setup();
+    const props = createProps({ total: 100 });
+    const { rerender } = render(<SalePaymentModal {...props} />);
+    await user.click(await screen.findByRole('button', { name: /^10%/ }));
+    // The base moves under the chosen preset, so the same tip now reads as a custom amount.
+    rerender(<SalePaymentModal {...props} total={80} />);
+    const field = await screen.findByLabelText('Tip amount');
+    await user.clear(field);
+    expect(screen.getByLabelText('Tip amount')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Tip amount'), '4');
+    expect(screen.getByRole('status', { name: 'Sale total' })).toHaveTextContent('$84.00');
   });
 
   it('updates the seeded split tender when a tip is added after split mode is enabled', async () => {
@@ -542,7 +605,7 @@ describe('SalePaymentModal — tip / propina', () => {
     const firstAmount = (await screen.findByLabelText('Amount for tender 1')) as HTMLInputElement;
     expect(firstAmount.value).toBe('100');
 
-    await user.click(screen.getByRole('button', { name: '10%' }));
+    await user.click(await screen.findByRole('button', { name: /^10%/ }));
 
     await waitFor(() => {
       expect(firstAmount.value).toBe('110');
@@ -556,7 +619,7 @@ describe('SalePaymentModal — tip / propina', () => {
 
     const user = userEvent.setup();
     // Pick 10% tip first so the seeded split tender will be 110.
-    await user.click(screen.getByRole('button', { name: '10%' }));
+    await user.click(await screen.findByRole('button', { name: /^10%/ }));
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
 
     const firstAmount = (await screen.findByLabelText('Amount for tender 1')) as HTMLInputElement;
@@ -596,7 +659,9 @@ describe('SalePaymentModal — service charge / propina sugerida', () => {
 
     expect(screen.getByLabelText('Service charge')).toBeInTheDocument();
     // The breakdown line above the totals header shows base + service.
-    expect(screen.getByText(/Base \$100\.00 \+ service \$10\.00$/i)).toBeInTheDocument();
+    expect(screen.getByTestId('sale-payment-total-detail')).toHaveTextContent(
+      'Consumption $100.00'
+    );
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
@@ -614,12 +679,10 @@ describe('SalePaymentModal — service charge / propina sugerida', () => {
     render(<SalePaymentModal {...createProps({ onSubmit, total: 100, serviceChargeRate: 10 })} />);
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: '10%' }));
+    await user.click(await screen.findByRole('button', { name: /^10%/ }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/Base \$100\.00 \+ service \$10\.00 \+ tip \$10\.00$/i)
-      ).toBeInTheDocument();
+      expect(screen.getByRole('status', { name: 'Sale total' })).toHaveTextContent('$120.00');
     });
 
     await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
@@ -1232,5 +1295,23 @@ describe('SalePaymentModal — cash change hero', () => {
     expect(screen.queryByTestId('sale-payment-keypad')).not.toBeInTheDocument();
     expect(screen.queryByTestId('quick-denomination-selector')).not.toBeInTheDocument();
     expect(screen.queryByTestId('payment-settlement')).not.toBeInTheDocument();
+  });
+
+  it('applies cashRoundingStep to cash-only checkouts and clears it on card', async () => {
+    render(
+      <SalePaymentModal
+        {...createProps({ total: 5544, currencyCode: 'COP', cashRoundingStep: 50 })}
+      />
+    );
+    const user = userEvent.setup();
+    const summary = await screen.findByTestId('sale-payment-summary');
+    expect(summary).toHaveTextContent(formatCurrency(5550));
+    expect(screen.getByTestId('sale-payment-total-detail')).toHaveTextContent(
+      formatCurrency(6, undefined, undefined, 2)
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Card' }));
+    expect(summary).toHaveTextContent(formatCurrency(5544));
+    expect(screen.queryByTestId('sale-payment-total-detail')).not.toBeInTheDocument();
   });
 });

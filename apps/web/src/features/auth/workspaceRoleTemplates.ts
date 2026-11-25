@@ -2,7 +2,7 @@ import {
   ADMIN_ONLY_ROLES,
   DASHBOARD_ROLES,
   MANAGER_OR_ADMIN_ROLES,
-  USER_ROLES,
+  SALES_ROLES,
   type UserRole,
 } from '@puntovivo/shared/roles';
 
@@ -18,15 +18,16 @@ export interface WorkspaceRoleTemplate {
  * Keep this module free of React and icon imports: the Users route can explain
  * workspace access without pulling the icon-heavy sidebar catalogue into its
  * lazy chunk or changing ownership of unrelated route modules. A parity test
- * pins this catalogue to the navigation allowlists without coupling their
- * runtime chunks.
+ * pins each row to the roles that reach a non-module-gated route in the
+ * navigation catalogue, so the matrix shows default access, not opt-in modules.
  */
 export const WORKSPACE_ROLE_TEMPLATES = {
   sell: {
     id: 'sell',
     labelKey: 'workspaces:sell.label',
-    // Viewer enters this workspace only for the optional Companion item.
-    allowedRoles: USER_ROLES,
+    // Same roles the server lets open a till and complete a sale. Viewer reaches
+    // this workspace only through the opt-in Companion module, which is not default access.
+    allowedRoles: SALES_ROLES,
   },
   operate: {
     id: 'operate',

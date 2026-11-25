@@ -27,4 +27,11 @@ describe('SalesShortcutStrip', () => {
     expect(keys()).not.toContain('Delete');
     expect(screen.queryByText('remove line')).not.toBeInTheDocument();
   });
+
+  it('drops the parked key when the register does not park sales', () => {
+    Object.defineProperty(navigator, 'platform', { value: 'Linux x86_64', configurable: true });
+    render(<SalesShortcutStrip showsParked={false} />);
+
+    expect(keys()).not.toContain('Ctrl+R');
+  });
 });

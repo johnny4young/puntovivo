@@ -148,6 +148,7 @@
       "pinMissing": "Configure your staff PIN in Users before deciding requests.",
       "freshPinHint": "Enter your own PIN for every decision. No elevated session is created.",
       "checkoutSummary": "Exact checkout request",
+      "note": "“{{reason}}”",
       "requestedBy": "Requested by {{name}} · {{site}}",
       "expiresAt": "Expires {{time}}",
       "pinLabel": "Your staff PIN",
@@ -162,6 +163,22 @@
       "partialSuccess": "Approval {{collected}} of {{required}} recorded",
       "rejectedSuccess": "Request rejected",
       "progress": "{{collected}} of {{required}} approvals received",
+      "context": {
+        "limit": "Limit for {{name}}",
+        "requested": "Asks for {{percent}}",
+        "margin": "Margin on this sale",
+        "marginWithout": "Without the discount, {{percent}}",
+        "usualDiscount": "usual discount",
+        "purchases_zero": "No purchases in {{days}} days",
+        "purchases_one": "1 purchase in {{days}} days",
+        "purchases_other": "{{count}} purchases in {{days}} days",
+        "cadence": {
+          "daily": "Buys almost daily",
+          "weekly": "Buys every week",
+          "biweekly": "Buys every two weeks",
+          "monthly": "Buys every month"
+        }
+      },
       "actions": {
         "credit_override": "Credit override",
         "sale_void": "Void sale",
@@ -308,6 +325,7 @@
     "name": "Name",
     "stock": "Stock",
     "price": "Price",
+    "cost": "Cost",
     "unit": "Unit",
     "searching": "Searching products...",
     "noResults": "No products matched the current filters.",
@@ -393,5 +411,25 @@
     "recovered": "The system recovered. Check the last sale.",
     "restartsLabel": "Server restarts",
     "restartsValue": "{{count}} in 7 days"
+  },
+  "systemNotes": {
+    "saleAtSite": "Sale {{number}} · {{site}}",
+    "saleFromDraft": "Sale {{number}} · completed from draft",
+    "refundedSale": "Return of sale {{number}}",
+    "voidedSale": "Voided sale {{number}}",
+    "discardedDraft": "Discarded draft {{number}}",
+    "purchase": "Purchase {{number}}",
+    "purchaseAtSite": "Purchase {{number}} · {{site}}",
+    "purchaseForOrder": "Purchase {{number}} · order {{order}}",
+    "purchaseReceivedFromOrder": "Purchase {{number}} · received from order {{order}}",
+    "receivedFromOrder": "Received from order {{order}}",
+    "returnedPurchase": "Returned purchase {{number}}",
+    "voidedPurchase": "Voided purchase {{number}}",
+    "refundedReason": "Return: {{reason}}",
+    "voidedReason": "Void: {{reason}}",
+    "supplierPayment": "Supplier payment {{reference}}",
+    "launchImport": "Initial import {{id}}",
+    "openingStock": "Opening stock from product creation",
+    "productEditStock": "Stock changed from product edit"
   }
 }

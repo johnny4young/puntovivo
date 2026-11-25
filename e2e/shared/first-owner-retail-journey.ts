@@ -196,7 +196,9 @@ export async function runFirstOwnerRetailJourney({
   // surface after a reload and must resolve the exact persisted ticket.
   await page.getByTestId('sales-open-history').click();
   const history = page.getByTestId('sales-history-drawer');
-  await history.getByPlaceholder(/Search by invoice|Buscar por factura/i).fill('OWN-000001');
+  await history
+    .getByPlaceholder(/Search by sale number|Buscar por número de venta/i)
+    .fill('OWN-000001');
   await history
     .getByRole('button', { name: copy('View OWN-000001', 'Ver OWN-000001'), exact: true })
     .click();

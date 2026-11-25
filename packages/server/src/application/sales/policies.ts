@@ -252,24 +252,6 @@ export function buildVoidedSaleNotes(
 }
 
 /**
- * Concatenate a "Refunded: <reason>" suffix onto an existing sale's
- * notes string. Pure: no DB access. Returns the original notes when
- * `reason` is empty.
- *
- * Originally inlined in `trpc/routers/sales.ts`;  promoted to
- * the policies module for reuse by `returnSale`.
- */
-export function buildReturnedSaleNotes(
-  existingNotes: string | null,
-  reason: string | undefined | null
-): string | null {
-  if (!reason) {
-    return existingNotes;
-  }
-  return `${existingNotes ? `${existingNotes} | ` : ''}Refunded: ${reason}`;
-}
-
-/**
  * Compute the cash amount that was effectively persisted to the cash
  * session for a completed sale. Used by the void / refund paths to
  * size the reversal cash movement.

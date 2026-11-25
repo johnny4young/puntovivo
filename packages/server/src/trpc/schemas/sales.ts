@@ -548,6 +548,8 @@ export const discardDraftInput = z
   })
   .strict();
 
+export const carryDraftOverInput = discardDraftInput;
+
 /**
  * Input for `sales.completeDraft` (). Transitions an existing
  * draft to `status='completed'`, inserts payments + cash movement, and

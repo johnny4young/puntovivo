@@ -46,6 +46,8 @@
       "generated": "{{date}} · {{timeZone}}",
       "codes": {
         "open_sessions": "Sesiones de caja abiertas",
+        "unexplained_differences": "Diferencias de caja sin motivo",
+        "unresolved_drafts": "Ventas suspendidas por resolver",
         "cash_discrepancies": "Diferencias de caja",
         "fiscal_pending": "Documentos fiscales en proceso",
         "fiscal_rejected": "Documentos fiscales rechazados",
@@ -173,6 +175,8 @@
       "details": {
         "open_sessions_one": "{{count}} caja sigue abierta",
         "open_sessions_other": "{{count}} cajas siguen abiertas",
+        "unexplained_differences": "Indique el motivo de cada una en el cierre guiado",
+        "unresolved_drafts": "Descártelas o déjelas para mañana en el cierre guiado",
         "cash_discrepancies_one": "{{count}} sesión cerrada con diferencia · neto {{amount}}",
         "cash_discrepancies_other": "{{count}} sesiones cerradas con diferencia · neto {{amount}}",
         "fiscal_pending_one": "{{count}} documento espera respuesta",
@@ -252,7 +256,8 @@
         "receivable": "Cuentas por cobrar",
         "storeCredit": "Crédito a favor de clientes por pagar",
         "loyalty": "Puntos de fidelidad por pagar",
-        "refunds": "Devoluciones en ventas"
+        "refunds": "Devoluciones en ventas",
+        "rounding": "Ajuste al peso (redondeo)"
       }
     },
     "generic": {
@@ -281,6 +286,7 @@
       "saleInc": "INC venta",
       "saleTip": "Propina",
       "saleServiceCharge": "Cargo de servicio",
+      "saleRoundingAdjustment": "Ajuste por redondeo",
       "saleTotal": "Total venta",
       "paymentMethods": "Pagos",
       "currency": "Moneda",

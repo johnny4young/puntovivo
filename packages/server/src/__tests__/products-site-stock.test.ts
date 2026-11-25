@@ -15,19 +15,21 @@ let secondarySiteId: string;
 let foreignSiteId: string;
 let stockedProductId: string;
 let unstockedProductId: string;
+let spreadProductId: string;
+let closedSiteId: string;
 const now = () => new Date().toISOString();
 
-function cashierCaller() {
+function cashierCaller(role = 'cashier') {
   const context = {
     req: {
       server: server.app,
       headers: {},
-      user: { userId, email: 'admin@localhost', role: 'cashier', tenantId },
+      user: { userId, email: 'admin@localhost', role, tenantId },
       jwtVerify: async () => {},
     } as unknown as Context['req'],
     res: {} as Context['res'],
     db: getDatabase(),
-    user: { id: userId, email: 'admin@localhost', role: 'cashier', tenantId },
+    user: { id: userId, email: 'admin@localhost', role, tenantId },
     tenantId,
     siteId: primarySiteId,
   } as Context;
@@ -49,6 +51,16 @@ function insertProduct(name: string, barcode?: string) {
       createdAt: now(),
       updatedAt: now(),
     })
+    .run();
+  return id;
+}
+
+function insertSite(name: string, isActive: boolean) {
+  const db = getDatabase();
+  const companyId = db.select().from(sites).where(eq(sites.id, primarySiteId)).get()!.companyId;
+  const id = nanoid();
+  db.insert(sites)
+    .values({ id, tenantId, companyId, name, isActive, createdAt: now(), updatedAt: now() })
     .run();
   return id;
 }
@@ -122,6 +134,15 @@ describe('products site stock', () => {
     insertBalance(secondarySiteId, stockedProductId, 40);
     unstockedProductId = insertProduct('Stocked elsewhere only');
     insertBalance(secondarySiteId, unstockedProductId, 7);
+
+    spreadProductId = insertProduct('Spread drywall screw');
+    insertBalance(primarySiteId, spreadProductId, 42);
+    insertBalance(secondarySiteId, spreadProductId, 12);
+    insertBalance(insertSite('Bodega Sur', true), spreadProductId, 120);
+    insertBalance(insertSite('Ámbar', true), spreadProductId, 12);
+    insertBalance(insertSite('Empty site', true), spreadProductId, 0);
+    closedSiteId = insertSite('Closed site', false);
+    insertBalance(closedSiteId, spreadProductId, 500);
   });
 
   afterAll(async () => {
@@ -170,6 +191,82 @@ describe('products site stock', () => {
       siteId: secondarySiteId,
     });
     expect(scan?.product).toMatchObject({ stock: 43, siteStock: 40 });
+  });
+
+  it('lists the other active sites with stock in search, most stock first', async () => {
+    const { items } = await cashierCaller().products.search({
+      q: 'Spread drywall',
+      siteId: primarySiteId,
+    });
+
+    expect(items.find(item => item.id === spreadProductId)).toMatchObject({
+      siteStock: 42,
+      otherSites: [
+        { siteName: 'Bodega Sur', onHand: 120 },
+        { siteName: 'Ámbar', onHand: 12 },
+        { siteId: secondarySiteId, siteName: 'Second site', onHand: 12 },
+      ],
+    });
+  });
+
+  it('reports the searched site as here and the rest as other sites', async () => {
+    const caller = cashierCaller();
+
+    const fromSecondary = await caller.products.search({
+      q: 'Stocked in both',
+      siteId: secondarySiteId,
+    });
+    expect(findItem(fromSecondary.items, stockedProductId)).toMatchObject({
+      siteStock: 40,
+      otherSites: [{ siteId: primarySiteId, onHand: 3 }],
+    });
+
+    const fromPrimary = await caller.products.search({
+      q: 'Stocked elsewhere',
+      siteId: primarySiteId,
+    });
+    expect(findItem(fromPrimary.items, unstockedProductId)).toMatchObject({
+      siteStock: 0,
+      otherSites: [{ siteId: secondarySiteId, siteName: 'Second site', onHand: 7 }],
+    });
+  });
+
+  it('keeps the balance of an inactive searched site', async () => {
+    const { items } = await cashierCaller().products.search({
+      q: 'Spread drywall',
+      siteId: closedSiteId,
+    });
+
+    expect(items.find(item => item.id === spreadProductId)).toMatchObject({
+      siteStock: 500,
+      otherSites: [
+        { siteName: 'Bodega Sur', onHand: 120 },
+        { siteId: primarySiteId, onHand: 42 },
+        { siteName: 'Ámbar', onHand: 12 },
+        { siteName: 'Second site', onHand: 12 },
+      ],
+    });
+  });
+
+  it('keeps other sites from roles that do not sell', async () => {
+    const { items } = await cashierCaller('viewer').products.search({
+      q: 'Spread drywall',
+      siteId: primarySiteId,
+    });
+
+    expect(items.find(item => item.id === spreadProductId)).toMatchObject({
+      siteStock: 42,
+      otherSites: null,
+    });
+  });
+
+  it('leaves other sites empty in search when no site is requested', async () => {
+    const { items } = await cashierCaller().products.search({ q: 'Spread drywall' });
+
+    expect(items.find(item => item.id === spreadProductId)).toMatchObject({
+      siteStock: null,
+      otherSites: null,
+    });
   });
 
   it('keeps those reads site-free when no site is requested', async () => {

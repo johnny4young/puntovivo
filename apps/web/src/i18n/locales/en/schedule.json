@@ -12,7 +12,7 @@
   },
   "kicker": "Workforce",
   "title": "Team schedule",
-  "description": "Plan site shifts in the tenant timezone. Overlaps are blocked and every change remains auditable.",
+  "description": "Plan site shifts in the business time zone. Overlaps are blocked and every change remains auditable.",
   "timezone": "Schedule timezone: {{timeZone}}",
   "actions": {
     "new": "Add shift",

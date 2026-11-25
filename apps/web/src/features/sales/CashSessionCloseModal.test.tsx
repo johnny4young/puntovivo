@@ -47,7 +47,7 @@ describe('CashSessionCloseModal', () => {
     await i18n.changeLanguage('en');
   });
 
-  it('keeps the expected balance hidden and requires matching close totals', async () => {
+  it('keeps the expected balance hidden and takes the closing total from the denominations', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn().mockResolvedValue(undefined);
 
@@ -69,16 +69,6 @@ describe('CashSessionCloseModal', () => {
     // multi-match query to verify the term surfaces at least once.
     expect(screen.getAllByText('Blind close').length).toBeGreaterThan(0);
 
-    const actualCountInput = screen.getByLabelText('Blind closing total');
-    await user.clear(actualCountInput);
-    await user.type(actualCountInput, '200');
-
-    const submitButton = screen.getByRole('button', { name: 'Close session' });
-    expect(submitButton).toBeDisabled();
-    expect(
-      screen.getByText('The blind closing total must match the denomination count total.')
-    ).toBeInTheDocument();
-
     const fiftyCountInput = screen.getByLabelText('Count for denomination $50.00');
     await user.clear(fiftyCountInput);
     await user.type(fiftyCountInput, '2');
@@ -87,6 +77,8 @@ describe('CashSessionCloseModal', () => {
     await user.clear(hundredCountInput);
     await user.type(hundredCountInput, '1');
 
+    expect(screen.getByLabelText('Blind closing total')).toHaveTextContent('$200.00');
+    const submitButton = screen.getByRole('button', { name: 'Close session' });
     expect(submitButton).toBeEnabled();
     await user.click(submitButton);
 
@@ -100,6 +92,29 @@ describe('CashSessionCloseModal', () => {
         ]),
       })
     );
+  });
+
+  it('accepts a typed closing total when no denominations were counted', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <CashSessionCloseModal
+        cashSession={activeCashSession}
+        isOpen
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />
+    );
+
+    const actualCountInput = screen.getByLabelText('Blind closing total');
+    await user.clear(actualCountInput);
+    await user.type(actualCountInput, '140');
+    await user.click(screen.getByRole('button', { name: 'Close session' }));
+
+    expect(onSubmit.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ actualCount: 140 }));
   });
 
   it('surfaces an  warning when suspended drafts remain in flight', () => {
@@ -241,7 +256,7 @@ describe('CashSessionCloseModal', () => {
     );
 
     const totals = screen.getByTestId('close-session-totals');
-    expect(totals).toHaveTextContent('Denomination total');
+    expect(totals).toHaveTextContent('Closing total');
     expect(screen.getByTestId('close-session-expected')).toHaveTextContent('140');
     expect(screen.getByTestId('close-session-live-delta')).toBeInTheDocument();
     expect(screen.getAllByTestId(/^close-session-denomination-/).length).toBeGreaterThan(9);

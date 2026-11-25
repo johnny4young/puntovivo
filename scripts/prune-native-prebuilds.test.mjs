@@ -1,12 +1,14 @@
 import { strict as assert } from 'node:assert';
-import { mkdtemp, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import {
   getElectronBuilderArch,
   getPackagedPrebuildName,
+  getSerialPrebuildDir,
   pruneNativePrebuilds,
+  pruneSerialPrebuilds,
 } from './prune-native-prebuilds.mjs';
 
 test('maps supported packaging targets to bundled Node-API filenames', () => {
@@ -62,5 +64,26 @@ test('fails closed when the target binary is absent', async t => {
   await assert.rejects(
     pruneNativePrebuilds(dir, 'darwin-arm64.node'),
     /Packaged SQLite prebuild darwin-arm64\.node is missing/u
+  );
+});
+
+test('keeps only the target serial prebuild folder and fails closed without it', async t => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'puntovivo-serial-prune-'));
+  t.after(async () => {
+    const { rm } = await import('node:fs/promises');
+    await rm(dir, { recursive: true, force: true });
+  });
+  for (const name of ['darwin-x64+arm64', 'linux-x64', 'win32-x64']) {
+    await mkdir(path.join(dir, name));
+    await writeFile(path.join(dir, name, 'binding.node'), name);
+  }
+
+  assert.equal(getSerialPrebuildDir({ platform: 'darwin', arch: 'arm64' }), 'darwin-x64+arm64');
+  assert.equal(getSerialPrebuildDir({ platform: 'win32', arch: 'x64' }), 'win32-x64');
+  assert.deepEqual(await pruneSerialPrebuilds(dir, 'win32-x64'), { kept: 'win32-x64', removed: 2 });
+  assert.deepEqual(await readdir(dir), ['win32-x64']);
+  await assert.rejects(
+    pruneSerialPrebuilds(dir, 'linux-arm64'),
+    /Packaged serial prebuild linux-arm64 is missing/u
   );
 });

@@ -148,6 +148,7 @@
       "pinMissing": "Configure su PIN de personal en Usuarios antes de decidir solicitudes.",
       "freshPinHint": "Ingrese su propio PIN en cada decisión. No se crea una sesión elevada.",
       "checkoutSummary": "Solicitud exacta de cobro",
+      "note": "«{{reason}}»",
       "requestedBy": "Solicitada por {{name}} · {{site}}",
       "expiresAt": "Vence {{time}}",
       "pinLabel": "Su PIN de personal",
@@ -162,6 +163,22 @@
       "partialSuccess": "Aprobación {{collected}} de {{required}} registrada",
       "rejectedSuccess": "Solicitud rechazada",
       "progress": "{{collected}} de {{required}} aprobaciones recibidas",
+      "context": {
+        "limit": "Límite de {{name}}",
+        "requested": "Pide {{percent}}",
+        "margin": "Margen de esta venta",
+        "marginWithout": "Sin el descuento, {{percent}}",
+        "usualDiscount": "su descuento habitual",
+        "purchases_zero": "Sin compras en {{days}} días",
+        "purchases_one": "1 compra en {{days}} días",
+        "purchases_other": "{{count}} compras en {{days}} días",
+        "cadence": {
+          "daily": "Compra casi a diario",
+          "weekly": "Compra cada semana",
+          "biweekly": "Compra cada dos semanas",
+          "monthly": "Compra cada mes"
+        }
+      },
       "actions": {
         "credit_override": "Excepción de crédito",
         "sale_void": "Anular venta",
@@ -308,6 +325,7 @@
     "name": "Nombre",
     "stock": "Stock",
     "price": "Precio",
+    "cost": "Costo",
     "unit": "Unidad",
     "searching": "Buscando productos...",
     "noResults": "Ningún producto coincide con los filtros actuales.",
@@ -393,5 +411,25 @@
     "recovered": "El sistema se recuperó. Revise la última venta.",
     "restartsLabel": "Reinicios del servidor",
     "restartsValue": "{{count}} en 7 días"
+  },
+  "systemNotes": {
+    "saleAtSite": "Venta {{number}} · {{site}}",
+    "saleFromDraft": "Venta {{number}} · completada desde borrador",
+    "refundedSale": "Devolución de la venta {{number}}",
+    "voidedSale": "Anulación de la venta {{number}}",
+    "discardedDraft": "Borrador descartado {{number}}",
+    "purchase": "Compra {{number}}",
+    "purchaseAtSite": "Compra {{number}} · {{site}}",
+    "purchaseForOrder": "Compra {{number}} · pedido {{order}}",
+    "purchaseReceivedFromOrder": "Compra {{number}} · recibida del pedido {{order}}",
+    "receivedFromOrder": "Recibido del pedido {{order}}",
+    "returnedPurchase": "Devolución de la compra {{number}}",
+    "voidedPurchase": "Anulación de la compra {{number}}",
+    "refundedReason": "Devolución: {{reason}}",
+    "voidedReason": "Anulación: {{reason}}",
+    "supplierPayment": "Pago a proveedor {{reference}}",
+    "launchImport": "Importación inicial {{id}}",
+    "openingStock": "Stock inicial al crear el producto",
+    "productEditStock": "Stock cambiado al editar el producto"
   }
 }

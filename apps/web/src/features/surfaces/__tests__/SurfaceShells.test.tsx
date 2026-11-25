@@ -71,11 +71,17 @@ beforeEach(() => {
   useModulesSnapshotMock.mockReset();
 });
 
-function setModule(moduleId: ClientModuleId, active: boolean, isPlaceholder = false): void {
+function setModule(
+  moduleId: ClientModuleId,
+  active: boolean,
+  isPlaceholder = false,
+  isError = false
+): void {
   useModulesSnapshotMock.mockReturnValue({
     modules: { [moduleId]: active },
-    isLoading: isPlaceholder,
+    isLoading: isPlaceholder && !isError,
     isPlaceholder,
+    isError,
   });
 }
 
@@ -126,6 +132,13 @@ describe('POS Touch surface gate', () => {
     expect(screen.getByTestId('loading')).toBeInTheDocument();
     expect(screen.queryByTestId('touch-shell')).toBeNull();
     expect(screen.queryByTestId('dashboard-fallback')).toBeNull();
+  });
+
+  it('stops waiting and redirects when the module state fails to load', () => {
+    setModule('pos-touch', false, true, true);
+    renderSurface(TouchShell, 'pos-touch', '/touch');
+    expect(screen.queryByTestId('loading')).toBeNull();
+    expect(screen.getByTestId('dashboard-fallback')).toBeInTheDocument();
   });
 });
 

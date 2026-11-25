@@ -58,6 +58,7 @@
   --color-secondary-800: var(--secondary-800);
   --color-secondary-900: var(--secondary-900);
   --color-secondary-950: var(--secondary-950);
+  --color-scrim: var(--scrim);
 
   --color-success-50: var(--success-50);
   --color-success-500: var(--success-500);
@@ -176,8 +177,7 @@
   --font-ui:
     'Instrument Sans Variable', 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
     system-ui, sans-serif;
-  --font-display-face:
-    'Bricolage Grotesque Variable', 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-display-face: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', system-ui, sans-serif;
   --font-mono-face: 'DM Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
   /* Palette: ink on cool paper; orange is reserved for Cobrar. */
@@ -314,6 +314,8 @@
   --secondary-800: oklch(0.33 0.04 241);
   --secondary-900: oklch(0.25 0.04 241);
   --secondary-950: oklch(0.2 0.035 242);
+  /* Dims the page behind a dialog; stays dark in both themes. */
+  --scrim: oklch(0.2 0.035 242);
 
   --success-50: oklch(0.939 0.028 162);
   --success-500: oklch(0.563 0.12 159);
@@ -394,6 +396,7 @@
 }
 
 .dark {
+  --scrim: oklch(0.12 0.02 244);
   --background: oklch(0.202 0.03 244);
   --foreground: oklch(0.966 0.01 239);
   --card: oklch(0.263 0.043 243);

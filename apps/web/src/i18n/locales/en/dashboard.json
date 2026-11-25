@@ -29,7 +29,7 @@
       "fallbackLabel": "all sites"
     },
     "ordersToday": {
-      "title": "Orders Today",
+      "title": "Sales count today",
       "fallbackLabel": "completed today"
     },
     "lowStockAlerts": {
@@ -50,7 +50,7 @@
     "chartLabel": "Daily revenue chart for the last 30 days",
     "empty": "There is no revenue to chart yet.",
     "periodTotal": "Period total",
-    "periodOrders": "Period orders",
+    "periodOrders": "Sales in period",
     "bestDay": "Best day"
   },
   "recentSales": {
@@ -77,8 +77,8 @@
   },
   "unitsSold_one": "{{count}} unit sold",
   "unitsSold_other": "{{count}} units sold",
-  "ordersCount_one": "{{count}} order",
-  "ordersCount_other": "{{count}} orders",
+  "ordersCount_one": "{{count}} sale",
+  "ordersCount_other": "{{count}} sales",
   "stockCount_one": "{{count}} in stock",
   "stockCount_other": "{{count}} in stock",
   "today": {
@@ -104,6 +104,9 @@
       "todayColumn": "Today",
       "comparisonColumn": "Last week"
     },
+    "arc": {
+      "summary": "Day from {{opening}} to {{close}}, {{percent}} % elapsed"
+    },
     "pending": {
       "title": "Pending",
       "filterLabel": "Filter pending items",
@@ -119,16 +122,25 @@
         "whenPossible": "When possible"
       },
       "approval": "{{label}} {{amount}} awaits your approval",
-      "approvalDetail": "{{requester}} · {{site}} · {{time}}",
+      "agoNow": "just now",
+      "ago": "{{duration}} ago",
       "staleSession": "{{register}} still open since {{time}}",
       "staleSessionDetail": "{{cashier}} · the day cannot be signed until it is counted",
       "incident": {
         "stockout": "{{product}} out of stock",
         "price_mismatch": "{{product}}: shelf price differs",
-        "no_barcode": "Product without barcode: {{product}}"
+        "no_barcode": "Product without barcode: {{product}}",
+        "call_manager": "{{reporter}} is calling you to the till"
       },
-      "incidentDetail": "Reported by {{reporter}} · {{site}} {{elsewhere}}",
-      "elsewhere": "· {{site}} has {{count}}",
+      "incidentReporter": "Reported by {{reporter}}",
+      "incidentReason": {
+        "not_on_shelf": "Not on the shelf",
+        "system_zero": "System says 0",
+        "expired": "Expired"
+      },
+      "incidentShelfPrice": "shelf {{price}}",
+      "incidentSystemPrice": "system {{price}}",
+      "elsewhere": "{{site}} has {{count}}",
       "attention": {
         "sync_one": "{{count}} sync item needs attention",
         "sync_other": "{{count}} sync items need attention",
@@ -167,7 +179,14 @@
       "nextIn": "Next in",
       "durationHours": "{{hours}} h {{minutes}} min",
       "durationMinutes": "{{minutes}} min",
-      "handoff": "Handoff of {{register}}: {{from}} hands over"
+      "handoff": "Handoff of {{register}}: {{from}} hands over",
+      "handoffTo": "Handoff of {{register}}: {{from}} hands over to {{to}}",
+      "received": "Handoff at {{time}} · from {{from}}",
+      "receivedDifference": "Handoff at {{time}} · {{difference}} against {{from}}'s count",
+      "handedOver": "{{register}} · handed over",
+      "handedOverBy": "{{from}} handed it over at {{time}}",
+      "waitingFor": "waits for {{to}}",
+      "waitingAnyone": "to receive"
     }
   }
 }

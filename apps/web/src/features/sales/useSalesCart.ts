@@ -6,6 +6,7 @@ import {
   getCartItemKey,
   mergeBarcodeCartItem,
   mergeCartItem,
+  replaceCartItemUnit,
   updateCartItem,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
@@ -120,6 +121,8 @@ export function useSalesCart({
     // is idempotent and only touches lines sitting on the tier grid, so
     // label-embedded and hand-edited prices survive.
     state.updateCart(activeId, applyPriceTier(next, workspace?.priceTier ?? 1));
+    // An emptied ticket starts over, so the next shopper's sale is not sent out.
+    if (next.length === 0) state.setDeliveryRequested(activeId, false);
   }, []);
   const setSelectedCartItemKey = useCallback((key: string | null) => {
     const state = useCartWorkspaceStore.getState();
@@ -189,6 +192,13 @@ export function useSalesCart({
           : item
       )
     );
+  };
+
+  const handleUnitChange = (itemKey: string, unitId: string) => {
+    const line = cartItems.find(item => item.key === itemKey);
+    if (itemsLocked || !line || unitId === line.unitId) return;
+    setCartItems(currentItems => replaceCartItemUnit(currentItems, itemKey, unitId));
+    setSelectedCartItemKey(getCartItemKey(line.productId, unitId));
   };
 
   const handleSerialSelectionChange = (itemKey: string, serialIds: string[], siteId: string) => {
@@ -275,6 +285,7 @@ export function useSalesCart({
     handleQuantityChange,
     handleDiscountChange,
     handleSerialSelectionChange,
+    handleUnitChange,
     handleRemoveItem,
     handleClearCart,
     handleUndoCart,

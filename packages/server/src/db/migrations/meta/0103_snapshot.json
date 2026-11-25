@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ff13a942-2c45-497f-8a37-2523b25cf0ba",
-  "prevId": "da2d7484-6971-4cb6-9606-9c9fae3fff07",
+  "id": "60a2c6d0-b8c5-438d-ba7a-6be50daf1f39",
+  "prevId": "0bc0a716-47bd-47dc-a51d-143f24a25b36",
   "tables": {
     "account_recovery_codes": {
       "name": "account_recovery_codes",
@@ -11203,116 +11203,6 @@
         }
       }
     },
-    "provider_payable_invoice_purchases": {
-      "name": "provider_payable_invoice_purchases",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "invoice_id": {
-          "name": "invoice_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "purchase_id": {
-          "name": "purchase_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        }
-      },
-      "indexes": {
-        "idx_provider_payable_invoice_purchases_tenant": {
-          "name": "idx_provider_payable_invoice_purchases_tenant",
-          "columns": [
-            "tenant_id",
-            "created_at"
-          ],
-          "isUnique": false
-        },
-        "idx_provider_payable_invoice_purchases_invoice": {
-          "name": "idx_provider_payable_invoice_purchases_invoice",
-          "columns": [
-            "invoice_id"
-          ],
-          "isUnique": false
-        },
-        "idx_provider_payable_invoice_purchases_purchase": {
-          "name": "idx_provider_payable_invoice_purchases_purchase",
-          "columns": [
-            "tenant_id",
-            "purchase_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "provider_payable_invoice_purchases_tenant_id_tenants_id_fk": {
-          "name": "provider_payable_invoice_purchases_tenant_id_tenants_id_fk",
-          "tableFrom": "provider_payable_invoice_purchases",
-          "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "provider_payable_invoice_purchases_invoice_id_provider_payable_invoices_id_fk": {
-          "name": "provider_payable_invoice_purchases_invoice_id_provider_payable_invoices_id_fk",
-          "tableFrom": "provider_payable_invoice_purchases",
-          "tableTo": "provider_payable_invoices",
-          "columnsFrom": [
-            "invoice_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "provider_payable_invoice_purchases_purchase_id_purchases_id_fk": {
-          "name": "provider_payable_invoice_purchases_purchase_id_purchases_id_fk",
-          "tableFrom": "provider_payable_invoice_purchases",
-          "tableTo": "purchases",
-          "columnsFrom": [
-            "purchase_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "provider_payable_invoices": {
       "name": "provider_payable_invoices",
       "columns": {
@@ -11716,150 +11606,6 @@
           "value": "round(\"provider_payable_payments\".\"amount\", 2) = \"provider_payable_payments\".\"amount\""
         }
       }
-    },
-    "purchase_documents": {
-      "name": "purchase_documents",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "purchase_id": {
-          "name": "purchase_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "file_name": {
-          "name": "file_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "mime_type": {
-          "name": "mime_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "size_bytes": {
-          "name": "size_bytes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "payload_base64": {
-          "name": "payload_base64",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "payload_hash": {
-          "name": "payload_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "uploaded_by": {
-          "name": "uploaded_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        }
-      },
-      "indexes": {
-        "idx_purchase_documents_tenant_created": {
-          "name": "idx_purchase_documents_tenant_created",
-          "columns": [
-            "tenant_id",
-            "created_at"
-          ],
-          "isUnique": false
-        },
-        "idx_purchase_documents_payload_hash": {
-          "name": "idx_purchase_documents_payload_hash",
-          "columns": [
-            "payload_hash"
-          ],
-          "isUnique": false
-        },
-        "idx_purchase_documents_purchase": {
-          "name": "idx_purchase_documents_purchase",
-          "columns": [
-            "purchase_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "purchase_documents_tenant_id_tenants_id_fk": {
-          "name": "purchase_documents_tenant_id_tenants_id_fk",
-          "tableFrom": "purchase_documents",
-          "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "purchase_documents_purchase_id_purchases_id_fk": {
-          "name": "purchase_documents_purchase_id_purchases_id_fk",
-          "tableFrom": "purchase_documents",
-          "tableTo": "purchases",
-          "columnsFrom": [
-            "purchase_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "purchase_documents_uploaded_by_users_id_fk": {
-          "name": "purchase_documents_uploaded_by_users_id_fk",
-          "tableFrom": "purchase_documents",
-          "tableTo": "users",
-          "columnsFrom": [
-            "uploaded_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
     },
     "purchase_item_lots": {
       "name": "purchase_item_lots",
@@ -12854,20 +12600,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "document_type": {
-          "name": "document_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "document_number": {
-          "name": "document_number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "created_by": {
           "name": "created_by",
           "type": "text",
@@ -13326,6 +13058,34 @@
           "notNull": false,
           "autoincrement": false
         },
+        "difference_reason": {
+          "name": "difference_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "difference_note": {
+          "name": "difference_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "difference_explained_by": {
+          "name": "difference_explained_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "difference_explained_at": {
+          "name": "difference_explained_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -13444,6 +13204,19 @@
           "tableTo": "employee_shifts",
           "columnsFrom": [
             "employee_shift_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cash_sessions_difference_explained_by_users_id_fk": {
+          "name": "cash_sessions_difference_explained_by_users_id_fk",
+          "tableFrom": "cash_sessions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "difference_explained_by"
           ],
           "columnsTo": [
             "id"
@@ -14002,6 +13775,20 @@
           "notNull": false,
           "autoincrement": false
         },
+        "carried_over_at": {
+          "name": "carried_over_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "carried_over_by": {
+          "name": "carried_over_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "reprint_count": {
           "name": "reprint_count",
           "type": "integer",
@@ -14264,6 +14051,19 @@
             "id"
           ],
           "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "sales_carried_over_by_users_id_fk": {
+          "name": "sales_carried_over_by_users_id_fk",
+          "tableFrom": "sales",
+          "tableTo": "users",
+          "columnsFrom": [
+            "carried_over_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         },
         "sales_last_reprinted_by_users_id_fk": {
@@ -30368,6 +30168,21 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "signature_method": {
+          "name": "signature_method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'session'"
+        },
+        "signature_path": {
+          "name": "signature_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -31540,6 +31355,304 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
+    },
+    "cash_session_handoffs": {
+      "name": "cash_session_handoffs",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "site_id": {
+          "name": "site_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "register_name": {
+          "name": "register_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "from_session_id": {
+          "name": "from_session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "from_cashier_id": {
+          "name": "from_cashier_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "to_cashier_id": {
+          "name": "to_cashier_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "to_session_id": {
+          "name": "to_session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "outgoing_count": {
+          "name": "outgoing_count",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "outgoing_denominations": {
+          "name": "outgoing_denominations",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "from_signature": {
+          "name": "from_signature",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "handed_over_at": {
+          "name": "handed_over_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "receive_mode": {
+          "name": "receive_mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "received_count": {
+          "name": "received_count",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "received_denominations": {
+          "name": "received_denominations",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "to_signature": {
+          "name": "to_signature",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "reassigned_draft_count": {
+          "name": "reassigned_draft_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_cash_handoffs_from_session": {
+          "name": "idx_cash_handoffs_from_session",
+          "columns": [
+            "from_session_id"
+          ],
+          "isUnique": true
+        },
+        "idx_cash_handoffs_pending_register": {
+          "name": "idx_cash_handoffs_pending_register",
+          "columns": [
+            "tenant_id",
+            "site_id",
+            "register_name"
+          ],
+          "isUnique": true,
+          "where": "\"cash_session_handoffs\".\"status\" = 'pending'"
+        },
+        "idx_cash_handoffs_tenant_status": {
+          "name": "idx_cash_handoffs_tenant_status",
+          "columns": [
+            "tenant_id",
+            "status"
+          ],
+          "isUnique": false
+        },
+        "idx_cash_handoffs_tenant_to_session": {
+          "name": "idx_cash_handoffs_tenant_to_session",
+          "columns": [
+            "tenant_id",
+            "to_session_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "cash_session_handoffs_tenant_id_tenants_id_fk": {
+          "name": "cash_session_handoffs_tenant_id_tenants_id_fk",
+          "tableFrom": "cash_session_handoffs",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cash_session_handoffs_site_id_sites_id_fk": {
+          "name": "cash_session_handoffs_site_id_sites_id_fk",
+          "tableFrom": "cash_session_handoffs",
+          "tableTo": "sites",
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cash_session_handoffs_from_session_id_cash_sessions_id_fk": {
+          "name": "cash_session_handoffs_from_session_id_cash_sessions_id_fk",
+          "tableFrom": "cash_session_handoffs",
+          "tableTo": "cash_sessions",
+          "columnsFrom": [
+            "from_session_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cash_session_handoffs_from_cashier_id_users_id_fk": {
+          "name": "cash_session_handoffs_from_cashier_id_users_id_fk",
+          "tableFrom": "cash_session_handoffs",
+          "tableTo": "users",
+          "columnsFrom": [
+            "from_cashier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cash_session_handoffs_to_cashier_id_users_id_fk": {
+          "name": "cash_session_handoffs_to_cashier_id_users_id_fk",
+          "tableFrom": "cash_session_handoffs",
+          "tableTo": "users",
+          "columnsFrom": [
+            "to_cashier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cash_session_handoffs_to_session_id_cash_sessions_id_fk": {
+          "name": "cash_session_handoffs_to_session_id_cash_sessions_id_fk",
+          "tableFrom": "cash_session_handoffs",
+          "tableTo": "cash_sessions",
+          "columnsFrom": [
+            "to_session_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_cash_handoffs_outgoing_nonneg": {
+          "name": "chk_cash_handoffs_outgoing_nonneg",
+          "value": "\"cash_session_handoffs\".\"outgoing_count\" >= 0"
+        },
+        "chk_cash_handoffs_outgoing_2dec": {
+          "name": "chk_cash_handoffs_outgoing_2dec",
+          "value": "round(\"cash_session_handoffs\".\"outgoing_count\", 2) = \"cash_session_handoffs\".\"outgoing_count\""
+        },
+        "chk_cash_handoffs_received_nonneg": {
+          "name": "chk_cash_handoffs_received_nonneg",
+          "value": "\"cash_session_handoffs\".\"received_count\" >= 0"
+        },
+        "chk_cash_handoffs_received_2dec": {
+          "name": "chk_cash_handoffs_received_2dec",
+          "value": "round(\"cash_session_handoffs\".\"received_count\", 2) = \"cash_session_handoffs\".\"received_count\""
+        }
+      }
     },
     "inventory_lot_events": {
       "name": "inventory_lot_events",

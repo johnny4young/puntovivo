@@ -46,10 +46,8 @@ for (const spanish of [false, true]) {
     );
     await page.setViewportSize({ width: 375, height: 812 });
     await login(page, { ...scenario.cashier, defaultPath: '/sales' }, { spanish });
-    // Anchor the amount in visible copy so the check follows what the cashier reads.
-    const label = page.getByText(spanish ? 'Total borrador' : 'Draft total', { exact: true });
-    const total = label.locator('..').locator('p').nth(1);
     const bar = page.getByTestId('mobile-checkout-bar');
+    const total = bar.getByTestId('mobile-checkout-total');
     for (const viewport of VIEWPORTS) {
       await page.setViewportSize(viewport);
       await expectUnclipped(total, page);
@@ -57,14 +55,20 @@ for (const spanish of [false, true]) {
     }
     await page.setViewportSize({ width: 375, height: 812 });
     const closeName = spanish ? 'Cerrar caja' : 'Close cash session';
-    await expect(bar.getByTestId('mobile-checkout-search')).toHaveClass(/btn-primary/);
+    const charge = bar.getByRole('button', {
+      name: spanish ? 'Cobrar venta' : 'Charge sale',
+      exact: true,
+    });
+    await expect(charge).toBeDisabled();
     await expect(bar.getByRole('button', { name: closeName, exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: closeName, exact: true })).toBeEnabled();
     await addProductToCartViaKeyboard(page, scenario.product.sku);
     await expect(total).toContainText(/123[.,]456[.,]789/);
-    const search = bar.getByRole('button', { name: spanish ? 'Buscar' : 'Search', exact: true });
-    const charge = bar.getByRole('button', {
-      name: spanish ? 'Cobrar venta' : 'Charge sale',
+    await expect(bar.getByTestId('mobile-checkout-caption')).toHaveText(
+      spanish ? 'Total · 1 artículo' : 'Total · 1 item'
+    );
+    const suspend = bar.getByRole('button', {
+      name: spanish ? 'Suspender' : 'Suspend',
       exact: true,
     });
     for (const viewport of VIEWPORTS) {
@@ -74,9 +78,9 @@ for (const spanish of [false, true]) {
       const amountBox = (await total.boundingBox())!;
       const actionBox = (await charge.boundingBox())!;
       expect(amountBox.y + amountBox.height).toBeLessThanOrEqual(actionBox.y);
-      await search.focus();
+      await charge.focus();
       await page.keyboard.press('Tab');
-      await expect(charge).toBeFocused();
+      await expect(suspend).toBeFocused();
       if (process.env.PUNTOVIVO_AUDIT_DIR) {
         await mkdir(process.env.PUNTOVIVO_AUDIT_DIR, { recursive: true });
         await page.screenshot({
@@ -111,3 +115,42 @@ for (const spanish of [false, true]) {
     await expectNoClientIssues(tracker);
   });
 }
+
+test('a phone sells from the search, the key chips and a compact ticket', async ({
+  page,
+}, testInfo) => {
+  const tracker = attachClientIssueTracker(page);
+  const scenario = seedLargeTotalSaleScenario(
+    `phone-layout-${testInfo.parallelIndex}-${Date.now()}`
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page, { ...scenario.cashier, defaultPath: '/sales' });
+
+  // Status lives in the register pill and the fixed bar, not in banners above the sale.
+  await expect(page.getByTestId('sales-register-state')).toHaveText('Register open');
+  await expect(page.getByTestId('sales-operation-strip')).toBeHidden();
+  await expect(page.locator('.sales-shortcut-strip')).toBeHidden();
+  await expect(page.getByPlaceholder('Search for a product')).toBeVisible();
+
+  await addProductToCartViaKeyboard(page, scenario.product.sku);
+  const line = page.getByTestId(`sale-cart-item-${scenario.product.sku}`);
+  await expect(page.getByTestId('sales-last-read')).toHaveCount(0);
+  const keys = page.getByTestId('sales-quick-access');
+  expect((await keys.boundingBox())!.y).toBeLessThan((await line.boundingBox())!.y);
+
+  // A scanned line reads as name, quantity and total; a tap opens its keys.
+  const compact = line.locator('.sales-ticket-qty-compact');
+  await expect(compact.locator('[aria-hidden="true"]')).toHaveText('× 1');
+  await expect(compact).toContainText('Quantity 1');
+  await expect(line.getByRole('button', { name: /^Add one / })).toBeHidden();
+  await line.locator('.sales-ticket-name').click();
+  await expect(line.getByRole('button', { name: /^Add one / })).toBeVisible();
+  await expect(line.locator('.sales-ticket-qty-compact')).toBeHidden();
+
+  // Credit needs a customer, so the drawer opens on the customer picker.
+  await page.getByTestId('mobile-checkout-credit').click();
+  const dialog = page.getByRole('dialog', { name: 'Charge Sale' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('#sale-payment-customer')).toBeFocused();
+  await expectNoClientIssues(tracker);
+});

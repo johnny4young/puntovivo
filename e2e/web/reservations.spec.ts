@@ -254,6 +254,8 @@ for (const surface of ['/m', '/touch/voice'] as const) {
     await search.getByTestId(`product-search-row-${scenario.product.sku}`).click();
     await search.getByRole('button', { name: 'Search', exact: true }).click();
     await expect(search).toBeHidden();
+    await page.getByTestId('plate-sheet-submit').click();
+    await expect(page.getByTestId('voice-ordering-cart-row')).toHaveCount(1);
     await expect(page.getByTestId('voice-ordering-save')).toBeDisabled();
     await page.getByRole('checkbox', { name: 'Seat reservation for Grace (2 guests)' }).check();
     await expect(page.getByTestId('voice-ordering-guest-count')).toHaveValue('2');

@@ -117,6 +117,13 @@ function mutation(fn: (input: unknown) => unknown) {
   });
 }
 
+const phone = vi.hoisted(() => ({ layout: false }));
+const zones = vi.hoisted(() => ({ weightValue: true }));
+vi.mock('@/features/modules/useRegisterZone', () => ({
+  useRegisterZone: (zone: string) => zone !== 'weight-value' || zones.weightValue,
+}));
+vi.mock('./usePhoneLayout', () => ({ usePhoneLayout: () => phone.layout }));
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     quickKeys: {
@@ -190,6 +197,7 @@ const legacyKey = `puntovivo:sales-favorites:v1:${baseProps.scopeKey}`;
 
 describe('SalesQuickAccess', () => {
   beforeEach(() => {
+    zones.weightValue = true;
     state.keys = [];
     state.keysError = false;
     state.topSelling = [];
@@ -199,6 +207,36 @@ describe('SalesQuickAccess', () => {
     Object.values(mutations).forEach(mock => mock.mockReset());
     toastError.mockClear();
     getById.mockClear();
+    phone.layout = false;
+  });
+
+  it('shows the keys as one row of name chips on a phone, with the editor as the last chip', async () => {
+    phone.layout = true;
+    state.topSelling = [
+      {
+        productId: 'p-bread',
+        name: 'Bread',
+        sku: 'BREAD-1',
+        price: 3,
+        categoryId: null,
+        quantity: 9,
+      },
+    ];
+    state.keys = [keyRow({ id: 'k1', productId: 'p-coffee', label: 'Tinto' })];
+    const user = userEvent.setup();
+    const onSelectProduct = vi.fn();
+    render(<SalesQuickAccess {...baseProps} canEdit onSelectProduct={onSelectProduct} />);
+
+    const chip = screen.getByTestId('sales-quick-product-COFFEE-1');
+    expect(chip).toHaveClass('sales-quick-chip');
+    expect(chip).toHaveTextContent(/^Tinto$/);
+    expect(screen.queryByTestId('sales-quick-suggestion')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'No barcode · one touch' })).toBeInTheDocument();
+
+    await user.click(chip);
+    expect(onSelectProduct).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole('button', { name: 'Edit keys' }));
+    expect(await screen.findByRole('dialog', { name: 'Keys without a barcode' })).toBeVisible();
   });
 
   it('shows the site keys with their label and swatch and adds one in a single action', async () => {
@@ -224,6 +262,18 @@ describe('SalesQuickAccess', () => {
         price: 60,
       })
     );
+  });
+
+  it('hides amount keys while the sell-by-value zone is off', () => {
+    zones.weightValue = false;
+    state.keys = [
+      keyRow({ id: 'k-beef', kind: 'open_value', productId: 'p-beef', productSku: 'BEEF-1' }),
+      keyRow({ id: 'k-bread', productId: 'p-bread', productSku: 'BREAD-1', position: 1 }),
+    ];
+    render(<SalesQuickAccess {...baseProps} />);
+
+    expect(screen.queryByTestId('sales-quick-value-BEEF-1')).not.toBeInTheDocument();
+    expect(screen.getByTestId('sales-quick-product-BREAD-1')).toBeInTheDocument();
   });
 
   it('sells an open-value key by amount at the catalog price', async () => {

@@ -1,4 +1,15 @@
-export { roundMoney } from './money.js';
+export {
+  ALLOWED_CASH_ROUNDING_STEPS,
+  defaultCashRoundingStep,
+  isCashOnlyTender,
+  isValidCashRoundingStep,
+  payableDecimals,
+  resolvePayableTotal,
+  roundMoney,
+  roundPayable,
+  type AllowedCashRoundingStep,
+  type PayableTotal,
+} from './money.js';
 export { splitLineTax, type TaxSplitInput, type TaxSplitResult } from './tax-split.js';
 export {
   PRICE_TIERS,
@@ -44,6 +55,7 @@ export {
   type SiteQuickKeyColour,
   type SiteQuickKeyKind,
 } from './quick-keys.js';
+export { RESTAURANT_REGROUP_MAX_ACCOUNTS } from './restaurant-split.js';
 export {
   BANK_ACCOUNT_TYPES,
   buildTransferQr,

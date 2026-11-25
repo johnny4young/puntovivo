@@ -115,6 +115,7 @@ export interface AccountingVoucher {
   taxAmount: number;
   tipAmount: number;
   serviceChargeAmount: number;
+  roundingAdjustment: number;
   total: number;
   /** IVA portion of taxAmount, from the frozen line tax kinds. */
   ivaAmount: number;
@@ -181,7 +182,13 @@ export const accountingReportsRouter = router({
   updateAccounts: adminProcedure
     .input(accountingPucAccountsInput)
     .mutation(async ({ ctx, input }) => {
-      const settings = await writeAccountingPucAccounts(ctx.db, ctx.tenantId, input);
+      const settings = await writeAccountingPucAccounts(ctx.db, ctx.tenantId, {
+        ...input,
+        // Older clients omit rounding; keep the stored account instead of resetting it.
+        rounding:
+          input.rounding ??
+          (await resolveAccountingExportSettings(ctx.db, ctx.tenantId)).accounts.rounding,
+      });
       return {
         schemaVersion: settings.schemaVersion,
         pucDefaultsVersion: settings.pucDefaultsVersion,
@@ -231,6 +238,7 @@ export const accountingReportsRouter = router({
         taxAmount: sales.taxAmount,
         tipAmount: sales.tipAmount,
         serviceChargeAmount: sales.serviceChargeAmount,
+        roundingAdjustment: sales.roundingAdjustment,
         total: sales.total,
       })
       .from(sales)
@@ -268,6 +276,7 @@ export const accountingReportsRouter = router({
         taxAmount: saleReturns.taxAmount,
         tipAmount: saleReturns.tipAmount,
         serviceChargeAmount: saleReturns.serviceChargeAmount,
+        roundingAdjustment: saleReturns.roundingAdjustment,
         total: saleReturns.refundAmount,
         refundAmount: saleReturns.refundAmount,
       })
@@ -662,6 +671,7 @@ export const accountingReportsRouter = router({
         taxAmount: row.taxAmount,
         tipAmount: row.tipAmount,
         serviceChargeAmount: row.serviceChargeAmount,
+        roundingAdjustment: row.roundingAdjustment,
         total: row.total,
         ivaAmount,
         incAmount,

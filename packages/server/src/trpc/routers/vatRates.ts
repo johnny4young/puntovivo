@@ -21,7 +21,9 @@ import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { productTaxComponents, products, vatRates } from '../../db/schema.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
+import type { DatabaseInstance } from '../../db/index.js';
 import { paginatedList } from '../lib/paginatedList.js';
 import {
   createVatRateInput,
@@ -31,6 +33,18 @@ import {
   searchVatRatesInput,
   updateVatRateInput,
 } from '../schemas/vatRates.js';
+
+function findTenantVatRate(db: DatabaseInstance, tenantId: string, id: string) {
+  return db
+    .select()
+    .from(vatRates)
+    .where(and(eq(vatRates.id, id), eq(vatRates.tenantId, tenantId)))
+    .get();
+}
+
+function vatRateAuditSnapshot(row: typeof vatRates.$inferSelect) {
+  return { name: row.name, rate: row.rate, kind: row.kind, isActive: row.isActive };
+}
 
 export const vatRatesRouter = router({
   list: tenantProcedure.input(listVatRatesInput).query(async ({ ctx, input }) => {
@@ -62,50 +76,49 @@ export const vatRatesRouter = router({
     return vatRate;
   }),
 
-  create: adminProcedure.input(createVatRateInput).mutation(async ({ ctx, input }) => {
+  create: adminProcedure.input(createVatRateInput).mutation(({ ctx, input }) => {
     const now = new Date().toISOString();
     const id = nanoid();
 
-    await ctx.db.insert(vatRates).values({
-      id,
-      tenantId: ctx.tenantId,
-      name: input.name,
-      rate: input.rate,
-      kind: input.kind,
-      isActive: input.isActive,
-      createdAt: now,
-      updatedAt: now,
-    });
+    return ctx.db.transaction(
+      tx => {
+        tx.insert(vatRates)
+          .values({
+            id,
+            tenantId: ctx.tenantId,
+            name: input.name,
+            rate: input.rate,
+            kind: input.kind,
+            isActive: input.isActive,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run();
 
-    await enqueueSync(ctx, {
-      entityType: 'vat_rates',
-      entityId: id,
-      operation: 'create',
-      data: { id, ...input },
-    });
+        enqueueSyncInTransaction(
+          { ...ctx, db: tx },
+          { entityType: 'vat_rates', entityId: id, operation: 'create', data: { id, ...input } }
+        );
 
-    const created = await ctx.db
-      .select()
-      .from(vatRates)
-      .where(and(eq(vatRates.id, id), eq(vatRates.tenantId, ctx.tenantId)))
-      .get();
-
-    return created!;
+        const created = findTenantVatRate(tx, ctx.tenantId, id)!;
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'vat_rate.create',
+          resourceType: 'vat_rate',
+          resourceId: id,
+          before: null,
+          after: vatRateAuditSnapshot(created),
+        });
+        return created;
+      },
+      { behavior: 'immediate' }
+    );
   }),
 
-  update: adminProcedure.input(updateVatRateInput).mutation(async ({ ctx, input }) => {
+  update: adminProcedure.input(updateVatRateInput).mutation(({ ctx, input }) => {
     const { id, ...updates } = input;
-
-    const existing = await ctx.db
-      .select()
-      .from(vatRates)
-      .where(and(eq(vatRates.id, id), eq(vatRates.tenantId, ctx.tenantId)))
-      .get();
-
-    if (!existing) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'VAT rate not found' });
-    }
-
     const now = new Date().toISOString();
     const updateData: Record<string, unknown> = { updatedAt: now };
 
@@ -114,72 +127,101 @@ export const vatRatesRouter = router({
     if (updates.kind !== undefined) updateData.kind = updates.kind;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
-    await ctx.db
-      .update(vatRates)
-      .set(updateData)
-      .where(and(eq(vatRates.id, id), eq(vatRates.tenantId, ctx.tenantId)));
+    return ctx.db.transaction(
+      tx => {
+        const existing = findTenantVatRate(tx, ctx.tenantId, id);
+        if (!existing) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'VAT rate not found' });
+        }
 
-    // The kind is denormalized onto products at pick time, so correcting
-    // a rate's kind must re-stamp every product still pointing at it -
-    // otherwise the catalog says INC while every future sale line keeps
-    // freezing the old kind. (The rate NUMBER deliberately does not
-    // propagate; products snapshot it when picked.)
-    if (updates.kind !== undefined && updates.kind !== existing.kind) {
-      await ctx.db
-        .update(products)
-        .set({ taxKind: updates.kind, updatedAt: now })
-        .where(and(eq(products.vatRateId, id), eq(products.tenantId, ctx.tenantId)));
-      await ctx.db
-        .update(productTaxComponents)
-        .set({ taxKind: updates.kind, updatedAt: now })
-        .where(
-          and(
-            eq(productTaxComponents.vatRateId, id),
-            eq(productTaxComponents.tenantId, ctx.tenantId)
-          )
+        tx.update(vatRates)
+          .set(updateData)
+          .where(and(eq(vatRates.id, id), eq(vatRates.tenantId, ctx.tenantId)))
+          .run();
+
+        // The kind is denormalized onto products at pick time, so correcting
+        // a rate's kind must re-stamp every product still pointing at it; the
+        // rate number deliberately does not propagate.
+        if (updates.kind !== undefined && updates.kind !== existing.kind) {
+          tx.update(products)
+            .set({ taxKind: updates.kind, updatedAt: now })
+            .where(and(eq(products.vatRateId, id), eq(products.tenantId, ctx.tenantId)))
+            .run();
+          tx.update(productTaxComponents)
+            .set({ taxKind: updates.kind, updatedAt: now })
+            .where(
+              and(
+                eq(productTaxComponents.vatRateId, id),
+                eq(productTaxComponents.tenantId, ctx.tenantId)
+              )
+            )
+            .run();
+        }
+
+        enqueueSyncInTransaction(
+          { ...ctx, db: tx },
+          {
+            entityType: 'vat_rates',
+            entityId: id,
+            operation: 'update',
+            data: { id, ...updateData },
+          }
         );
-    }
 
-    await enqueueSync(ctx, {
-      entityType: 'vat_rates',
-      entityId: id,
-      operation: 'update',
-      data: { id, ...updateData },
-    });
-
-    const updated = await ctx.db
-      .select()
-      .from(vatRates)
-      .where(and(eq(vatRates.id, id), eq(vatRates.tenantId, ctx.tenantId)))
-      .get();
-
-    return updated!;
+        const updated = findTenantVatRate(tx, ctx.tenantId, id)!;
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'vat_rate.update',
+          resourceType: 'vat_rate',
+          resourceId: id,
+          before: vatRateAuditSnapshot(existing),
+          after: vatRateAuditSnapshot(updated),
+        });
+        return updated;
+      },
+      { behavior: 'immediate' }
+    );
   }),
 
-  delete: adminProcedure.input(deleteVatRateInput).mutation(async ({ ctx, input }) => {
-    const existing = await ctx.db
-      .select()
-      .from(vatRates)
-      .where(and(eq(vatRates.id, input.id), eq(vatRates.tenantId, ctx.tenantId)))
-      .get();
+  delete: adminProcedure.input(deleteVatRateInput).mutation(({ ctx, input }) =>
+    ctx.db.transaction(
+      tx => {
+        const existing = findTenantVatRate(tx, ctx.tenantId, input.id);
+        if (!existing) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'VAT rate not found' });
+        }
 
-    if (!existing) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'VAT rate not found' });
-    }
+        tx.delete(vatRates)
+          .where(and(eq(vatRates.id, input.id), eq(vatRates.tenantId, ctx.tenantId)))
+          .run();
 
-    await ctx.db
-      .delete(vatRates)
-      .where(and(eq(vatRates.id, input.id), eq(vatRates.tenantId, ctx.tenantId)));
+        enqueueSyncInTransaction(
+          { ...ctx, db: tx },
+          {
+            entityType: 'vat_rates',
+            entityId: input.id,
+            operation: 'delete',
+            data: { id: input.id },
+          }
+        );
 
-    await enqueueSync(ctx, {
-      entityType: 'vat_rates',
-      entityId: input.id,
-      operation: 'delete',
-      data: { id: input.id },
-    });
-
-    return { success: true, id: input.id };
-  }),
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'vat_rate.delete',
+          resourceType: 'vat_rate',
+          resourceId: input.id,
+          before: vatRateAuditSnapshot(existing),
+          after: null,
+        });
+        return { success: true, id: input.id };
+      },
+      { behavior: 'immediate' }
+    )
+  ),
 
   search: tenantProcedure.input(searchVatRatesInput).query(async ({ ctx, input }) => {
     const items = await ctx.db

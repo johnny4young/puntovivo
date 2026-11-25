@@ -36,7 +36,7 @@
     "displayNamePlaceholder": "Opcional, por ejemplo: Caja principal",
     "configLabel": "Configuración avanzada (JSON)",
     "configPlaceholder": "{}",
-    "configHelp": "Para una impresora ESC/POS conectada por red, usa una IP privada y un puerto entre 9100 y 9103.",
+    "configHelp": "Para una impresora ESC/POS conectada por red, use una IP privada y un puerto entre 9100 y 9103.",
     "configInvalidJson": "La configuración no es JSON válido. Revise comillas, comas o llaves faltantes.",
     "autoPrintOnComplete": {
       "label": "Imprimir automáticamente al cerrar la venta",
@@ -70,7 +70,7 @@
     "usbUnavailable": "USB directo: no implementado",
     "serialUnavailable": "Puerto serie: no implementado",
     "mockOnly": "Simulación (solo pruebas; no imprime en papel)",
-    "unsupportedTransport": "ESC/POS por USB directo y puerto serie no está implementado. Para una impresora USB, usa Sistema con el controlador del sistema operativo.",
+    "unsupportedTransport": "ESC/POS por USB directo y puerto serie no está implementado. Para una impresora USB, use Sistema con el controlador del sistema operativo.",
     "hostLabel": "Dirección de red de la impresora",
     "hostPlaceholder": "Ingrese la IP privada real de la impresora",
     "hostRequired": "Ingrese la dirección de red real de la impresora. Un cable USB no proporciona una dirección TCP.",

@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import { isEditableShortcutTarget } from '@/features/sales/salesKeyboard';
+import { PRODUCT_SEARCH_UNIT_SELECT_ID } from '@/components/dialogs/productSearchSelection';
 import { altChordLetter, hasOpenModalDialog } from '@/lib/shortcuts';
 
 const SALE_PAYMENT_FORM_ID = 'sale-payment-form';
-const PRODUCT_SEARCH_UNIT_SELECT_ID = 'product-search-unit-select';
 
 // explicit `| undefined` on optional fields.
 interface SalesKeyboardShortcutsOptions {
@@ -89,6 +89,8 @@ interface SalesKeyboardShortcutsOptions {
   onOpenCashSession?: (() => void) | undefined;
   onOpenCashMovement?: (() => void) | undefined;
   onOpenCashClose?: (() => void) | undefined;
+  /** F9 opens the incident sheet; the open sheet owns F9 itself. */
+  onOpenIncident?: (() => void) | undefined;
 }
 
 function focusPaymentForm() {
@@ -98,11 +100,11 @@ function focusPaymentForm() {
   }
 }
 
-function focusProductUnitSelect() {
+function focusProductUnitSelect(): boolean {
   const unitSelect = document.getElementById(PRODUCT_SEARCH_UNIT_SELECT_ID);
-  if (unitSelect instanceof HTMLSelectElement) {
-    unitSelect.focus();
-  }
+  if (!(unitSelect instanceof HTMLSelectElement)) return false;
+  unitSelect.focus();
+  return true;
 }
 
 export function useSalesKeyboardShortcuts({
@@ -128,6 +130,7 @@ export function useSalesKeyboardShortcuts({
   onOpenCashSession,
   onOpenCashMovement,
   onOpenCashClose,
+  onOpenIncident,
 }: SalesKeyboardShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -151,6 +154,10 @@ export function useSalesKeyboardShortcuts({
       // `preventDefault()` aggressively when we accept the key. Modal
       // overlays suppress them to avoid cross-talk with the payment
       // form submit key (Enter) etc.
+      // A sheet or dialog over the register (Novedad, Devolución, cash) owns these keys,
+      // so they never charge, suspend, undo or delete in the cart behind it.
+      const behindDialog = !isPaymentModalOpen && !isProductSearchOpen && hasOpenModalDialog();
+
       if (event.metaKey || event.ctrlKey) {
         if (isPaymentModalOpen || isProductSearchOpen) {
           return;
@@ -179,7 +186,7 @@ export function useSalesKeyboardShortcuts({
         }
 
         if (key === 'p') {
-          if (onSuspend && canSuspend) {
+          if (onSuspend && canSuspend && !behindDialog) {
             event.preventDefault();
             onSuspend();
           }
@@ -205,7 +212,7 @@ export function useSalesKeyboardShortcuts({
           // editable field and the cashier intends a cart-level
           // undo. The handler is always called when wired; it
           // owns the "nothing to undo" toast / success toast.
-          if (onUndo) {
+          if (onUndo && !behindDialog) {
             event.preventDefault();
             onUndo();
           }
@@ -223,8 +230,8 @@ export function useSalesKeyboardShortcuts({
         const letter = altChordLetter(event);
 
         if (letter === 'u' && isProductSearchOpen) {
-          event.preventDefault();
-          focusProductUnitSelect();
+          // Without a unit picker the key keeps its native meaning.
+          if (focusProductUnitSelect()) event.preventDefault();
           return;
         }
         if (isProductSearchOpen || isPaymentModalOpen) {
@@ -289,7 +296,7 @@ export function useSalesKeyboardShortcuts({
         if (!isPaymentModalOpen && !isSalesSearchInput && isEditableShortcutTarget(event.target)) {
           return;
         }
-        if (onFastCash) {
+        if (onFastCash && !behindDialog) {
           event.preventDefault();
           onFastCash();
         }
@@ -297,7 +304,7 @@ export function useSalesKeyboardShortcuts({
       }
 
       if (event.key === 'F5') {
-        if (!canOpenSearch || isPaymentModalOpen || isProductSearchOpen) {
+        if (!canOpenSearch || isPaymentModalOpen || isProductSearchOpen || behindDialog) {
           return;
         }
 
@@ -306,7 +313,18 @@ export function useSalesKeyboardShortcuts({
         return;
       }
 
+      if (event.key === 'F9') {
+        // The open sheet closes on F9 first; React can commit that close before this listener runs.
+        if (event.defaultPrevented) return;
+        if (!onOpenIncident || isPaymentModalOpen || isProductSearchOpen) return;
+        if (hasOpenModalDialog()) return;
+        event.preventDefault();
+        onOpenIncident();
+        return;
+      }
+
       if (event.key === 'F1') {
+        if (behindDialog) return;
         event.preventDefault();
 
         if (isPaymentModalOpen) {
@@ -322,7 +340,12 @@ export function useSalesKeyboardShortcuts({
         return;
       }
 
-      if (event.key === 'Delete' && selectedItemKey && !isEditableShortcutTarget(event.target)) {
+      if (
+        event.key === 'Delete' &&
+        selectedItemKey &&
+        !behindDialog &&
+        !isEditableShortcutTarget(event.target)
+      ) {
         event.preventDefault();
         onRemoveSelectedItem(selectedItemKey);
       }
@@ -354,6 +377,7 @@ export function useSalesKeyboardShortcuts({
     onOpenCashSession,
     onOpenCashMovement,
     onOpenCashClose,
+    onOpenIncident,
     selectedItemKey,
   ]);
 }

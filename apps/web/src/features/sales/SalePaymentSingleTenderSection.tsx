@@ -76,6 +76,7 @@ export function SalePaymentSingleTenderSection({
                 onClick={() =>
                   form.setValue('paymentMethod', tile.method, {
                     shouldDirty: true,
+                    shouldTouch: true,
                     shouldValidate: true,
                   })
                 }

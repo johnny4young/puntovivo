@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import { trpc } from '@/lib/trpc';
 
 /**
@@ -8,14 +9,15 @@ import { trpc } from '@/lib/trpc';
  * "sugerido -N%" from one shared 60-second-fresh query. The payload is
  * cost-free by design (cashiers consume it); a product with several
  * suggested lots badges with the MAX percent — the cashier operates per
- * product, not per lot.
+ * product, not per lot. The badges belong to the register's lot and expiry zone.
  */
 export function useDiscountSuggestions(
   enabled: boolean,
   siteId: string | null | undefined = null
 ): Map<string, number> {
+  const active = useRegisterZone('pharmacy-lot') && enabled;
   const query = trpc.inventoryLots.activeSuggestions.useQuery(siteId ? { siteId } : undefined, {
-    enabled: enabled && Boolean(siteId),
+    enabled: active && Boolean(siteId),
     staleTime: 60_000,
   });
   return useMemo(() => {
@@ -23,7 +25,7 @@ export function useDiscountSuggestions(
     // `enabled: false` still surfaces CACHED data from other consumers
     // (e.g. the cart populating the query while a non-POS dialog is open),
     // so the opt-in must also gate the derived Map — not just the fetch.
-    if (!enabled || !siteId) return byProduct;
+    if (!active || !siteId) return byProduct;
     for (const item of query.data?.items ?? []) {
       const current = byProduct.get(item.productId) ?? 0;
       if (item.discountPct > current) {
@@ -31,5 +33,5 @@ export function useDiscountSuggestions(
       }
     }
     return byProduct;
-  }, [query.data, enabled, siteId]);
+  }, [query.data, active, siteId]);
 }

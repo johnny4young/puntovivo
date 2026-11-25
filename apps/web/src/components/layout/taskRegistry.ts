@@ -125,13 +125,17 @@ export const PRIMARY_TASKS: readonly PrimaryTask[] = [
 ];
 
 export function taskOwnsPath(task: PrimaryTask, pathname: string): boolean {
-  return pathname === task.href || pathname.startsWith(`${task.href}/`);
+  const owns = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  // A sell task pointed at POS táctil still owns desktop Vender.
+  return owns(task.href) || (task.id === 'sell' && owns('/sales'));
 }
 
+/** `sellingRoute` points the sell task at the register the business profile uses. */
 export function visiblePrimaryTasksForRole(
   role: UserRole | undefined,
   modules: Partial<Record<ClientModuleId, boolean>>,
-  modulesReady = true
+  modulesReady = true,
+  sellingRoute = '/sales'
 ): readonly PrimaryTask[] {
   if (!role) return [];
   return PRIMARY_TASKS.filter(task => {
@@ -140,5 +144,5 @@ export function visiblePrimaryTasksForRole(
       return false;
     }
     return true;
-  });
+  }).map(task => (task.id === 'sell' ? { ...task, href: sellingRoute } : task));
 }

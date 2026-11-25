@@ -52,6 +52,7 @@ import type {
   CashSessionContext,
   CashSessionLogger,
   CloseCashSessionInput,
+  CloseCashSessionOptions,
   CloseCashSessionResult,
 } from './types.js';
 
@@ -113,7 +114,8 @@ async function safeUpdateCashSessionClosedSummary(
  */
 export async function closeCashSession(
   ctx: CashSessionContext,
-  input: CloseCashSessionInput
+  input: CloseCashSessionInput,
+  options: CloseCashSessionOptions = {}
 ): Promise<CloseCashSessionResult<ClosedCashSessionRow>> {
   const log = ctx.log ?? fallbackLog;
 
@@ -160,6 +162,7 @@ export async function closeCashSession(
   const pending = await getPendingChecksForSession(ctx.db, ctx.tenantId, activeSession.id);
 
   let auditLogId: string | null = null;
+  let hookEffects: CashSessionJournalEffectInput[] = [];
 
   // Tier-2 #8 — wrap the close write + audit-log insert in one
   // transaction so an over/short row never exists without a paired
@@ -230,6 +233,9 @@ export async function closeCashSession(
         pendingPaymentSales: pending.pendingPaymentSales,
       },
     });
+
+    hookEffects =
+      options.withinTransaction?.(tx, { session: activeSession, actualCount, closedAt }) ?? [];
   });
 
   const closedSession = await ctx.db
@@ -306,6 +312,7 @@ export async function closeCashSession(
         },
       });
     }
+    effects.push(...hookEffects);
     await emitCashSessionEffects(ctx.db, log, journalEventId, effects);
   }
 

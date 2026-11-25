@@ -300,6 +300,7 @@ describe('reports.accounting settings', () => {
     storeCredit: '280506',
     loyalty: '280507',
     refunds: '417596',
+    rounding: '429582',
   };
 
   it('round-trips versioned PUC accounts and the tenant-owned site preference', async () => {
@@ -329,6 +330,17 @@ describe('reports.accounting settings', () => {
     const persisted = await caller.reports.accounting.settings();
     expect(persisted.accounts).toEqual(customAccounts);
     expect(persisted.lastSiteId).toBe(harness.siteBId);
+  });
+
+  it('keeps the stored rounding account when a save omits it', async () => {
+    const harness = await seedHarness('settings-rounding');
+    const caller = appRouter.createCaller(buildCtx(harness.tenantId, harness.adminId, 'admin'));
+    await caller.reports.accounting.updateAccounts(customAccounts);
+
+    const { rounding: _omitted, ...withoutRounding } = customAccounts;
+    await caller.reports.accounting.updateAccounts(withoutRounding);
+
+    expect((await caller.reports.accounting.settings()).accounts.rounding).toBe('429582');
   });
 
   it('rejects malformed accounts, foreign sites and non-admin access', async () => {
@@ -1065,5 +1077,37 @@ describe('reports.accounting.vouchers', () => {
     });
     expect(result.truncated).toBe(true);
     expect(result.vouchers).toHaveLength(2);
+  });
+
+  it('exposes roundingAdjustment on vouchers and defaults the PUC rounding account to 429581', async () => {
+    const harness = await seedHarness('round-puc');
+    const db = getDatabase();
+    await insertSale(harness, {
+      id: 'racc-sale-round',
+      saleNumber: 'VTA-800001',
+      createdAt: '2026-07-15T15:00:00.000Z',
+      cashSessionId: harness.sessionAId,
+      subtotal: 100,
+      taxAmount: 19,
+      total: 125,
+      lines: [{ id: 'racc-li-round', taxKind: 'iva', taxRate: 19, taxAmount: 19, total: 119 }],
+      payments: [{ id: 'racc-pay-round', method: 'cash', amount: 125 }],
+    });
+    await db
+      .update(sales)
+      .set({ roundingAdjustment: 6 })
+      .where(eq(sales.id, 'racc-sale-round'))
+      .run();
+
+    const caller = appRouter.createCaller(buildCtx(harness.tenantId, harness.adminId, 'admin'));
+    const accounts = await caller.reports.accounting.settings();
+    expect(accounts.accounts.rounding).toBe('429581');
+
+    const result = await caller.reports.accounting.vouchers({
+      from: '2026-07-01',
+      to: '2026-07-31',
+    });
+    const voucher = result.vouchers.find(v => v.saleNumber === 'VTA-800001');
+    expect(voucher?.roundingAdjustment).toBe(6);
   });
 });

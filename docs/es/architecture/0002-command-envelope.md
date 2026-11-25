@@ -104,14 +104,19 @@ Agregar uno exige ADR sustituto o modificación documentada aquí.
 - `sales.getForReprint` (escribe contador y auditoría)
 - `sales.changeTable` (transferencia de mesa por manager/admin)
 - `sales.splitDraft` (división de cuenta por manager/admin)
+- `sales.carryOver` (manager/admin deja una venta suspendida para el día siguiente)
 - `restaurantServices.openCheck` (servicio de mesa y borrador atómicos)
+- `restaurantServices.regroupChecks` (manager/admin mueve líneas entre las cuentas abiertas de una mesa)
 - `restaurantModifiers.save` (CAS del catálogo de sede, auditoría e instantánea reproducible)
+- `restaurantModifiers.saveGroup` (CAS del grupo de modificadores de la sede con sus opciones y platos, auditoría e instantánea reproducible)
 
 **Sesiones de caja**
 
 - `cashSessions.open`
 - `cashSessions.close`
 - `cashSessions.recordMovement` (para `paid_in`, `paid_out`, `skim` y `replenishment`)
+- `cashSessions.startHandoff` y `cashSessions.receiveHandoff` (relevo de caja, ADR-0036)
+- `cashSessions.explainDifference` (motivo de la diferencia de una caja cerrada, manager/admin)
 
 **Informes y certificaciones**
 
@@ -156,7 +161,8 @@ entrada sin autorizar pago ni venta local.
 **Despacho de entregas**
 
 - `deliveryOrders.create` (cotización logística manual, no venta)
-- `deliveryOrders.createFromSale` (instantánea de venta completada propia)
+- `deliveryOrders.createFromSale` (instantánea de venta completada propia; los
+  cajeros solo para ventas de su sesión de caja abierta, sin elegir mensajero)
 - `deliveryOrders.advance` (transición de versión observada; entregado y cancelado son terminales)
 
 Estos comandos completan idempotencia en la misma transacción inmediata que
@@ -182,9 +188,10 @@ se rechazan cabecera de reembolso o libro de devolución. Cancelar entrega nunca
 **Libro del cliente**
 
 - `customerLedger.addPayment`
+- `customerLedger.addTillPayment` (efectivo recibido en caja; también mueve la caja abierta)
 - `customerLedger.addAdjustment`
 
-Ambos cambian el saldo del cliente y requieren una intención lógica retenida
+Los tres cambian el saldo del cliente y requieren una intención lógica retenida
 para que repetir confirmación no descuente dos veces la deuda.
 
 **Periféricos**

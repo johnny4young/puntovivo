@@ -191,6 +191,14 @@ describe('receiptPrinter', () => {
     expect(html).toContain('$114.00');
   });
 
+  it('prints the payable rounding above the total only when there is one', async () => {
+    const rounded = await buildSaleReceiptHtml({ ...sale, total: 114, roundingAdjustment: 0.5 });
+    expect(rounded).toContain('Rounding');
+    expect(rounded).toContain('$0.50');
+    expect(rounded.indexOf('Rounding')).toBeLessThan(rounded.lastIndexOf('$114.00'));
+    expect(await buildSaleReceiptHtml(sale)).not.toContain('Rounding');
+  });
+
   it('separates IVA and INC from two frozen components on one sale line', async () => {
     const html = await buildSaleReceiptHtml({
       ...sale,

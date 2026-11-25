@@ -2,7 +2,13 @@ import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { SeverityMark } from '@/components/ui';
-import { waitingRank, type OperationsToday, type TodayPendingItem } from './todayModel';
+import {
+  formatDuration,
+  waitingRank,
+  type OperationsToday,
+  type TodayPendingItem,
+  type TodayRegister,
+} from './todayModel';
 
 interface RegistersColumnProps {
   today: OperationsToday;
@@ -12,12 +18,20 @@ interface RegistersColumnProps {
   formatTime: (iso: string) => string;
 }
 
-function formatDuration(ms: number, t: ReturnType<typeof useTranslation>['t']) {
-  const minutes = Math.max(0, Math.round(ms / 60_000));
-  const hours = Math.floor(minutes / 60);
-  return hours > 0
-    ? t('today.registers.durationHours', { hours, minutes: minutes % 60 })
-    : t('today.registers.durationMinutes', { minutes });
+function handoffLine(
+  handoff: NonNullable<TodayRegister['lastHandoff']>,
+  t: ReturnType<typeof useTranslation>['t'],
+  formatCurrency: (value: number) => string,
+  formatTime: (iso: string) => string
+) {
+  const time = formatTime(handoff.receivedAt);
+  return handoff.countDifference
+    ? t('today.registers.receivedDifference', {
+        time,
+        from: handoff.fromUserName,
+        difference: formatCurrency(handoff.countDifference),
+      })
+    : t('today.registers.received', { time, from: handoff.fromUserName });
 }
 
 export function RegistersColumn({
@@ -49,7 +63,7 @@ export function RegistersColumn({
       </div>
 
       <div className="mt-4 flex flex-col gap-3">
-        {today.registers.length === 0 && (
+        {today.registers.length === 0 && today.awaitingHandoffs.length === 0 && (
           <p className="text-fg3" data-testid="today-registers-empty">
             {t('today.registers.empty')}
           </p>
@@ -70,7 +84,7 @@ export function RegistersColumn({
                   })}
                 </b>
                 {rank !== null && (
-                  <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-semibold text-danger-700">
+                  <span className="shrink-0 rounded-full bg-surface px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-danger-700">
                     {t('today.registers.isItem', { rank })}
                   </span>
                 )}
@@ -93,12 +107,12 @@ export function RegistersColumn({
                   })}
                 </b>
                 {rank !== null ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-danger-50 px-2 py-0.5 text-xs font-semibold text-danger-700">
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-danger-50 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-danger-700">
                     <SeverityMark severity="blocks" size={11} />
                     {t('today.registers.waiting', { rank })}
                   </span>
                 ) : (
-                  <span className="text-xs font-semibold text-success-700">
+                  <span className="shrink-0 text-xs font-semibold whitespace-nowrap text-success-700">
                     {t('today.registers.selling')}
                   </span>
                 )}
@@ -114,9 +128,40 @@ export function RegistersColumn({
                     })
                   : t('today.registers.sales', { count: register.salesCount })}
               </p>
+              {register.lastHandoff && (
+                <p
+                  className={`text-sm ${register.lastHandoff.countDifference ? 'text-danger-700' : 'text-fg3'}`}
+                  data-testid="today-register-handoff"
+                >
+                  {handoffLine(register.lastHandoff, t, formatCurrency, formatTime)}
+                </p>
+              )}
             </article>
           );
         })}
+
+        {today.awaitingHandoffs.map(handoff => (
+          <article
+            key={handoff.id}
+            data-testid="today-register-awaiting"
+            className="rounded-[18px] border border-line bg-surface-2 px-4 py-3"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[0.95rem]">
+              <b>{t('today.registers.handedOver', { register: handoff.registerName })}</b>
+              <span className="shrink-0 rounded-full bg-warning-50 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-warning-700">
+                {handoff.toUserName
+                  ? t('today.registers.waitingFor', { to: handoff.toUserName })
+                  : t('today.registers.waitingAnyone')}
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-fg2">
+              {t('today.registers.handedOverBy', {
+                from: handoff.fromUserName,
+                time: formatTime(handoff.handedOverAt),
+              })}
+            </p>
+          </article>
+        ))}
 
         {handoff && (
           <div
@@ -127,13 +172,25 @@ export function RegistersColumn({
               {t('today.registers.nextIn')}
             </p>
             <p className="font-numeric text-[2.2rem] leading-tight">
-              {formatDuration(Date.parse(handoff.at) - Date.parse(today.generatedAt), t)}
+              {formatDuration(
+                Math.max(
+                  0,
+                  Math.round((Date.parse(handoff.at) - Date.parse(today.generatedAt)) / 60_000)
+                ),
+                t
+              )}
             </p>
-            <p className="text-sm">
-              {t('today.registers.handoff', {
-                register: handoff.registerName ?? '',
-                from: handoff.fromUserName,
-              })}
+            <p className="text-sm" data-testid="today-next-handoff-detail">
+              {handoff.toUserName
+                ? t('today.registers.handoffTo', {
+                    register: handoff.registerName ?? '',
+                    from: handoff.fromUserName,
+                    to: handoff.toUserName,
+                  })
+                : t('today.registers.handoff', {
+                    register: handoff.registerName ?? '',
+                    from: handoff.fromUserName,
+                  })}
             </p>
           </div>
         )}

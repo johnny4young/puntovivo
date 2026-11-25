@@ -26,6 +26,9 @@ import {
 // Close waits for in-flight provider calls (fiscal adapters time out at 60 s);
 // killing the worker earlier can lose an accepted document's verdict.
 export const SERVER_WORKER_STOP_GRACE_MS = 90_000;
+// Bound queued main->worker RPCs so a wedged or restarting worker fails fast
+// instead of growing main-process memory without limit.
+export const SERVER_WORKER_MAX_PENDING_CALLS = 64;
 
 export type ServerWorkerHost = Host<ServerWorkerOperations, ServerWorkerInfo>;
 
@@ -53,6 +56,7 @@ export function createServerWorkerHost(options: {
     transport: options.transport,
     start: { payload: options.payload },
     stop: { graceMs: options.stopGraceMs ?? SERVER_WORKER_STOP_GRACE_MS },
+    limits: { maxPending: SERVER_WORKER_MAX_PENDING_CALLS },
     // No per-call timeout: handlers ignore the abort signal, so a timeout
     // would report a failure for work that still completes in the worker.
     ...(options.onExit ? { onExit: options.onExit } : {}),

@@ -43,6 +43,7 @@ function makeDeps(
       updateSchedule: async () => STATUS,
       setCustomDestination: async () => STATUS,
       runNow: async () => ({ success: true, status: STATUS }),
+      republishStatus: async () => {},
       ...schedulerOverrides,
     },
   });

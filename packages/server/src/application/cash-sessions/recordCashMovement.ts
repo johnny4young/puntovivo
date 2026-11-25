@@ -21,7 +21,9 @@
 
 import { and, eq } from 'drizzle-orm';
 import { cashMovements, users } from '../../db/schema.js';
+import { resolveTenantCurrency } from '../../lib/currency.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { roundMoney, roundPayable } from '../../lib/money.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 // throwServerError used for site/session preconditions; the unreachable
 // amount-invalid path inside the tx falls through to a plain Error so
@@ -39,6 +41,8 @@ import {
 } from './journal-effects.js';
 import type {
   CashSessionContext,
+  CashSessionTransaction,
+  ManualCashMovementType,
   RecordCashMovementInput,
   RecordCashMovementResult,
 } from './types.js';
@@ -56,6 +60,71 @@ export interface RecordedCashMovement {
   createdBy: string;
   createdByName: string;
   createdAt: string;
+}
+
+interface AuditedCashMovementInput {
+  tenantId: string;
+  actorId: string;
+  session: { id: string; siteId: string; registerName: string };
+  type: ManualCashMovementType;
+  amount: number;
+  referenceId: string | null;
+  note: string;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Inside the caller's transaction: re-check the session is open, write the
+ * movement and its `cash_session.movement` audit row. Shared by every manual
+ * drawer entry so they audit the same way.
+ */
+export function insertAuditedCashMovement(
+  tx: CashSessionTransaction,
+  input: AuditedCashMovementInput
+): { movementId: string; auditLogId: string } {
+  assertCashSessionStillOpen(tx, input.tenantId, input.session.id);
+  const movementId = insertCashMovement({
+    tx,
+    tenantId: input.tenantId,
+    sessionId: input.session.id,
+    type: input.type,
+    amount: input.amount,
+    referenceId: input.referenceId,
+    note: input.note,
+    createdBy: input.actorId,
+    createdAt: new Date().toISOString(),
+  });
+  if (!movementId) {
+    // Unreachable while callers pass a positive cent amount; aborts the tx if that drifts.
+    throwServerError({
+      trpcCode: 'INTERNAL_SERVER_ERROR',
+      errorCode: 'CASH_MOVEMENT_PERSIST_FAILED',
+      message: 'insertCashMovement returned null despite amount > 0',
+      details: {
+        tenantId: input.tenantId,
+        sessionId: input.session.id,
+        type: input.type,
+        amount: input.amount,
+        stage: 'insert',
+      },
+    });
+  }
+  const auditLogId = writeAuditLog({
+    tx,
+    tenantId: input.tenantId,
+    actorId: input.actorId,
+    action: 'cash_session.movement',
+    resourceType: 'cash_movement',
+    resourceId: movementId,
+    after: { sessionId: input.session.id, type: input.type, amount: input.amount },
+    metadata: {
+      siteId: input.session.siteId,
+      registerName: input.session.registerName,
+      note: input.note,
+      ...input.metadata,
+    },
+  });
+  return { movementId, auditLogId };
 }
 
 /**
@@ -106,6 +175,16 @@ export async function recordCashMovement(
     });
   }
 
+  const currencyCode = resolveTenantCurrency(ctx.db, ctx.tenantId);
+  if (roundPayable(input.amount, currencyCode) !== roundMoney(input.amount)) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_TENDER_NOT_PAYABLE_UNIT',
+      message: 'Cash movement amounts must use the currency payable unit',
+      details: { currencyCode },
+    });
+  }
+
   const activeSession = await getActiveCashSessionForCashier(
     ctx.db,
     ctx.tenantId,
@@ -121,77 +200,17 @@ export async function recordCashMovement(
     });
   }
 
-  const now = new Date().toISOString();
-  let movementId: string | null = null;
-  let auditLogId: string | null = null;
-
-  ctx.db.transaction(tx => {
-    assertCashSessionStillOpen(tx, ctx.tenantId, activeSession.id);
-
-    movementId = insertCashMovement({
-      tx,
+  const { movementId, auditLogId } = ctx.db.transaction(tx =>
+    insertAuditedCashMovement(tx, {
       tenantId: ctx.tenantId,
-      sessionId: activeSession.id,
+      actorId: ctx.user.id,
+      session: activeSession,
       type: input.type,
       amount: input.amount,
       referenceId: null,
       note: input.note,
-      createdBy: ctx.user.id,
-      createdAt: now,
-    });
-
-    if (!movementId) {
-      // Unreachable: the Zod schema enforces amount > 0, so
-      // insertCashMovement always returns a row id. Throwing inside the
-      // tx aborts cleanly if the precondition ever drifts.
-      throwServerError({
-        trpcCode: 'INTERNAL_SERVER_ERROR',
-        errorCode: 'CASH_MOVEMENT_PERSIST_FAILED',
-        message: 'insertCashMovement returned null despite amount > 0',
-        details: {
-          tenantId: ctx.tenantId,
-          sessionId: activeSession.id,
-          type: input.type,
-          amount: input.amount,
-          stage: 'insert',
-        },
-      });
-    }
-
-    auditLogId = writeAuditLog({
-      tx,
-      tenantId: ctx.tenantId,
-      actorId: ctx.user.id,
-      action: 'cash_session.movement',
-      resourceType: 'cash_movement',
-      resourceId: movementId,
-      after: {
-        sessionId: activeSession.id,
-        type: input.type,
-        amount: input.amount,
-      },
-      metadata: {
-        siteId: activeSession.siteId,
-        registerName: activeSession.registerName,
-        note: input.note,
-      },
-    });
-  });
-
-  if (!movementId) {
-    throwServerError({
-      trpcCode: 'INTERNAL_SERVER_ERROR',
-      errorCode: 'CASH_MOVEMENT_PERSIST_FAILED',
-      message: 'Failed to record cash movement',
-      details: {
-        tenantId: ctx.tenantId,
-        sessionId: activeSession.id,
-        type: input.type,
-        amount: input.amount,
-        stage: 'post-tx',
-      },
-    });
-  }
+    })
+  );
 
   const movement = await ctx.db
     .select({

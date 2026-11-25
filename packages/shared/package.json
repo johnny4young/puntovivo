@@ -55,6 +55,11 @@
       "import": "./dist/vertical-presets.js",
       "default": "./dist/vertical-presets.js"
     },
+    "./register-zones": {
+      "types": "./src/register-zones.ts",
+      "import": "./dist/register-zones.js",
+      "default": "./dist/register-zones.js"
+    },
     "./vertical-product-templates": {
       "types": "./src/vertical-product-templates.ts",
       "import": "./dist/vertical-product-templates.js",
@@ -99,6 +104,11 @@
       "types": "./src/sentry-data-collection.ts",
       "import": "./dist/sentry-data-collection.js",
       "default": "./dist/sentry-data-collection.js"
+    },
+    "./restaurant-split": {
+      "types": "./src/restaurant-split.ts",
+      "import": "./dist/restaurant-split.js",
+      "default": "./dist/restaurant-split.js"
     }
   },
   "scripts": {

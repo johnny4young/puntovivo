@@ -114,28 +114,9 @@ export function requireCreditLimitNotExceeded(
     };
   }
 
-  const balanceRow = input.db
-    .select({
-      balance: sql<number>`COALESCE(SUM(${customerLedgerEntries.amount}), 0)`.as('balance'),
-    })
-    .from(customerLedgerEntries)
-    .where(
-      and(
-        eq(customerLedgerEntries.tenantId, input.tenantId),
-        eq(customerLedgerEntries.customerId, input.customerId)
-      )
-    )
-    .get();
-
-  // `customer_ledger_entries.amount` carries no 2-decimal CHECK, so SUM() over
-  // N rows is a raw IEEE-754 accumulation: rounding each row as it is written
-  // does not make their sum cent-clean. Round the read and the projection
-  // before comparing, or a ledger of 0.10 + 0.20 projects 0.35000000000000003
-  // against a 0.35 limit and rejects a sale that lands exactly on the cupo --
-  // and the mirror case silently allows one a fraction of a cent over it.
   // This runs inside the sale write transaction, so the verdict decides
   // whether a committed-shaped sale rolls back.
-  const currentBalance = roundMoney(balanceRow?.balance ?? 0);
+  const currentBalance = readCustomerBalance(input.db, input.tenantId, input.customerId);
   const projectedBalance = roundMoney(currentBalance + input.attemptedAmount);
   const exceedsLimit = projectedBalance > creditLimit;
 
@@ -160,4 +141,27 @@ export function requireCreditLimitNotExceeded(
     attemptedAmount: input.attemptedAmount,
     overrideApplied: exceedsLimit && input.allowOverride === true,
   };
+}
+
+/**
+ * What a customer owes, cent-clean. `customer_ledger_entries.amount` carries no
+ * 2-decimal CHECK, so SUM() over N rows is a raw IEEE-754 accumulation: a
+ * ledger of 0.10 + 0.20 sums to 0.30000000000000004 until it is rounded.
+ */
+export function readCustomerBalance(
+  db: Pick<DatabaseInstance, 'select'>,
+  tenantId: string,
+  customerId: string
+): number {
+  const row = db
+    .select({ balance: sql<number>`COALESCE(SUM(${customerLedgerEntries.amount}), 0)` })
+    .from(customerLedgerEntries)
+    .where(
+      and(
+        eq(customerLedgerEntries.tenantId, tenantId),
+        eq(customerLedgerEntries.customerId, customerId)
+      )
+    )
+    .get();
+  return roundMoney(row?.balance ?? 0);
 }

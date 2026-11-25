@@ -27,6 +27,7 @@ import {
   saleReturnItems,
   saleReturnItemLots,
   sites,
+  tenants,
   units,
   unitXProduct,
   users,
@@ -51,6 +52,8 @@ describe('fractional carrying value across sale lifecycle', () => {
     const db = getDatabase();
     const user = db.select().from(users).where(eq(users.email, 'admin@localhost')).get()!;
     tenantId = user.tenantId;
+    // Fractional carrying values are paid in cents; whole-peso rounding has its own suite.
+    db.update(tenants).set({ defaultCurrencyCode: 'USD' }).where(eq(tenants.id, tenantId)).run();
     siteId = db
       .select()
       .from(sites)
@@ -262,11 +265,23 @@ describe('fractional carrying value across sale lifecycle', () => {
 
   it('freezes exact manual adjustment debits, known-zero no-ops and final residuals', async () => {
     const { productId } = await transformed(false);
-    const first = await caller().inventory.adjustStock({ productId, newStock: 2 });
+    const first = await caller().inventory.adjustStock({
+      notes: 'Counted on the shelf',
+      productId,
+      newStock: 2,
+    });
     expectMovementValue(first.movementId, -33);
-    const noOp = await caller().inventory.adjustStock({ productId, newStock: 2 });
+    const noOp = await caller().inventory.adjustStock({
+      notes: 'Counted on the shelf',
+      productId,
+      newStock: 2,
+    });
     expectMovementValue(noOp.movementId, 0);
-    const last = await caller().inventory.adjustStock({ productId, newStock: 0 });
+    const last = await caller().inventory.adjustStock({
+      notes: 'Counted on the shelf',
+      productId,
+      newStock: 0,
+    });
     expectMovementValue(last.movementId, -67);
     expect(carrying(productId, null)).toEqual({ quantity: 0, inventory: 0, cogs: 0 });
   });
@@ -309,7 +324,7 @@ describe('fractional carrying value across sale lifecycle', () => {
     }
   );
 
-  it('records an explicit entry revaluation separately without repricing COGS', async () => {
+  it('values an entry at its cost for the added units only, in both pools', async () => {
     const { productId } = await transformed(false);
     const row = await caller().inventory.recordEntry({
       productId,
@@ -318,7 +333,7 @@ describe('fractional carrying value across sale lifecycle', () => {
       quantity: 1.001,
       cost: 0.5,
     });
-    expect(carrying(productId, null)).toEqual({ quantity: 4.002, inventory: 200, cogs: 133 });
+    expect(carrying(productId, null)).toEqual({ quantity: 4.002, inventory: 150, cogs: 150 });
     const m = getDatabase()
       .select()
       .from(inventoryMovements)
@@ -326,7 +341,7 @@ describe('fractional carrying value across sale lifecycle', () => {
         and(eq(inventoryMovements.tenantId, tenantId), eq(inventoryMovements.reference, row.id))
       )
       .get()!;
-    expectMovementValue(m.id, 50, 33);
+    expectMovementValue(m.id, 50, 50);
     const audit = getDatabase()
       .select()
       .from(auditLogs)
@@ -338,12 +353,7 @@ describe('fractional carrying value across sale lifecycle', () => {
         )
       )
       .all();
-    expect(audit).toHaveLength(1);
-    expect(audit[0]!.metadata).toMatchObject({
-      source: 'inventory_entry',
-      inventoryDeltaCents: 50,
-      cogsDeltaCents: 0,
-    });
+    expect(audit).toHaveLength(0);
   });
 
   it('freezes exact catalog stock edit debits without reconstructing rounded cost', async () => {
@@ -503,7 +513,11 @@ describe('fractional carrying value across sale lifecycle', () => {
             ],
             async () => {
               if (kind === 'adjust')
-                return caller().inventory.adjustStock({ productId: p.id, newStock: 2 });
+                return caller().inventory.adjustStock({
+                  notes: 'Counted on the shelf',
+                  productId: p.id,
+                  newStock: 2,
+                });
               if (kind === 'movement')
                 return caller().inventory.createMovement({
                   productId: p.id,
@@ -683,36 +697,32 @@ describe('fractional carrying value across sale lifecycle', () => {
     expect(carrying(productId, lotId)).toEqual({ quantity: 6, inventory: 100, cogs: 0 });
   });
 
-  it('audits deliberate purchase revaluation before adding received stock', async () => {
+  it('averages a purchase into existing stock without revaluing it', async () => {
     const { productId, lotId } = await transformed(false);
     const db = getDatabase();
     const providerId = nanoid();
     db.insert(providers).values({ id: providerId, tenantId, name: 'Value supplier' }).run();
-    const receipt = await caller().purchases.create({
+    await caller().purchases.create({
       providerId,
       items: [{ productId, unitId, quantity: 1, costPerUnit: 0.5 }],
     });
-    expect(carrying(productId, lotId)).toEqual({ quantity: 4.001, inventory: 200, cogs: 200 });
-    const audit = db
-      .select()
-      .from(auditLogs)
-      .where(
-        and(
-          eq(auditLogs.tenantId, tenantId),
-          eq(auditLogs.resourceId, productId),
-          eq(auditLogs.action, 'inventory.revalue')
+    expect(carrying(productId, lotId)).toEqual({ quantity: 4.001, inventory: 150, cogs: 150 });
+    expect(
+      db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.resourceId, productId),
+            eq(auditLogs.action, 'inventory.revalue')
+          )
         )
-      )
-      .get()!;
-    expect(audit.metadata).toMatchObject({
-      source: 'purchase',
-      referenceId: receipt.id,
-      inventoryDeltaCents: 50,
-      cogsDeltaCents: 50,
-    });
+        .all()
+    ).toHaveLength(0);
     const first = await sell(productId, 3.001);
     const last = await sell(productId, 1);
-    expect([line(first.id).cogsCostCents, line(last.id).cogsCostCents]).toEqual([150, 50]);
+    expect([line(first.id).cogsCostCents, line(last.id).cogsCostCents]).toEqual([113, 37]);
     expect(carrying(productId, lotId)).toEqual({ quantity: 0, inventory: 0, cogs: 0 });
   });
 
@@ -784,7 +794,7 @@ describe('fractional carrying value across sale lifecycle', () => {
         .get()?.onHand
     ).toBe(4);
   });
-  it('does not overwrite a purchase repricing while an unrelated catalog edit is awaiting reads', async () => {
+  it('does not overwrite a purchase receipt while an unrelated catalog edit is awaiting reads', async () => {
     const { productId, lotId } = await transformed(false);
     const db = getDatabase();
     const current = db.select().from(products).where(eq(products.id, productId)).get()!;
@@ -821,13 +831,14 @@ describe('fractional carrying value across sale lifecycle', () => {
         cause: { errorCode: 'INVENTORY_VALUE_CHANGED' },
       });
       const after = db.select().from(products).where(eq(products.id, productId)).get()!;
+      // The catalog shows the weighted average: 150 over 4.001 units.
       expect(after).toMatchObject({
-        cost: 0.5,
-        initialCost: 0.5,
+        cost: 0.37,
+        initialCost: 0.37,
         name: current.name,
-        version: current.version + 1,
       });
-      expect(carrying(productId, lotId)).toEqual({ quantity: 4.001, inventory: 200, cogs: 200 });
+      expect(after.version).toBeGreaterThan(current.version);
+      expect(carrying(productId, lotId)).toEqual({ quantity: 4.001, inventory: 150, cogs: 150 });
       const events = db
         .select()
         .from(auditLogs)
@@ -839,8 +850,7 @@ describe('fractional carrying value across sale lifecycle', () => {
           )
         )
         .all();
-      expect(events).toHaveLength(1);
-      expect(events[0]!.metadata).toMatchObject({ source: 'purchase' });
+      expect(events).toHaveLength(0);
       await expect(
         caller().products.update({
           id: productId,
@@ -849,7 +859,7 @@ describe('fractional carrying value across sale lifecycle', () => {
           cost: current.cost,
         })
       ).rejects.toMatchObject({ cause: { errorCode: 'STALE_VERSION' } });
-      expect(carrying(productId, lotId)).toEqual({ quantity: 4.001, inventory: 200, cogs: 200 });
+      expect(carrying(productId, lotId)).toEqual({ quantity: 4.001, inventory: 150, cogs: 150 });
     } finally {
       release.resolve();
       readBarrier.mockRestore();
@@ -957,7 +967,7 @@ describe('fractional carrying value across sale lifecycle', () => {
     expect(lots.map(lot => lot.carryingValueCents).sort()).toEqual([0, 1]);
   });
 
-  it('freezes actual supplier return/void debits after fractional transformation', async () => {
+  it('reverses supplier return/void at the frozen receipt value after a transformation', async () => {
     const tracksLots = false;
     for (const operation of ['return', 'void'] as const) {
       const db = getDatabase();
@@ -1004,7 +1014,7 @@ describe('fractional carrying value across sale lifecycle', () => {
             },
           ],
         });
-        // Supplier settlement stays the original invoice amount, independent of current carrying value.
+        // Book value reverses the frozen receipt value, not the current average.
         const returned = db
           .select()
           .from(purchaseReturnItems)
@@ -1012,11 +1022,11 @@ describe('fractional carrying value across sale lifecycle', () => {
           .get()!;
         expect(returned).toMatchObject({
           total: 0.99,
-          inventoryValueCents: 100,
-          cogsValueCents: 100,
+          inventoryValueCents: 99,
+          cogsValueCents: 99,
         });
       } else await caller().purchases.void({ id: receipt.id });
-      expect(carrying(target.id, lotId)).toEqual({ quantity: 3.001, inventory: 99, cogs: 99 });
+      expect(carrying(target.id, lotId)).toEqual({ quantity: 3.001, inventory: 100, cogs: 100 });
       const movement = db
         .select()
         .from(inventoryMovements)
@@ -1024,7 +1034,7 @@ describe('fractional carrying value across sale lifecycle', () => {
           and(eq(inventoryMovements.productId, target.id), eq(inventoryMovements.type, 'return'))
         )
         .get()!;
-      expect(movement).toMatchObject({ inventoryValueDeltaCents: -100, cogsValueDeltaCents: -100 });
+      expect(movement).toMatchObject({ inventoryValueDeltaCents: -99, cogsValueDeltaCents: -99 });
     }
   });
 

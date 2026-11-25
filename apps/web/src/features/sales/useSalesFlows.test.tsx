@@ -23,7 +23,7 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 vi.mock('@/lib/trpc', () => ({
   trpc: { useUtils: () => ({}) },
 }));
-vi.mock('@/lib/invalidateGroups', () => ({
+vi.mock('@/lib/invalidateGroups', async importOriginal => ({
   invalidateCommittedGroups: async (utils: unknown, pickers: unknown[]) => {
     try {
       await mocks.invalidateGroups(utils, pickers);
@@ -33,6 +33,8 @@ vi.mock('@/lib/invalidateGroups', () => ({
     }
   },
   INVENTORY_RESERVATION_INVALIDATIONS: [],
+  RESTAURANT_TABLE_INVALIDATIONS: (await importOriginal<typeof import('@/lib/invalidateGroups')>())
+    .RESTAURANT_TABLE_INVALIDATIONS,
 }));
 vi.mock('@/lib/translateServerError', () => ({
   translateServerError: () => 'translated error',
@@ -74,6 +76,8 @@ function workspace(overrides: Partial<CartWorkspace> = {}): CartWorkspace {
     sourceQuotationSiteId: null,
     sourceQuotationCustomerId: null,
     sourceQuotationCustomerName: null,
+    sourceQuotationValidUntil: null,
+    deliveryRequested: false,
     sourceReturnId: null,
     sourceReturnSaleNumber: null,
     sourceReturnCustomerId: null,
@@ -104,7 +108,11 @@ function paymentValues(): SalePaymentValues {
   };
 }
 
-function setup(activeWorkspace: CartWorkspace, resumedResult?: Record<string, unknown>) {
+function setup(
+  activeWorkspace: CartWorkspace,
+  resumedResult?: Record<string, unknown>,
+  onResumedForCharge?: (saleId: string) => void
+) {
   const create = vi.fn(async () => ({ id: 'sale-created' }));
   const completeDraft = vi.fn(async () => ({ id: 'sale-completed' }));
   const suspend = vi.fn(async () => ({ id: activeWorkspace.serverSaleId ?? 'sale-created' }));
@@ -147,6 +155,7 @@ function setup(activeWorkspace: CartWorkspace, resumedResult?: Record<string, un
       isPending: false,
       mutateAsync: openRestaurantCheck,
     } as unknown as UseSalesFlowsParams['openRestaurantCheckMutation'],
+    onResumedForCharge,
   };
   const hook = renderHook(() => useSalesFlows(params));
   return {
@@ -613,6 +622,52 @@ describe('useSalesFlows explicit price tier forwarding', () => {
       'product-1:unit-1:server:line-price-249',
     ]);
     expect(active?.items.every(item => item.priceEdited === true)).toBe(true);
+  });
+
+  it('asks to charge a resumed check only after its ticket is hydrated', async () => {
+    const resumed = {
+      id: 'check-charge',
+      saleNumber: 'VTA-CHARGE',
+      customerId: null,
+      priceTier: 1,
+      items: [
+        {
+          id: 'line-charge',
+          productId: 'product-1',
+          productName: 'Ajiaco',
+          productSku: 'AJ-1',
+          unitId: 'unit-1',
+          unitName: 'Unit',
+          unitEquivalence: 1,
+          quantity: 1,
+          unitPrice: 32_000,
+          priceEdited: false,
+          discount: 0,
+          taxRate: 8,
+          taxKind: 'inc',
+          tracksStock: true,
+        },
+      ],
+    };
+    const onResumedForCharge = vi.fn();
+    const { result } = setup(workspace(), resumed, onResumedForCharge);
+    const selection = {
+      id: resumed.id,
+      label: 'Mesa 7',
+      tableId: 'table-7',
+      suspendedAt: '2026-11-21T19:00:00.000Z',
+      resumedDeviceId: null,
+    };
+
+    await act(() => result.current.handleResumeFromPanel(selection));
+    expect(onResumedForCharge).not.toHaveBeenCalled();
+
+    await act(() => result.current.handleResumeFromPanel(selection, { charge: true }));
+    expect(onResumedForCharge).toHaveBeenCalledWith('check-charge');
+    const state = useCartWorkspaceStore.getState();
+    expect(state.activeId ? state.workspaces[state.activeId]?.items[0] : null).toMatchObject({
+      taxKind: 'inc',
+    });
   });
 
   it('re-suspends a committed resume when local hydration fails', async () => {

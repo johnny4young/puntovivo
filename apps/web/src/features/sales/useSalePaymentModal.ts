@@ -18,7 +18,8 @@ import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import { useToast } from '@/components/feedback/ToastProvider';
-import { roundMoney } from '@/lib/money';
+import { useRegisterZone } from '@/features/modules/useRegisterZone';
+import { isCashOnlyTender, resolvePayableTotal, roundMoney, roundPayable } from '@/lib/money';
 import { sumBy } from '@/lib/numbers';
 import { trpc } from '@/lib/trpc';
 import { extractServerErrorCode, translateServerError } from '@/lib/translateServerError';
@@ -40,10 +41,14 @@ import {
 import { buildCheckoutApprovalContext, requiredCheckoutApprovalActions } from './checkoutApprovals';
 import { useCheckoutApprovals } from './useCheckoutApprovals';
 import { isCartPriceOverride } from './saleApprovalPricing';
-import { retainEligibleEvidenceIds, selectedEvidenceCoversRequirements } from './pharmacyCheckout';
+import {
+  pharmacyCheckoutInput,
+  retainEligibleEvidenceIds,
+  selectedEvidenceCoversRequirements,
+} from './pharmacyCheckout';
 import { asElectronicInvoiceForm, buildElectronicInvoiceRequest } from './electronicInvoiceRequest';
 import { useElectronicInvoiceAvailability } from './useElectronicInvoiceAvailability';
-import { serviceChargeFor } from './cashTender';
+import { percentOf } from './cashTender';
 
 /**
  * Inputs the modal shell forwards into the hook. Mirrors the subset of
@@ -57,6 +62,7 @@ export interface UseSalePaymentModalParams {
   customers: Customer[];
   isSaving: boolean;
   serviceChargeRate?: number | undefined;
+  cashRoundingStep?: number | null | undefined;
   userRole?: 'admin' | 'manager' | 'cashier' | 'viewer' | undefined;
   approvalSaleId?: string | null | undefined;
   approvalCustomerId?: string | null | undefined;
@@ -78,6 +84,7 @@ export function useSalePaymentModal({
   customers,
   isSaving,
   serviceChargeRate = 0,
+  cashRoundingStep = null,
   userRole,
   approvalSaleId = null,
   approvalCustomerId = null,
@@ -95,14 +102,16 @@ export function useSalePaymentModal({
   const { t } = useTranslation('sales');
   const toast = useToast();
   const [splitMode, setSplitMode] = useState(initialMethod === 'split');
-  // credit method gating + projection.
-  const canLendCredit = userRole === 'admin' || userRole === 'manager' || userRole === 'cashier';
+  // credit method gating + projection. The store-credit zone hides it like the register keys.
+  const sellsOnCredit = useRegisterZone('credit');
+  const canLendCredit =
+    sellsOnCredit && (userRole === 'admin' || userRole === 'manager' || userRole === 'cashier');
   const isAdmin = userRole === 'admin';
   // service charge is derived from `total × rate / 100`,
   // not a form field. The operator cannot edit it; the server
   // re-validates against the tenant rate at submit time.
   const initialServiceChargeAmount = useMemo(
-    () => serviceChargeFor(total, serviceChargeRate),
+    () => percentOf(total, serviceChargeRate),
     [total, serviceChargeRate]
   );
   const form = useForm<SalePaymentValues>({
@@ -227,23 +236,19 @@ export function useSalePaymentModal({
   const tipAmount = Math.max(0, Number(tipAmountWatch) || 0);
   const selectedCustomer = customers.find(c => c.id === watchedCustomerId) ?? null;
 
-  const pharmacyCheckoutInput = useMemo(
-    () => ({
-      customerId: watchedCustomerId || null,
-      items: approvalItems.map(item => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        unitEquivalence: item.unitEquivalence ?? 1,
-      })),
-    }),
+  const checkoutRequirementsInput = useMemo(
+    () => pharmacyCheckoutInput(approvalItems, watchedCustomerId || null),
     [approvalItems, watchedCustomerId]
   );
   const pharmacyCheckoutEnabled = isOpen && approvalItems.length > 0;
-  const pharmacyCheckoutQuery = trpc.pharmacy.checkoutRequirements.useQuery(pharmacyCheckoutInput, {
-    enabled: pharmacyCheckoutEnabled,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-  });
+  const pharmacyCheckoutQuery = trpc.pharmacy.checkoutRequirements.useQuery(
+    checkoutRequirementsInput,
+    {
+      enabled: pharmacyCheckoutEnabled,
+      staleTime: 0,
+      refetchOnWindowFocus: true,
+    }
+  );
   const pharmacyCheckoutLoading =
     pharmacyCheckoutEnabled &&
     (pharmacyCheckoutQuery.isLoading || pharmacyCheckoutQuery.isFetching);
@@ -351,10 +356,25 @@ export function useSalePaymentModal({
   const checkoutBaseTotal =
     promotionQuoteEnabled && promotionQuote.data ? promotionQuote.data.total : total;
   const serviceChargeAmount = useMemo(
-    () => serviceChargeFor(checkoutBaseTotal, serviceChargeRate),
+    () => percentOf(checkoutBaseTotal, serviceChargeRate),
     [checkoutBaseTotal, serviceChargeRate]
   );
-  const grandTotal = roundMoney(checkoutBaseTotal + serviceChargeAmount + tipAmount);
+  const effectiveCashRoundingStep =
+    cashRoundingStep &&
+    isCashOnlyTender({
+      paymentMethod,
+      payments: splitMode
+        ? tenders.map(tender => ({ method: tender.method, amount: Number(tender.amount) || 0 }))
+        : undefined,
+    })
+      ? cashRoundingStep
+      : null;
+  // Same payable-unit rounding the server applies on completion (whole pesos for COP, coin step for cash-only).
+  const { total: grandTotal, roundingAdjustment } = resolvePayableTotal(
+    checkoutBaseTotal + serviceChargeAmount + tipAmount,
+    currencyCode,
+    effectiveCashRoundingStep
+  );
   const isCash = paymentMethod === 'cash';
   const isCredit = paymentMethod === 'credit';
   // A single transfer is always the whole total; the voucher reference is what the cashier checks.
@@ -397,6 +417,7 @@ export function useSalePaymentModal({
     setSplitMode(false);
     form.setValue('paymentMethod', 'cash', {
       shouldDirty: true,
+      shouldTouch: true,
     });
     form.setValue('amountReceived', fastCashAmountRef.current ?? grandTotal, {
       shouldDirty: true,
@@ -429,6 +450,19 @@ export function useSalePaymentModal({
   const change = isCash ? Math.max(0, amountReceivedValue - grandTotal) : 0;
   const outstanding = Math.max(0, grandTotal - receivedValue);
   const creditMethodAvailable = canLendCredit && watchedCustomerId.length > 0;
+  // Opened on credit before a customer was picked: credit starts once one is,
+  // unless the cashier chose a method or split in the meantime.
+  const pendingCreditRef = useRef(initialMethod === 'credit' && !approvalCustomerId);
+  const methodTouched = form.getFieldState('paymentMethod', form.formState).isTouched;
+  useEffect(() => {
+    if (!pendingCreditRef.current) return;
+    if (methodTouched || splitMode || paymentMethod !== 'cash') {
+      pendingCreditRef.current = false;
+    } else if (creditMethodAvailable) {
+      pendingCreditRef.current = false;
+      form.setValue('paymentMethod', 'credit');
+    }
+  }, [creditMethodAvailable, form, methodTouched, paymentMethod, splitMode]);
 
   // read the active customer's current balance + creditLimit
   // when credit is the active method. The query short-circuits via
@@ -711,7 +745,7 @@ export function useSalePaymentModal({
     // Percentage base is the authoritative checkout total after promotions
     // before tip is layered on. This is the customer-facing "what I
     // owe" amount and matches the LATAM hospitality convention.
-    const nextAmount = roundMoney((checkoutBaseTotal * percentage) / 100);
+    const nextAmount = percentOf(checkoutBaseTotal, percentage);
     syncPaymentInputsForTip(nextAmount);
     form.setValue('tipAmount', nextAmount, { shouldDirty: true, shouldValidate: false });
     form.setValue('tipMethod', percentage === 0 ? null : 'percentage', { shouldDirty: true });
@@ -722,7 +756,11 @@ export function useSalePaymentModal({
     // service charge is fixed for the cart; only the tip
     // delta moves grandTotal across calls. Including it keeps the
     // auto-sync of amountReceived / first tender consistent.
-    const nextGrandTotal = roundMoney(checkoutBaseTotal + serviceChargeAmount + nextTipAmount);
+    const nextGrandTotal = resolvePayableTotal(
+      checkoutBaseTotal + serviceChargeAmount + nextTipAmount,
+      currencyCode,
+      effectiveCashRoundingStep
+    ).total;
 
     if (splitMode) {
       const currentTenders = form.getValues('tenders');
@@ -820,7 +858,15 @@ export function useSalePaymentModal({
     tendersAreAllPositive &&
     customerValueTenderError === null;
 
+  // Mirrors the server: a whole-unit currency takes no cents in a tender or cash received.
+  const offUnitTender = (
+    splitMode
+      ? tenders.map(tender => Number(tender.amount) || 0)
+      : [...(isCash ? [amountReceivedValue] : []), creditDownPayment]
+  ).some(amount => roundPayable(amount, currencyCode) !== roundMoney(amount));
+
   const canSubmit =
+    !offUnitTender &&
     !isSaving &&
     !promotionQuoteLoading &&
     !promotionQuoteUnavailable &&
@@ -947,7 +993,7 @@ export function useSalePaymentModal({
     if (tipMethodWatch !== 'percentage') {
       return false;
     }
-    return Math.abs(tipAmount - (checkoutBaseTotal * percentage) / 100) < TENDER_SUM_EPSILON;
+    return Math.abs(tipAmount - percentOf(checkoutBaseTotal, percentage)) < TENDER_SUM_EPSILON;
   };
 
   const appliedPromotions = useMemo(() => {
@@ -977,6 +1023,7 @@ export function useSalePaymentModal({
     serviceChargeAmount,
     tipAmount,
     grandTotal,
+    roundingAdjustment,
     amountReceivedValue,
     change,
     outstanding,
@@ -1044,6 +1091,7 @@ export function useSalePaymentModal({
     checkoutApprovals: checkoutApprovalState,
     tenderSum,
     tenderDelta,
+    offUnitTender,
     splitIsValid,
     canSubmit,
     handleSubmit,

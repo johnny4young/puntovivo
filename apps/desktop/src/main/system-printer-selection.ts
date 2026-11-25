@@ -1,7 +1,5 @@
 /** Device-local system printer selection; never synchronized or taken from a peripheral display name. */
-import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { createTenantPreferenceFile } from './tenant-preference-file.ts';
 
 /** Bounded public projection of Electron PrinterInfo, without driver-specific options. */
 export interface SystemPrinter {
@@ -58,42 +56,17 @@ export function resolveSystemPrinter(
 
 /** One atomic file per authenticated tenant on this installation, outside synchronized app_settings. */
 export function createSystemPrinterPreferences(directory: string) {
-  function pathFor(tenantId: string) {
-    return join(
-      directory,
-      `receipt-printer-${createHash('sha256').update(tenantId).digest('hex')}.json`
-    );
-  }
+  const file = createTenantPreferenceFile(directory, 'receipt-printer', value =>
+    value && typeof value === 'object' && 'deviceName' in value && isPrinterName(value.deviceName)
+      ? value.deviceName
+      : null
+  );
   return {
-    async read(tenantId: string): Promise<string | null> {
-      try {
-        const value: unknown = JSON.parse(await readFile(pathFor(tenantId), 'utf8'));
-        if (
-          value &&
-          typeof value === 'object' &&
-          'deviceName' in value &&
-          isPrinterName(value.deviceName)
-        )
-          return value.deviceName;
-        return null;
-      } catch (error) {
-        if (error instanceof SyntaxError || (error as NodeJS.ErrnoException).code === 'ENOENT')
-          return null;
-        throw error;
-      }
-    },
+    read: file.read,
     async write(tenantId: string, deviceName: unknown): Promise<void> {
       if (deviceName !== null && !isPrinterName(deviceName))
         throw new SystemPrinterError('PRINT_INVALID_PRINTER', 'print.invalidPrinter');
-      await mkdir(directory, { recursive: true });
-      const destination = pathFor(tenantId);
-      const temporary = `${destination}.${randomUUID()}.tmp`;
-      try {
-        await writeFile(temporary, JSON.stringify({ deviceName }), { flag: 'wx', mode: 0o600 });
-        await rename(temporary, destination);
-      } finally {
-        await rm(temporary, { force: true });
-      }
+      await file.write(tenantId, { deviceName });
     },
   };
 }

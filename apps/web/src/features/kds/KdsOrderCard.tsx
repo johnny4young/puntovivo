@@ -133,11 +133,21 @@ export function KdsOrderCard({
                   })}
                 </p>
               ) : null}
-              {item.modifiers.map((modifier, index) => (
-                <p key={index} className="text-sm">
-                  {quantity.format(modifier.quantity)} × {modifier.name}
-                </p>
-              ))}
+              {item.modifiers.map((modifier, index) =>
+                modifier.kind === 'without' ? (
+                  <p
+                    key={index}
+                    className="text-sm font-semibold"
+                    data-testid="kds-modifier-without"
+                  >
+                    {t('card.without', { name: modifier.name })}
+                  </p>
+                ) : (
+                  <p key={index} className="text-sm">
+                    {quantity.format(modifier.quantity)} × {modifier.name}
+                  </p>
+                )
+              )}
               {item.notes && (
                 <p className="text-sm italic" data-testid="kds-order-card-item-note">
                   {item.notes}

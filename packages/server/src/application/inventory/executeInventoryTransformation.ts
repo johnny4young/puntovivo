@@ -19,7 +19,7 @@ import {
   sites,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { tryRoundMoneyToSafeCents } from '../../lib/money.js';
+import { allocateCentsByWeights, tryRoundMoneyToSafeCents } from '../../lib/money.js';
 import { QUANTITY_EPSILON, settleDebitedBalance } from '../../lib/quantity.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
@@ -77,22 +77,18 @@ function roundTransformationMoney(value: number): number {
  */
 function allocateMoneyByWeights(total: number, weights: readonly number[]): number[] {
   const totalCents = Math.round(roundTransformationMoney(total) * 100);
-  const maxWeight = Math.max(...weights);
-  const normalizedWeights = weights.map(weight => weight / maxWeight);
-  const normalizedTotal = normalizedWeights.reduce((sum, weight) => sum + weight, 0);
-  const shares = normalizedWeights.map((weight, index) => {
-    const exactCents = (totalCents * weight) / normalizedTotal;
-    const cents = Math.floor(exactCents);
-    return { index, cents, remainder: exactCents - cents };
-  });
-  const remainingCents = totalCents - shares.reduce((sum, share) => sum + share.cents, 0);
-  const byRemainder = [...shares].sort(
-    (left, right) => right.remainder - left.remainder || left.index - right.index
-  );
-  for (let index = 0; index < remainingCents; index += 1) {
-    byRemainder[index % byRemainder.length]!.cents += 1;
+  // An all-zero weight set has no proportional answer for a production cost.
+  const cents = weights.some(weight => weight > 0)
+    ? allocateCentsByWeights(totalCents, weights)
+    : null;
+  if (cents === null) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'TRANSFORMATION_COST_OUT_OF_RANGE',
+      message: 'Transformation cost is outside the exact supported cent range',
+    });
   }
-  return shares.map(share => roundTransformationMoney(share.cents / 100));
+  return cents.map(share => roundTransformationMoney(share / 100));
 }
 
 function assertExactIds(

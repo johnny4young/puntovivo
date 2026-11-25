@@ -29,8 +29,8 @@
       "fallbackLabel": "todas las sedes"
     },
     "ordersToday": {
-      "title": "Pedidos de hoy",
-      "fallbackLabel": "completados hoy"
+      "title": "Número de ventas hoy",
+      "fallbackLabel": "completadas hoy"
     },
     "lowStockAlerts": {
       "title": "Alertas de stock bajo",
@@ -50,7 +50,7 @@
     "chartLabel": "Gráfico de ingresos diarios de los últimos 30 días",
     "empty": "Aún no hay ingresos para representar.",
     "periodTotal": "Total del periodo",
-    "periodOrders": "Pedidos del periodo",
+    "periodOrders": "Ventas del periodo",
     "bestDay": "Mejor día"
   },
   "recentSales": {
@@ -77,8 +77,8 @@
   },
   "unitsSold_one": "{{count}} unidad vendida",
   "unitsSold_other": "{{count}} unidades vendidas",
-  "ordersCount_one": "{{count}} pedido",
-  "ordersCount_other": "{{count}} pedidos",
+  "ordersCount_one": "{{count}} venta",
+  "ordersCount_other": "{{count}} ventas",
   "stockCount_one": "{{count}} en stock",
   "stockCount_other": "{{count}} en stock",
   "today": {
@@ -104,6 +104,9 @@
       "todayColumn": "Hoy",
       "comparisonColumn": "Semana pasada"
     },
+    "arc": {
+      "summary": "Día de {{opening}} a {{close}}, {{percent}} % transcurrido"
+    },
     "pending": {
       "title": "Pendiente",
       "filterLabel": "Filtrar pendientes",
@@ -119,16 +122,25 @@
         "whenPossible": "Cuando pueda"
       },
       "approval": "{{label}} {{amount}} espera su aprobación",
-      "approvalDetail": "{{requester}} · {{site}} · {{time}}",
+      "agoNow": "hace un momento",
+      "ago": "hace {{duration}}",
       "staleSession": "{{register}} sigue abierta desde {{time}}",
       "staleSessionDetail": "{{cashier}} · no se puede firmar el día hasta contarla",
       "incident": {
         "stockout": "{{product}} agotado",
         "price_mismatch": "{{product}}: el precio de góndola no coincide",
-        "no_barcode": "Producto sin código: {{product}}"
+        "no_barcode": "Producto sin código: {{product}}",
+        "call_manager": "{{reporter}} lo llama a la caja"
       },
-      "incidentDetail": "Lo reportó {{reporter}} · {{site}} {{elsewhere}}",
-      "elsewhere": "· {{site}} tiene {{count}}",
+      "incidentReporter": "Lo reportó {{reporter}}",
+      "incidentReason": {
+        "not_on_shelf": "No hay en góndola",
+        "system_zero": "El sistema dice 0",
+        "expired": "Vencido"
+      },
+      "incidentShelfPrice": "góndola {{price}}",
+      "incidentSystemPrice": "sistema {{price}}",
+      "elsewhere": "{{site}} tiene {{count}}",
       "attention": {
         "sync_one": "{{count}} elemento de sincronización necesita atención",
         "sync_other": "{{count}} elementos de sincronización necesitan atención",
@@ -167,7 +179,14 @@
       "nextIn": "Sigue en",
       "durationHours": "{{hours}} h {{minutes}} min",
       "durationMinutes": "{{minutes}} min",
-      "handoff": "Relevo de {{register}}: entrega {{from}}"
+      "handoff": "Relevo de {{register}}: entrega {{from}}",
+      "handoffTo": "Relevo de {{register}}: {{from}} entrega a {{to}}",
+      "received": "Relevo hecho {{time}} · lo entregó {{from}}",
+      "receivedDifference": "Relevo hecho {{time}} · {{difference}} contra el conteo de {{from}}",
+      "handedOver": "{{register}} · entregada",
+      "handedOverBy": "La entregó {{from}} a las {{time}}",
+      "waitingFor": "espera a {{to}}",
+      "waitingAnyone": "por recibir"
     }
   }
 }

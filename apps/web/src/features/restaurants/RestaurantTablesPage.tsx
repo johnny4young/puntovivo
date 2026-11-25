@@ -15,6 +15,7 @@ import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useIsModuleActive } from '@/features/modules';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -25,10 +26,11 @@ import {
   type RestaurantTableFormInitial,
   type RestaurantTableFormPayload,
 } from './RestaurantTableFormModal';
-import { RestaurantFloorMapPreview, type FloorTableStatus } from './RestaurantFloorMapPreview';
+import { RestaurantFloorMapPreview } from './RestaurantFloorMapPreview';
 import { Badge } from '@/components/ui';
 
 const RESTAURANT_TABLE_PAGE_SIZE = 100;
+const OPEN_DELIVERY_STATUSES = ['accepted', 'preparing', 'dispatched'] as const;
 
 interface RestaurantTableRow {
   id: string;
@@ -186,63 +188,32 @@ export function RestaurantTablesPage() {
       enabled: selectedSiteId.length > 0,
     }
   );
-  // The floor map is an operational overview, not a page decoration. Active
-  // tables are capped at 500 per site server-side, so one bounded query can
-  // render the complete map while the administrative table remains paginated.
-  const floorMapQuery = trpc.restaurantTables.list.useQuery(
+  // The floor map needs every active table at once (capped at 500 per site)
+  // while the administrative list stays paginated. Elapsed times are read
+  // against the snapshot, so a one-minute refetch keeps them current.
+  const floorQuery = trpc.restaurantTables.listSummary.useQuery(
+    { siteId: selectedSiteId || 'placeholder', limit: 500, offset: 0 },
+    { enabled: selectedSiteId.length > 0 && view === 'map', refetchInterval: 60_000 }
+  );
+  const deliveryActive = useIsModuleActive('delivery');
+  const deliveryCountsQuery = trpc.deliveryOrders.counts.useQuery(
+    { siteId: selectedSiteId },
     {
-      siteId: selectedSiteId || 'placeholder',
-      includeArchived: false,
-      limit: 500,
-      offset: 0,
-    },
-    {
-      enabled: selectedSiteId.length > 0,
+      enabled: deliveryActive && selectedSiteId.length > 0 && view === 'map',
+      refetchInterval: 60_000,
     }
   );
-  const occupancyQuery = trpc.restaurantTables.listWithDraftStatus.useQuery(
-    { siteId: selectedSiteId || 'placeholder', includeArchived: false, limit: 500, offset: 0 },
-    { enabled: selectedSiteId.length > 0 }
-  );
-  const [reservationWindow] = useState(() => {
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
-    return { from: new Date().toISOString(), to: endOfDay.toISOString() };
-  });
-  const reservationsQuery = trpc.reservations.list.useQuery(
-    { siteId: selectedSiteId || 'placeholder', ...reservationWindow, limit: 100 },
-    { enabled: selectedSiteId.length > 0, retry: false }
-  );
-  const floorStatuses = useMemo(() => {
-    const statuses = new Map<string, FloorTableStatus>();
-    if (!occupancyQuery.data) return statuses;
-    const nextReservation = new Map<string, string>();
-    for (const reservation of reservationsQuery.data?.rows ?? []) {
-      if (
-        reservation.tableId &&
-        (reservation.status === 'booked' || reservation.status === 'arrived') &&
-        !nextReservation.has(reservation.tableId)
-      ) {
-        nextReservation.set(reservation.tableId, reservation.startsAt);
-      }
-    }
-    for (const table of occupancyQuery.data.items) {
-      const startsAt = nextReservation.get(table.id);
-      statuses.set(
-        table.id,
-        table.openDrafts.length > 0
-          ? { kind: 'occupied', openChecks: table.openDrafts.length }
-          : startsAt
-            ? { kind: 'reserved', startsAt }
-            : { kind: 'free' }
-      );
-    }
-    return statuses;
-  }, [occupancyQuery.data, reservationsQuery.data]);
+  const deliveryCounts = deliveryCountsQuery.data;
+  const openDeliveries = deliveryActive
+    ? OPEN_DELIVERY_STATUSES.reduce((total, status) => total + (deliveryCounts?.[status] ?? 0), 0)
+    : null;
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const createMutation = trpc.restaurantTables.create.useMutation({
     onSuccess: async () => {
-      await utils.restaurantTables.list.invalidate();
-      await utils.restaurantTables.listWithDraftStatus.invalidate();
+      await Promise.all([
+        utils.restaurantTables.list.invalidate(),
+        utils.restaurantTables.listSummary.invalidate(),
+      ]);
       toast.success({
         title: t('tables.toast.created'),
       });
@@ -254,8 +225,10 @@ export function RestaurantTablesPage() {
   });
   const updateMutation = trpc.restaurantTables.update.useMutation({
     onSuccess: async () => {
-      await utils.restaurantTables.list.invalidate();
-      await utils.restaurantTables.listWithDraftStatus.invalidate();
+      await Promise.all([
+        utils.restaurantTables.list.invalidate(),
+        utils.restaurantTables.listSummary.invalidate(),
+      ]);
       toast.success({
         title: t('tables.toast.updated'),
       });
@@ -267,8 +240,10 @@ export function RestaurantTablesPage() {
   });
   const archiveMutation = trpc.restaurantTables.archive.useMutation({
     onSuccess: async () => {
-      await utils.restaurantTables.list.invalidate();
-      await utils.restaurantTables.listWithDraftStatus.invalidate();
+      await Promise.all([
+        utils.restaurantTables.list.invalidate(),
+        utils.restaurantTables.listSummary.invalidate(),
+      ]);
       toast.success({
         title: t('tables.toast.archived'),
       });
@@ -294,7 +269,9 @@ export function RestaurantTablesPage() {
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
   }
-  function handleOpenEdit(row: RestaurantTableRow) {
+  function handleOpenEdit(
+    row: Pick<RestaurantTableRow, 'id' | 'name' | 'seatCount' | 'area' | 'notes'>
+  ) {
     setEditing({
       id: row.id,
       name: row.name,
@@ -327,9 +304,6 @@ export function RestaurantTablesPage() {
     });
   }
   const items: RestaurantTableRow[] = (tablesQuery.data?.items ?? []).map(mapRestaurantTableRow);
-  const floorMapItems: RestaurantTableRow[] = (floorMapQuery.data?.items ?? []).map(
-    mapRestaurantTableRow
-  );
   const totalTables = tablesQuery.data?.totalItems ?? items.length;
   const tableRangeStart = totalTables === 0 ? 0 : tableOffset + 1;
   const tableRangeEnd = Math.min(tableOffset + items.length, totalTables);
@@ -421,14 +395,27 @@ export function RestaurantTablesPage() {
             </div>
             <div className="page-header-actions">{toolbar}</div>
           </div>
-          <RestaurantFloorMapPreview
-            tables={floorMapItems}
-            statuses={floorStatuses}
-            onSelect={id => {
-              const row = floorMapItems.find(r => r.id === id);
-              if (row) handleOpenEdit(row);
-            }}
-          />
+          {floorQuery.data ? (
+            <RestaurantFloorMapPreview
+              summary={floorQuery.data}
+              selectedTableId={selectedTableId}
+              deliveryCount={openDeliveries}
+              onSelect={table => {
+                setSelectedTableId(table.id);
+                handleOpenEdit(table);
+              }}
+            />
+          ) : (
+            <p className="card p-6 text-center text-sm text-secondary-600">
+              {floorQuery.error
+                ? translateServerError(floorQuery.error, t, t('tables.error'))
+                : selectedSiteId || sitesQuery.isLoading
+                  ? t('tables.loading')
+                  : sitesQuery.error
+                    ? translateServerError(sitesQuery.error, t, t('tables.error'))
+                    : t('tables.empty')}
+            </p>
+          )}
         </>
       ) : (
         <ResourcePage

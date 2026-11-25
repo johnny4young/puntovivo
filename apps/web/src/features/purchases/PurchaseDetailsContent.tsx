@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { formatSystemNote } from '@/lib/systemNotes';
 import { formatLotExpiryDate } from '@/features/inventory/lotForm';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { PurchaseDocumentPanel } from './PurchaseDocumentPanel';
@@ -229,7 +230,7 @@ export function PurchaseDetailsContent({
       {purchase.notes && (
         <div className="rounded-xl border border-secondary-200 px-4 py-4">
           <p className="text-sm text-secondary-500">{t('details.notes')}</p>
-          <p className="mt-2 text-sm text-secondary-700">{purchase.notes}</p>
+          <p className="mt-2 text-sm text-secondary-700">{formatSystemNote(purchase.notes, t)}</p>
         </div>
       )}
 

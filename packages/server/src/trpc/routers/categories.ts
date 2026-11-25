@@ -24,6 +24,7 @@ import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { categories, categoryXProvider } from '../../db/schema.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   listCategoriesInput,
   getCategoryInput,
@@ -32,6 +33,10 @@ import {
   deleteCategoryInput,
 } from '../schemas/categories.js';
 import type { DatabaseInstance } from '../../db/index.js';
+
+function categoryAuditSnapshot(row: typeof categories.$inferSelect) {
+  return { name: row.name, description: row.description, parentId: row.parentId };
+}
 
 function findTenantCategory(db: DatabaseInstance, tenantId: string, id: string) {
   return db
@@ -172,9 +177,19 @@ export const categoriesRouter = router({
           }
         );
 
-        const created = tx.select().from(categories).where(eq(categories.id, id)).get();
+        const created = tx.select().from(categories).where(eq(categories.id, id)).get()!;
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'category.create',
+          resourceType: 'category',
+          resourceId: id,
+          before: null,
+          after: categoryAuditSnapshot(created),
+        });
 
-        return created!;
+        return created;
       },
       { behavior: 'immediate' }
     );
@@ -212,6 +227,7 @@ export const categoriesRouter = router({
     return ctx.db.transaction(
       tx => {
         assertValidParentCategory(tx, ctx.tenantId, { categoryId: id, parentId: updates.parentId });
+        const before = findTenantCategory(tx, ctx.tenantId, id);
 
         const versionedUpdate = tx
           .update(categories)
@@ -236,9 +252,19 @@ export const categoriesRouter = router({
           }
         );
 
-        const updated = tx.select().from(categories).where(eq(categories.id, id)).get();
+        const updated = tx.select().from(categories).where(eq(categories.id, id)).get()!;
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'category.update',
+          resourceType: 'category',
+          resourceId: id,
+          before: before ? categoryAuditSnapshot(before) : null,
+          after: categoryAuditSnapshot(updated),
+        });
 
-        return updated!;
+        return updated;
       },
       { behavior: 'immediate' }
     );
@@ -304,6 +330,16 @@ export const categoriesRouter = router({
             data: { id: input.id },
           }
         );
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'category.delete',
+          resourceType: 'category',
+          resourceId: input.id,
+          before: categoryAuditSnapshot(existing),
+          after: null,
+        });
 
         return { success: true, id: input.id };
       },

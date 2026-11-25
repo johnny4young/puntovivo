@@ -94,7 +94,7 @@
       "purchases": "Inbound purchase orders and reception.",
       "quotations": "Draft and convert quotations.",
       "operations": "Service status, alerts, and recovery steps.",
-      "posTouch": "Touch-first checkout surface for the active site.",
+      "posTouch": "Touch checkout screen for the active site.",
       "kds": "Kitchen display for prep tickets and station progress.",
       "customerDisplay": "Customer-facing screen for the active sale.",
       "mobileWaiter": "Tablet companion for table-side ordering.",

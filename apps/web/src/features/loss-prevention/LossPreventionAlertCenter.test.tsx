@@ -95,7 +95,7 @@ describe('LossPreventionAlertCenter', () => {
     render(<LossPreventionAlertCenter siteId="site-1" />);
     expect(useQuerySpy).toHaveBeenCalledWith(
       { siteId: 'site-1', limit: 20 },
-      { refetchInterval: 5_000, trpc: { abortOnUnmount: true } }
+      { refetchInterval: 60_000, trpc: { abortOnUnmount: true } }
     );
 
     await user.click(
@@ -103,6 +103,7 @@ describe('LossPreventionAlertCenter', () => {
         name: 'Open loss-prevention alerts; pending review: 1',
       })
     );
+    expect(queryState.refetch).toHaveBeenCalledOnce();
     expect(screen.getByRole('dialog')).toHaveTextContent('Refund shift limit crossed');
     expect(screen.getByRole('dialog')).toHaveTextContent('Carla Cashier · Centro');
     expect(screen.getByRole('dialog')).toHaveTextContent('blocked pending approval');

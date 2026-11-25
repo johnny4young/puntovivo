@@ -1,6 +1,14 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useId } from 'react';
+import { useElementWidth } from '@/hooks/useElementWidth';
 import { useTranslation } from 'react-i18next';
-import { dayPhases, hourIndex, type OperationsToday, type TodayPendingItem } from './todayModel';
+import {
+  dayPhases,
+  hourIndex,
+  hourToIso,
+  placeBandLabels,
+  type OperationsToday,
+  type TodayPendingItem,
+} from './todayModel';
 
 interface DayBandProps {
   today: OperationsToday;
@@ -11,26 +19,17 @@ interface DayBandProps {
 }
 
 const PAD_X = 24;
-
-/** Track the rendered width so SVG text stays at its CSS pixel size. */
-function useWidth(fallback: number) {
-  const ref = useRef<HTMLElement>(null);
-  const [width, setWidth] = useState(fallback);
-  useLayoutEffect(() => {
-    const node = ref.current;
-    if (!node || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry && entry.contentRect.width > 0) setWidth(Math.round(entry.contentRect.width));
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-  return [ref, width] as const;
-}
+const CHART_TOP = 28;
+const EXPANDED_CHART_HEIGHT = 180;
+/** Where the expanded band draws its hour axis, so the day arc can share that baseline. */
+export const EXPANDED_AXIS_Y = CHART_TOP + EXPANDED_CHART_HEIGHT;
+// 11px semibold names run close to 6.5px per glyph.
+const SHIFT_GLYPH_WIDTH = 6.5;
 
 export function DayBand({ today, numbered, expanded, formatCurrency, formatTime }: DayBandProps) {
   const { t } = useTranslation('dashboard');
-  const [figureRef, WIDTH] = useWidth(920);
+  const clipPrefix = useId();
+  const [figureRef, WIDTH] = useElementWidth<HTMLElement>(920);
   const start = today.dayStartIso;
   const nowHour = hourIndex(today.generatedAt, start);
   const activeHours = today.hourly.filter(row => row.today > 0 || row.comparison > 0);
@@ -46,13 +45,13 @@ export function DayBand({ today, numbered, expanded, formatCurrency, formatTime 
     today.hourly.length,
     Math.ceil(Math.max(21, nowHour + 1, ...activeHours.map(row => row.hour + 1), ...shiftHours))
   );
-  const chartHeight = expanded ? 180 : 96;
-  const axisY = 28 + chartHeight;
+  const chartHeight = expanded ? EXPANDED_CHART_HEIGHT : 96;
+  const axisY = CHART_TOP + chartHeight;
   const shiftTop = axisY + 30;
   const height = shiftTop + today.shifts.length * 22 + 8;
   const x = (hour: number) => PAD_X + ((hour - from) / (to - from)) * (WIDTH - PAD_X * 2);
   const peakValue = Math.max(1, ...today.hourly.map(row => Math.max(row.today, row.comparison)));
-  const y = (value: number) => 28 + chartHeight - (value / peakValue) * (chartHeight - 8);
+  const y = (value: number) => CHART_TOP + chartHeight - (value / peakValue) * (chartHeight - 8);
   const inRange = today.hourly.filter(row => row.hour >= from && row.hour < to);
   const todayPoints = inRange
     .filter(row => row.hour + 0.5 <= nowHour)
@@ -62,18 +61,18 @@ export function DayBand({ today, numbered, expanded, formatCurrency, formatTime 
   const phases = dayPhases(today, start);
   const nowInRange = nowHour >= from && nowHour <= to;
   const ticks = Array.from({ length: Math.floor((to - from) / 2) + 1 }, (_, i) => from + i * 2);
-  const hourLabel = (hour: number) =>
-    formatTime(new Date(Date.parse(start) + hour * 3_600_000).toISOString());
+  const hourLabel = (hour: number) => formatTime(hourToIso(hour, start));
 
-  const labels = [
-    phases.openingHour !== null && { hour: phases.openingHour, text: t('today.band.opening') },
+  const marks = [
+    phases.openingHour !== null && { x: x(phases.openingHour), text: t('today.band.opening') },
     phases.peakHour !== null && {
-      hour: phases.peakHour,
+      x: x(phases.peakHour),
       text:
         Math.floor(nowHour) === phases.peakHour ? t('today.band.peakNow') : t('today.band.peak'),
     },
-    phases.handoffHour !== null && { hour: phases.handoffHour, text: t('today.band.handoff') },
-  ].filter((label): label is { hour: number; text: string } => Boolean(label));
+    phases.handoffHour !== null && { x: x(phases.handoffHour), text: t('today.band.handoff') },
+  ].filter((label): label is { x: number; text: string } => Boolean(label));
+  const labels = placeBandLabels(marks, WIDTH, PAD_X);
 
   return (
     <figure ref={figureRef} className="m-0" data-testid="today-day-band">
@@ -86,25 +85,29 @@ export function DayBand({ today, numbered, expanded, formatCurrency, formatTime 
           comparison: formatCurrency(today.sales.comparisonTotal),
         })}
       >
+        {/* Every phase keeps its line; only overlapping text is dropped. */}
+        {marks.map(mark => (
+          <line
+            key={mark.text}
+            x1={mark.x}
+            x2={mark.x}
+            y1={14}
+            y2={axisY}
+            stroke="var(--line)"
+            strokeWidth={1}
+          />
+        ))}
         {labels.map(label => (
-          <g key={label.text}>
-            <line
-              x1={x(label.hour)}
-              x2={x(label.hour)}
-              y1={14}
-              y2={axisY}
-              stroke="var(--line)"
-              strokeWidth={1}
-            />
-            <text
-              x={x(label.hour) > WIDTH - 160 ? x(label.hour) - 6 : x(label.hour) + 6}
-              y={14}
-              textAnchor={x(label.hour) > WIDTH - 160 ? 'end' : 'start'}
-              className="fill-[var(--fg3)] text-[11px] font-semibold tracking-[0.14em] uppercase"
-            >
-              {label.text}
-            </text>
-          </g>
+          <text
+            key={label.text}
+            data-testid="today-band-label"
+            x={label.textX}
+            y={14}
+            textAnchor={label.anchor}
+            className="fill-[var(--fg3)] text-[11px] font-semibold tracking-[0.14em] uppercase"
+          >
+            {label.text}
+          </text>
         ))}
         {comparisonPoints.length > 1 && (
           <polyline
@@ -207,8 +210,24 @@ export function DayBand({ today, numbered, expanded, formatCurrency, formatTime 
           const b = x(Math.min(to, hourIndex(shift.endsAt, start)));
           const split = Math.min(b, Math.max(a, x(nowHour)));
           const top = shiftTop + index * 22;
+          const labelX = Math.max(
+            PAD_X,
+            Math.min(a + 8, WIDTH - PAD_X - shift.userName.length * SHIFT_GLYPH_WIDTH)
+          );
+          const clipId = `${clipPrefix}-shift-${index}`;
+          const label = (fill: string, clip: string, hidden = false) => (
+            <text
+              aria-hidden={hidden || undefined}
+              x={labelX}
+              y={top + 12}
+              clipPath={`url(#${clip})`}
+              className={`${fill} text-[11px] font-semibold`}
+            >
+              {shift.userName}
+            </text>
+          );
           return (
-            <g key={`${shift.userId}-${shift.startsAt}`}>
+            <g key={`${shift.userId}-${shift.startsAt}`} data-testid="today-band-shift">
               <rect
                 x={a}
                 y={top}
@@ -225,13 +244,16 @@ export function DayBand({ today, numbered, expanded, formatCurrency, formatTime 
                 rx={8}
                 fill="var(--rail)"
               />
-              <text
-                x={a + 8}
-                y={top + 12}
-                className="fill-[var(--rail-foreground)] text-[11px] font-semibold"
-              >
-                {shift.userName}
-              </text>
+              <clipPath id={`${clipId}-elapsed`}>
+                <rect x={a} y={top} width={Math.max(0, split - a)} height={16} />
+              </clipPath>
+              <clipPath id={`${clipId}-ahead`}>
+                <rect x={0} y={top} width={a} height={16} />
+                <rect x={split} y={top} width={WIDTH - split} height={16} />
+              </clipPath>
+              {/* Rail ink over the elapsed bar, dark ink everywhere else. */}
+              {label('fill-[var(--rail-foreground)]', `${clipId}-elapsed`, true)}
+              {label('fill-[var(--fg1)]', `${clipId}-ahead`)}
             </g>
           );
         })}

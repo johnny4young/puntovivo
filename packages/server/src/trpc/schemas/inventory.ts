@@ -64,7 +64,8 @@ export const adjustStockInput = z.object({
   productId: z.string().min(1, 'Product ID is required'),
   // adjustments accept fractional stock targets.
   newStock: z.number().min(0, 'Stock must be non-negative'),
-  notes: z.string().optional(),
+  // A manual correction must say why, so a count difference can be traced later.
+  notes: z.string().trim().min(1, 'A reason is required').max(500),
   // optional target site. When omitted, the router
   // falls back to `ctx.siteId` and finally the tenant primary site.
   siteId: z.string().min(1, 'Site ID is required').optional(),

@@ -8,6 +8,7 @@
  *
  * Procedures:
  * - `list({siteId, includeArchived?, limit?})` — cashier/manager/admin
+ * - `listSummary({siteId, search?, limit?, offset?})` — cashier/manager/admin
  * - `getById({id})` — cashier/manager/admin
  * - `create(...)` — admin (audit-logged)
  * - `update(...)` — admin (audit-logged with before/after)
@@ -21,23 +22,39 @@
  * @module trpc/routers/restaurantTables
  */
 
-import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, inArray, lt, min, sql, sum } from 'drizzle-orm';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { nanoid } from 'nanoid';
 import { TRPCError } from '@trpc/server';
-import { cashSessions, restaurantServices, restaurantTables, sales } from '../../db/schema.js';
+import {
+  cashSessions,
+  restaurantReservations,
+  restaurantServices,
+  restaurantTables,
+  sales,
+} from '../../db/schema.js';
+import type { DatabaseInstance } from '../../db/index.js';
+import { parkedDraftOwnedBy } from '../../application/sales/draft-ownership.js';
+import { roundMoney } from '../../lib/money.js';
+import { resolveTenantBusinessClock } from '../../services/pharmacy/business-clock.js';
+import { parkedRetailDraftConditions } from '../../services/reports/day-close-checklist.js';
+import { resolveUtcDayWindow } from '../../services/reports/day-window.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { router } from '../init.js';
 import { adminProcedure, cashierManagerOrAdminProcedure } from '../middleware/roles.js';
 import { createModuleGuard } from '../middleware/modules.js';
 import { ensureTenantSite } from '../middleware/tenantSite.js';
-import { RESTAURANT_SERVICE_LIMITS } from '../../application/restaurant/service-lifecycle.js';
+import {
+  RESTAURANT_SERVICE_LIMITS,
+  summarizePendingRounds,
+} from '../../application/restaurant/service-lifecycle.js';
 import {
   archiveRestaurantTableInput,
   createRestaurantTableInput,
   getRestaurantTableByIdInput,
   listRestaurantTablesInput,
+  listRestaurantTableSummaryInput,
   MAX_ACTIVE_RESTAURANT_TABLES_PER_SITE,
   updateRestaurantTableInput,
 } from '../schemas/restaurantTables.js';
@@ -69,6 +86,48 @@ async function ensureRestaurantSite(
       details: { tenantId, siteId },
     });
   }
+}
+
+const TAKEAWAY_LIST_LIMIT = 50;
+type TableSummaryTransaction = Pick<DatabaseInstance, 'select'>;
+
+/**
+ * Parked tickets with no table at this site, oldest first: in a restaurant they
+ * are takeaway orders, aged from when they were opened. A cashier sees only their
+ * own, as in `sales.listDrafts`.
+ */
+function listTakeawayOrders(
+  tx: TableSummaryTransaction,
+  scope: { tenantId: string; siteId: string; nowIso: string; cashierId: string | null }
+) {
+  const { tenantId, siteId, nowIso, cashierId } = scope;
+  const where = and(
+    parkedRetailDraftConditions(tenantId, nowIso),
+    cashierId ? parkedDraftOwnedBy(cashierId) : undefined,
+    inArray(
+      sales.cashSessionId,
+      tx
+        .select({ id: cashSessions.id })
+        .from(cashSessions)
+        .where(and(eq(cashSessions.tenantId, tenantId), eq(cashSessions.siteId, siteId)))
+    )
+  );
+  const totalItems = tx.select({ value: count() }).from(sales).where(where).get()?.value ?? 0;
+  const items = tx
+    .select({
+      id: sales.id,
+      saleNumber: sales.saleNumber,
+      label: sales.suspendedLabel,
+      openedAt: sales.createdAt,
+      total: sales.total,
+    })
+    .from(sales)
+    .where(where)
+    .orderBy(asc(sales.createdAt), asc(sales.id))
+    .limit(TAKEAWAY_LIST_LIMIT)
+    .all()
+    .map(row => ({ ...row, total: roundMoney(row.total) }));
+  return { totalItems, items };
 }
 
 function isUniqueViolation(err: unknown): boolean {
@@ -111,6 +170,15 @@ function assertActiveTableCapacity(
       },
     });
   }
+}
+
+function floorState(
+  occupied: boolean,
+  service: { billRequestedAt: string | null } | undefined,
+  reservation: unknown
+): 'free' | 'occupied' | 'billRequested' | 'reserved' {
+  if (occupied) return service?.billRequestedAt ? 'billRequested' : 'occupied';
+  return reservation ? 'reserved' : 'free';
 }
 
 export const restaurantTablesRouter = router({
@@ -312,6 +380,183 @@ export const restaurantTablesRouter = router({
           limit: input.limit,
           totalItems,
           hasMore: input.offset + tableRows.length < totalItems,
+        };
+      });
+    }),
+
+  /**
+   * Floor summary per active table: state, seated time, amount, party,
+   * checks, unsent round, bill request and the next reservation today.
+   * Amount and checks come from the open sale drafts, so legacy drafts
+   * without a service still read as occupied. Elapsed time is left to the
+   * client against `generatedAt`.
+   */
+  listSummary: tableReadProcedure
+    .input(listRestaurantTableSummaryInput)
+    .query(async ({ ctx, input }) => {
+      await ensureRestaurantSite(ctx.db, ctx.tenantId, input.siteId);
+      const now = new Date();
+      const { businessDate, timezone } = await resolveTenantBusinessClock(
+        ctx.db,
+        ctx.tenantId,
+        now
+      );
+      const dayEndIso = resolveUtcDayWindow(businessDate, timezone).endExclusiveIso;
+      const nowIso = now.toISOString();
+
+      return ctx.db.transaction(tx => {
+        const where = and(
+          eq(restaurantTables.tenantId, ctx.tenantId),
+          eq(restaurantTables.siteId, input.siteId),
+          eq(restaurantTables.isActive, true),
+          ...(input.search ? [literalContains(restaurantTables.name, input.search)] : [])
+        );
+        const totalItems =
+          tx.select({ value: count() }).from(restaurantTables).where(where).get()?.value ?? 0;
+        // One pass over the open drafts of every filtered table: the page reads
+        // its rows from it and the floor count needs all of them.
+        const filteredTableIds = tx
+          .select({ id: restaurantTables.id })
+          .from(restaurantTables)
+          .where(where);
+        const drafts = tx
+          .select({
+            tableId: sales.tableId,
+            openChecks: count(),
+            total: sum(sales.total),
+            firstOpenedAt: min(sales.createdAt),
+          })
+          .from(sales)
+          .where(
+            and(
+              eq(sales.tenantId, ctx.tenantId),
+              eq(sales.status, 'draft'),
+              inArray(sales.tableId, filteredTableIds)
+            )
+          )
+          .groupBy(sales.tableId)
+          .all();
+        const services = tx
+          .select({
+            tableId: restaurantServices.tableId,
+            siteId: restaurantServices.siteId,
+            openedAt: restaurantServices.openedAt,
+            guestCount: restaurantServices.guestCount,
+            billRequestedAt: restaurantServices.billRequestedAt,
+            pendingRounds: restaurantServices.pendingRounds,
+          })
+          .from(restaurantServices)
+          .where(
+            and(
+              eq(restaurantServices.tenantId, ctx.tenantId),
+              eq(restaurantServices.status, 'open'),
+              inArray(restaurantServices.tableId, filteredTableIds)
+            )
+          )
+          .all();
+        if (services.some(service => service.siteId !== input.siteId)) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+            message: 'Restaurant service site does not match its physical table',
+          });
+        }
+        // A tile reads occupied on an open service too, so the count must agree.
+        const occupiedTables = new Set([
+          ...drafts.map(row => row.tableId),
+          ...services.map(row => row.tableId),
+        ]).size;
+
+        const tableRows = tx
+          .select({
+            id: restaurantTables.id,
+            name: restaurantTables.name,
+            seatCount: restaurantTables.seatCount,
+            area: restaurantTables.area,
+            notes: restaurantTables.notes,
+          })
+          .from(restaurantTables)
+          .where(where)
+          .orderBy(asc(restaurantTables.name), asc(restaurantTables.id))
+          .limit(input.limit)
+          .offset(input.offset)
+          .all();
+        const page = {
+          generatedAt: nowIso,
+          offset: input.offset,
+          limit: input.limit,
+          totalItems,
+          occupiedTables,
+          hasMore: input.offset + tableRows.length < totalItems,
+          takeaway: listTakeawayOrders(tx, {
+            tenantId: ctx.tenantId,
+            siteId: input.siteId,
+            nowIso,
+            cashierId: ctx.user!.role === 'cashier' ? ctx.user!.id : null,
+          }),
+        };
+        if (tableRows.length === 0) return { ...page, items: [] };
+        const tableIds = tableRows.map(row => row.id);
+
+        // Booked or arrived, not yet over, starting before the business day ends.
+        const reservations = tx
+          .select({
+            id: restaurantReservations.id,
+            tableId: restaurantReservations.tableId,
+            status: restaurantReservations.status,
+            guestName: restaurantReservations.guestName,
+            partySize: restaurantReservations.partySize,
+            startsAt: restaurantReservations.startsAt,
+          })
+          .from(restaurantReservations)
+          .where(
+            and(
+              eq(restaurantReservations.tenantId, ctx.tenantId),
+              eq(restaurantReservations.siteId, input.siteId),
+              inArray(restaurantReservations.tableId, tableIds),
+              inArray(restaurantReservations.status, ['booked', 'arrived']),
+              gt(restaurantReservations.endsAt, nowIso),
+              lt(restaurantReservations.startsAt, dayEndIso)
+            )
+          )
+          .orderBy(asc(restaurantReservations.startsAt), asc(restaurantReservations.id))
+          .all();
+
+        const draftByTable = new Map(drafts.map(row => [row.tableId, row]));
+        const serviceByTable = new Map(services.map(row => [row.tableId, row]));
+        const reservationByTable = new Map<string, (typeof reservations)[number]>();
+        for (const reservation of reservations) {
+          if (reservation.tableId && !reservationByTable.has(reservation.tableId)) {
+            reservationByTable.set(reservation.tableId, reservation);
+          }
+        }
+
+        return {
+          ...page,
+          items: tableRows.map(row => {
+            const draft = draftByTable.get(row.id);
+            const service = serviceByTable.get(row.id);
+            const reservation = reservationByTable.get(row.id);
+            return {
+              ...row,
+              state: floorState(draft !== undefined || service !== undefined, service, reservation),
+              openedAt: service?.openedAt ?? draft?.firstOpenedAt ?? null,
+              guestCount: service?.guestCount ?? null,
+              openChecks: draft?.openChecks ?? 0,
+              total: roundMoney(Number(draft?.total ?? 0)),
+              billRequestedAt: service?.billRequestedAt ?? null,
+              pendingRound: summarizePendingRounds(service?.pendingRounds ?? null, now.getTime()),
+              nextReservation: reservation
+                ? {
+                    id: reservation.id,
+                    status: reservation.status,
+                    guestName: reservation.guestName,
+                    partySize: reservation.partySize,
+                    startsAt: reservation.startsAt,
+                  }
+                : null,
+            };
+          }),
         };
       });
     }),

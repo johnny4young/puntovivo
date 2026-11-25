@@ -26,6 +26,7 @@ import { createWorkerBackupBundle } from './backup/backup-worker-host.js';
 import { createSaleActivityTracker } from './backup/sale-activity.js';
 import { createBackupRestoreDrill } from './backup/restore-drill.js';
 import { backupTenantPathSegment, createBackupScheduler } from './backup/scheduler.js';
+import { BACKUP_STATUS_SETTING_KEY, projectBackupStatus } from './backup/status-publisher.js';
 import {
   getAutoUpdateStatus,
   initAutoUpdater,
@@ -46,6 +47,7 @@ import { readDeviceIdFromDir } from './device-id-store.js';
 import { registerDeviceIpc } from './ipc/device.js';
 import { registerPeripheralsIpc } from './ipc/peripherals.js';
 import { registerPrintIpc } from './ipc/print.js';
+import { registerScaleIpc } from './ipc/scale.js';
 import { registerDataBridgeIpc } from './ipc/register.js';
 import { registerSessionIpc } from './ipc/session-ipc.js';
 import { createInstallationClaimHandler } from './session/installation-claim.js';
@@ -65,7 +67,13 @@ import {
   installPackagedRendererProtocol,
   registerPackagedRendererScheme,
 } from './renderer-protocol.js';
-import { getServerHost, markServerReady, requireServerHost, setServerHost } from './runtime.js';
+import {
+  awaitServerHost,
+  getServerHost,
+  markServerReady,
+  requireServerHost,
+  setServerHost,
+} from './runtime.js';
 import { createOsKeyGate } from './os-key-gate.js';
 import { createServerLifecycle, type FatalWorkerExit } from './server-lifecycle.js';
 import {
@@ -79,7 +87,7 @@ import { DEFAULT_RSS_ALERT_MB, resolveWorkerResourceLimits } from './server-host
 import { broadcastServerState, registerServerStateIpc } from './ipc/server-state.js';
 import { createTrayController } from './tray-controller.js';
 import { installSoakMode } from './soak-mode.js';
-import { disableBuiltinSpellchecker } from './window-config.js';
+import { denyCameraCapture, disableBuiltinSpellchecker } from './window-config.js';
 import { createWindowLifecycle } from './window-lifecycle.js';
 import {
   isPackagedRecoveryRequested,
@@ -290,6 +298,12 @@ const backupScheduler = createBackupScheduler({
   createBundle: createBundleOffMain,
   getLastSaleAt: saleActivity.lastSaleAt,
   replicateSnapshot: input => backupCloudVault.replicateSnapshot(input),
+  // Waits out a worker restart so a finished snapshot's outcome is not dropped.
+  publishStatus: async schedules =>
+    (await awaitServerHost()).writeAppSetting(
+      BACKUP_STATUS_SETTING_KEY,
+      projectBackupStatus(schedules)
+    ),
   log: backupLog,
 });
 const backupRestoreDrill = createBackupRestoreDrill({
@@ -447,6 +461,7 @@ ipcMain.handle('session:owner-recovery-status', ownerRecovery.status);
 ipcMain.handle('session:recover-owner', ownerRecovery.recover);
 registerDataBridgeIpc({ log: mainLog });
 registerPrintIpc();
+registerScaleIpc();
 registerServerStateIpc({
   getState: serverLifecycle.getState,
   getRestartStats: () => workerCrashLog.stats(),
@@ -522,6 +537,7 @@ app.whenReady().then(async () => {
 
   // No window may open with the builtin spellchecker on; see window-config.ts.
   disableBuiltinSpellchecker(session.defaultSession);
+  denyCameraCapture(session.defaultSession);
 
   // baseline CSP for renderer-served responses. Fastify API responses already
   // carry Helmet's CSP and must not receive a duplicate concatenated header.

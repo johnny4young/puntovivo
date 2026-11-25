@@ -35,6 +35,7 @@ export function todayFixture(overrides: Partial<OperationsToday> = {}): Operatio
         salesTotal: 40000,
         salesCount: 2,
         scheduledEndAt: at(14),
+        lastHandoff: null,
       },
       {
         sessionId: 's-3',
@@ -48,10 +49,20 @@ export function todayFixture(overrides: Partial<OperationsToday> = {}): Operatio
         salesTotal: 0,
         salesCount: 0,
         scheduledEndAt: null,
+        lastHandoff: null,
       },
     ],
-    shifts: [{ userId: 'u-1', userName: 'Laura', startsAt: at(7), endsAt: at(14) }],
-    nextHandoff: { at: at(14), registerName: 'Caja 1', fromUserName: 'Laura' },
+    shifts: [
+      { userId: 'u-1', userName: 'Laura', siteId: 'site-1', startsAt: at(7), endsAt: at(14) },
+      { userId: 'u-2', userName: 'Camila', siteId: 'site-1', startsAt: at(14), endsAt: at(21) },
+    ],
+    nextHandoff: {
+      at: at(14),
+      registerName: 'Caja 1',
+      fromUserName: 'Laura',
+      toUserName: 'Camila',
+    },
+    awaitingHandoffs: [],
     pending: [
       {
         kind: 'staleSession',
@@ -71,6 +82,8 @@ export function todayFixture(overrides: Partial<OperationsToday> = {}): Operatio
         action: 'sale_refund',
         label: 'Devolución',
         amount: 48500,
+        reason: 'Producto dañado',
+        requesterId: 'u-1',
         requesterName: 'Laura',
         siteName: 'Norte',
       },
@@ -110,6 +123,7 @@ export function todayFixture(overrides: Partial<OperationsToday> = {}): Operatio
         count: 2,
       },
     ],
+    fiscalEnabled: true,
     ...overrides,
   };
 }

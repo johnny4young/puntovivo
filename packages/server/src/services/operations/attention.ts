@@ -18,12 +18,13 @@
  *
  * @module services/operations/attention
  */
-import { and, count, eq, inArray } from 'drizzle-orm';
+import { and, count, eq, inArray, not } from 'drizzle-orm';
 import { OPERATIONAL_READINESS_CONTRACT } from '@puntovivo/shared/operational-readiness';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import { fiscalEmissionIntents, hardwareOutbox, paymentOutbox, sites } from '../../db/schema.js';
 import { getNumberingUsage } from '../fiscal/numbering/ranges.js';
+import { isCancelledByRegister } from '../payments/wallet-confirmation.js';
 import { countFiscalOutboxFailures, readSyncBacklog } from '../readiness/signals.js';
 
 /**
@@ -131,7 +132,8 @@ export async function countPaymentOutboxFailures(
     .where(
       and(
         eq(paymentOutbox.tenantId, tenantId),
-        inArray(paymentOutbox.status, [...PAYMENT_OUTBOX_FAILURE_STATUSES])
+        inArray(paymentOutbox.status, [...PAYMENT_OUTBOX_FAILURE_STATUSES]),
+        not(isCancelledByRegister())
       )
     )
     .get();

@@ -6,7 +6,7 @@ import type { ProductTemplateVerticalId } from '@puntovivo/shared/vertical-prese
 import { SimpleFormField } from '@/components/form-controls/FormField';
 import { cn } from '@/lib/utils';
 import { ProductFormFieldGroup } from './ProductFormFieldGroup';
-import { errorProp, REQUIRED_LABEL } from './productForm.helpers';
+import { errorProp, REQUIRED_LABEL, validateBarcodeCheckDigit } from './productForm.helpers';
 import type {
   LookupOption,
   ProductRole,
@@ -145,6 +145,7 @@ export function ProductGeneralTab({
             label={t('form.fields.barcode')}
             htmlFor="product-barcode"
             className="self-start"
+            {...errorProp(errors.barcode?.message)}
           >
             <span className="pv-input">
               <ScanLine aria-hidden="true" />
@@ -152,7 +153,15 @@ export function ProductGeneralTab({
                 id="product-barcode"
                 className="w-full border-0 bg-transparent p-0 text-inherit outline-none placeholder:text-fg4"
                 placeholder={t('form.fields.barcodePlaceholder')}
-                {...form.register('barcode')}
+                aria-invalid={errors.barcode ? true : undefined}
+                {...form.register('barcode', {
+                  validate: value =>
+                    validateBarcodeCheckDigit(
+                      value,
+                      [form.formState.defaultValues?.barcode],
+                      t('form.fields.barcodeCheckDigitInvalid')
+                    ),
+                })}
               />
             </span>
           </SimpleFormField>

@@ -7,6 +7,10 @@ export interface CompletedSaleSummary {
   saleNumber: string;
   total: number;
   change: number;
+  customerId?: string | null | undefined;
+  customerName?: string | null | undefined;
+  /** The ticket was marked Entregar en obra. */
+  deliveryRequested?: boolean | undefined;
 }
 
 interface SaleCompleteStripProps {

@@ -141,8 +141,11 @@ Adding to this list requires a superseding ADR or a documented amendment here.
 - `sales.getForReprint` (writes counter / audit row)
 - `sales.changeTable` (manager/admin restaurant transfer)
 - `sales.splitDraft` (manager/admin restaurant split-bill)
+- `sales.carryOver` (manager/admin leaves a parked draft for the next day)
 - `restaurantServices.openCheck` (atomic table service and sale draft)
+- `restaurantServices.regroupChecks` (manager/admin moves lines between a table's open checks)
 - `restaurantModifiers.save` (site catalog CAS, audit and replay snapshot)
+- `restaurantModifiers.saveGroup` (site modifier group CAS with its options and dishes, audit and replay snapshot)
 
 **Cash sessions**
 
@@ -150,6 +153,10 @@ Adding to this list requires a superseding ADR or a documented amendment here.
 - `cashSessions.close`
 - `cashSessions.recordMovement` (for `paid_in`, `paid_out`, `skim`,
   and `replenishment`)
+- `cashSessions.startHandoff` and `cashSessions.receiveHandoff` (mid-day
+  register handoff, ADR-0036)
+- `cashSessions.explainDifference` (manager/admin reason for a closed
+  over/short)
 
 **Reports / attestations**
 
@@ -196,7 +203,8 @@ transaction, without authorizing any local payment or sale.
 **Delivery fulfillment**
 
 - `deliveryOrders.create` (manual logistics quote, not a sale)
-- `deliveryOrders.createFromSale` (owned completed-sale snapshot)
+- `deliveryOrders.createFromSale` (owned completed-sale snapshot; cashiers
+  only for sales of their open register session, without choosing the courier)
 - `deliveryOrders.advance` (observed-version transition; delivered and cancelled are terminal)
 
 These commands finish their idempotency result inside the same immediate transaction as the
@@ -222,9 +230,10 @@ header or return ledger. Cancelling a delivery never cancels/refunds the financi
 **Customer ledger**
 
 - `customerLedger.addPayment`
+- `customerLedger.addTillPayment` (cash taken at the register; also moves the open drawer)
 - `customerLedger.addAdjustment`
 
-Both change the customer balance and require one retained logical intent so a
+All three change the customer balance and require one retained logical intent so a
 repeated confirmation cannot debit the debt twice.
 
 **Peripherals**

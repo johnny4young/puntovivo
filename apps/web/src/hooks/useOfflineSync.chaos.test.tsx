@@ -23,7 +23,9 @@
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { createElement, type ReactNode } from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react';
+import { AuthContext, type AuthContextType } from '@/features/auth/AuthContext';
 
 // Hoisted mock state — accessible from inside the vi.mock factory.
 const statusFn = vi.fn();
@@ -114,6 +116,20 @@ describe('useOfflineSync chaos: intermittent network', () => {
 
     // Push must NOT fire while offline even though pendingCount > 0.
     expect(pushFn).not.toHaveBeenCalled();
+  });
+
+  it('does NOT auto-sync for a viewer, who cannot call sync.push', async () => {
+    statusFn.mockResolvedValue({ lastSyncAt: null, pendingCount: 5, conflictsCount: 0 });
+    const auth = { user: { role: 'viewer' } } as unknown as AuthContextType;
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(AuthContext.Provider, { value: auth }, children);
+
+    const { result } = renderHook(() => useOfflineSync(), { wrapper });
+    await waitFor(() => expect(result.current.pendingItems).toBe(5));
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    expect(pushFn).not.toHaveBeenCalled();
+    expect(result.current.error).toBeNull();
   });
 
   it('auto-syncs the queue on reconnect when pending > 0', async () => {

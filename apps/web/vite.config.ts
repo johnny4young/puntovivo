@@ -177,6 +177,7 @@ export default defineConfig(({ mode }) => {
                       'salesOperation',
                       'salesQuickAccess',
                       'receiptShare',
+                      'hardwareRegister',
                     ].includes(localeMatch[2]!)
                   )
                     return `sales-support-${localeMatch[1]}`;

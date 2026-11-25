@@ -11,6 +11,8 @@
  * be positive or negative. Admin-only — the parent gates the
  * "Cargar a cuenta" CTA behind `user.role === 'admin'`, so the
  * modal trusts the prop.
+ * - `till`: cash taken at the register (`customerLedger.addTillPayment`),
+ * capped at `balance`, which the modal states and can fill in one tap.
  *
  * Mirrors the shape of `CashSessionMovementModal` (amount input +
  * note textarea + Cancel / Confirm footer) so the operator sees a
@@ -21,8 +23,9 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useSingleFlightSubmit } from '@/lib/useSingleFlightSubmit';
+import { formatCurrency } from '@/lib/utils';
 
-export type CustomerLedgerAbonoMode = 'payment' | 'adjustment';
+export type CustomerLedgerAbonoMode = 'payment' | 'adjustment' | 'till';
 
 export interface CustomerLedgerAbonoValues {
   amount: number;
@@ -36,7 +39,16 @@ interface CustomerLedgerAbonoModalProps {
   error: string | null;
   onClose: () => void;
   onSubmit: (values: CustomerLedgerAbonoValues) => Promise<void>;
+  /** What the customer owes; required by `till`, the most it accepts. */
+  balance?: number | undefined;
+  customerName?: string | undefined;
 }
+
+const NAMESPACE_BY_MODE: Record<CustomerLedgerAbonoMode, string> = {
+  payment: 'ledger.abonoModal',
+  adjustment: 'ledger.adjustmentModal',
+  till: 'ledger.tillModal',
+};
 
 const PAYMENT_MIN = 0.01;
 
@@ -47,9 +59,13 @@ export function CustomerLedgerAbonoModal({
   error,
   onClose,
   onSubmit,
+  balance = 0,
+  customerName = '',
 }: CustomerLedgerAbonoModalProps) {
   const { t } = useTranslation('customers');
-  const ns = mode === 'payment' ? 'ledger.abonoModal' : 'ledger.adjustmentModal';
+  const ns = NAMESPACE_BY_MODE[mode];
+  const isPayment = mode !== 'adjustment';
+  const copyValues = { name: customerName, balance: formatCurrency(balance) };
   const form = useForm<CustomerLedgerAbonoValues>({
     defaultValues: { amount: 0, note: '' },
   });
@@ -81,7 +97,7 @@ export function CustomerLedgerAbonoModal({
       isOpen={isOpen}
       onClose={onClose}
       size="md"
-      title={t(`${ns}.title`)}
+      title={t(`${ns}.title`, copyValues)}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
@@ -94,7 +110,7 @@ export function CustomerLedgerAbonoModal({
       }
     >
       <form className="space-y-4" onSubmit={handleConfirm}>
-        <p className="text-sm text-secondary-600">{t(`${ns}.description`)}</p>
+        <p className="text-sm text-secondary-600">{t(`${ns}.description`, copyValues)}</p>
 
         <div>
           <label htmlFor="customer-ledger-amount" className="label">
@@ -107,7 +123,8 @@ export function CustomerLedgerAbonoModal({
             // returned item credit). `min` is omitted there and the
             // refinement runs through the existing Zod schema on the
             // server.
-            min={mode === 'payment' ? PAYMENT_MIN : undefined}
+            min={isPayment ? PAYMENT_MIN : undefined}
+            max={mode === 'till' ? balance : undefined}
             step="0.01"
             className="input mt-1"
             data-testid="customer-ledger-amount-input"
@@ -117,8 +134,11 @@ export function CustomerLedgerAbonoModal({
                 if (!Number.isFinite(value)) {
                   return t(`${ns}.amountRequired`);
                 }
-                if (mode === 'payment' && value < PAYMENT_MIN) {
+                if (isPayment && value < PAYMENT_MIN) {
                   return t(`${ns}.amountRequired`);
+                }
+                if (mode === 'till' && value > balance) {
+                  return t('ledger.tillModal.amountTooHigh', copyValues);
                 }
                 if (mode === 'adjustment' && value === 0) {
                   return t(`${ns}.amountRequired`);
@@ -127,6 +147,16 @@ export function CustomerLedgerAbonoModal({
               },
             })}
           />
+          {mode === 'till' && balance > 0 && (
+            <button
+              type="button"
+              className="btn-outline mt-2 h-9 px-3 text-sm"
+              onClick={() => form.setValue('amount', balance, { shouldValidate: true })}
+              data-testid="customer-ledger-pay-all"
+            >
+              {t('ledger.tillModal.payAll', copyValues)}
+            </button>
+          )}
           {form.formState.errors.amount && (
             <p className="mt-1 text-sm text-danger-500" data-testid="customer-ledger-amount-error">
               {form.formState.errors.amount.message}
@@ -137,7 +167,7 @@ export function CustomerLedgerAbonoModal({
         <div>
           <label htmlFor="customer-ledger-note" className="label">
             {t(`${ns}.noteLabel`)}
-            {mode === 'payment' && (
+            {isPayment && (
               <span className="ml-1 text-xs text-secondary-500">
                 {t('ledger.actions.optional')}
               </span>

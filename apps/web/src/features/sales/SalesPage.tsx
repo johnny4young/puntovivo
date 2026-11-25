@@ -9,6 +9,8 @@ import { useSalesFlows } from '@/features/sales/useSalesFlows';
 import { useSalesCart } from '@/features/sales/useSalesCart';
 import { useSalesModals } from '@/features/sales/useSalesModals';
 import { useSalesCommandBar } from '@/features/sales/useSalesCommandBar';
+import { useWeighedItem } from '@/features/sales/useWeighedItem';
+import { resolveRegisterAddQuantity } from '@/features/sales/saleCart';
 import { useSalesPageData } from '@/features/sales/useSalesPageData';
 import { useLastRead } from '@/features/sales/useLastRead';
 import type { InitialTender } from '@/features/sales/salePaymentModal.types';
@@ -24,6 +26,7 @@ import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShor
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { useIsModuleActive } from '@/features/modules';
+import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import { useCustomerDisplayPublisher } from '@/features/surfaces/useCustomerDisplayPublisher';
 import { useCheckoutTransferDisplay } from '@/features/sales/checkoutTransferDisplay';
 import { openCustomerDisplayWindow } from '@/features/surfaces/openCustomerDisplayWindow';
@@ -31,9 +34,13 @@ import { getOrCreateCustomerDisplayAccessId } from '@/features/surfaces/customer
 import { useToast } from '@/components/feedback/ToastProvider';
 import { isTaskActivationKey, useTaskMeasurementController } from '@/lib/taskMeasurement';
 import { readExternalSaleEntry } from './externalSaleEntry';
+import { readRestaurantChargeEntry } from './restaurantChargeEntry';
 import { useTranslation } from 'react-i18next';
 import type { CompletedSaleSummary } from './SaleCompleteStrip';
 import { useEmbeddedServerState } from '@/hooks/useEmbeddedServerState';
+import { getSalesDockGates } from './salesDockGates';
+import { useShiftHandoff } from './handoff/useShiftHandoff';
+import { useSaleDelivery } from './useSaleDelivery';
 
 const LazyCashDrawerApprovalModal = lazy(() =>
   import('@/features/sales/CashDrawerApprovalModal').then(module => ({
@@ -51,10 +58,16 @@ export function SalesPage() {
   const { currentTenant, currentSite, tenantSettings } = useTenant();
   const { currency } = useResolvedLocale();
   const customerDisplayEnabled = useIsModuleActive('customer-display');
+  const parksAtCounter = useRegisterZone('promos-parked');
+  const seatsTables = useRegisterZone('tables');
+  // Seating a ticket at a table goes through the park prompt, so tables park too.
+  const parksSales = parksAtCounter || seatsTables;
+  const sellsOnCredit = useRegisterZone('credit');
   // restaurant service-charge rate flows from the tenant
   // setting into `SalePaymentModal`. 0 means disabled (default for
   // retail tenants); positive values auto-apply on every checkout.
   const serviceChargeRate = tenantSettings?.restaurant?.serviceChargeRate ?? 0;
+  const cashRoundingStep = tenantSettings?.cashClose?.cashRoundingStep ?? null;
   const { user } = useAuth();
   const shouldRenderQuickCreateProductGate = useQuickCreateStore(
     state => state.requestedCreateProduct !== null
@@ -87,6 +100,7 @@ export function SalesPage() {
   // el POS es ahora la única superficie de /sales; el historial y
   // las ventas suspendidas viven detrás de cajones laterales (Drawer).
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
+  const [isIncidentSheetOpen, setIsIncidentSheetOpen] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState('');
   // multi-cart workspace UX state. The label-prompt modal
   // captures an optional "Mesa 5" annotation before the Suspend server
@@ -145,13 +159,16 @@ export function SalesPage() {
     handleQuantityChange,
     handleDiscountChange,
     handleSerialSelectionChange,
+    handleUnitChange,
     handleRemoveItem,
     handleClearCart,
     handleUndoCart,
   } = useSalesCart({ ownerKey, setProductSearchQuery, setSaleError });
   const lastRead = useLastRead(cartItems, activeWorkspace?.id ?? null);
   const activeTicketId = activeWorkspace?.id ?? null;
-  const ticketTender = (activeTicketId && ticketTenders[activeTicketId]) || 'cash';
+  const chosenTender = (activeTicketId && ticketTenders[activeTicketId]) || 'cash';
+  // A ticket left on credit falls back to cash once the store-credit zone is off.
+  const ticketTender = chosenTender === 'credit' && !sellsOnCredit ? 'cash' : chosenTender;
   const handleTicketTenderChange = (tender: InitialTender) => {
     if (!activeTicketId) return;
     // Closed tickets drop out here, so the map never outgrows the open tabs.
@@ -215,6 +232,13 @@ export function SalesPage() {
     selectedRegisterAssignmentId,
     hasCartItems: cartItems.length > 0,
   });
+  const saleDelivery = useSaleDelivery({
+    activeWorkspace,
+    hasItems: cartItems.length > 0,
+    completedSale,
+    hasCashSession: hasActiveCashSession,
+    userRole,
+  });
 
   // slice 10 — the sales + cash-session mutation handles and the
   // shared finish-sale epilogue live in `useSalesMutations`. ALL the
@@ -248,6 +272,7 @@ export function SalesPage() {
       setLastSale(sale);
       setCompletedSale(sale);
       saleMeasurement.finish('success');
+      saleDelivery.onSaleCompleted(sale);
     },
     onCashSessionRecoverySucceeded: () => saleMeasurement.recordRecoveryOutcome('succeeded'),
     onCashSessionRecoveryFailed: () => saleMeasurement.recordRecoveryOutcome('failed'),
@@ -320,6 +345,7 @@ export function SalesPage() {
   // `useSalesFlows`. The shell still owns ALL the state they read; the
   // read values + setters + the mutation handles are injected so the
   // dependency direction stays shell → hook, never hook ↔ hook.
+  const pendingChargeSaleIdRef = useRef<string | null>(null);
   const {
     handleCheckout,
     handleOpenSuspendPrompt,
@@ -347,6 +373,19 @@ export function SalesPage() {
     resumeMutation,
     discardDraftMutation,
     openRestaurantCheckMutation,
+    onResumedForCharge: saleId => {
+      pendingChargeSaleIdRef.current = saleId;
+    },
+  });
+
+  const weighing = useWeighedItem({
+    cartItems,
+    setCartItems,
+    scope: activeWorkspace?.id ?? null,
+    locked: itemsLocked,
+    priceTier: activeWorkspace?.priceTier ?? 1,
+    onApplied: setSelectedCartItemKey,
+    className: 'shrink-0',
   });
 
   // slice 16b-1 — the modal/UI controller (the F1 payment-open gate
@@ -361,7 +400,14 @@ export function SalesPage() {
     addProduct: (selection, quantity) => {
       saleMeasurement.ensure('complete_sale');
       saleMeasurement.markUsableControl();
-      handleProductSelect(selection, quantity);
+      // A by-weight product asks its weight first, unless a quantity was typed.
+      if (quantity === null && weighing.open(selection)) {
+        setProductSearchQuery('');
+        setSaleError(null);
+        return;
+      }
+      weighing.close();
+      handleProductSelect(selection, resolveRegisterAddQuantity(selection.product, quantity));
     },
   });
 
@@ -387,6 +433,8 @@ export function SalesPage() {
     handleOpenCloseCashSessionModal,
     handleCloseCashSession,
     handleOpenCashSessionMovementModal,
+    handleOpenReplenishment,
+    cashSessionMovementType,
     handleRecordCashMovement,
     handleToggleSuspendedPanel,
     handleReprintSelectedHistoryRow,
@@ -418,6 +466,24 @@ export function SalesPage() {
     onCheckoutValidationError: () => saleMeasurement.recordValidationError(),
     onCheckoutRecoveryAttempt: () => saleMeasurement.recordRecoveryAttempt(),
   });
+
+  const shiftHandoff = useShiftHandoff({
+    siteId: currentSite?.id ?? null,
+    activeCashSession,
+    registerAssignments,
+    selectedRegisterAssignment,
+    hasReceiptPrinter: !getSalesDockGates({
+      canCharge: false,
+      hubReachable: true,
+      readinessItems: checkoutReadinessItems,
+    }).printerMissing,
+    onResumeDraft: handleResumeFromPanel,
+    onRequestChange: handleOpenReplenishment,
+  });
+  // Opening a register that is waiting to be received would discard its handoff.
+  const openOrReceiveCashSession = shiftHandoff.receive?.isSelectedRegister
+    ? shiftHandoff.receive.open
+    : handleOpenCashSessionModal;
 
   const handleMeasuredRemoveItem = (itemKey: string) => {
     saleMeasurement.recordBacktrack();
@@ -465,6 +531,28 @@ export function SalesPage() {
     navigate(location.pathname, { replace: true, state: null });
   }, [omniboxQuery, handleMeasuredOpenProductSearch, navigate, location.pathname]);
 
+  // «Cobrar cuenta N» resumes the check, then charges it once its lines are on screen.
+  const activeServerSaleId = activeWorkspace?.serverSaleId ?? null;
+  useEffect(() => {
+    const pending = pendingChargeSaleIdRef.current;
+    if (!pending) return;
+    // One shot: another ticket taking the screen first cancels the charge.
+    pendingChargeSaleIdRef.current = null;
+    if (activeServerSaleId === pending && cartItems.length > 0) handleOpenPaymentModal();
+  }, [activeServerSaleId, cartItems.length, handleOpenPaymentModal]);
+  const restaurantCharge = useMemo(
+    () => readRestaurantChargeEntry(location.state),
+    [location.state]
+  );
+  const consumedRestaurantChargeRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!restaurantCharge || !ownerKey) return;
+    if (consumedRestaurantChargeRef.current === restaurantCharge.id) return;
+    consumedRestaurantChargeRef.current = restaurantCharge.id;
+    navigate(location.pathname, { replace: true, state: null });
+    void handleResumeFromPanel(restaurantCharge, { charge: true });
+  }, [restaurantCharge, ownerKey, navigate, location.pathname, handleResumeFromPanel]);
+
   // keep the product-search input focused across the cashier flow
   // so a USB HID barcode scanner always lands on the right target.
   useScannerFocusRestoration({
@@ -474,6 +562,12 @@ export function SalesPage() {
     isQuickCreateProductMounted: shouldRenderQuickCreateProductGate,
     isQuickCreateCustomerMounted: shouldRenderQuickCreateCustomerGate,
   });
+
+  // An exchange link is committed only when its replacement sale completes.
+  // A generic suspended draft cannot persist sourceReturnId yet, so parking
+  // it would silently turn the exchange into an unrelated sale.
+  const canSuspendActiveCart =
+    parksSales && canCharge && !itemsLocked && activeWorkspace?.sourceReturnId == null;
 
   useSalesKeyboardShortcuts({
     selectedItemKey: activeSelectedCartItemKey,
@@ -487,7 +581,7 @@ export function SalesPage() {
     focusProductInput,
     focusQuantityInput,
     focusDiscountInput,
-    canSuspend: canCharge && !itemsLocked,
+    canSuspend: canSuspendActiveCart,
     onSuspend: handleOpenSuspendPrompt,
     onToggleSuspendedPanel: handleToggleSuspendedPanel,
     canToggleSuspendedPanel: suspendedDraftsCount > 0 || isSuspendedPanelOpen,
@@ -502,9 +596,13 @@ export function SalesPage() {
     // handler its visible button uses; unavailable actions pass
     // undefined so the combo stays inert instead of erroring.
     onNewSale: handleNewSale,
-    onOpenCashSession: canOpenCashSession ? handleOpenCashSessionModal : undefined,
+    onOpenCashSession:
+      shiftHandoff.receive?.isSelectedRegister || canOpenCashSession
+        ? openOrReceiveCashSession
+        : undefined,
     onOpenCashMovement: activeCashSession ? handleOpenCashSessionMovementModal : undefined,
     onOpenCashClose: canCloseCashSession ? () => setIsCashSessionCloseModalOpen(true) : undefined,
+    onOpenIncident: () => setIsIncidentSheetOpen(true),
   });
 
   // Role-aware cash drawer kick and barcode scanner pipeline.
@@ -515,12 +613,12 @@ export function SalesPage() {
   const { onKickCashDrawer, isKickingCashDrawer, approvalModal } = useCashDrawerController({
     hasRegisteredDrawer,
   });
-  useBarcodeProductScanner({
+  const { handleBarcodeScan, handleTypedCode } = useBarcodeProductScanner({
     scannerConfig,
     isResumedCart: itemsLocked,
     isProductSearchOpen,
     isPaymentModalOpen,
-    isCashSessionModalOpen,
+    isCashSessionModalOpen: isCashSessionModalOpen || shiftHandoff.isSheetOpen,
     isCashSessionCloseModalOpen,
     isCashSessionMovementModalOpen,
     productInputRef,
@@ -543,10 +641,14 @@ export function SalesPage() {
       }}
     >
       <SalesScreen
+        parksSales={parksSales}
+        canSuspendActiveCart={canSuspendActiveCart}
         productSearchQuery={productSearchQuery}
         setProductSearchQuery={setProductSearchQuery}
         handleOpenProductSearch={handleMeasuredOpenProductSearch}
         productInputRef={productInputRef}
+        onCameraCode={code => void handleBarcodeScan(code)}
+        onTypedCode={handleTypedCode}
         setIsHistoryDrawerOpen={setIsHistoryDrawerOpen}
         setIsSuspendedPanelOpen={setIsSuspendedPanelOpen}
         suspendedDraftsCount={suspendedDraftsCount}
@@ -570,6 +672,7 @@ export function SalesPage() {
         handleQuantityChange={handleQuantityChange}
         handleDiscountChange={handleDiscountChange}
         handleSerialSelectionChange={handleSerialSelectionChange}
+        handleUnitChange={handleUnitChange}
         handleRemoveItem={handleMeasuredRemoveItem}
         setSelectedCartItemKey={setSelectedCartItemKey}
         handleClearCart={handleMeasuredClearCart}
@@ -589,7 +692,7 @@ export function SalesPage() {
         canCloseCashSession={canCloseCashSession}
         userRole={userRole}
         handleOpenPaymentModal={handleOpenPaymentModal}
-        handleOpenCashSessionModal={handleOpenCashSessionModal}
+        handleOpenCashSessionModal={openOrReceiveCashSession}
         handleOpenCloseCashSessionModal={handleOpenCloseCashSessionModal}
         handleOpenCashSessionMovementModal={handleOpenCashSessionMovementModal}
         onKickCashDrawer={onKickCashDrawer}
@@ -602,6 +705,9 @@ export function SalesPage() {
         preflightItems={preflight.items}
         readinessItems={checkoutReadinessItems}
         isHistoryDrawerOpen={isHistoryDrawerOpen}
+        isIncidentSheetOpen={isIncidentSheetOpen}
+        scanGapMs={scannerConfig.interCharGapMs}
+        setIsIncidentSheetOpen={setIsIncidentSheetOpen}
         lastSale={lastSale}
         lastRead={lastRead}
         ticketTender={ticketTender}
@@ -613,6 +719,7 @@ export function SalesPage() {
         fastCashAmount={fastCashAmount}
         paymentFocusTarget={paymentFocusTarget}
         completedSale={completedSale}
+        saleDelivery={saleDelivery}
         onDismissCompletedSale={() => setCompletedSale(null)}
         setSelectedSaleId={setSelectedSaleId}
         selectedHistorySaleId={selectedHistorySaleId}
@@ -625,6 +732,7 @@ export function SalesPage() {
         productSearchDialogKey={productSearchDialogKey}
         setIsProductSearchOpen={setIsProductSearchOpen}
         handleProductSelect={commandBar.selectProduct}
+        weighPanel={weighing.panel}
         commandBar={commandBar}
         productSearchInitialQuery={productSearchInitialQuery}
         setCartItems={setCartItems}
@@ -632,6 +740,7 @@ export function SalesPage() {
         paymentModalKey={paymentModalKey}
         isPaymentSaving={createMutation.isPending || completeDraftMutation.isPending}
         serviceChargeRate={serviceChargeRate}
+        cashRoundingStep={cashRoundingStep}
         fastCashTrigger={fastCashTrigger}
         setIsPaymentModalOpen={setIsPaymentModalOpen}
         setFastCashTrigger={setFastCashTrigger}
@@ -657,6 +766,8 @@ export function SalesPage() {
         handleCloseCashSession={handleCloseCashSession}
         isCashSessionMovementModalOpen={isCashSessionMovementModalOpen}
         cashSessionMovementModalKey={cashSessionMovementModalKey}
+        cashSessionMovementType={cashSessionMovementType}
+        shiftHandoff={shiftHandoff}
         isRecordingMovement={recordCashMovementMutation.isPending}
         cashSessionMovementError={cashSessionMovementError}
         setIsCashSessionMovementModalOpen={setIsCashSessionMovementModalOpen}

@@ -28,3 +28,7 @@ export const resolveRegisterIncidentInput = z.object({
   id: z.string().min(1).max(64),
   note: z.string().max(500).optional(),
 });
+
+export const registerIncidentProductStockInput = z.object({
+  productId: z.string().min(1).max(64),
+});

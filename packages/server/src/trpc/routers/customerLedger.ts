@@ -7,17 +7,22 @@
  * @module trpc/routers/customerLedger
  */
 
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
   addCustomerLedgerAdjustment,
   addCustomerLedgerPayment,
+  addCustomerTillPayment,
+  TILL_PAYMENT_NOTE_MAX,
 } from '../../application/customers/index.js';
-import { customerLedgerEntries } from '../../db/schema.js';
+import { readCustomerBalance } from '../../services/credit-limit.js';
+import { buildCashSessionContext } from './cashSessions.js';
+import { customerLedgerEntries, customers } from '../../db/schema.js';
 import { router } from '../init.js';
 import {
   criticalCommandAdminProcedure,
+  criticalCommandCashierManagerOrAdminProcedure,
   criticalCommandManagerOrAdminProcedure,
 } from '../middleware/criticalCommand.js';
 import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
@@ -31,6 +36,10 @@ const addPaymentInput = z.object({
   customerId: z.string().min(1),
   amount: z.number().positive('amount must be positive'),
   note: z.string().optional(),
+});
+
+const addTillPaymentInput = addPaymentInput.extend({
+  note: z.string().trim().max(TILL_PAYMENT_NOTE_MAX).optional(),
 });
 
 const addAdjustmentInput = z.object({
@@ -62,18 +71,15 @@ export const customerLedgerRouter = router({
   getBalance: cashierManagerOrAdminProcedure
     .input(z.object({ customerId: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
-      const result = await ctx.db
-        .select({
-          balance: sql<number>`COALESCE(SUM(${customerLedgerEntries.amount}), 0)`.as('balance'),
-        })
-        .from(customerLedgerEntries)
-        .where(
-          and(
-            eq(customerLedgerEntries.tenantId, ctx.tenantId),
-            eq(customerLedgerEntries.customerId, input.customerId)
-          )
-        );
-      return { balance: result[0]?.balance ?? 0 };
+      const customer = await ctx.db
+        .select({ creditLimit: customers.creditLimit })
+        .from(customers)
+        .where(and(eq(customers.id, input.customerId), eq(customers.tenantId, ctx.tenantId)))
+        .get();
+      return {
+        balance: readCustomerBalance(ctx.db, ctx.tenantId, input.customerId),
+        creditLimit: customer?.creditLimit ?? 0,
+      };
     }),
 
   // Both writes move a customer's receivable balance and neither is
@@ -85,6 +91,12 @@ export const customerLedgerRouter = router({
   addPayment: criticalCommandManagerOrAdminProcedure
     .input(addPaymentInput)
     .mutation(({ ctx, input }) => addCustomerLedgerPayment({ ...ctx, user: ctx.user! }, input)),
+
+  // Cash a customer hands over at the register: it enters the cashier's open
+  // drawer in the same transaction, so cashiers may take it.
+  addTillPayment: criticalCommandCashierManagerOrAdminProcedure
+    .input(addTillPaymentInput)
+    .mutation(({ ctx, input }) => addCustomerTillPayment(buildCashSessionContext(ctx), input)),
 
   addAdjustment: criticalCommandAdminProcedure
     .input(addAdjustmentInput)

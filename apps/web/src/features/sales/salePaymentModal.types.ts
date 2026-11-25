@@ -147,6 +147,8 @@ export interface SalePaymentModalProps {
    * zero contract cost.
    */
   serviceChargeRate?: number | undefined;
+  /** Optional tenant cash-only coin rounding step (e.g. 50 in COP). */
+  cashRoundingStep?: number | null | undefined;
   /**
    * /  — caller's role drives credit-method gating.
    * Cashiers, managers, and admins can select credit with a customer;
@@ -162,6 +164,8 @@ export interface SalePaymentModalProps {
   /** Display label when the frozen customer is outside the active catalog query. */
   lockedCustomerName?: string | null | undefined;
   approvalItems?: SalePaymentQuoteItem[] | undefined;
+  /** Impoconsumo included in `total`, shown under it. */
+  consumptionTaxAmount?: number | undefined;
   approvalDiscountAmount?: number | undefined;
   /** Accepted quotations keep frozen prices and never request live promotions. */
   promotionPricingEnabled?: boolean | undefined;
