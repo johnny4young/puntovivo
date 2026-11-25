@@ -129,9 +129,14 @@ export function readMigrationChain(migrationsFolder) {
   return { journal, sqlTags, snapshots };
 }
 
+import { pathToFileURL } from 'node:url';
+
 const MIGRATIONS_FOLDER = resolve(process.cwd(), 'packages/server/src/db/migrations');
 
-if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop())) {
+// A basename comparison silently never matched on Windows: argv[1] carries
+// backslashes, so `split('/')` returned the whole path and this gate exited 0
+// without inspecting anything. Comparing the canonical file URL is portable.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const problems = inspectMigrationChain(readMigrationChain(MIGRATIONS_FOLDER));
   if (problems.length > 0) {
     console.error('Migration chain check failed:');
