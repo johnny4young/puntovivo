@@ -8,18 +8,21 @@ A maintainer still reviews every contribution; the bot only makes sure it is rea
 
 ## What it checks
 
-| Area         | Pull request                                                                                          |
-| ------------ | ----------------------------------------------------------------------------------------------------- |
-| Description  | Conventional Commit title and the **What**, **Why** and **How to test** sections of the template      |
-| Evidence     | Screenshots or a recording for UI changes, reproduction steps for fixes, tests for new source code    |
-| Size         | Lines changed without lockfiles or generated files; large pull requests are asked to split or justify |
-| Language     | Spelling in added lines, Spanish copy in the usted register, every locale key in English and Spanish  |
-| Safety       | Workflows, install scripts, licenses, Electron hardening, hidden Unicode, secrets, encoded blobs      |
-| Identity     | Commits that carry a maintainer identity without a verified signature                                 |
-| Dependencies | New dependencies, their license and how long ago the version was published                            |
+| Area         | Pull request                                                                                                                              |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Description  | Conventional Commit title and the **What**, **Why** and **How to test** sections of the template                                          |
+| Evidence     | Screenshots or a recording for UI changes, reproduction steps for fixes, tests for new source code                                        |
+| Size         | Lines changed without lockfiles or generated files; large pull requests are asked to split or justify                                     |
+| Language     | Spelling in added lines, Spanish copy in the usted register, every locale key in English and Spanish                                      |
+| Safety       | Workflows, install scripts, licenses, Electron hardening, hidden Unicode, secrets, encoded blobs                                          |
+| Identity     | Commits that carry a maintainer identity without a verified signature                                                                     |
+| Dependencies | New dependencies, their license and how long ago the version was published                                                                |
+| Hygiene      | Merge conflicts, sequential Drizzle migrations that collide with `main`, commits shared with another open pull request, failing CI checks |
 
 Issues that report a bug need steps to reproduce, expected and actual behavior, the Puntovivo version and the operating system.
 Reports that look like a security vulnerability are pointed to the private process in [SECURITY](../../docs/SECURITY.md).
+
+The hygiene checks compare the pull request with `main` and the other open pull requests. A migration collision means the pull request adds a migration in `packages/server/src/db/migrations/` whose sequential number is already taken on `main` or falls behind the latest one there; the author regenerates the migration on top of the current `main`.
 
 ## Results
 
@@ -36,6 +39,21 @@ It runs again only when something it reads changes: a new commit, the title, the
 Maintainer contributions are skipped unless they carry the `triage` label. Drafts and automation accounts are skipped.
 
 The workflow runs from `main` and reads the pull request only through the GitHub API; it never checks out or executes contributed code.
+
+## Maintainer requests
+
+A maintainer can ask Centinela for more with a label. Centinela removes the label when it finishes, so applying it again asks for a new run.
+
+| Label                  | Applies to   | What it does                                                                                                    |
+| ---------------------- | ------------ | --------------------------------------------------------------------------------------------------------------- |
+| `centinela: ai-review` | Pull request | Deep AI review of the diff against the [code rules](#code-rules); findings never change the `centinela` status  |
+| `centinela: triage`    | Issue        | AI issue triage: likely duplicates, bugs already fixed by a merged pull request and contribution direction      |
+| `centinela: learn`     | Any          | Collects recent maintainer reviews and opens or updates a pull request with the learned rules                   |
+| `centinela: draft-pr`  | Issue        | Runs the separate `Centinela Execute` workflow, which implements the issue on a new branch and opens a Draft PR |
+
+The Draft PR from `centinela: draft-pr` is reviewed by Centinela like any other pull request and still needs a maintainer to review and merge it.
+
+Replying to a Centinela review thread, or mentioning `@centinela` in a comment, gets an answer grounded in these rules. When the reply shows a finding is a false positive and Centinela confirms it, the thread is resolved automatically and the dismissal is recorded for future reviews.
 
 ## Code rules
 
@@ -81,6 +99,8 @@ A maintainer can ask Centinela for an AI review with the `centinela: ai-review` 
 
 The Puntovivo rules live in `.github/centinela.json`; the checks themselves live in the [Centinela repository](https://github.com/johnny4young/centinela).
 Any change to either changes the rules version, so each open contribution is reviewed once more with the new rules.
+
+To preview a run from GitHub without posting anything, open **Actions → Centinela → Run workflow**, choose a `mode` (`review`, `triage` or `learn`), enter the pull request or issue `number` and keep `dry_run: true`. The output appears in the Job Summary of the run instead of as a comment on the pull request or issue.
 
 To try a change against a real pull request without posting anything, from a Centinela checkout:
 
