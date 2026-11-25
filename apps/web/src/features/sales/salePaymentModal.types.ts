@@ -147,6 +147,8 @@ export interface SalePaymentModalProps {
    * zero contract cost.
    */
   serviceChargeRate?: number | undefined;
+  /** Optional tenant cash-only coin rounding step (e.g. 50 in COP). */
+  cashRoundingStep?: number | null | undefined;
   /**
    * /  — caller's role drives credit-method gating.
    * Cashiers, managers, and admins can select credit with a customer;

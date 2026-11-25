@@ -34,6 +34,7 @@ const TEST_PUC_ACCOUNTS: AccountingPucAccounts = {
   storeCredit: '280505',
   loyalty: '280505',
   refunds: '417595',
+  rounding: '429581',
 };
 
 function buildJournalEntries(vouchers: AccountingVoucher[]) {
@@ -464,5 +465,67 @@ describe('generic voucher rows', () => {
     expect(rows[0]!.saleInc).toBe(8);
     expect(rows[0]!.paymentMethods).toBe('cash:100 | card:27');
     expect(rows[0]!.fiscalDocument).toBe('SETP-990000001');
+    expect(rows[0]!.saleRoundingAdjustment).toBe(0);
+  });
+
+  it('books explicit rounding adjustment lines (PUC 429581) on sales and refunds without skewing income', () => {
+    const roundedUpSale = makeVoucher({
+      subtotal: 100,
+      taxAmount: 19,
+      ivaAmount: 19,
+      incAmount: 0,
+      roundingAdjustment: 6,
+      total: 125,
+      payments: [{ method: 'cash', amount: 125 }],
+    });
+    const upRows = buildJournalEntries([roundedUpSale]);
+    expect(upRows.reduce((sum, r) => sum + r.debit, 0)).toBeCloseTo(
+      upRows.reduce((sum, r) => sum + r.credit, 0),
+      2
+    );
+    expect(upRows.find(r => r.account === '413595')?.credit).toBeCloseTo(100, 2);
+    expect(upRows.find(r => r.account === '429581')).toMatchObject({ debit: 0, credit: 6 });
+
+    const roundedDownSale = makeVoucher({
+      subtotal: 100,
+      taxAmount: 19,
+      ivaAmount: 19,
+      incAmount: 0,
+      roundingAdjustment: -4,
+      total: 115,
+      payments: [{ method: 'cash', amount: 115 }],
+    });
+    const downRows = buildJournalEntries([roundedDownSale]);
+    expect(downRows.reduce((sum, r) => sum + r.debit, 0)).toBeCloseTo(
+      downRows.reduce((sum, r) => sum + r.credit, 0),
+      2
+    );
+    expect(downRows.find(r => r.account === '413595')?.credit).toBeCloseTo(100, 2);
+    expect(downRows.find(r => r.account === '429581')).toMatchObject({ debit: 4, credit: 0 });
+
+    const roundedRefund = makeVoucher({
+      kind: 'refund',
+      eventId: 'ret-round-1',
+      subtotal: 100,
+      taxAmount: 19,
+      ivaAmount: 19,
+      incAmount: 0,
+      roundingAdjustment: 6,
+      total: 125,
+      refundAmount: 125,
+      payments: [{ method: 'cash', destination: 'cash', amount: 125 }],
+    });
+    const refundRows = buildJournalEntries([roundedRefund]);
+    expect(refundRows.reduce((sum, r) => sum + r.debit, 0)).toBeCloseTo(
+      refundRows.reduce((sum, r) => sum + r.credit, 0),
+      2
+    );
+    expect(refundRows.find(r => r.account === '417595')?.debit).toBeCloseTo(100, 2);
+    expect(refundRows.find(r => r.account === '429581')).toMatchObject({ debit: 6, credit: 0 });
+
+    const genericSale = buildGenericVoucherRows([roundedUpSale]);
+    expect(genericSale[0]?.saleRoundingAdjustment).toBe(6);
+    const genericRefund = buildGenericVoucherRows([roundedRefund]);
+    expect(genericRefund[0]?.saleRoundingAdjustment).toBe(-6);
   });
 });

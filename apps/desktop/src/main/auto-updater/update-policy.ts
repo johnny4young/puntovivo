@@ -8,6 +8,8 @@
  * rollback uses a separately delivered manual installer.
  */
 
+import { createHash } from 'node:crypto';
+
 export const UPDATE_POLICY_URL = 'https://johnny4young.github.io/puntovivo/update-policy.json';
 export const UPDATE_POLICY_TIMEOUT_MS = 5_000;
 
@@ -143,6 +145,12 @@ export function parseUpdatePolicy(value: unknown): UpdatePolicy {
   };
 }
 
+/** Deterministic 0..99 cohort bucket so staged rollouts expand monotonically (10 -> 50 -> 100). */
+export function computeUpdateRolloutBucket(rolloutKey: string, candidateVersion: string): number {
+  const digest = createHash('sha256').update(`${candidateVersion}:${rolloutKey}`).digest();
+  return digest.readUInt32BE(0) % 100;
+}
+
 /**
  * The mutable policy may narrow normal rollout, but it can never authorize a
  * downgrade. Every automatic candidate must also meet the sealed device floor.
@@ -150,12 +158,21 @@ export function parseUpdatePolicy(value: unknown): UpdatePolicy {
 export function isCandidateAllowedByPolicy(
   policy: UpdatePolicy | null,
   candidateVersion: string,
-  floorVersion: string
+  floorVersion: string,
+  rolloutKey?: string | null
 ): boolean {
   try {
-    return (
-      policy?.mode !== 'rollback' && compareUpdateVersions(candidateVersion, floorVersion) >= 0
-    );
+    if (policy?.mode === 'rollback') return false;
+    if (compareUpdateVersions(candidateVersion, floorVersion) < 0) return false;
+    if (
+      policy &&
+      policy.rolloutPercentage < 100 &&
+      rolloutKey &&
+      compareUpdateVersions(candidateVersion, policy.targetVersion) === 0
+    ) {
+      return computeUpdateRolloutBucket(rolloutKey, candidateVersion) < policy.rolloutPercentage;
+    }
+    return true;
   } catch {
     return false;
   }

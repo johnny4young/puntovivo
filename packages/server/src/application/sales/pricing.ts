@@ -85,6 +85,7 @@ export async function resolveFreshSaleTotals(args: {
   serviceChargeAmount: number | undefined;
   status: FreshSaleStatus;
   currencyCode: string;
+  cashRoundingStep?: number | null;
 }): Promise<FreshSaleTotals> {
   const { db, tenantId, status } = args;
 
@@ -130,11 +131,11 @@ export async function resolveFreshSaleTotals(args: {
     serviceChargeRate = serviceChargeAmount > 0 ? restaurantSettings.serviceChargeRate : null;
   }
   const grossTotal = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
-  // A draft keeps its gross total; completion re-derives the payable one.
+  // A draft keeps its gross total; completion re-derives the payable one (and cash step when cash-only).
   const { total, roundingAdjustment } =
     status === 'draft'
       ? { total: grossTotal, roundingAdjustment: 0 }
-      : resolvePayableTotal(grossTotal, args.currencyCode);
+      : resolvePayableTotal(grossTotal, args.currencyCode, args.cashRoundingStep);
 
   return {
     subtotal,

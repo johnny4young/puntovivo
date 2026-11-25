@@ -221,6 +221,7 @@ export interface SalesScreenProps {
   paymentModalKey: number;
   isPaymentSaving: boolean;
   serviceChargeRate: number;
+  cashRoundingStep?: number | null | undefined;
   fastCashTrigger: number;
   setIsPaymentModalOpen: Dispatch<SetStateAction<boolean>>;
   setFastCashTrigger: Dispatch<SetStateAction<number>>;
@@ -367,6 +368,7 @@ export function SalesScreen({
   paymentModalKey,
   isPaymentSaving,
   serviceChargeRate,
+  cashRoundingStep = null,
   fastCashTrigger,
   setIsPaymentModalOpen,
   setFastCashTrigger,
@@ -483,13 +485,14 @@ export function SalesScreen({
         ? handleOpenCloseCashSessionModal
         : undefined,
   });
-  // Mirrors the charge drawer: quotations carry no service charge.
+  // Mirrors the charge drawer: quotations carry no service charge; coin rounding applies to cash only.
+  const dueWithService =
+    draftSummary.total + percentOf(draftSummary.total, isQuotationCart ? 0 : serviceChargeRate);
+  const exactDue = getPayableCartTotal({ total: dueWithService }, currencyCode).total;
   const cashDue = getPayableCartTotal(
-    {
-      total:
-        draftSummary.total + percentOf(draftSummary.total, isQuotationCart ? 0 : serviceChargeRate),
-    },
-    currencyCode
+    { total: dueWithService },
+    currencyCode,
+    cashRoundingStep
   ).total;
 
   const { sellsOnCredit, account: customerAccount } = useCustomerAccount(ticketCustomerId);
@@ -502,7 +505,7 @@ export function SalesScreen({
   const shownAccount = ticketCustomerName && hasAccount(customerAccount) ? customerAccount : null;
   const creditLimit = shownAccount?.creditLimit ?? 0;
   const creditProjectedBalance =
-    shownAccount && cashDue > 0 ? roundMoney(shownAccount.balance + cashDue) : null;
+    shownAccount && exactDue > 0 ? roundMoney(shownAccount.balance + exactDue) : null;
   const handleCredit = canCharge
     ? () => {
         onTicketTenderChange('credit');
@@ -910,6 +913,7 @@ export function SalesScreen({
             isPaymentSaving={isPaymentSaving}
             saleError={saleError}
             serviceChargeRate={isQuotationCart ? 0 : serviceChargeRate}
+            cashRoundingStep={cashRoundingStep}
             allowTip={takesTips && !isQuotationCart}
             fastCashTrigger={fastCashTrigger}
             fastCashAmount={fastCashAmount}

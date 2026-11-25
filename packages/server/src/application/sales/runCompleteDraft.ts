@@ -35,7 +35,8 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { resolveTenantCurrency } from '../../lib/currency.js';
-import { resolvePayableTotal, roundMoney } from '../../lib/money.js';
+import { isCashOnlyTender, resolvePayableTotal, roundMoney } from '../../lib/money.js';
+import { resolveCashCloseSettings } from '../../services/cash-close-settings.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   evaluateCheckoutLossPrevention,
@@ -415,7 +416,18 @@ export async function runCompleteDraft(
   const serviceChargeRate = serviceChargeAmount > 0 ? restaurantSettings.serviceChargeRate : null;
   const grossTotal = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
   const saleCurrencyCode = existing.currencyCode ?? resolveTenantCurrency(ctx.db, ctx.tenantId);
-  const { total, roundingAdjustment } = resolvePayableTotal(grossTotal, saleCurrencyCode);
+  const cashCloseSettings = await resolveCashCloseSettings(ctx.db, ctx.tenantId);
+  const cashRoundingStep = isCashOnlyTender({
+    paymentMethod: input.paymentMethod,
+    payments: input.payments,
+  })
+    ? cashCloseSettings.cashRoundingStep
+    : null;
+  const { total, roundingAdjustment } = resolvePayableTotal(
+    grossTotal,
+    saleCurrencyCode,
+    cashRoundingStep
+  );
 
   // resolve the tender list (split or legacy),
   // payment status, change, and cash collected. The draft is always

@@ -96,6 +96,8 @@ async function printReceipt(receiptHtml: string, settings: ReceiptPrintSettings)
       }, RECEIPT_PRINT_TIMEOUT_MS);
     });
 
+    // Swallow late rejections if timeout wins the race and closing printWindow rejects printDone.
+    printDone.catch(() => {});
     try {
       await Promise.race([printDone, printTimeout]);
     } finally {

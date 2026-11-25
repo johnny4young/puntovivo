@@ -15,6 +15,7 @@ import {
   lookupProductSerialWarranty,
   receiveProductSerialUnits,
 } from '../../services/product-serials.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 import { assertCatalogStockMutationAllowed } from '../../services/products/lot-tracking.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import { assertTenantSite } from '../../services/devices/authority/helpers.js';
@@ -129,6 +130,16 @@ export const productSerialsRouter = router({
             productId: input.productId,
             quantity: rows.length,
           },
+        });
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'inventory.serial.receive',
+          resourceType: 'product',
+          resourceId: input.productId,
+          after: { siteId: input.siteId, count: rows.length, unitCost: input.unitCost },
+          metadata: { movementId },
         });
         return { items: rows };
       });

@@ -96,7 +96,7 @@ export function GlobalStatusStrip() {
   const { user } = useAuth();
   const location = useLocation();
 
-  const { isOnline, lastSync, pendingItems, conflicts, isSyncing, error, triggerSync } =
+  const { isOnline, lastSync, pendingItems, conflicts, isSyncing, error, canPush, triggerSync } =
     useOfflineSync();
   const hub = useHubReachability();
   const isHubUnreachable = hub.reachable === false;
@@ -180,7 +180,12 @@ export function GlobalStatusStrip() {
       }
 
       const canRetry =
-        !isHubUnreachable && isOnline && !isSyncing && pendingItems > 0 && conflicts === 0;
+        canPush &&
+        !isHubUnreachable &&
+        isOnline &&
+        !isSyncing &&
+        pendingItems > 0 &&
+        conflicts === 0;
 
       list.push({
         id: 'sync',
@@ -226,6 +231,7 @@ export function GlobalStatusStrip() {
   }, [
     isServerRestarting,
     isHubUnreachable,
+    canPush,
     isOnline,
     pendingItems,
     conflicts,

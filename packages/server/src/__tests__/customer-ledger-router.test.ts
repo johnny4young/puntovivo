@@ -628,7 +628,7 @@ describe('customerLedger.* router', () => {
       await openSession();
 
       await expect(
-        cashierCaller().customerLedger.addTillPayment({ customerId, amount: 10_000.01 })
+        cashierCaller().customerLedger.addTillPayment({ customerId, amount: 10_001 })
       ).rejects.toMatchObject({
         cause: { errorCode: 'CUSTOMER_TILL_PAYMENT_EXCEEDS_BALANCE' },
       });
@@ -688,26 +688,39 @@ describe('customerLedger.* router', () => {
 
   describe('addAdjustment', () => {
     it('stores the adjustment rounded to two decimals', async () => {
-      const customerId = await seedCustomer('Ajuste Residuo');
-      const caller = appRouter.createCaller(
-        createCallerContext({
-          userId: adminUserId,
-          role: 'admin',
-          email: 'admin@localhost',
-        })
-      );
-      const result = await caller.customerLedger.addAdjustment({
-        customerId,
-        amount: -3.334,
-        note: 'Ajuste con residuo',
-      });
       const db = getDatabase();
-      const [row] = await db
-        .select()
-        .from(customerLedgerEntries)
-        .where(eq(customerLedgerEntries.id, result.id))
-        .limit(1);
-      expect(row?.amount).toBe(-3.33);
+      await db
+        .update(tenants)
+        .set({ defaultCurrencyCode: 'USD' })
+        .where(eq(tenants.id, tenantId))
+        .run();
+      try {
+        const customerId = await seedCustomer('Ajuste Residuo');
+        const caller = appRouter.createCaller(
+          createCallerContext({
+            userId: adminUserId,
+            role: 'admin',
+            email: 'admin@localhost',
+          })
+        );
+        const result = await caller.customerLedger.addAdjustment({
+          customerId,
+          amount: -3.334,
+          note: 'Ajuste con residuo',
+        });
+        const [row] = await db
+          .select()
+          .from(customerLedgerEntries)
+          .where(eq(customerLedgerEntries.id, result.id))
+          .limit(1);
+        expect(row?.amount).toBe(-3.33);
+      } finally {
+        await db
+          .update(tenants)
+          .set({ defaultCurrencyCode: 'COP' })
+          .where(eq(tenants.id, tenantId))
+          .run();
+      }
     });
 
     it('accepts both signs and stores the amount as-is', async () => {
@@ -753,23 +766,44 @@ describe('customerLedger.* router', () => {
     });
 
     it('rejects signed adjustments that round to zero and preserves half-cent signs', async () => {
-      const customerId = await seedCustomer('Sub-cent adjustment');
-      for (const amount of [0.001, -0.001, 0.0049, -0.0049]) {
-        await expect(
-          adminCaller().customerLedger.addAdjustment({ customerId, amount, note: 'Reconciliation' })
-        ).rejects.toMatchObject({ code: 'BAD_REQUEST', message: 'CUSTOMER_LEDGER_INVALID_AMOUNT' });
+      const db = getDatabase();
+      await db
+        .update(tenants)
+        .set({ defaultCurrencyCode: 'USD' })
+        .where(eq(tenants.id, tenantId))
+        .run();
+      try {
+        const customerId = await seedCustomer('Sub-cent adjustment');
+        for (const amount of [0.001, -0.001, 0.0049, -0.0049]) {
+          await expect(
+            adminCaller().customerLedger.addAdjustment({
+              customerId,
+              amount,
+              note: 'Reconciliation',
+            })
+          ).rejects.toMatchObject({
+            code: 'BAD_REQUEST',
+            message: 'CUSTOMER_LEDGER_INVALID_AMOUNT',
+          });
+        }
+        expect(await adminCaller().customerLedger.list({ customerId })).toEqual([]);
+        for (const amount of [0.005, -0.005]) {
+          await adminCaller().customerLedger.addAdjustment({
+            customerId,
+            amount,
+            note: 'Reconciliation',
+          });
+        }
+        expect(
+          (await adminCaller().customerLedger.list({ customerId })).map(row => row.amount).sort()
+        ).toEqual([-0.01, 0.01]);
+      } finally {
+        await db
+          .update(tenants)
+          .set({ defaultCurrencyCode: 'COP' })
+          .where(eq(tenants.id, tenantId))
+          .run();
       }
-      expect(await adminCaller().customerLedger.list({ customerId })).toEqual([]);
-      for (const amount of [0.005, -0.005]) {
-        await adminCaller().customerLedger.addAdjustment({
-          customerId,
-          amount,
-          note: 'Reconciliation',
-        });
-      }
-      expect(
-        (await adminCaller().customerLedger.list({ customerId })).map(row => row.amount).sort()
-      ).toEqual([-0.01, 0.01]);
     });
 
     it('rejects a zero amount', async () => {

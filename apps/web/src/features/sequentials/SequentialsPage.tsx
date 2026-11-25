@@ -172,7 +172,11 @@ export function SequentialsPage(): React.ReactElement {
   ];
 
   const handleSubmit = async (values: SequentialFormSubmission) => {
-    await upsertMutation.mutateAsync(values);
+    try {
+      await upsertMutation.mutateAsync(values);
+    } catch {
+      // onError already surfaces the translated toast and error banner.
+    }
   };
   const deleteMessage = sequentialToDelete
     ? t('delete.description', {

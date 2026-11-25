@@ -33,6 +33,7 @@ const LEDGER_ACCOUNT_KEYS = [
   'storeCredit',
   'loyalty',
   'refunds',
+  'rounding',
 ] as const;
 const PUC_CODE_PATTERN = /^[1-9]\d{3,11}$/;
 
@@ -46,7 +47,7 @@ function accountsAreValid(
   if (!accounts) return false;
   return [
     ...Object.values(accounts.paymentMethods),
-    ...LEDGER_ACCOUNT_KEYS.map(key => accounts[key]),
+    ...LEDGER_ACCOUNT_KEYS.map(key => accounts[key] ?? ''),
   ].every(account => PUC_CODE_PATTERN.test(account));
 }
 
@@ -270,6 +271,7 @@ export function AccountingExportPage() {
       'saleInc',
       'saleTip',
       'saleServiceCharge',
+      'saleRoundingAdjustment',
       'saleTotal',
       'paymentMethods',
       'currency',
@@ -421,7 +423,7 @@ export function AccountingExportPage() {
                       minLength={4}
                       maxLength={12}
                       required
-                      value={accountsDraft[key]}
+                      value={accountsDraft[key] ?? ''}
                       onChange={event => updateLedgerAccount(key, event.target.value)}
                     />
                   </label>

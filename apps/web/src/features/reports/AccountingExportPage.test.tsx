@@ -34,6 +34,7 @@ const pucAccounts = {
   storeCredit: '280505',
   loyalty: '280505',
   refunds: '417595',
+  rounding: '429581',
 };
 
 vi.mock('@/lib/trpc', () => ({

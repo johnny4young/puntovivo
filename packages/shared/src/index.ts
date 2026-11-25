@@ -1,8 +1,13 @@
 export {
+  ALLOWED_CASH_ROUNDING_STEPS,
+  defaultCashRoundingStep,
+  isCashOnlyTender,
+  isValidCashRoundingStep,
   payableDecimals,
   resolvePayableTotal,
   roundMoney,
   roundPayable,
+  type AllowedCashRoundingStep,
   type PayableTotal,
 } from './money.js';
 export { splitLineTax, type TaxSplitInput, type TaxSplitResult } from './tax-split.js';

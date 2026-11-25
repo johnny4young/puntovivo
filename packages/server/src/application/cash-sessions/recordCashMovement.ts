@@ -21,7 +21,9 @@
 
 import { and, eq } from 'drizzle-orm';
 import { cashMovements, users } from '../../db/schema.js';
+import { resolveTenantCurrency } from '../../lib/currency.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { roundMoney, roundPayable } from '../../lib/money.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 // throwServerError used for site/session preconditions; the unreachable
 // amount-invalid path inside the tx falls through to a plain Error so
@@ -170,6 +172,16 @@ export async function recordCashMovement(
       trpcCode: 'BAD_REQUEST',
       errorCode: 'CASH_SESSION_SITE_REQUIRED',
       message: 'An active site is required before recording a cash movement',
+    });
+  }
+
+  const currencyCode = resolveTenantCurrency(ctx.db, ctx.tenantId);
+  if (roundPayable(input.amount, currencyCode) !== roundMoney(input.amount)) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_TENDER_NOT_PAYABLE_UNIT',
+      message: 'Cash movement amounts must use the currency payable unit',
+      details: { currencyCode },
     });
   }
 

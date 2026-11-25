@@ -4,6 +4,29 @@ import type { SerialPortSummary } from '../scale/serial-port.ts';
 import type { DesktopSessionAuthorizer } from './session-authorization.ts';
 
 const SETTINGS_ROLES = ['admin', 'manager'] as const;
+export const MAX_PENDING_SCALE_READS = 4;
+
+/** Serialize serial-port reads and reject excess clicks while a read is stalled. */
+export function createBoundedScaleReadQueue(
+  runRead: (config: ScaleConfig) => Promise<ScaleReadResult>,
+  maxPending = MAX_PENDING_SCALE_READS
+): (config: ScaleConfig) => Promise<ScaleReadResult> {
+  let queue: Promise<unknown> = Promise.resolve();
+  let pending = 0;
+  return (config: ScaleConfig): Promise<ScaleReadResult> => {
+    if (pending >= maxPending) {
+      return Promise.resolve({ status: 'error', code: 'SCALE_BUSY' });
+    }
+    pending += 1;
+    const next = queue
+      .then(() => runRead(config))
+      .finally(() => {
+        pending -= 1;
+      });
+    queue = next.catch(() => {});
+    return next;
+  };
+}
 
 export interface ScaleDependencies {
   session: DesktopSessionAuthorizer;

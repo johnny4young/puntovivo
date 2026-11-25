@@ -102,6 +102,10 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'vat_rate.delete',
     'sequential.adjust',
     'sequential.delete',
+    'customer.ledger.adjust',
+    'fiscal.settings.update',
+    'cash_close.settings.update',
+    'product.delete',
   ],
   inventory: [
     'inventory.adjust_stock',
@@ -111,6 +115,8 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'inventory.count.submit',
     'inventory.count.approve',
     'inventory.count.reject',
+    'inventory.serial.receive',
+    'product.variant_matrix.create',
     'purchase.receive',
     // The reverse of purchase.receive moves the same stock back out.
     'purchase.return',

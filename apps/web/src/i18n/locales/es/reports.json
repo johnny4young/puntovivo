@@ -256,7 +256,8 @@
         "receivable": "Cuentas por cobrar",
         "storeCredit": "Crédito a favor de clientes por pagar",
         "loyalty": "Puntos de fidelidad por pagar",
-        "refunds": "Devoluciones en ventas"
+        "refunds": "Devoluciones en ventas",
+        "rounding": "Ajuste al peso (redondeo)"
       }
     },
     "generic": {
@@ -285,6 +286,7 @@
       "saleInc": "INC venta",
       "saleTip": "Propina",
       "saleServiceCharge": "Cargo de servicio",
+      "saleRoundingAdjustment": "Ajuste por redondeo",
       "saleTotal": "Total venta",
       "paymentMethods": "Pagos",
       "currency": "Moneda",

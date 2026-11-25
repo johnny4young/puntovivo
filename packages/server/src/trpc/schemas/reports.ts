@@ -100,6 +100,7 @@ export const accountingPucAccountsInput = z
     storeCredit: accountingPucCode,
     loyalty: accountingPucCode,
     refunds: accountingPucCode,
+    rounding: accountingPucCode.optional(),
   })
   .strict();
 

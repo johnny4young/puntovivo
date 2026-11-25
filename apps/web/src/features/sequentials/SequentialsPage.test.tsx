@@ -34,6 +34,7 @@ const sequentials: Sequential[] = [
 ];
 
 let upsertError: unknown = null;
+const upsertMutateAsync = vi.fn();
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
 
@@ -86,7 +87,7 @@ vi.mock('@/lib/trpc', () => ({
       },
       upsert: {
         useMutation: () => ({
-          mutateAsync: vi.fn(),
+          mutateAsync: upsertMutateAsync,
           isPending: false,
           error: upsertError,
           reset: vi.fn(),
@@ -142,5 +143,16 @@ describe('SequentialsPage', () => {
         'El último número usado no puede ser menor que 4, que ya fue emitido.'
       )
     ).toBeInTheDocument();
+  });
+
+  it('catches a rejected upsert mutation without leaking an unhandled rejection', async () => {
+    upsertMutateAsync.mockRejectedValueOnce(new Error('SEQUENTIAL_BELOW_ISSUED'));
+    render(<SequentialsPage />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    await userEvent.click(screen.getByRole('button', { name: /Save|Update/i }));
+
+    expect(upsertMutateAsync).toHaveBeenCalledTimes(1);
+    expect(toastSuccess).not.toHaveBeenCalled();
   });
 });

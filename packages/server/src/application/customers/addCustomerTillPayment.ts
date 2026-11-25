@@ -3,8 +3,9 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { customerLedgerEntries, customers } from '../../db/schema.js';
+import { resolveTenantCurrency } from '../../lib/currency.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { roundMoney, tryRoundMoneyToSafeCents } from '../../lib/money.js';
+import { roundMoney, roundPayable, tryRoundMoneyToSafeCents } from '../../lib/money.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { getActiveCashSessionForCashier } from '../../services/cash-session.js';
 import { readCustomerBalance } from '../../services/credit-limit.js';
@@ -42,6 +43,15 @@ export async function addCustomerTillPayment(
       trpcCode: 'BAD_REQUEST',
       errorCode: 'CUSTOMER_LEDGER_INVALID_AMOUNT',
       message: 'CUSTOMER_LEDGER_INVALID_AMOUNT',
+    });
+  }
+  const currencyCode = resolveTenantCurrency(ctx.db, ctx.tenantId);
+  if (roundPayable(amount, currencyCode) !== amount) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_TENDER_NOT_PAYABLE_UNIT',
+      message: 'Payment amounts must use the currency payable unit',
+      details: { currencyCode },
     });
   }
   if (!ctx.siteId) {

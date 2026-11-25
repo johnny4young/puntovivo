@@ -256,7 +256,8 @@
         "receivable": "Accounts receivable",
         "storeCredit": "Customer store credit liability",
         "loyalty": "Loyalty points liability",
-        "refunds": "Sales returns"
+        "refunds": "Sales returns",
+        "rounding": "Rounding adjustment"
       }
     },
     "generic": {
@@ -285,6 +286,7 @@
       "saleInc": "Sale INC",
       "saleTip": "Tip",
       "saleServiceCharge": "Service charge",
+      "saleRoundingAdjustment": "Rounding adjustment",
       "saleTotal": "Sale total",
       "paymentMethods": "Payments",
       "currency": "Currency",

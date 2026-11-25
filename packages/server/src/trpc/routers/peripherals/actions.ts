@@ -30,11 +30,10 @@ import {
   recordCashDrawerDispatch,
   releaseCashDrawerApproval,
 } from '../../../application/peripherals/cashDrawerApproval.js';
-import { adminProcedure } from '../../middleware/roles.js';
+import { adminProcedure, cashierManagerOrAdminProcedure } from '../../middleware/roles.js';
 import { criticalCommandCashierManagerOrAdminProcedure } from '../../middleware/criticalCommand.js';
 import { asCriticalCommandContext } from '../../middleware/commandEnvelope.js';
 import { ensureTenantSite } from '../../middleware/tenantSite.js';
-import { tenantProcedure } from '../../middleware/tenant.js';
 import {
   kickCashDrawerInput,
   printReceiptInput,
@@ -60,165 +59,169 @@ export const peripheralsActionProcedures = {
    * `tenantProcedure` because cashiers print receipts. Cross-tenant
    * isolation comes from `getSaleRecord(tenantId, saleId)`.
    */
-  printReceipt: tenantProcedure.input(printReceiptInput).mutation(async ({ ctx, input }) => {
-    // Cross-tenant guard. Throws SALE_NOT_FOUND for foreign ids.
-    const sale = await getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
-    await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+  printReceipt: cashierManagerOrAdminProcedure
+    .input(printReceiptInput)
+    .mutation(async ({ ctx, input }) => {
+      // Cross-tenant guard. Throws SALE_NOT_FOUND for foreign ids.
+      const sale = await getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
 
-    // Find the active printer peripheral for the active site.
-    const printerRow = await ctx.db
-      .select()
-      .from(sitePeripherals)
-      .where(
-        and(
-          eq(sitePeripherals.tenantId, ctx.tenantId),
-          eq(sitePeripherals.siteId, input.siteId),
-          eq(sitePeripherals.kind, 'printer'),
-          eq(sitePeripherals.isActive, true)
+      // Find the active printer peripheral for the active site.
+      const printerRow = await ctx.db
+        .select()
+        .from(sitePeripherals)
+        .where(
+          and(
+            eq(sitePeripherals.tenantId, ctx.tenantId),
+            eq(sitePeripherals.siteId, input.siteId),
+            eq(sitePeripherals.kind, 'printer'),
+            eq(sitePeripherals.isActive, true)
+          )
         )
-      )
-      .get();
+        .get();
 
-    if (!printerRow || printerRow.driver === 'system') {
-      return { status: 'system-fallback' as const };
-    }
+      if (!printerRow || printerRow.driver === 'system') {
+        return { status: 'system-fallback' as const };
+      }
 
-    // ESC/POS path: build the structured receipt document + dispatch.
-    const adapter = instantiateAdapter(printerRow);
-    if (!adapter || adapter.kind !== 'printer') {
+      // ESC/POS path: build the structured receipt document + dispatch.
+      const adapter = instantiateAdapter(printerRow);
+      if (!adapter || adapter.kind !== 'printer') {
+        return {
+          status: 'fallback' as const,
+          error: 'DRIVER_NOT_IMPLEMENTED',
+          errorMessage: 'Active printer driver is not registered',
+        };
+      }
+
+      const tenantRow = await ctx.db
+        .select({ name: tenants.name })
+        .from(tenants)
+        .where(eq(tenants.id, ctx.tenantId))
+        .get();
+      const hasIdentitySnapshot = (sale.receiptIdentitySnapshotVersion ?? 0) >= 1;
+      const document = buildSaleReceiptDocument(
+        {
+          header: {
+            tenantName:
+              (hasIdentitySnapshot ? sale.companyNameSnapshot : null) ??
+              tenantRow?.name ??
+              sale.tenantId,
+            siteName: sale.siteNameSnapshot ?? undefined,
+            taxId: hasIdentitySnapshot ? (sale.companyTaxIdSnapshot ?? undefined) : undefined,
+            address: hasIdentitySnapshot ? (sale.companyAddressSnapshot ?? undefined) : undefined,
+            phone: hasIdentitySnapshot ? (sale.companyPhoneSnapshot ?? undefined) : undefined,
+            email: hasIdentitySnapshot ? (sale.companyEmailSnapshot ?? undefined) : undefined,
+          },
+          cashierName: sale.cashierNameSnapshot ?? undefined,
+          saleNumber: sale.saleNumber,
+          customerName: sale.customerNameSnapshot ?? sale.customerName ?? undefined,
+          customerTaxId: hasIdentitySnapshot
+            ? (sale.customerTaxIdSnapshot ?? undefined)
+            : undefined,
+          items: sale.items.map(item => ({
+            name:
+              item.productNameSnapshot ??
+              item.productName ??
+              item.productSkuSnapshot ??
+              item.productSku ??
+              '—',
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            total: item.total,
+          })),
+          subtotal: sale.subtotal,
+          taxAmount: sale.taxAmount,
+          taxBreakdown: summarizeItemTaxBreakdown(sale.items),
+          total: sale.total,
+          totalLabel: 'TOTAL',
+          fiscalDocuments: toSaleReceiptFiscalDocuments(sale.fiscalDocuments),
+          formatCurrency: v => v.toFixed(2),
+        },
+        { kickDrawer: false }
+      );
+      const parsedPrinter = escposReceiptPrinterConfigSchema.safeParse(printerRow.config);
+      const templateContext = parsedPrinter.success
+        ? await resolveSaleReceiptTemplateContext({
+            db: ctx.db,
+            tenantId: ctx.tenantId,
+            fallbackSiteId: input.siteId,
+            sale,
+          })
+        : null;
+      const templateEscpos =
+        parsedPrinter.success && templateContext
+          ? renderSaleReceiptTemplate(templateContext, {
+              paperWidth: parsedPrinter.data.paperWidth,
+              characterSet: parsedPrinter.data.characterSet,
+              kickDrawer: parsedPrinter.data.kickDrawerAfterReceipt,
+            }).escpos
+          : undefined;
+
+      const result = await (adapter as ReceiptPrinterAdapter).print({
+        kind: 'sale-receipt',
+        escposBytes: templateEscpos,
+        metadata: { document, saleId: sale.id },
+      });
+
+      if (result.status === 'ok') {
+        return { status: 'printed' as const };
+      }
+
+      // Enqueue a retry row so the worker drains it later.
+      // pipe the optional input.idempotencyKey through so
+      // a tRPC retry of the same logical print attempt collapses to
+      // one row instead of stacking duplicates. Helper handles the
+      // partial-unique-idx UNIQUE conflict gracefully.
+      let retryQueued = false;
+      try {
+        await enqueueHardware(
+          { db: ctx.db, tenantId: ctx.tenantId },
+          {
+            kind: 'print-receipt',
+            peripheralId: printerRow.id,
+            payload: {
+              kind: 'print-receipt',
+              document,
+              ...(templateEscpos ? { escposBytes: Array.from(templateEscpos) } : {}),
+              saleId: sale.id,
+              siteId: input.siteId,
+            },
+            status: 'retrying',
+            attempts: 1,
+            nextRetryAt: new Date(Date.now() + 60_000).toISOString(),
+            lastError: {
+              errorCode: result.error?.kind ?? 'UNKNOWN',
+              providerMessage: result.error?.message ?? 'unknown error',
+              recoverable: true,
+            },
+            idempotencyKey: input.idempotencyKey ?? null,
+          }
+        );
+        retryQueued = true;
+        // Fire-and-forget tick so the next periodic interval isn't
+        // the only retry chance.
+        void tickDefaultHardwareWorker(ctx.tenantId).catch(err => {
+          ctx.req.log.warn(
+            { err, tenantId: ctx.tenantId },
+            'immediate hardware worker tick failed (non-blocking)'
+          );
+        });
+      } catch (err) {
+        // Do not promise an automatic retry if durable storage failed.
+        ctx.req.log.warn(
+          { err, saleId: input.saleId },
+          'hardware outbox enqueue failed; no automatic retry confirmed'
+        );
+      }
+
       return {
         status: 'fallback' as const,
-        error: 'DRIVER_NOT_IMPLEMENTED',
-        errorMessage: 'Active printer driver is not registered',
+        error: result.error?.kind ?? 'UNKNOWN',
+        errorMessage: result.error?.message ?? 'ESC/POS print failed',
+        retryQueued,
       };
-    }
-
-    const tenantRow = await ctx.db
-      .select({ name: tenants.name })
-      .from(tenants)
-      .where(eq(tenants.id, ctx.tenantId))
-      .get();
-    const hasIdentitySnapshot = (sale.receiptIdentitySnapshotVersion ?? 0) >= 1;
-    const document = buildSaleReceiptDocument(
-      {
-        header: {
-          tenantName:
-            (hasIdentitySnapshot ? sale.companyNameSnapshot : null) ??
-            tenantRow?.name ??
-            sale.tenantId,
-          siteName: sale.siteNameSnapshot ?? undefined,
-          taxId: hasIdentitySnapshot ? (sale.companyTaxIdSnapshot ?? undefined) : undefined,
-          address: hasIdentitySnapshot ? (sale.companyAddressSnapshot ?? undefined) : undefined,
-          phone: hasIdentitySnapshot ? (sale.companyPhoneSnapshot ?? undefined) : undefined,
-          email: hasIdentitySnapshot ? (sale.companyEmailSnapshot ?? undefined) : undefined,
-        },
-        cashierName: sale.cashierNameSnapshot ?? undefined,
-        saleNumber: sale.saleNumber,
-        customerName: sale.customerNameSnapshot ?? sale.customerName ?? undefined,
-        customerTaxId: hasIdentitySnapshot ? (sale.customerTaxIdSnapshot ?? undefined) : undefined,
-        items: sale.items.map(item => ({
-          name:
-            item.productNameSnapshot ??
-            item.productName ??
-            item.productSkuSnapshot ??
-            item.productSku ??
-            '—',
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          total: item.total,
-        })),
-        subtotal: sale.subtotal,
-        taxAmount: sale.taxAmount,
-        taxBreakdown: summarizeItemTaxBreakdown(sale.items),
-        total: sale.total,
-        totalLabel: 'TOTAL',
-        fiscalDocuments: toSaleReceiptFiscalDocuments(sale.fiscalDocuments),
-        formatCurrency: v => v.toFixed(2),
-      },
-      { kickDrawer: false }
-    );
-    const parsedPrinter = escposReceiptPrinterConfigSchema.safeParse(printerRow.config);
-    const templateContext = parsedPrinter.success
-      ? await resolveSaleReceiptTemplateContext({
-          db: ctx.db,
-          tenantId: ctx.tenantId,
-          fallbackSiteId: input.siteId,
-          sale,
-        })
-      : null;
-    const templateEscpos =
-      parsedPrinter.success && templateContext
-        ? renderSaleReceiptTemplate(templateContext, {
-            paperWidth: parsedPrinter.data.paperWidth,
-            characterSet: parsedPrinter.data.characterSet,
-            kickDrawer: parsedPrinter.data.kickDrawerAfterReceipt,
-          }).escpos
-        : undefined;
-
-    const result = await (adapter as ReceiptPrinterAdapter).print({
-      kind: 'sale-receipt',
-      escposBytes: templateEscpos,
-      metadata: { document, saleId: sale.id },
-    });
-
-    if (result.status === 'ok') {
-      return { status: 'printed' as const };
-    }
-
-    // Enqueue a retry row so the worker drains it later.
-    // pipe the optional input.idempotencyKey through so
-    // a tRPC retry of the same logical print attempt collapses to
-    // one row instead of stacking duplicates. Helper handles the
-    // partial-unique-idx UNIQUE conflict gracefully.
-    let retryQueued = false;
-    try {
-      await enqueueHardware(
-        { db: ctx.db, tenantId: ctx.tenantId },
-        {
-          kind: 'print-receipt',
-          peripheralId: printerRow.id,
-          payload: {
-            kind: 'print-receipt',
-            document,
-            ...(templateEscpos ? { escposBytes: Array.from(templateEscpos) } : {}),
-            saleId: sale.id,
-            siteId: input.siteId,
-          },
-          status: 'retrying',
-          attempts: 1,
-          nextRetryAt: new Date(Date.now() + 60_000).toISOString(),
-          lastError: {
-            errorCode: result.error?.kind ?? 'UNKNOWN',
-            providerMessage: result.error?.message ?? 'unknown error',
-            recoverable: true,
-          },
-          idempotencyKey: input.idempotencyKey ?? null,
-        }
-      );
-      retryQueued = true;
-      // Fire-and-forget tick so the next periodic interval isn't
-      // the only retry chance.
-      void tickDefaultHardwareWorker(ctx.tenantId).catch(err => {
-        ctx.req.log.warn(
-          { err, tenantId: ctx.tenantId },
-          'immediate hardware worker tick failed (non-blocking)'
-        );
-      });
-    } catch (err) {
-      // Do not promise an automatic retry if durable storage failed.
-      ctx.req.log.warn(
-        { err, saleId: input.saleId },
-        'hardware outbox enqueue failed; no automatic retry confirmed'
-      );
-    }
-
-    return {
-      status: 'fallback' as const,
-      error: result.error?.kind ?? 'UNKNOWN',
-      errorMessage: result.error?.message ?? 'ESC/POS print failed',
-      retryQueued,
-    };
-  }),
+    }),
 
   /**
    * /  — role-aware cash drawer kick. Managers/admins
