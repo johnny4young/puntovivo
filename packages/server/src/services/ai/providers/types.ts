@@ -55,6 +55,9 @@ export interface AIProvider {
   /** Returns true when the provider's credentials are wired. */
   isConfigured(): boolean;
 
+  /** Lazily loads the vendor SDK before model factories are invoked. */
+  ensureReady?(): Promise<void>;
+
   /**
    * Vercel AI SDK language-model factory. Throws via `throwServerError`
    * when the provider is `notImplemented`. Caller is expected to gate

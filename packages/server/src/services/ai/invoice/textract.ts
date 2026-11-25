@@ -1,9 +1,8 @@
-import {
-  AnalyzeExpenseCommand,
+import type {
+  ExpenseDocument,
+  ExpenseField,
+  LineItemFields,
   TextractClient,
-  type ExpenseDocument,
-  type ExpenseField,
-  type LineItemFields,
 } from '@aws-sdk/client-textract';
 
 import type { InvoiceOcr, InvoiceOcrMimeType } from '../vision/invoice-ocr.js';
@@ -162,14 +161,19 @@ function toInvoice(doc: ExpenseDocument): InvoiceOcr {
 
 export async function extractInvoiceWithTextract(
   input: TextractInvoiceOcrInput,
-  client = new TextractClient({
-    region: input.region,
-    // An SDK retry can submit and bill the same document more than once.
-    maxAttempts: 1,
-  })
+  client?: Pick<TextractClient, 'send'>
 ): Promise<TextractInvoiceOcrResult> {
+  const { AnalyzeExpenseCommand, TextractClient: TextractClientCtor } =
+    await import('@aws-sdk/client-textract');
+  const resolvedClient =
+    client ??
+    new TextractClientCtor({
+      region: input.region,
+      // An SDK retry can submit and bill the same document more than once.
+      maxAttempts: 1,
+    });
   const startedAt = Date.now();
-  const output = await client.send(
+  const output = await resolvedClient.send(
     new AnalyzeExpenseCommand({
       Document: {
         Bytes: Buffer.from(input.documentBase64, 'base64'),

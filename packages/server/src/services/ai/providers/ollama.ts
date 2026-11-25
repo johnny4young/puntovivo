@@ -35,10 +35,18 @@
  *
  * @module services/ai/providers/ollama
  */
-import { createOllama } from 'ollama-ai-provider-v2';
 import type { EmbeddingModelV4, LanguageModelV4 } from '@ai-sdk/provider';
 
 import type { AIProvider, ProviderPricing, TokenUsage } from './types.js';
+
+let loadedOllamaSdk: typeof import('ollama-ai-provider-v2') | null = null;
+let ollamaSdkPromise: Promise<typeof import('ollama-ai-provider-v2')> | null = null;
+
+async function ensureOllamaSdk(): Promise<void> {
+  if (loadedOllamaSdk) return;
+  ollamaSdkPromise ??= import('ollama-ai-provider-v2');
+  loadedOllamaSdk = await ollamaSdkPromise;
+}
 
 /** Default Ollama base URL — matches the daemon's out-of-box bind. */
 const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434';
@@ -80,6 +88,9 @@ function resolveBaseUrl(): string {
 }
 
 function buildClient() {
+  if (!loadedOllamaSdk) {
+    throw new Error('Ollama SDK not loaded; await provider.ensureReady() first');
+  }
   // The Ollama REST API lives at `<baseURL>/api/<endpoint>`. The
   // `ollama-ai-provider-v2` SDK uses the configured `baseURL` verbatim
   // and appends bare endpoint paths (`/chat`, `/generate`, ...) onto
@@ -87,7 +98,7 @@ function buildClient() {
   // `/api` suffix here, otherwise every request lands at
   // `<baseURL>/chat` and 404s. The trailing-slash strip keeps the
   // concatenation stable when the operator's env var carries one.
-  return createOllama({ baseURL: `${resolveBaseUrl().replace(/\/$/, '')}/api` });
+  return loadedOllamaSdk.createOllama({ baseURL: `${resolveBaseUrl().replace(/\/$/, '')}/api` });
 }
 
 export const ollamaProvider: AIProvider = {
@@ -103,6 +114,10 @@ export const ollamaProvider: AIProvider = {
     // probe at this layer (mirrors how Anthropic / OpenAI only check
     // their env vars without round-tripping the provider).
     return true;
+  },
+
+  ensureReady(): Promise<void> {
+    return ensureOllamaSdk();
   },
 
   languageModel(modelId: string): LanguageModelV4 {

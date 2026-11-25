@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   customerDisplayStorageKey,
   CustomerDisplayBus,
+  CUSTOMER_DISPLAY_HEARTBEAT_MS,
   CUSTOMER_DISPLAY_MAX_FUTURE_SKEW_MS,
   CUSTOMER_DISPLAY_STALE_AFTER_MS,
   type CustomerDisplayProjection,
@@ -60,8 +61,14 @@ export function useCustomerDisplayFeed(
       }
     });
     bus.requestAccess(accessId);
+    // Keep the publisher's demand-driven heartbeat leased only while a display tab is open.
+    const leaseRenew = window.setInterval(
+      () => bus.requestAccess(accessId),
+      CUSTOMER_DISPLAY_HEARTBEAT_MS * 2
+    );
 
     return () => {
+      window.clearInterval(leaseRenew);
       unsubscribe();
       bus.close();
     };

@@ -8,11 +8,14 @@ export interface KdsStationColumnProps extends KdsActions {
   stationKey: string;
   orders: KdsCardData[];
   disabled: boolean;
+  /** Shared board clock (epoch ms) so cards avoid mounting one interval each. */
+  now?: number | undefined;
 }
 export function KdsStationColumn({
   stationKey,
   orders,
   disabled,
+  now,
   ...actions
 }: KdsStationColumnProps) {
   const { t } = useTranslation('kds');
@@ -39,6 +42,7 @@ export function KdsStationColumn({
           <KdsOrderCard
             key={order.id}
             order={order}
+            now={now}
             {...actions}
             busy={disabled}
             showFrozenStation={stationNameDisputed}

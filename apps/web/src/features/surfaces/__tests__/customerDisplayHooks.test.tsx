@@ -256,7 +256,7 @@ describe('useCustomerDisplayPublisher', () => {
 });
 
 describe('POS summary publication identity', () => {
-  it('skips unrelated renders but publishes cart and pricing changes, and heartbeat', () => {
+  it('skips idle heartbeats with no active display and publishes heartbeats once a display pairs', () => {
     const publish = vi.spyOn(CustomerDisplayBus.prototype, 'publish');
     const initialItems = [{ ...cartItem(), taxRate: 19 }];
     const { result, rerender, unmount } = renderHook(
@@ -286,8 +286,25 @@ describe('POS summary publication identity', () => {
     rerender({ items: changedItems, priceIncludesTax: false });
     expect(result.current.total).toBe(4760);
     expect(publish).toHaveBeenCalledTimes(3);
-    act(() => vi.advanceTimersByTime(CUSTOMER_DISPLAY_HEARTBEAT_MS));
+
+    // Without a paired display window, idle ticks perform zero synchronous localStorage writes.
+    act(() => vi.advanceTimersByTime(CUSTOMER_DISPLAY_HEARTBEAT_MS * 4));
+    expect(publish).toHaveBeenCalledTimes(3);
+
+    // Once a display requests pairing, the publisher responds and keeps heartbeats alive while leased.
+    const displayBus = new CustomerDisplayBus();
+    act(() => displayBus.requestAccess(scope.accessId));
     expect(publish).toHaveBeenCalledTimes(4);
+    act(() => vi.advanceTimersByTime(CUSTOMER_DISPLAY_HEARTBEAT_MS));
+    expect(publish).toHaveBeenCalledTimes(5);
+
+    // After the lease expires without renewal, idle heartbeats stop again.
+    act(() => vi.advanceTimersByTime(CUSTOMER_DISPLAY_STALE_AFTER_MS * 3));
+    const countAfterExpiry = publish.mock.calls.length;
+    act(() => vi.advanceTimersByTime(CUSTOMER_DISPLAY_HEARTBEAT_MS * 3));
+    expect(publish).toHaveBeenCalledTimes(countAfterExpiry);
+
+    displayBus.close();
     unmount();
     publish.mockRestore();
   });

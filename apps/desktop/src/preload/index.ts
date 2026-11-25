@@ -62,6 +62,9 @@ export interface ElectronAPI {
     error: string | null;
     reason: string | null;
   }>;
+  onAutoUpdateStatus: (
+    listener: (status: Awaited<ReturnType<ElectronAPI['getAutoUpdateStatus']>>) => void
+  ) => () => void;
   checkForAppUpdates: () => Promise<{
     isAvailable: boolean;
     state: 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';
@@ -409,6 +412,16 @@ const electronAPI: ElectronAPI = {
   openCustomerDisplay: (accessId: string) =>
     invokeSessionProtected('window:open-customer-display', accessId),
   getAutoUpdateStatus: () => ipcRenderer.invoke('get-auto-update-status'),
+  onAutoUpdateStatus: listener => {
+    const handler = (
+      _event: unknown,
+      status: Awaited<ReturnType<ElectronAPI['getAutoUpdateStatus']>>
+    ) => listener(status);
+    ipcRenderer.on('app:auto-update-status', handler);
+    return () => {
+      ipcRenderer.removeListener('app:auto-update-status', handler);
+    };
+  },
   checkForAppUpdates: () => ipcRenderer.invoke('check-for-app-updates'),
   restartToApplyAppUpdate: () => ipcRenderer.invoke('restart-to-apply-app-update'),
   getTraySettings: () => ipcRenderer.invoke('get-tray-settings'),

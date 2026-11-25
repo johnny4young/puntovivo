@@ -456,3 +456,20 @@ it('colours active tickets by age and leaves finished ones neutral', () => {
   expect(ages.filter(([, age]) => age === 'warning')).toHaveLength(1);
   expect(ages.filter(([status]) => status === 'ready')).toEqual([['ready', 'none']]);
 });
+
+it('runs a single shared clock interval regardless of how many order cards are mounted', () => {
+  const intervalSpy = vi.spyOn(globalThis, 'setInterval');
+  h.items = [
+    card({ id: 'o-1' }),
+    card({ id: 'o-2' }),
+    card({ id: 'o-3' }),
+    card({ id: 'o-4' }),
+    card({ id: 'o-5' }),
+  ];
+
+  const { unmount } = render(<KdsBoard />);
+  expect(screen.getAllByTestId('kds-order-card')).toHaveLength(5);
+  const kdsClockCalls = intervalSpy.mock.calls.filter(([, delay]) => delay === 30_000);
+  expect(kdsClockCalls).toHaveLength(1);
+  unmount();
+});

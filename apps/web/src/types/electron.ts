@@ -84,6 +84,9 @@ export interface ElectronAPI {
     error: string | null;
     reason: string | null;
   }>;
+  onAutoUpdateStatus?: (
+    listener: (status: Awaited<ReturnType<ElectronAPI['getAutoUpdateStatus']>>) => void
+  ) => () => void;
   checkForAppUpdates: () => Promise<{
     isAvailable: boolean;
     state: 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';

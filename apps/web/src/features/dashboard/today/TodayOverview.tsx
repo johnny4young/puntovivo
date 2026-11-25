@@ -164,7 +164,10 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
             <p className="text-xs font-semibold tracking-[0.14em] text-fg3 uppercase">
               {t('today.sold')}
             </p>
-            <p className="font-numeric text-[3.4rem] leading-none" data-testid="today-sales-total">
+            <p
+              className="font-numeric min-h-[3.4rem] text-[3.4rem] leading-none"
+              data-testid="today-sales-total"
+            >
               {formatCurrency(today.sales.total)}
             </p>
           </div>

@@ -15,13 +15,7 @@
  *
  * @module services/ai/vision/invoice-ocr
  */
-import {
-  JSONParseError,
-  NoObjectGeneratedError,
-  TypeValidationError,
-  generateObject,
-  type LanguageModelUsage,
-} from 'ai';
+import type { LanguageModelUsage } from 'ai';
 import type { ProviderOptions } from '@ai-sdk/provider-utils';
 import { z } from 'zod';
 
@@ -223,6 +217,7 @@ export async function extractInvoiceFromImage(
   let model: ReturnType<NonNullable<AIProvider['visionModel']>>;
   let providerOptions: ReturnType<AIProvider['cacheControlForSystemPrompt']>;
   try {
+    await provider.ensureReady?.();
     model = provider.visionModel(modelId);
     providerOptions = provider.cacheControlForSystemPrompt();
   } catch (error) {
@@ -293,6 +288,8 @@ export async function extractInvoiceFromImage(
     return Number.isFinite(cost) && cost >= 0 ? cost : null;
   };
 
+  const { JSONParseError, NoObjectGeneratedError, TypeValidationError, generateObject } =
+    await import('ai');
   let result;
   try {
     result = await generateObject({

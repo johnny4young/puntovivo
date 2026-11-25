@@ -5,6 +5,7 @@ import {
   customerDisplayScopeEquals,
   CustomerDisplayBus,
   CUSTOMER_DISPLAY_HEARTBEAT_MS,
+  CUSTOMER_DISPLAY_STALE_AFTER_MS,
   type CustomerDisplayScope,
   type CustomerDisplayTransfer,
 } from './customerDisplayProjection';
@@ -19,9 +20,12 @@ export interface CustomerDisplayPublisherInput extends CustomerDisplayScope {
   transfer?: CustomerDisplayTransfer | null | undefined;
 }
 
+const ACTIVE_LISTENER_LEASE_MS = CUSTOMER_DISPLAY_STALE_AFTER_MS * 2;
+
 /**
  * Mirrors the active cart to same-origin display windows and retires it when
  * the module, site, cash session, route or authenticated identity disappears.
+ * Heartbeats run only while a paired display window has recently requested updates.
  */
 export function useCustomerDisplayPublisher(input: CustomerDisplayPublisherInput | null): void {
   const latest = useRef<CustomerDisplayPublisherInput | null>(null);
@@ -48,6 +52,16 @@ export function useCustomerDisplayPublisher(input: CustomerDisplayPublisherInput
     };
     const bus = new CustomerDisplayBus();
     let revision = 0;
+    let heartbeatId: number | null = null;
+    let listenerLeaseUntil = 0;
+
+    const stopHeartbeat = () => {
+      if (heartbeatId !== null) {
+        window.clearInterval(heartbeatId);
+        heartbeatId = null;
+      }
+    };
+
     const publish = () => {
       const current = latest.current;
       if (!current || !customerDisplayScopeEquals(current, scope)) return;
@@ -66,21 +80,34 @@ export function useCustomerDisplayPublisher(input: CustomerDisplayPublisherInput
         })
       );
     };
+
+    const renewListenerHeartbeat = () => {
+      listenerLeaseUntil = Date.now() + ACTIVE_LISTENER_LEASE_MS;
+      if (heartbeatId !== null) return;
+      heartbeatId = window.setInterval(() => {
+        if (Date.now() > listenerLeaseUntil) {
+          stopHeartbeat();
+          return;
+        }
+        publish();
+      }, CUSTOMER_DISPLAY_HEARTBEAT_MS);
+    };
+
     const unsubscribe = bus.subscribe(message => {
       if (
         (message.kind === 'request-access' && message.accessId === scope.accessId) ||
         (message.kind === 'request' && customerDisplayScopeEquals(message.scope, scope))
       ) {
+        renewListenerHeartbeat();
         publish();
       }
     });
     publishLatest.current = publish;
     publish();
-    const heartbeat = window.setInterval(publish, CUSTOMER_DISPLAY_HEARTBEAT_MS);
 
     return () => {
       if (publishLatest.current === publish) publishLatest.current = null;
-      window.clearInterval(heartbeat);
+      stopHeartbeat();
       unsubscribe();
       bus.clear(scope);
       bus.close();

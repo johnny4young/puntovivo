@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw, RotateCcw, ShieldCheck, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -18,13 +18,20 @@ export function AutoUpdateBanner() {
   const electron = typeof window !== 'undefined' ? window.electron : undefined;
   const queryClient = useQueryClient();
   const toast = useToast();
+  const hasPushUpdates = typeof electron?.onAutoUpdateStatus === 'function';
   const statusQuery = useQuery({
     queryKey: autoUpdateStatusQueryKey,
     queryFn: async (): Promise<AutoUpdateStatus> =>
       window.electron?.getAutoUpdateStatus() ?? defaultAutoUpdateStatus,
     enabled: Boolean(electron),
-    refetchInterval: 30_000,
+    refetchInterval: hasPushUpdates ? false : 30_000,
   });
+  useEffect(() => {
+    if (!electron?.onAutoUpdateStatus) return;
+    return electron.onAutoUpdateStatus(next => {
+      queryClient.setQueryData(autoUpdateStatusQueryKey, next);
+    });
+  }, [electron, queryClient]);
   const status = statusQuery.data ?? defaultAutoUpdateStatus;
   const version = status.downloadedVersion ?? status.releaseName ?? '';
   const dismissKey = version ? `${DISMISS_KEY_PREFIX}${version}` : '';

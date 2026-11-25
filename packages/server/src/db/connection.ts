@@ -216,6 +216,10 @@ async function initializeDatabaseCandidate(
     // so it cannot double the cache working set on top of the worker heap.
     sqlite.pragma('mmap_size = 33554432');
     sqlite.pragma('wal_autocheckpoint = 1000');
+    // NORMAL is WAL-safe and cuts fsync overhead on modest register disks;
+    // cap WAL growth after large transactions at 64 MiB.
+    sqlite.pragma('synchronous = NORMAL');
+    sqlite.pragma('journal_size_limit = 67108864');
   }
 
   // Create Drizzle instance
@@ -448,7 +452,16 @@ export function closeDatabase(): void {
   }
 
   try {
-    if (connection.open) connection.close();
+    if (connection.open) {
+      if (connection.name && connection.name !== ':memory:') {
+        try {
+          connection.pragma('wal_checkpoint(TRUNCATE)');
+        } catch {
+          // Best-effort WAL shrink on shutdown; never block close.
+        }
+      }
+      connection.close();
+    }
   } finally {
     // better-sqlite3 close is synchronous. Retain ownership only when it
     // throws while the handle is still open, which lets a caller retry

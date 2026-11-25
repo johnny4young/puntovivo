@@ -142,4 +142,36 @@ describe('desktop sync session rejection', () => {
     expect(mocks.status).not.toHaveBeenCalled();
     expect(mocks.push).not.toHaveBeenCalled();
   });
+
+  it('coalesces simultaneous hook mounts onto a single getStatus poll and single triggerSync flight', async () => {
+    let resolveSync: (() => void) | undefined;
+    mocks.trigger.mockImplementation(
+      () =>
+        new Promise<{ syncedCount: number; failedCount: number; conflictCount: number }>(
+          resolve => {
+            resolveSync = () => resolve({ syncedCount: 1, failedCount: 0, conflictCount: 0 });
+          }
+        )
+    );
+
+    const first = renderHook(() => useOfflineSync());
+    const second = renderHook(() => useOfflineSync());
+
+    await waitFor(() => expect(mocks.getStatus).toHaveBeenCalledTimes(1));
+
+    let p1: Promise<void>;
+    let p2: Promise<void>;
+    act(() => {
+      p1 = first.result.current.triggerSync();
+      p2 = second.result.current.triggerSync();
+    });
+    expect(mocks.trigger).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveSync?.();
+      await Promise.all([p1!, p2!]);
+    });
+    expect(first.result.current.isSyncing).toBe(false);
+    expect(second.result.current.isSyncing).toBe(false);
+  });
 });

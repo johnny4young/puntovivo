@@ -217,7 +217,6 @@ export const inventoryBalances = sqliteTable(
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
-    index('idx_inventory_balances_tenant').on(table.tenantId),
     index('idx_inventory_balances_site').on(table.siteId),
     index('idx_inventory_balances_product').on(table.productId),
     uniqueIndex('idx_inventory_balances_scope').on(table.tenantId, table.siteId, table.productId),

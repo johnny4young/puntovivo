@@ -31,7 +31,6 @@
  *
  * @module services/ai/embeddings
  */
-import { embed, embedMany, generateObject } from 'ai';
 import type { EmbeddingModelV4 } from '@ai-sdk/provider';
 import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
@@ -93,6 +92,7 @@ export interface EmbeddingDependencies {
 
 const defaultEmbeddingRuntime: EmbeddingRuntime = {
   async embedOne(model, value) {
+    const { embed } = await import('ai');
     const result = await embed({ model, value });
     return {
       embedding: Array.from(result.embedding),
@@ -100,6 +100,7 @@ const defaultEmbeddingRuntime: EmbeddingRuntime = {
     };
   },
   async embedBatch(model, values) {
+    const { embedMany } = await import('ai');
     const result = await embedMany({ model, values });
     return {
       embeddings: result.embeddings.map(vector => Array.from(vector)),
@@ -279,6 +280,7 @@ async function resolveInvocation(
   }
 
   try {
+    await provider.ensureReady?.();
     return {
       provider,
       modelId,
@@ -652,6 +654,8 @@ export async function suggestProductCategory(
   });
 
   try {
+    await provider.ensureReady?.();
+    const { generateObject } = await import('ai');
     const result = await generateObject({
       model: provider.languageModel(modelId),
       schema,

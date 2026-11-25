@@ -18,10 +18,25 @@
  *
  * @module services/ai/providers/openai
  */
-import { openai } from '@ai-sdk/openai';
 import type { LanguageModelV4, EmbeddingModelV4, TranscriptionModelV4 } from '@ai-sdk/provider';
 
 import type { AIProvider, ModelPricing, ProviderPricing, TokenUsage } from './types.js';
+
+let loadedOpenAiSdk: typeof import('@ai-sdk/openai') | null = null;
+let openAiSdkPromise: Promise<typeof import('@ai-sdk/openai')> | null = null;
+
+async function ensureOpenAiSdk(): Promise<void> {
+  if (loadedOpenAiSdk) return;
+  openAiSdkPromise ??= import('@ai-sdk/openai');
+  loadedOpenAiSdk = await openAiSdkPromise;
+}
+
+function requireOpenAiSdk(): typeof import('@ai-sdk/openai') {
+  if (!loadedOpenAiSdk) {
+    throw new Error('OpenAI SDK not loaded; await provider.ensureReady() first');
+  }
+  return loadedOpenAiSdk;
+}
 
 /**
  * slice 1 — Whisper transcription pricing (USD per minute of
@@ -136,8 +151,12 @@ export const openaiProvider: AIProvider = {
     return Boolean(process.env.OPENAI_API_KEY?.trim());
   },
 
+  ensureReady(): Promise<void> {
+    return ensureOpenAiSdk();
+  },
+
   languageModel(modelId: string): LanguageModelV4 {
-    return openai(modelId);
+    return requireOpenAiSdk().openai(modelId);
   },
 
   cacheControlForSystemPrompt(): undefined {
@@ -148,14 +167,14 @@ export const openaiProvider: AIProvider = {
 
   // semantic product search + auto-categorize.
   embeddingModel(modelId: string): EmbeddingModelV4 {
-    return openai.embedding(modelId);
+    return requireOpenAiSdk().openai.embedding(modelId);
   },
 
   // gpt-4o family + gpt-4.1 family + gpt-4o-mini accept
   // image content in user messages. Capability hint advertised so the
   // service layer can short-circuit when a future provider lacks it.
   visionModel(modelId: string): LanguageModelV4 {
-    return openai(modelId);
+    return requireOpenAiSdk().openai(modelId);
   },
 
   // Whisper-style audio transcription routed through the AI SDK. The
@@ -164,6 +183,6 @@ export const openaiProvider: AIProvider = {
   defaultTranscriptionModelId: FALLBACK_TRANSCRIPTION_MODEL_ID,
   transcriptionPricing: TRANSCRIPTION_PRICING,
   transcriptionModel(modelId: string): TranscriptionModelV4 {
-    return openai.transcription(modelId);
+    return requireOpenAiSdk().openai.transcription(modelId);
   },
 };

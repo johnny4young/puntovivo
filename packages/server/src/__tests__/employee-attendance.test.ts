@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getDatabase, type DatabaseInstance } from '../db/index.js';
@@ -170,6 +170,7 @@ describe('employee attendance and breaks', () => {
       .where(
         and(eq(auditLogs.tenantId, tenantId), eq(auditLogs.resourceType, 'employee_shift_break'))
       )
+      .orderBy(asc(auditLogs.createdAt), sql`rowid`)
       .all();
     expect(evidence.filter(row => row.resourceId === started.id).map(row => row.action)).toEqual([
       'employee_shift_break.start',

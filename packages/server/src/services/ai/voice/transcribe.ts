@@ -13,7 +13,6 @@
  * @module services/ai/voice/transcribe
  */
 import type { TranscriptionModelV4 } from '@ai-sdk/provider';
-import { NoTranscriptGeneratedError, transcribe } from 'ai';
 
 import type { DatabaseInstance } from '../../../db/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
@@ -187,6 +186,7 @@ export async function transcribeAudio(
   // Preparation runs before dispatch: sanitize its failure without reserving.
   let baseModel: TranscriptionModelV4;
   try {
+    await provider.ensureReady?.();
     baseModel = provider.transcriptionModel(modelId);
   } catch {
     throwServerError({
@@ -267,6 +267,7 @@ export async function transcribeAudio(
       costState === 'unknown'
     );
 
+  const { NoTranscriptGeneratedError, transcribe } = await import('ai');
   let result;
   try {
     result = await transcribe({
