@@ -69,6 +69,10 @@
     "closeCashSession": {
       "label": "Close cash session",
       "description": "Start the blind close of the open session."
+    },
+    "incident": {
+      "label": "Incident",
+      "description": "Open the incident sheet over the sale."
     }
   },
   "nav": {

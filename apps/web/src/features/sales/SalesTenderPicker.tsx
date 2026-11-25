@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Banknote, CreditCard, LayoutGrid, UserRound } from 'lucide-react';
+import { ArrowLeftRight, Banknote, CreditCard, LayoutGrid } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cashChange, suggestCashTenders } from '@/features/sales/cashTender';
 import type { InitialTender } from '@/features/sales/salePaymentModal.types';
@@ -9,7 +9,6 @@ const TENDERS = [
   { tender: 'cash', labelKey: 'payment.cash', icon: Banknote },
   { tender: 'card', labelKey: 'payment.card', icon: CreditCard },
   { tender: 'transfer', labelKey: 'payment.transfer', icon: ArrowLeftRight },
-  { tender: 'credit', labelKey: 'payment.credit', icon: UserRound },
   { tender: 'split', labelKey: 'sell.tender.split', icon: LayoutGrid },
 ] as const satisfies ReadonlyArray<{ tender: InitialTender; labelKey: string; icon: unknown }>;
 
@@ -22,7 +21,7 @@ interface SalesTenderPickerProps {
   onFastCash?: ((tendered?: number | null) => void) | undefined;
 }
 
-/** The tender picked before charging, and the one-touch cash keys. */
+/** The tender picked before charging, and the one-touch cash keys. Credit is the Fiar key beside Cobrar. */
 export function SalesTenderPicker({
   tender,
   onTenderChange,

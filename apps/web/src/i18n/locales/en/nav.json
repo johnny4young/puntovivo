@@ -1,7 +1,6 @@
 {
   "brand": {
     "title": "Puntovivo",
-    "tagline": "Retail Console",
     "workspaceKicker": "Point of sale"
   },
   "header": {
@@ -126,7 +125,7 @@
       "title": "Devices"
     },
     "auditLogs": {
-      "kicker": "Governance",
+      "kicker": "Control",
       "title": "Audit log"
     },
     "fiscalDocuments": {
@@ -186,7 +185,7 @@
     "overview": "Overview",
     "flow": "Flow",
     "setup": "Setup",
-    "surfaces": "Surfaces"
+    "surfaces": "Screens"
   },
   "items": {
     "dashboard": "Today",
@@ -239,7 +238,7 @@
     "unreadAlertsSr": "high-severity anomalies pending review"
   },
   "actions": {
-    "collapseRail": "Collapse rail",
+    "collapseRail": "Collapse menu",
     "expandNavigation": "Expand navigation",
     "closeNavigation": "Close navigation"
   }

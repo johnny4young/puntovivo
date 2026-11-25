@@ -11,7 +11,6 @@ import {
   restaurantCheckLines,
   restaurantChecks,
   restaurantModifierCatalog,
-  restaurantServices,
   restaurantTables,
   sales,
   sites,
@@ -83,16 +82,11 @@ describe('restaurant catalog historical upgrade', () => {
             'INSERT INTO sale_items(id, sale_id, product_id, quantity, unit_price, restaurant_modifier_amount) VALUES (?, ?, ?, ?, ?, ?)'
           )
           .run('item', 'sale', 'plate', 1, 13, 3);
-        old
-          .insert(restaurantServices)
-          .values({
-            id: 'service',
-            tenantId,
-            siteId: site.id,
-            tableId: 'table',
-            openedBy: owner.id,
-          })
-          .run();
+        oldSqlite
+          .prepare(
+            'INSERT INTO restaurant_services(id, tenant_id, site_id, table_id, opened_by) VALUES (?, ?, ?, ?, ?)'
+          )
+          .run('service', tenantId, site.id, 'table', owner.id);
         old
           .insert(restaurantChecks)
           .values({
@@ -123,7 +117,13 @@ describe('restaurant catalog historical upgrade', () => {
             .prepare('SELECT * FROM restaurant_line_modifiers')
             .all() as Array<Record<string, unknown>>;
           expect(rows).toEqual(
-            before.map(row => ({ ...(row as object), catalog_id: null, catalog_version: null }))
+            before.map(row => ({
+              ...(row as object),
+              catalog_id: null,
+              catalog_version: null,
+              group_id: null,
+              group_kind: null,
+            }))
           );
           expect(current.select().from(restaurantModifierCatalog).all()).toEqual([]);
           expect(currentSqlite.pragma('foreign_key_check')).toEqual([]);

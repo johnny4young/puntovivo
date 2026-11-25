@@ -1,7 +1,8 @@
 import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
-import { getCartSummary } from '@/features/sales/saleCartTotals';
+import { useResolvedLocale } from '@/features/locale/LocaleProvider';
+import { getCartSummary, getPayableCartTotal } from '@/features/sales/saleCartTotals';
 import { type CartWorkspace } from '@/features/sales/useCartWorkspaceStore';
 import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
 import { formatCurrency } from '@/lib/utils';
@@ -26,6 +27,7 @@ export function WorkspaceTabsSection({
   onNewSale,
 }: WorkspaceTabsSectionProps) {
   const priceIncludesTax = usePriceIncludesTax();
+  const { currency } = useResolvedLocale();
   const { t } = useTranslation('sales');
 
   return (
@@ -68,8 +70,11 @@ export function WorkspaceTabsSection({
               data-testid="cart-workspace-switcher-item"
             >
               <span>{label}</span>
-              <span className="font-numeric text-[15px] font-bold">
-                {formatCurrency(getCartSummary(workspace.items, priceIncludesTax).total)}
+              <span className="sales-ticket-tab-total font-numeric text-[15px] font-bold">
+                {formatCurrency(
+                  getPayableCartTotal(getCartSummary(workspace.items, priceIncludesTax), currency)
+                    .total
+                )}
               </span>
             </button>
           );

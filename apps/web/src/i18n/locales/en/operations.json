@@ -23,7 +23,7 @@
   "ownership": {
     "kicker": "Recovery ownership",
     "title": "Every signal has an owner",
-    "description": "A service-level view of who responds, the threshold that opens action, and the safest recovery surface. Status always travels with text, not color alone.",
+    "description": "A service-level view of who responds, the threshold that opens action, and the safest recovery screen. Status always travels with text, not color alone.",
     "loading": "Loading operational recovery ownership",
     "summary": {
       "ariaLabel": "Operational readiness summary",
@@ -77,7 +77,7 @@
     },
     "observation": {
       "checking": "Reading the latest service signal.",
-      "signalUnavailable": "The signal could not be read. Continue through the recovery surface.",
+      "signalUnavailable": "The signal could not be read. Continue from the recovery screen.",
       "clear": "No threshold is open right now.",
       "failedItems_one": "{{count}} item crossed the terminal-failure threshold.",
       "failedItems_other": "{{count}} items crossed the terminal-failure threshold.",
@@ -146,7 +146,7 @@
       "modules": {
         "label": "Modules",
         "value": "{{active}} / {{total}}",
-        "context": "Active for this tenant",
+        "context": "Active for this business",
         "loading": "Using defaults while loading"
       },
       "devices": {
@@ -161,7 +161,7 @@
         "label": "Telemetry",
         "enabled": "Enabled",
         "disabled": "Disabled",
-        "context": "Tenant-controlled consent"
+        "context": "Consent controlled by the business"
       }
     },
     "recovery": {
@@ -199,7 +199,7 @@
         },
         "telemetry": {
           "title": "Confirm the telemetry choice",
-          "description": "Respect the tenant's opt-in decision; support can continue when telemetry is off.",
+          "description": "Respect the business's opt-in decision; support can continue when telemetry is off.",
           "status": {
             "enabled": "Enabled",
             "disabled": "Off by choice"
@@ -219,7 +219,7 @@
       "kicker": "Portable evidence",
       "title": "Redacted snapshot",
       "description": "Copy or download JSON. Use Diagnostics for a deeper sanitized bundle.",
-      "privacyBoundary": "Aggregate health and versions only. No names, IDs, sites, tenant data, or raw errors.",
+      "privacyBoundary": "Aggregate health and versions only. No names, IDs, sites, business data, or raw errors.",
       "unavailable": "Wait for all support signals before sharing.",
       "actions": {
         "copy": "Copy",
@@ -326,7 +326,7 @@
       }
     },
     "outbox": {
-      "title": "Hardware outbox",
+      "title": "Hardware queue",
       "description": "Print jobs and drawer kicks that did not land. Defaults to problem rows; toggle to see all.",
       "filter": {
         "problemsOnly": "Show problems only",
@@ -349,7 +349,7 @@
         "dead_letter": "Dead letter"
       },
       "emptyState": {
-        "all": "No hardware outbox rows recorded.",
+        "all": "No jobs in the hardware queue.",
         "problems": "No hardware jobs are currently failing."
       },
       "kpi": {
@@ -369,7 +369,7 @@
   },
   "cash": {
     "title": "Cash Health",
-    "description": "Tenant-wide cash position: open sessions, recent closures, and discrepancies by site.",
+    "description": "Business-wide cash position: open sessions, recent closures, and discrepancies by site.",
     "summary": {
       "openSessions": "Open sessions",
       "closedRecent": "Closed ({{days}} days)",
@@ -378,7 +378,7 @@
     },
     "bySite": {
       "title": "Summary by site",
-      "emptyState": "No sites have recorded cash sessions for this tenant yet.",
+      "emptyState": "No sites have recorded cash sessions for this business yet.",
       "columns": {
         "site": "Site",
         "openSessions": "Open",
@@ -442,8 +442,8 @@
       "dead_letter": "Dead letter"
     },
     "byRail": {
-      "title": "Rail summary",
-      "outboxRows": "Outbox rows",
+      "title": "Summary by provider",
+      "outboxRows": "Queued payments",
       "amount": "Amount"
     },
     "mismatches": {
@@ -451,7 +451,7 @@
       "emptyState": "No payment mismatches in the current window.",
       "columns": {
         "type": "Type",
-        "rail": "Rail",
+        "rail": "Provider",
         "reference": "Reference",
         "amount": "Amount",
         "status": "Status",
@@ -476,7 +476,7 @@
       "description": "Recommendations are saved for human review. AI never settles a payment by itself.",
       "emptyTitle": "No pending proposals",
       "emptyDescription": "Ambiguous provider statements have not produced a reviewable recommendation.",
-      "rail": "Rail",
+      "rail": "Provider",
       "providerReference": "Provider reference",
       "providerAmount": "Provider amount",
       "confidence": "Model confidence",
@@ -516,10 +516,10 @@
       "noPermission": "Only an administrator can approve or reject a proposal."
     },
     "outbox": {
-      "title": "Payment outbox",
-      "emptyState": "No payment outbox rows recorded.",
+      "title": "Payment queue",
+      "emptyState": "No payments in the queue.",
       "columns": {
-        "rail": "Rail",
+        "rail": "Provider",
         "kind": "Kind",
         "status": "Status",
         "attempts": "Attempts",
@@ -530,7 +530,7 @@
       "actions": {
         "retry": "Retry",
         "retryConfirmTitle": "Retry this payment",
-        "retryConfirmMessage": "The row will go back to queued with a fresh retry budget. The worker will pick it up on the next tick.",
+        "retryConfirmMessage": "The payment goes back to the queue with all its retries available and is processed within seconds.",
         "retrySuccess": "Payment queued for retry",
         "retryError": "Could not retry the payment",
         "retryUnavailable": "Only declined, timed out, retrying, or dead-letter payments can be retried.",
@@ -545,15 +545,15 @@
         "confirm": "Confirm",
         "cancel": "Cancel"
       },
-      "emptyTitle": "Outbox is clear"
+      "emptyTitle": "Queue is clear"
     },
     "breakdown": {
-      "title": "Volume by rail and status",
-      "description": "Aggregated counts and amounts for each rail in the recent window.",
+      "title": "Volume by provider and status",
+      "description": "Count and amount of recent payments by provider.",
       "emptyState": "No payment activity in the last {{days}} days.",
       "windowDays": "Last {{days}} days",
       "columns": {
-        "rail": "Rail",
+        "rail": "Provider",
         "status": "Status",
         "count": "Count",
         "amount": "Amount"
@@ -562,9 +562,9 @@
     },
     "settings": {
       "title": "Payment provider credentials",
-      "description": "Store the sandbox or production credentials each rail needs to dispatch real charges. Live integration ships in a later slice; today the rails stay deterministic until a worker swaps in.",
+      "description": "Store the test or production credentials each payment provider needs to charge. Until live integration is available, charges run in test mode.",
       "liveBadge": "Live integration",
-      "stubBadge": "Deterministic stub",
+      "stubBadge": "Test mode",
       "readiness": {
         "ready": "Ready",
         "notReady": "Missing credentials",
@@ -601,7 +601,7 @@
           "description": "Find the API key, secret and merchant id in the Bold merchant portal."
         },
         "epayco": {
-          "description": "ePayco surfaces both client-side (public, P_KEY) and server-side (private) credentials."
+          "description": "ePayco uses both client-side (public, P_KEY) and server-side (private) credentials."
         },
         "mercado_pago": {
           "description": "Use the access token from your Mercado Pago developer dashboard for the right country."
@@ -657,7 +657,7 @@
     },
     "devices": {
       "title": "Registered devices",
-      "description": "Authority nodes, web clients, and hub-client terminals registered for this tenant.",
+      "description": "Authority nodes, web clients, and hub-client terminals registered for this business.",
       "refresh": "Refresh",
       "empty": "No devices registered yet.",
       "revoke": "Revoke",
@@ -679,11 +679,11 @@
   },
   "diagnostics": {
     "title": "Export diagnostic",
-    "description": "Download a ZIP with operation events + outboxes (sync, fiscal, hardware) filtered by date range. Useful as a support-ticket attachment.",
+    "description": "Download a ZIP with operation events and queues (sync, fiscal, hardware) filtered by date range. Useful as a support-ticket attachment.",
     "range": {
       "from": "From",
       "to": "To",
-      "presetsAriaLabel": "Range presets",
+      "presetsAriaLabel": "Quick ranges",
       "presets": {
         "last7d": "Last 7 days",
         "last30d": "Last 30 days",
@@ -697,9 +697,9 @@
       "results": {
         "operationEvents": "Operation events",
         "operationEffects": "Operation effects",
-        "syncOutbox": "Sync outbox",
-        "fiscalOutbox": "Fiscal outbox",
-        "hardwareOutbox": "Hardware outbox",
+        "syncOutbox": "Sync queue",
+        "fiscalOutbox": "Fiscal queue",
+        "hardwareOutbox": "Hardware queue",
         "estimatedSize": "Estimated bundle size: {{size}}"
       },
       "checksTitle": "Bundle contents",
@@ -709,7 +709,7 @@
       "estimatedSizeHelp": "Approximate weight of the export"
     },
     "includeOutboxes": {
-      "label": "Outboxes to include",
+      "label": "Queues to include",
       "sync": "Sync",
       "fiscal": "Fiscal",
       "hardware": "Hardware"

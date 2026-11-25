@@ -36,6 +36,7 @@ import {
   previewSaleReturn,
   returnSale as returnSaleService,
 } from '../../../application/sales/returnSale.js';
+import { previewReturnApproval } from '../../../application/sales/returnApproval.js';
 import { voidSale as voidSaleService } from '../../../application/sales/voidSale.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
 import { quoteSalePromotions } from '../../../application/sales/promotion-quote.js';
@@ -63,14 +64,31 @@ export const salesLifecycleProcedures = {
       return quoteSalePromotions({ db, tenantId, siteId }, input);
     }),
 
-  /** Server-authoritative preview of the line and tender deltas. */
-  previewReturn: cashierManagerOrAdminProcedure.input(previewReturnInput).query(({ ctx, input }) =>
-    previewSaleReturn(ctx.db, ctx.tenantId, ctx.siteId, {
-      id: input.id,
-      items: input.items,
-      destination: input.destination,
-    })
-  ),
+  /**
+   * Server-authoritative preview of the line and tender deltas, plus the
+   * approval the commit will demand for this exact refund amount.
+   */
+  previewReturn: cashierManagerOrAdminProcedure
+    .input(previewReturnInput)
+    .query(async ({ ctx, input }) => {
+      const plan = await previewSaleReturn(ctx.db, ctx.tenantId, ctx.siteId, {
+        id: input.id,
+        items: input.items,
+        destination: input.destination,
+      });
+      const approval = previewReturnApproval(
+        ctx.db,
+        {
+          tenantId: ctx.tenantId,
+          // previewSaleReturn has already rejected a missing site.
+          siteId: ctx.siteId!,
+          actorId: ctx.user!.id,
+          role: ctx.user!.role,
+        },
+        plan.refundAmount
+      );
+      return { ...plan, approval };
+    }),
 
   /**
    * Create a sale with items in a single transaction.

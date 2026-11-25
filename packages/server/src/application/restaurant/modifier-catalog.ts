@@ -15,14 +15,15 @@ import {
 import type { RestaurantOrderLineInput } from './service-lifecycle.js';
 
 /** Never reveal whether an unavailable reference exists in another tenant or site. */
-function unavailable(): never {
+export function unavailable(): never {
   return throwServerError({
     trpcCode: 'NOT_FOUND',
     errorCode: 'RESTAURANT_MODIFIER_UNAVAILABLE',
     message: 'Modifier is unavailable for this site',
   });
 }
-function requireSite(db: DatabaseInstance, tenantId: string, siteId: string): void {
+/** Active site of this tenant, or the same answer as an unknown option. */
+function requireModifierSite(db: DatabaseInstance, tenantId: string, siteId: string): void {
   if (
     !db
       .select({ id: sites.id })
@@ -47,7 +48,34 @@ function currentActor(db: DatabaseInstance, tenantId: string, actorId: string) {
   }
   return actor;
 }
-function changed(): never {
+/**
+ * Preconditions every configuration write re-checks inside its transaction: active site,
+ * a current manager (a demoted one cannot keep configuring) and dine-in still on.
+ */
+export function assertModifierConfigWrite(
+  db: DatabaseInstance,
+  scope: { tenantId: string; siteId: string; actorId: string }
+): void {
+  requireModifierSite(db, scope.tenantId, scope.siteId);
+  if (currentActor(db, scope.tenantId, scope.actorId).role === 'cashier')
+    throwServerError({
+      trpcCode: 'FORBIDDEN',
+      errorCode: 'RESTAURANT_MODIFIER_APPROVAL_REQUIRED',
+      message: 'Only managers may configure modifiers',
+    });
+  const tenant = db
+    .select({ settings: tenants.settings })
+    .from(tenants)
+    .where(eq(tenants.id, scope.tenantId))
+    .get();
+  if (!isModuleActiveInSettings(tenant?.settings, 'dine-in'))
+    throwServerError({
+      trpcCode: 'FORBIDDEN',
+      errorCode: 'MODULE_NOT_ACTIVATED',
+      message: 'Dine-in is not active',
+    });
+}
+export function changed(): never {
   return throwServerError({
     trpcCode: 'CONFLICT',
     errorCode: 'RESTAURANT_MODIFIER_CHANGED',
@@ -63,25 +91,11 @@ export function saveRestaurantModifier(
   return ctx.db.transaction(
     raw => {
       const tx = raw as unknown as DatabaseInstance;
-      requireSite(tx, ctx.tenantId, input.siteId);
-      const actor = currentActor(tx, ctx.tenantId, ctx.user.id);
-      if (actor.role === 'cashier')
-        throwServerError({
-          trpcCode: 'FORBIDDEN',
-          errorCode: 'RESTAURANT_MODIFIER_APPROVAL_REQUIRED',
-          message: 'Only managers may configure modifiers',
-        });
-      const tenant = tx
-        .select({ settings: tenants.settings })
-        .from(tenants)
-        .where(eq(tenants.id, ctx.tenantId))
-        .get();
-      if (!isModuleActiveInSettings(tenant?.settings, 'dine-in'))
-        throwServerError({
-          trpcCode: 'FORBIDDEN',
-          errorCode: 'MODULE_NOT_ACTIVATED',
-          message: 'Dine-in is not active',
-        });
+      assertModifierConfigWrite(tx, {
+        tenantId: ctx.tenantId,
+        siteId: input.siteId,
+        actorId: ctx.user.id,
+      });
       const scope = and(
         eq(restaurantModifierCatalog.tenantId, ctx.tenantId),
         eq(restaurantModifierCatalog.siteId, input.siteId)

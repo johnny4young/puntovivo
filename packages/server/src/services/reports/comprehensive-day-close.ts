@@ -23,8 +23,15 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { detectAnomalies, type AnomalyKind } from '../ai/index.js';
 import { resolveTenantLocale } from '../tenant-locale.js';
 import { calendarDayInTimeZone, resolveUtcDayWindow } from './day-window.js';
+import {
+  carriedForDaySql,
+  closedInWindowConditions,
+  hasCashDifference,
+  isUnexplainedDifference,
+  openAtDayEndConditions,
+  parkedRetailDraftConditions,
+} from './day-close-checklist.js';
 
-const CASH_BALANCED_EPSILON = 0.009;
 const ANOMALY_BASELINE_DAYS = 30;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 type PaymentMethod = (typeof paymentMethodEnum)[number];
@@ -40,6 +47,32 @@ const FISCAL_STATUSES: readonly FiscalDocumentStatus[] = [
   'partial_send',
 ];
 
+/** Sent or queued and not yet decided by the authority. */
+const FISCAL_IN_PROGRESS_STATUSES = [
+  'pending',
+  'sent',
+  'contingency',
+  'notified_correction',
+  'partial_send',
+] as const satisfies readonly FiscalDocumentStatus[];
+
+export function countFiscalInProgress(byStatus: Record<FiscalDocumentStatus, number>): number {
+  return FISCAL_IN_PROGRESS_STATUSES.reduce((sum, status) => sum + byStatus[status], 0);
+}
+
+/** Documents a business day reports: emitted inside its window, whatever their status now. */
+export function fiscalDocumentsInWindow(
+  tenantId: string,
+  startIso: string,
+  endExclusiveIso: string
+) {
+  return and(
+    eq(fiscalDocuments.tenantId, tenantId),
+    gte(fiscalDocuments.emittedAt, startIso),
+    lt(fiscalDocuments.emittedAt, endExclusiveIso)
+  );
+}
+
 const ANOMALY_KINDS: readonly AnomalyKind[] = [
   'ticketsPerHourSpike',
   'voidRate',
@@ -49,6 +82,8 @@ const ANOMALY_KINDS: readonly AnomalyKind[] = [
 
 export type DayCloseReadinessCode =
   | 'open_sessions'
+  | 'unexplained_differences'
+  | 'unresolved_drafts'
   | 'cash_discrepancies'
   | 'fiscal_pending'
   | 'fiscal_rejected'
@@ -115,7 +150,7 @@ export interface ComputeComprehensiveDayCloseInput {
   now?: Date;
 }
 
-function zeroFiscalStatusCounts(): Record<FiscalDocumentStatus, number> {
+export function zeroFiscalStatusCounts(): Record<FiscalDocumentStatus, number> {
   return Object.fromEntries(FISCAL_STATUSES.map(status => [status, 0])) as Record<
     FiscalDocumentStatus,
     number
@@ -188,29 +223,27 @@ export async function computeComprehensiveDayCloseReport(
       expected: cashSessions.expectedBalance,
       counted: cashSessions.actualCount,
       overShort: cashSessions.overShort,
+      differenceReason: cashSessions.differenceReason,
     })
     .from(cashSessions)
-    .where(
-      and(
-        eq(cashSessions.tenantId, input.tenantId),
-        eq(cashSessions.status, 'closed'),
-        gte(cashSessions.closedAt, startIso),
-        lt(cashSessions.closedAt, endExclusiveIso)
-      )
-    )
+    .where(closedInWindowConditions(input.tenantId, startIso, endExclusiveIso))
     .all();
 
-  // A session was open at local day-end when it started before the boundary
-  // and either never closed or closed on/after that boundary.
   const openAtDayEnd =
     db
       .select({ count: sql<number>`count(*)` })
       .from(cashSessions)
+      .where(openAtDayEndConditions(input.tenantId, endExclusiveIso))
+      .get()?.count ?? 0;
+
+  const unresolvedDrafts =
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(sales)
       .where(
         and(
-          eq(cashSessions.tenantId, input.tenantId),
-          lt(cashSessions.openedAt, endExclusiveIso),
-          sql`(${cashSessions.closedAt} is null or ${cashSessions.closedAt} >= ${endExclusiveIso})`
+          parkedRetailDraftConditions(input.tenantId, endExclusiveIso),
+          sql`not ${carriedForDaySql(startIso)}`
         )
       )
       .get()?.count ?? 0;
@@ -223,13 +256,7 @@ export async function computeComprehensiveDayCloseReport(
       amount: sql<number>`coalesce(sum(${fiscalDocuments.totalAmount}), 0)`,
     })
     .from(fiscalDocuments)
-    .where(
-      and(
-        eq(fiscalDocuments.tenantId, input.tenantId),
-        gte(fiscalDocuments.emittedAt, startIso),
-        lt(fiscalDocuments.emittedAt, endExclusiveIso)
-      )
-    )
+    .where(fiscalDocumentsInWindow(input.tenantId, startIso, endExclusiveIso))
     .groupBy(fiscalDocuments.status, fiscalDocuments.source)
     .all();
 
@@ -300,11 +327,7 @@ export async function computeComprehensiveDayCloseReport(
     expected = roundMoney(expected + row.expected);
     counted = roundMoney(counted + (row.counted ?? 0));
     overShort = roundMoney(overShort + (row.overShort ?? 0));
-    if (
-      row.counted !== null &&
-      row.overShort !== null &&
-      Math.abs(row.overShort) <= CASH_BALANCED_EPSILON
-    ) {
+    if (row.counted !== null && row.overShort !== null && !hasCashDifference(row.overShort)) {
       balancedSessions += 1;
     }
   }
@@ -320,17 +343,10 @@ export async function computeComprehensiveDayCloseReport(
   const blockers: DayCloseReadinessCode[] = [];
   const warnings: DayCloseReadinessCode[] = [];
   if (openAtDayEnd > 0) blockers.push('open_sessions');
+  if (closedSessionRows.some(isUnexplainedDifference)) blockers.push('unexplained_differences');
+  if (unresolvedDrafts > 0) blockers.push('unresolved_drafts');
   if (discrepancySessions > 0) warnings.push('cash_discrepancies');
-  if (
-    fiscalByStatus.pending +
-      fiscalByStatus.sent +
-      fiscalByStatus.contingency +
-      fiscalByStatus.notified_correction +
-      fiscalByStatus.partial_send >
-    0
-  ) {
-    warnings.push('fiscal_pending');
-  }
+  if (countFiscalInProgress(fiscalByStatus) > 0) warnings.push('fiscal_pending');
   if (fiscalByStatus.rejected > 0) warnings.push('fiscal_rejected');
   if (highAnomalies > 0) warnings.push('high_anomalies');
   // Coverage gaps remain explicit but follow actionable reconciliation risks.

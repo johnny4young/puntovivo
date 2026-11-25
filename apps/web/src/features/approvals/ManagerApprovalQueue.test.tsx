@@ -1,6 +1,7 @@
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@/test/utils';
+import type { ApprovalDecisionContextData } from './ApprovalDecisionContext';
 
 interface QueueItem {
   id: string;
@@ -12,6 +13,7 @@ interface QueueItem {
   expiresAt: string;
   approvalsCollected: number;
   requiredApprovals: number;
+  decisionContext?: ApprovalDecisionContextData | null;
 }
 
 const {
@@ -61,7 +63,7 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
   }),
 }));
 
-import { ManagerApprovalQueue } from './ManagerApprovalQueue';
+import { ApprovalDecisionForm, ManagerApprovalQueue } from './ManagerApprovalQueue';
 
 const pendingRequest: QueueItem = {
   id: 'approval-1',
@@ -89,6 +91,93 @@ describe('ManagerApprovalQueue', () => {
     };
     queryResult.isLoading = false;
     queryResult.error = null;
+  });
+
+  it('shows the customer habit, role limit and margin next to the request', () => {
+    queryResult.data!.items = [
+      {
+        ...pendingRequest,
+        decisionContext: {
+          version: 1,
+          discount: { percent: 12, roleLimitPercent: 10 },
+          margin: { withDiscountPercent: 21, withoutDiscountPercent: 31.4 },
+          customer: {
+            id: 'customer-1',
+            name: 'Restaurante El Fogón',
+            windowDays: 90,
+            purchases: 12,
+            daysPerVisit: 7,
+            usualDiscountPercent: 9,
+          },
+        },
+      },
+    ];
+    render(<ManagerApprovalQueue />);
+
+    const customer = screen.getByTestId('approval-context-customer');
+    expect(customer).toHaveTextContent('Restaurante El Fogón');
+    expect(customer).toHaveTextContent('Buys every week · usual discount');
+    expect(customer).toHaveTextContent('9%');
+    const limit = screen.getByTestId('approval-context-limit');
+    expect(limit).toHaveTextContent('Limit for Casey Cashier');
+    expect(limit).toHaveTextContent('Asks for 12%');
+    expect(limit).toHaveTextContent('10%');
+    const margin = screen.getByTestId('approval-context-margin');
+    expect(margin).toHaveTextContent('Without the discount, 31.4%');
+    expect(margin).toHaveTextContent('21%');
+    expect(screen.getByText('“Customer has a documented price match”')).toBeInTheDocument();
+  });
+
+  it('shows only the requested share when the requester has no role limit', () => {
+    queryResult.data!.items = [
+      {
+        ...pendingRequest,
+        decisionContext: {
+          version: 1,
+          discount: { percent: 12, roleLimitPercent: null },
+          margin: null,
+          customer: null,
+        },
+      },
+    ];
+    render(<ManagerApprovalQueue />);
+
+    const limit = screen.getByTestId('approval-context-limit');
+    expect(limit).toHaveTextContent('Asks for 12%');
+    expect(limit).not.toHaveTextContent('Limit for');
+  });
+
+  it('counts purchases when there is no steady cadence and hides empty context', () => {
+    queryResult.data!.items = [
+      {
+        ...pendingRequest,
+        decisionContext: {
+          version: 1,
+          discount: null,
+          margin: null,
+          customer: {
+            id: 'customer-2',
+            name: 'Nuevo cliente',
+            windowDays: 90,
+            purchases: 0,
+            daysPerVisit: null,
+            usualDiscountPercent: null,
+          },
+        },
+      },
+      {
+        ...pendingRequest,
+        id: 'approval-2',
+        decisionContext: { version: 1, discount: null, margin: null, customer: null },
+      },
+    ];
+    render(<ManagerApprovalQueue />);
+
+    expect(screen.getByTestId('approval-context-customer')).toHaveTextContent(
+      'No purchases in 90 days'
+    );
+    expect(screen.queryByTestId('approval-context-limit')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('approval-context-approval-2')).not.toBeInTheDocument();
   });
 
   it('requires a six-digit fresh PIN before approving a queued request', async () => {
@@ -141,6 +230,32 @@ describe('ManagerApprovalQueue', () => {
       pin: '654321',
       decision: 'rejected',
       reason: 'Verify the receipt first',
+    });
+  });
+
+  it('sends a counter-offer as a rejection with its reason already chosen', async () => {
+    const user = userEvent.setup();
+    render(
+      <ApprovalDecisionForm
+        requestId="approval-1"
+        decision="rejected"
+        approverId="manager-1"
+        fixedReason="Leave it at 9%"
+        submitLabel="Leave it at 9%"
+        large
+        onCancel={vi.fn()}
+        onDecided={vi.fn()}
+      />
+    );
+    expect(screen.queryByLabelText('Rejection reason')).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText('Your staff PIN'), '654321');
+    await user.click(screen.getByRole('button', { name: 'Leave it at 9%' }));
+    expect(decisionMutation.mutate).toHaveBeenCalledWith({
+      requestId: 'approval-1',
+      approverId: 'manager-1',
+      pin: '654321',
+      decision: 'rejected',
+      reason: 'Leave it at 9%',
     });
   });
 

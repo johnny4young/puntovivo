@@ -6,11 +6,13 @@ import {
   type CheckoutApprovalContext,
 } from '@puntovivo/shared/checkout-approval';
 import {
+  customers,
   managerApprovalRequests,
   sales,
   sites,
   users,
   type ManagerApprovalAction,
+  type ManagerApprovalDecisionContext,
   type ManagerApprovalRequest,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
@@ -32,10 +34,13 @@ import {
   requiredApproverLabel,
 } from '../../services/manager-approvals.js';
 import { requiredLossPreventionApprovalCount } from '../../services/loss-prevention/settings.js';
+import { buildCheckoutApprovalDecisionContext } from '../../services/manager-approval-context.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { router } from '../init.js';
 import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
+import { tryBroadcastCompanionInvalidation } from '../../services/companion/invalidation.js';
+import { dispatchOwnerPush } from '../../services/push/notify.js';
 import { criticalCommandCashierManagerOrAdminProcedure } from '../middleware/criticalCommand.js';
 import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { ensureTenantSite } from '../middleware/tenantSite.js';
@@ -88,12 +93,27 @@ function resolveCheckoutApprovalCurrency(
   return draft.currencyCode;
 }
 
+// Only the approver queue reads the decision context; requester polls stay small.
 function presentRequest(request: ManagerApprovalRequest, now: string) {
+  const { decisionContext, ...publicRequest } = publicManagerApprovalRequest(request);
+  void decisionContext;
   return {
-    ...publicManagerApprovalRequest(request),
+    ...publicRequest,
     status: effectiveManagerApprovalStatus(request, now),
     requiredApproverRole: requiredApproverLabel(request.action),
     approvalsCollected: managerApprovalCount(request),
+  };
+}
+
+function withCustomerName(
+  context: ManagerApprovalDecisionContext | null,
+  names: ReadonlyMap<string, string>
+) {
+  if (!context) return null;
+  const name = context.customer ? names.get(context.customer.id) : undefined;
+  return {
+    ...context,
+    customer: context.customer && name !== undefined ? { ...context.customer, name } : null,
   };
 }
 
@@ -271,6 +291,20 @@ export const managerApprovalsRouter = router({
           .all(),
       ]);
 
+      const customerIds = [
+        ...new Set(rows.flatMap(row => row.request.decisionContext?.customer?.id ?? [])),
+      ];
+      const customerNames = new Map(
+        customerIds.length === 0
+          ? []
+          : ctx.db
+              .select({ id: customers.id, name: customers.name })
+              .from(customers)
+              .where(and(eq(customers.tenantId, ctx.tenantId), inArray(customers.id, customerIds)))
+              .all()
+              .map(customer => [customer.id, customer.name])
+      );
+
       return {
         approver: {
           id: ctx.user!.id,
@@ -278,6 +312,7 @@ export const managerApprovalsRouter = router({
         },
         items: rows.map(row => ({
           ...presentRequest(row.request, now),
+          decisionContext: withCustomerName(row.request.decisionContext, customerNames),
           requesterName: row.requesterName,
           siteName: row.siteName,
         })),
@@ -420,6 +455,15 @@ export const managerApprovalsRouter = router({
       if (existing) return presentRequest(existing, now);
 
       const id = nanoid();
+      const decisionContext = checkoutContext
+        ? await buildCheckoutApprovalDecisionContext({
+            db: criticalCtx.db,
+            tenantId: criticalCtx.tenantId,
+            requesterRole: criticalCtx.user.role,
+            checkout: checkoutContext,
+            nowMs,
+          })
+        : null;
       const requiredApprovals = requiredLossPreventionApprovalCount({
         db: criticalCtx.db,
         tenantId: criticalCtx.tenantId,
@@ -438,6 +482,7 @@ export const managerApprovalsRouter = router({
         resourceType,
         resourceId: resourceId ?? null,
         summary,
+        decisionContext,
         requiredApprovals,
         approvalEvidence: [],
         requestedAt: now,
@@ -491,6 +536,18 @@ export const managerApprovalsRouter = router({
         )
         .get();
       if (!inserted) throwApprovalNotFound();
+      dispatchOwnerPush(criticalCtx.db, {
+        kind: 'approval_waiting',
+        tenantId: criticalCtx.tenantId,
+        actorId: criticalCtx.user.id,
+        requestId: id,
+      });
+      tryBroadcastCompanionInvalidation({
+        sse: criticalCtx.req?.server?.sse,
+        tenantId: criticalCtx.tenantId,
+        scope: 'operations',
+        log: criticalCtx.req?.server?.log,
+      });
       return presentRequest(inserted, now);
     }),
 
@@ -711,6 +768,12 @@ export const managerApprovalsRouter = router({
         data: publicManagerApprovalRequest(updated),
         priority: 10,
       });
+      tryBroadcastCompanionInvalidation({
+        sse: criticalCtx.req?.server?.sse,
+        tenantId: criticalCtx.tenantId,
+        scope: 'operations',
+        log: criticalCtx.req?.server?.log,
+      });
       return {
         ...presentRequest(updated, new Date().toISOString()),
         approverName: approver.name,
@@ -794,6 +857,12 @@ export const managerApprovalsRouter = router({
         operation: 'update',
         data: publicManagerApprovalRequest(updated),
         priority: 10,
+      });
+      tryBroadcastCompanionInvalidation({
+        sse: criticalCtx.req?.server?.sse,
+        tenantId: criticalCtx.tenantId,
+        scope: 'operations',
+        log: criticalCtx.req?.server?.log,
       });
       return presentRequest(updated, now);
     }),

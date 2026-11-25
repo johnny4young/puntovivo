@@ -124,6 +124,22 @@ describe('projectOperationEvent — happy paths', () => {
     expect(result?.type).toBe('cash_session.closed');
     expect(result?.payload.overShortAmount).toBe(-500);
   });
+
+  it('cashSessions.startHandoff succeeded → cash_session.closed', () => {
+    const op = buildOp({
+      operationKind: 'cashSessions.startHandoff',
+      summary: {
+        cashSessionId: 'cs-2',
+        siteId: 'site-1',
+        openedAt: '2026-05-07T08:00:00.000Z',
+        expectedCashBalance: 300000,
+        countedCashBalance: 300000,
+        overShortAmount: 0,
+        currencyCode: 'COP',
+      },
+    });
+    expect(projectOperationEvent({ op })?.type).toBe('cash_session.closed');
+  });
 });
 
 describe('projectOperationEvent — null branches', () => {

@@ -132,6 +132,10 @@ function AlertList(props: {
   );
 }
 
+// The header mounts on every manager screen; opening the popover refetches, so
+// a slow background poll keeps the badge honest without hammering the server.
+const ALERT_POLL_INTERVAL_MS = 60_000;
+
 /** tenant/site-scoped in-app alert center for manager and admin roles. */
 export function LossPreventionAlertCenter({
   siteId,
@@ -146,7 +150,7 @@ export function LossPreventionAlertCenter({
   const alertsQuery = trpc.lossPrevention.listAlerts.useQuery(
     { siteId, limit: 20 },
     variant === 'popover'
-      ? { refetchInterval: 5_000, trpc: { abortOnUnmount: true } }
+      ? { refetchInterval: ALERT_POLL_INTERVAL_MS, trpc: { abortOnUnmount: true } }
       : { refetchInterval: false, refetchOnMount: false, trpc: { abortOnUnmount: true } }
   );
   const acknowledgeMutation = useCriticalMutation('lossPrevention.acknowledgeAlert', {
@@ -224,7 +228,10 @@ export function LossPreventionAlertCenter({
         aria-label={t('common:lossPreventionAlerts.openAria', { count: unreadCount })}
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => setOpen(current => !current)}
+        onClick={() => {
+          if (!open) void alertsQuery.refetch();
+          setOpen(current => !current);
+        }}
       >
         <Bell className="h-4 w-4" aria-hidden="true" />
         {unreadCount > 0 && (

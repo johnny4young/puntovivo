@@ -358,7 +358,7 @@ export function InventoryPage() {
     await adjustStockMutation.mutateAsync({
       productId: selectedProduct.id,
       newStock: values.newStock,
-      notes: values.notes || undefined,
+      notes: values.notes.trim(),
     });
   };
 

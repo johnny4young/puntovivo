@@ -8,11 +8,21 @@
     "RESTAURANT_SERVICE_TABLE_REQUIRED": "Restaurant checks must remain attached to a physical table.",
     "RESTAURANT_SERVICE_LIMIT_REACHED": "This table service has reached its safe open-order limit. Settle or cancel existing checks before adding more items.",
     "RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED": "This action would split or merge a party between table services. Keep the split at its current table, or move an unshared service to an empty table.",
+    "RESTAURANT_SERVICE_NOT_OPEN": "This table has no open orders. Open an order before marking it.",
+    "RESTAURANT_SPLIT_CHECK_IN_USE": "One of the checks is open on a register. Suspend it and try again.",
+    "RESTAURANT_SPLIT_STALE": "The table changed. Review the checks and try again.",
+    "RESTAURANT_SPLIT_SINGLE_DINER": "Every dish belongs to the same diner.",
+    "RESTAURANT_SPLIT_TERMS_DIFFER": "These checks have different prices or customers and cannot be combined.",
     "RESTAURANT_MODIFIER_UNAVAILABLE": "This add-on is no longer available at this site. Remove it or select an available option.",
     "RESTAURANT_MODIFIER_APPROVAL_REQUIRED": "Choose an approved add-on or ask a manager to place this order.",
     "RESTAURANT_MODIFIER_CHANGED": "This add-on changed. Remove it and choose it again to review the current price before saving.",
     "RESTAURANT_MODIFIER_LIMIT_REACHED": "This site has reached 500 active add-ons. Archive an unused option first.",
-    "RESTAURANT_MODIFIER_NAME_DUPLICATE": "An active add-on already uses that name. Choose another name."
+    "RESTAURANT_MODIFIER_NAME_DUPLICATE": "An active add-on already uses that name. Choose another name.",
+    "RESTAURANT_MODIFIER_GROUP_INVALID": "The minimum needs at least that many available options. Add options or lower the minimum.",
+    "RESTAURANT_MODIFIER_GROUP_LIMIT_REACHED": "The group limit was reached: 100 active groups per site, 8 groups per dish and 20 required choices per dish. Archive a group or lower a minimum.",
+    "RESTAURANT_MODIFIER_GROUP_NAME_DUPLICATE": "An active group already uses that name. Choose another name.",
+    "RESTAURANT_MODIFIER_GROUP_SELECTION_INVALID": "The options chosen for this dish do not meet its group rules. Review the required choices.",
+    "RESTAURANT_MODIFIER_GROUP_PRODUCT_UNAVAILABLE": "A dish in this group is no longer available. Remove it and save again."
   },
   "surface": {
     "touchHeading": "POS Touch",
@@ -20,19 +30,44 @@
     "subheading": "Capture the order by voice or manual search."
   },
   "floorMap": {
-    "kicker": "Floor",
-    "title": "Floor map",
-    "count_one": "{{count}} table",
-    "count_other": "{{count}} tables",
     "noAreaLabel": "No zone",
+    "areaCount_one": "{{area}} · {{count}} table",
+    "areaCount_other": "{{area}} · {{count}} tables",
     "seatCount_one": "Seats · {{count}}",
     "seatCount_other": "Seats · {{count}}",
     "seatCountUnknown": "Seats not set",
+    "party_one": "{{count}} guest",
+    "party_other": "{{count}} guests",
+    "elapsedMinutes_one": "{{count}} min",
+    "elapsedMinutes_other": "{{count}} min",
+    "elapsedHours": "{{hours}} h {{minutes}}",
+    "checks_one": "{{count}} check",
+    "checks_other": "{{count}} checks",
+    "roundReady": "round ready to send",
     "status": {
       "free": "Free",
-      "occupied_one": "{{count}} open check",
-      "occupied_other": "{{count}} open checks",
-      "reserved": "Reserved · {{time}}"
+      "billRequested": "Asked for the bill",
+      "reserved": "Reserved"
+    },
+    "legendLabel": "Table states",
+    "legend": {
+      "occupied": "Occupied",
+      "billRequested": "Asked for the bill",
+      "reserved": "Reserved"
+    },
+    "occupancy": "{{occupied}} of {{total}} occupied",
+    "channels": {
+      "label": "Order channels",
+      "floor": "Dining room",
+      "takeaway": "Takeaway",
+      "takeawayCount": "Takeaway · {{count}}",
+      "delivery": "Delivery",
+      "deliveryCount": "Delivery · {{count}}"
+    },
+    "takeaway": {
+      "empty": "No takeaway orders.",
+      "untitled": "Sale {{number}}",
+      "partial": "Showing {{shown}} of {{total}}."
     }
   },
   "tableLabel": {
@@ -47,55 +82,28 @@
     "checkLabelPlaceholder": "e.g. Patio group",
     "tableStateLoading": "Checking the open service for this table...",
     "tableStateError": "The table state could not be verified. Try again before opening a check.",
-    "generalParkOption": "No table · general parked sale",
-    "openChecks_one": "{{count}} open check",
-    "openChecks_other": "{{count}} open checks"
+    "generalParkOption": "No table · general parked sale"
   },
   "cart": {
-    "heading": "Order",
     "empty": "No items yet.",
-    "subtotal": "Subtotal",
-    "tax": "Tax",
-    "total": "Total",
     "quantityIncrement": "Increase quantity",
     "quantityDecrement": "Decrease quantity",
     "removeRow": "Remove item",
-    "notesPlaceholder": "Kitchen note (e.g. no cheese)",
-    "courseLabel": "Course",
     "courses": {
       "starter": "Starter",
       "main": "Main",
       "dessert": "Dessert",
       "drink": "Drink",
       "other": "Other"
-    },
-    "seatLabel": "Diner",
-    "seatOption": "Seat {{count}}",
-    "modifierLabel": "Modifier (optional)",
-    "modifierPlaceholder": "e.g. Extra cheese",
-    "modifierPrice": "Price add-on",
-    "modifiersHeading": "Modifiers",
-    "modifiersHelp": "Quantities and add-on prices apply to each ordered unit. Kitchen instructions without a surcharge can use a price of zero.",
-    "modifierQuantity": "Quantity",
-    "addModifier": "Add modifier",
-    "removeModifier": "Remove modifier {{name}}",
-    "duplicateModifiers": "Each modifier needs a different name. Rename or remove the duplicate before saving.",
-    "modifiersLimit": "Maximum {{count}} modifiers per line.",
-    "modifiersLoading": "Loading modifiers…",
-    "guests_one": "{{count}} guest",
-    "guests_other": "{{count}} guests",
-    "repeatModifiers": "Repeat modifiers"
+    }
   },
   "actions": {
     "voiceCTA": "Voice order",
     "manualAdd": "Search product",
-    "saveOrder": "Save order",
     "exit": "Sign out"
   },
   "save": {
-    "successToast_one": "Saved order for {{tableLabel}} with {{count}} item.",
-    "successToast_other": "Saved order for {{tableLabel}} with {{count}} items.",
-    "errorTitle": "Could not save the order",
+    "errorTitle": "The round could not be sent",
     "tableRequired": "Enter a table label before saving.",
     "emptyCartHint": "Add at least one item before saving."
   },
@@ -219,8 +227,18 @@
     "confirming": "Splitting...",
     "successToast": "New draft created for {{label}}",
     "errorEmptySelection": "Pick at least one item before splitting.",
-    "errorSourceWouldBeEmpty": "Leave at least one item on the source check, or transfer the whole order instead.",
-    "sameTableOnlyHint": "A normalized check shares diners with its table service. Split it at the same table; moving diners between tables requires an explicit party reassignment."
+    "errorSourceWouldBeEmpty": "Leave at least one item on the source check, or transfer the whole order instead."
+  },
+  "splitSheet": {
+    "title": "{{table}} · split the bill",
+    "byDiner": "By diner",
+    "addAccount": "Another check",
+    "account": "Check {{count}}",
+    "accountWithDiners": "Check {{count}} · {{diners}}",
+    "lineName": "{{quantity}} {{name}}",
+    "moveTo": "Move {{name}} to check {{count}}",
+    "charge": "Charge check {{count}}",
+    "errorTitle": "Could not split the bill"
   },
   "reservations": {
     "title": "Reservations",
@@ -292,7 +310,106 @@
     "choose": "Choose approved add-on",
     "chooseHelp": "Review the price before adding it. The quantity is per plate, not per entire order.",
     "selected": "Already selected",
-    "cashierHelp": "Custom instructions are free. For a priced add-on, choose an approved option.",
-    "saved": "Add-on saved"
+    "saved": "Add-on saved",
+    "custom": "Custom add-on",
+    "customAdd": "Add custom add-on"
+  },
+  "tabs": {
+    "label": "Add-on catalog views",
+    "options": "Options",
+    "groups": "Groups"
+  },
+  "groups": {
+    "create": "Create group",
+    "edit": "Edit group",
+    "editNamed": "Edit {{name}}",
+    "name": "Group name",
+    "kind": "Type",
+    "kinds": {
+      "choice": "Preparation",
+      "without": "Without",
+      "extra": "Extras"
+    },
+    "selection": "Selection",
+    "selections": {
+      "single": "One option",
+      "multiple": "Several"
+    },
+    "required": "Required",
+    "min": "Minimum",
+    "max": "Maximum",
+    "options": "Options",
+    "addOption": "Search options to add",
+    "moveUp": "Move {{name}} up",
+    "moveDown": "Move {{name}} down",
+    "remove": "Remove {{name}}",
+    "dishes": "Dishes",
+    "addDish": "Search dishes to add",
+    "noDishes": "No dishes yet",
+    "rule": {
+      "chooseOne": "Choose one",
+      "atMostOne": "One at most",
+      "upTo": "Up to {{count}}",
+      "exactly": "Choose {{count}}",
+      "range": "Choose {{min}} to {{max}}"
+    },
+    "empty": "No groups match this view.",
+    "includeArchived": "Show archived groups",
+    "active": "Shown on its dishes",
+    "saved": "Group saved"
+  },
+  "sheet": {
+    "forWhom": "For whom?",
+    "wholeTable": "Table",
+    "diner": "Diner {{count}}",
+    "loading": "Loading options…",
+    "groupsError": "The options for this dish could not load.",
+    "otherExtras": "Other add-ons",
+    "moreExtras": "Another add-on",
+    "removeExtra": "Remove {{name}}",
+    "extraPrice": "+ {{price}}",
+    "servedWith": "Serve with",
+    "courses": {
+      "starter": "Starters",
+      "main": "Mains",
+      "dessert": "Desserts",
+      "drink": "Drinks",
+      "other": "When ready"
+    },
+    "kitchenNote": "Kitchen note",
+    "missing": "Still to choose: {{groups}}",
+    "add": "Add to order",
+    "update": "Save changes",
+    "empty": "Choose a dish",
+    "quantity": "Quantity"
+  },
+  "rail": {
+    "label": "Table order",
+    "sentRound": "Round {{count}} · sent {{time}}",
+    "draftRound": "Round {{count}} · not sent",
+    "sharedTag": "table",
+    "dinerTag": "D{{count}}",
+    "without": "no {{name}}",
+    "extra": "+ {{name}}",
+    "editLine": "Edit {{name}}",
+    "tableTotal": "Table total",
+    "send": "Send round {{count}} to the kitchen",
+    "save": "Save round {{count}}",
+    "sentToast": "Round {{count}} sent to the kitchen · {{tableLabel}}",
+    "savedToast": "Round {{count}} saved · {{tableLabel}}"
+  },
+  "catalogGrid": {
+    "label": "Dishes",
+    "categories": "Dish categories",
+    "all": "All",
+    "loading": "Loading dishes…",
+    "error": "The dishes could not load.",
+    "empty": "No dishes in this category yet.",
+    "pages": "Dish pages",
+    "page": "Page {{page}} of {{pages}}"
+  },
+  "billRequest": {
+    "label": "Asked for the bill",
+    "error": "Could not update the bill request"
   }
 }

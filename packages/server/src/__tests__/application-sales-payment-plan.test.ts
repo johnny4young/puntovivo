@@ -40,6 +40,7 @@ describe('cash receipt evidence and net settlement', () => {
         requestedStatus: 'pending',
         total: scenario.total,
         collectCash: true,
+        currencyCode: 'USD',
       });
       expect(plan.cashReceivedSnapshot).toBe(scenario.captured);
       expect(plan.cashChangeSnapshot).toBe(scenario.change);
@@ -57,6 +58,7 @@ describe('cash receipt evidence and net settlement', () => {
         requestedStatus: 'pending',
         total: 100,
         collectCash: true,
+        currencyCode: 'USD',
       });
       expect(plan.cashReceivedSnapshot).toBeNull();
       expect(plan.cashChangeSnapshot).toBeNull();
@@ -71,6 +73,7 @@ describe('cash receipt evidence and net settlement', () => {
       requestedStatus: 'pending' as const,
       total: 100,
       collectCash: false,
+      currencyCode: 'USD',
     };
     const draft = resolveSalePaymentPlan(args);
     expect(draft.cashReceivedSnapshot).toBeNull();

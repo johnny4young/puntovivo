@@ -69,6 +69,9 @@ function expectEmpty() {
     schema.units,
     schema.auditLogs,
     schema.tenantLocaleSettings,
+    schema.identificationTypes,
+    schema.personTypes,
+    schema.regimeTypes,
   ]) {
     expect(server.db.select().from(table).all()).toHaveLength(0);
   }
@@ -246,6 +249,46 @@ describe('first-use ownership over real tRPC and SQLite', () => {
       });
     }
   );
+
+  it('seeds the customer identification, person and regime lists for a Colombian install', async () => {
+    expect((await submit()).statusCode).toBe(200);
+    const tenant = server.db.select().from(schema.tenants).get()!;
+    const identification = server.db.select().from(schema.identificationTypes).all();
+    const persons = server.db.select().from(schema.personTypes).all();
+    const regimes = server.db.select().from(schema.regimeTypes).all();
+
+    expect(identification).toHaveLength(10);
+    expect(identification).toContainEqual(
+      expect.objectContaining({ code: 'CC', name: 'Cédula de ciudadanía' })
+    );
+    expect(identification).toContainEqual(expect.objectContaining({ code: 'NIT' }));
+    expect(persons.map(row => row.name).sort()).toEqual(['Persona jurídica', 'Persona natural']);
+    expect(regimes.map(row => row.code).sort()).toEqual(['48', '49']);
+    for (const row of [...identification, ...persons, ...regimes]) {
+      expect(row).toMatchObject({ tenantId: tenant.id, isActive: true });
+    }
+  });
+
+  it('falls back to the country hint when no fiscal identification list exists', async () => {
+    expect((await submit({ countryCode: 'US' })).statusCode).toBe(200);
+    expect(
+      server.db
+        .select()
+        .from(schema.identificationTypes)
+        .all()
+        .map(row => row.code)
+        .sort()
+    ).toEqual(['EIN', 'SSN']);
+    expect(
+      server.db
+        .select()
+        .from(schema.personTypes)
+        .all()
+        .map(row => row.name)
+        .sort()
+    ).toEqual(['Legal entity', 'Natural person']);
+    expect(server.db.select().from(schema.regimeTypes).all()).toHaveLength(0);
+  });
 
   it('rotates an unconsumed capability after restart and rejects the prior process token', async () => {
     const old = server.getSetupToken()!;

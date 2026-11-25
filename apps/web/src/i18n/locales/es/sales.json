@@ -2,8 +2,7 @@
   "page": {
     "todaySales": "Ventas de hoy",
     "transactions": "Transacciones",
-    "averageOrder": "Ticket promedio",
-    "draftTotal": "Total borrador"
+    "averageOrder": "Ticket promedio"
   },
   "view": {
     "history": "Historial",
@@ -35,8 +34,6 @@
     "addToCart": "Agregar al carrito",
     "itemCount": "Artículos",
     "activeTicket": "Ticket activo",
-    "lineItems_one": "{{count}} artículo",
-    "lineItems_other": "{{count}} artículos",
     "clearCart": "Limpiar carrito",
     "priceTier": {
       "groupLabel": "Nivel de precio de este ticket",
@@ -100,6 +97,8 @@
     "closingCount": "Conteo de cierre",
     "openAction": "Abrir caja",
     "closeAction": "Cerrar caja",
+    "handOverAction": "Entregar turno",
+    "receiveAction": "Recibir {{register}}",
     "recordMovementAction": "Registrar movimiento",
     "assignmentLabel": "Registro asignado",
     "assignmentPlaceholder": "Seleccione un registro",
@@ -159,15 +158,12 @@
       "registerNameRequired": "Ingrese el nombre del registro.",
       "openingFloat": "Base de apertura",
       "openingFloatRequired": "La base de apertura no puede ser negativa.",
-      "countedTotal": "Total contado",
-      "description": "Cuente cada denominación y confirme que coincida con la base de apertura antes de iniciar el turno.",
-      "mismatch": "La base de apertura debe coincidir con el total contado por denominaciones.",
+      "description": "Cuente cada denominación; la base de apertura es su total.",
       "denominations": "Conteo por denominaciones",
       "denominationsHint": "Use cantidades enteras por billete o moneda disponible en el cajón.",
       "lineTotal": "Total de la línea: {{total}}",
       "countFor": "Cantidad para la denominación {{denomination}}",
       "firstDay": "Primer día",
-      "differenceLabel": "Diferencia",
       "incrementCount": "Sumar",
       "decrementCount": "Restar",
       "defaultRegisterName": "Caja principal"
@@ -178,25 +174,20 @@
       "cancel": "Cancelar",
       "confirm": "Cerrar caja",
       "closing": "Cerrando...",
-      "description": "Cuente todo el cajón, registre el total ciego de cierre y envíe el desglose por denominaciones para reconciliar el turno.",
+      "description": "Cuente todo el cajón por denominación; el total ciego de cierre es su suma.",
       "supervisedDescription": "Cuente el cajón por denominación. El cuadre en vivo está disponible porque supervisa este cierre.",
       "registerName": "Registro",
       "openedAt": "Abierta",
       "actualCount": "Total ciego de cierre",
       "supervisedActualCount": "Total de cierre",
       "actualCountRequired": "El conteo de cierre no puede ser negativo.",
-      "countedTotal": "Total por denominaciones",
       "blindCloseHint": "El saldo esperado permanece oculto hasta que envía el conteo.",
       "supervisedCloseHint": "El cuadre en vivo está visible para gerentes y administradores.",
-      "mismatch": "El total ciego de cierre debe coincidir con el total contado por denominaciones.",
-      "supervisedMismatch": "El total de cierre debe coincidir con el total contado por denominaciones.",
       "denominations": "Conteo final por denominaciones",
       "denominationsHint": "Use cantidades enteras para cada billete o moneda que quede en el cajón.",
       "countFor": "Cantidad para la denominación {{denomination}}",
       "blindBadge": "Cierre ciego",
       "supervisedBadge": "Cierre supervisado",
-      "justificationLabel": "Justificación (opcional)",
-      "justificationPlaceholder": "Explique cualquier sobrante o faltante…",
       "liveDelta": {
         "balanced": "Cuadrada — lo contado coincide con lo esperado",
         "over": "Sobrante — lo contado supera lo esperado",
@@ -342,22 +333,24 @@
     "notes": "Notas",
     "notesHint": "Comentarios opcionales para la venta",
     "tip": {
-      "heading": "Propina",
+      "heading": "Propina voluntaria",
       "presetZero": "Sin propina",
-      "presetPercentage": "{{percentage}}%",
-      "customLabel": "Monto personalizado",
-      "grandTotalBreakdown": "Base {{base}} + propina {{tip}}"
+      "presetPercentage": "{{percentage}} %",
+      "custom": "Otro valor",
+      "customLabel": "Valor de la propina"
     },
+    "consumption": "Consumo {{amount}}",
+    "consumptionTaxIncluded": "Impoconsumo incluido {{amount}}",
+    "rounding": "Redondeo {{amount}}",
     "serviceCharge": {
       "heading": "Servicio",
       "helper": "Se aplica automáticamente al subtotal.",
-      "rateLabel": "Servicio ({{rate}}%)",
-      "grandTotalBreakdownOnly": "Base {{base}} + servicio {{service}}",
-      "grandTotalBreakdownWithTip": "Base {{base}} + servicio {{service}} + propina {{tip}}"
+      "rateLabel": "Servicio ({{rate}}%)"
     },
     "lockedCustomer": "Cliente de la cotización",
     "confirmPartialAmount": "Confirmar venta con pago parcial · faltan {{amount}}",
     "confirmSplitMissing": "Confirmar venta · faltan {{amount}}",
+    "confirmWholeAmounts": "Use valores enteros, sin centavos",
     "confirmSplitOver": "Confirmar venta · sobran {{amount}}",
     "partialTitle": "Esta venta quedará con pago parcial",
     "partialWarning": "El saldo pendiente es {{amount}}. Confirme solo si desea dejar este saldo sin pagar.",
@@ -394,13 +387,22 @@
       "configure": "Configurar",
       "loadError": "No se pudieron cargar las cuentas de transferencia.",
       "approvalNeedsReference": "Escriba la referencia de la transferencia antes de pedir la aprobación."
+    },
+    "wallet": {
+      "providerQrTitle": "Muestre el QR de {{rail}}",
+      "pending": "Esperando confirmación de {{rail}}. La venta se confirma sola cuando llegue el pago.",
+      "approved": "{{rail}} confirmó el pago.",
+      "approvedConfirming": "{{rail}} confirmó el pago. Confirmando la venta…",
+      "declined": "{{rail}} rechazó el pago. Pida otro medio de pago.",
+      "unavailable": "La pasarela no respondió. Usted confirma que el dinero llegó.",
+      "leftApproved": "{{rail}} ya había confirmado el pago de ese cobro. Revise antes de cobrar de nuevo."
     }
   },
   "history": {
     "title": "Historial de ventas",
     "kicker": "Recibos",
     "description": "Revise recibos recientes, estados de pago y actividad del cajero sin salir del espacio POS.",
-    "search": "Buscar por factura...",
+    "search": "Buscar por número de venta...",
     "loading": "Cargando ventas...",
     "error": "No se pudo cargar las ventas",
     "recordsLoaded": "registros cargados",
@@ -409,7 +411,7 @@
     "viewSale": "Ver {{number}}",
     "viewSaleTitle": "Ver venta",
     "columns": {
-      "invoiceNumber": "Factura #",
+      "saleNumber": "Venta #",
       "date": "Fecha",
       "customer": "Cliente",
       "total": "Total",
@@ -490,6 +492,7 @@
       "expired": "Vencido / mal estado",
       "duplicate": "Compra duplicada",
       "wrong_item": "Cambio de producto",
+      "charge_error": "Error de cobro",
       "other": "Otro"
     },
     "linesLabel": "Productos disponibles para devolución",
@@ -541,7 +544,8 @@
     "shortcut": {
       "focusSearch": "Ir a la búsqueda",
       "openCatalog": "Abrir catálogo"
-    }
+    },
+    "phonePlaceholder": "Busque un producto"
   },
   "commandBar": {
     "grammar": "Escriba 3* antes de escanear para vender tres, @ para buscar un cliente o / para ver las acciones de la caja.",
@@ -578,7 +582,8 @@
       "catalog": "Buscar en el catálogo",
       "cashMovement": "Movimiento de caja",
       "openCashSession": "Abrir caja",
-      "closeCashSession": "Cerrar caja"
+      "closeCashSession": "Cerrar caja",
+      "incident": "Novedad"
     }
   },
   "paymentStatus": {
@@ -640,7 +645,7 @@
     "labelPromptConfirm": "Suspender",
     "resumedBanner": "Borrador {{saleNumber}} retomado · artículos bloqueados",
     "resumedBannerWithLabel": "Borrador {{saleNumber}} retomado ({{label}}) · artículos bloqueados",
-    "resumedBannerHint": "Para cambiar artículos, descarta este borrador e inicia una venta nueva."
+    "resumedBannerHint": "Para cambiar artículos, descarte este borrador e inicie una venta nueva."
   },
   "reprint": {
     "action": "Reimprimir recibo",
@@ -678,7 +683,21 @@
     "weightFromLabel": "Peso aplicado desde la etiqueta",
     "priceFromLabel": "Precio aplicado desde la etiqueta",
     "noBaseUnit": "El producto no tiene unidad configurada",
-    "resumedCartLocked": "Descarte el carrito retomado para agregar productos nuevos"
+    "resumedCartLocked": "Descarte el carrito retomado para agregar productos nuevos",
+    "camera": {
+      "open": "Escanear con la cámara",
+      "title": "Escanee con la cámara",
+      "aim": "Apunte la cámara al código de barras.",
+      "cancel": "Cancelar",
+      "retry": "Reintentar",
+      "torch": "Linterna",
+      "error": {
+        "permission-denied": "Permita el uso de la cámara para escanear.",
+        "no-camera": "Este equipo no tiene una cámara disponible.",
+        "unavailable": "No se pudo abrir la cámara. Busque el producto por nombre.",
+        "busy": "Otra aplicación está usando la cámara. Ciérrela e intente de nuevo."
+      }
+    }
   },
   "printer": {
     "escposRetryQueued": "La impresión ESC/POS está en cola. Revise la impresora y el estado de la tarea antes de imprimir otra copia.",
@@ -740,14 +759,14 @@
     "progress": "{{collected}} de {{required}} aprobaciones de personas diferentes recibidas",
     "inline": {
       "title": "Aprobar en esta caja",
-      "help": "Mantenga este cobro abierto. Un responsable elige su nombre e ingresa su propio PIN.",
+      "help": "Mantenga esta pantalla abierta. Un responsable elige su nombre e ingresa su propio PIN.",
       "loadError": "No se pudieron cargar las personas responsables.",
       "empty": "No hay una persona responsable disponible para esta aprobación.",
       "pinMissing": "Las personas responsables necesitan un PIN de personal para aprobar aquí.",
       "approverLabel": "Persona responsable",
       "pinLabel": "Su PIN de personal",
-      "submit": "Aprobar cobro",
-      "success": "Cobro aprobado"
+      "submit": "Aprobar",
+      "success": "Aprobación registrada"
     },
     "actions": {
       "sale_discount": "Cobro con descuento",
@@ -883,8 +902,12 @@
     "storeCreditBalance": "{{amount}} en crédito de tienda"
   },
   "quotationCart": {
-    "banner": "Cobro de la cotización {{quotationNumber}}",
-    "bannerHint": "Los productos, cantidades, precios, descuentos, cliente y tarifa corresponden a la cotización aceptada y están bloqueados. Seleccione las series requeridas y elija el pago.",
+    "banner": "Viene de la cotización {{quotationNumber}} · precios y condiciones bloqueados",
+    "bannerHint": "Seleccione las series requeridas antes de cobrar.",
+    "expiresIn_one": "vence en {{count}} día",
+    "expiresIn_other": "vence en {{count}} días",
+    "expiresToday": "vence hoy",
+    "expired": "vencida",
     "workspaceLabel": "Cotización {{quotationNumber}}"
   },
   "exchangeCart": {
@@ -929,8 +952,11 @@
       "items_other": "{{count}} artículos",
       "lines_one": "{{count}} línea",
       "lines_other": "{{count}} líneas",
+      "prescriptions": "{{count}} con fórmula",
       "savings": "Descuentos",
-      "taxIncluded": "IVA incluido"
+      "taxIncluded": "IVA incluido",
+      "consumptionTaxIncluded": "Impoconsumo incluido",
+      "rounding": "Redondeo"
     },
     "ready": {
       "title": "Todo listo para cobrar",
@@ -955,7 +981,11 @@
     },
     "actions": {
       "suspend": "Suspender",
-      "returns": "Devolución"
+      "returns": "Devolución",
+      "credit": "Fiar",
+      "suspended": "Suspendidas",
+      "incident": "Novedad",
+      "onAccount": "A crédito"
     },
     "keys": {
       "shortest": "Camino más corto:",
@@ -967,6 +997,21 @@
       "parked": "ventas en espera",
       "newSale": "nueva venta",
       "more": "todo lo demás"
+    },
+    "phone": {
+      "total_one": "Total · {{count}} artículo",
+      "total_other": "Total · {{count}} artículos"
+    },
+    "credit": {
+      "wouldOwe": "quedaría en {{amount}}",
+      "owesAfter": "queda en {{amount}}",
+      "overLimit": "supera el cupo"
+    },
+    "account": {
+      "owes": "debe",
+      "ofLimit": "de {{limit}}",
+      "inFavor": "saldo a favor",
+      "pay": "Abonar"
     }
   }
 }

@@ -35,6 +35,8 @@ export interface AccountingPucAccounts {
   /** Loyalty-points liability debited on redemption and credited on restore. */
   loyalty: string;
   refunds: string;
+  /** Rounding adjustment account (e.g. COP ajuste al peso). */
+  rounding: string;
 }
 
 export interface AccountingExportSettings {
@@ -67,6 +69,7 @@ export const DEFAULT_ACCOUNTING_PUC_ACCOUNTS: AccountingPucAccounts = {
   storeCredit: '280505',
   loyalty: '280505',
   refunds: '417595',
+  rounding: '429581',
 };
 
 function cloneDefaultAccounts(): AccountingPucAccounts {
@@ -106,6 +109,7 @@ function parseAccounts(raw: unknown): AccountingPucAccounts {
     storeCredit: validAccountCode(candidate.storeCredit, defaults.storeCredit),
     loyalty: validAccountCode(candidate.loyalty, defaults.loyalty),
     refunds: validAccountCode(candidate.refunds, defaults.refunds),
+    rounding: validAccountCode(candidate.rounding, defaults.rounding),
   };
 }
 

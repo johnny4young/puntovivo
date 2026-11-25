@@ -76,8 +76,8 @@ vi.mock('@/features/auth/AuthProvider', () => ({
   }),
 }));
 
-vi.mock('@/features/modules', () => ({
-  useIsModuleActive: (moduleId: string) => moduleId === 'dine-in' && modulesMock.dineIn,
+vi.mock('@/features/modules/useRegisterZone', () => ({
+  useRegisterZone: (zone: string) => zone !== 'tables' || modulesMock.dineIn,
 }));
 
 vi.mock('@/features/tenant/TenantProvider', () => ({
@@ -155,12 +155,45 @@ vi.mock('@/lib/trpc', () => ({
       },
       restaurantTables: {
         listWithDraftStatus: { invalidate: restaurantTablesInvalidateMock },
+        listSummary: { invalidate: vi.fn() },
       },
       restaurantServices: {
         getTableState: { invalidate: restaurantServicesInvalidateMock },
       },
     }),
   },
+}));
+
+vi.mock('@/features/restaurants/RestaurantSplitSheet', () => ({
+  RestaurantSplitSheet: (props: {
+    tableId: string;
+    tableName: string;
+    onCharge: (account: {
+      id: string;
+      tableId: string;
+      label: string | null;
+      suspendedAt: string | null;
+      resumedDeviceId: null;
+    }) => void;
+  }) => (
+    <div data-testid="split-sheet-stub">
+      {`${props.tableId} · ${props.tableName}`}
+      <button
+        type="button"
+        onClick={() =>
+          props.onCharge({
+            id: 'sale-2',
+            tableId: props.tableId,
+            label: 'Mesa A',
+            suspendedAt: '2026-05-14T10:00:00.000Z',
+            resumedDeviceId: null,
+          })
+        }
+      >
+        charge
+      </button>
+    </div>
+  ),
 }));
 
 import { SuspendedSalesPanel } from './SuspendedSalesPanel';
@@ -1148,6 +1181,42 @@ describe('SuspendedSalesPanel — split-bill CTA', () => {
     expect(confirm.hasAttribute('disabled')).toBe(true);
   });
 
+  it('opens the table split sheet for a restaurant check and charges the picked account', async () => {
+    const onResume = vi.fn();
+    mockListDrafts([
+      makeDraft({
+        id: 'sale-split',
+        itemCount: 2,
+        tableId: 'rt-a',
+        tableName: 'Mesa A',
+        suspendedLabel: 'Mesa A',
+        restaurantCheckId: 'check-1',
+      }),
+    ]);
+    restaurantTablesListMock.mockReturnValue({
+      data: { items: [tableA, tableB] },
+      isLoading: false,
+      error: null,
+    });
+    renderPanel({ onResume });
+    fireEvent.click(screen.getByTestId('suspended-draft-split'));
+    const sheet = await screen.findByTestId('split-sheet-stub');
+    expect(sheet).toHaveTextContent('rt-a · Mesa A');
+    expect(screen.queryByTestId('split-modal-table-select')).not.toBeInTheDocument();
+    fireEvent.click(within(sheet).getByRole('button', { name: 'charge' }));
+    expect(onResume).toHaveBeenCalledWith(
+      {
+        id: 'sale-2',
+        label: 'Mesa A',
+        tableId: 'rt-a',
+        suspendedAt: '2026-05-14T10:00:00.000Z',
+        resumedDeviceId: null,
+      },
+      { charge: true }
+    );
+    await waitFor(() => expect(screen.queryByTestId('split-sheet-stub')).not.toBeInTheDocument());
+  });
+
   it('fires sales.splitDraft with the selected item ids + same-table target', async () => {
     splitDraftMutateAsync.mockResolvedValue({
       source: { id: 'sale-split' },
@@ -1160,7 +1229,7 @@ describe('SuspendedSalesPanel — split-bill CTA', () => {
         tableId: 'rt-a',
         tableName: 'Mesa A',
         suspendedLabel: 'Mesa A',
-        restaurantCheckId: 'check-1',
+        restaurantCheckId: null,
       }),
     ]);
     restaurantTablesListMock.mockReturnValue({
@@ -1182,11 +1251,7 @@ describe('SuspendedSalesPanel — split-bill CTA', () => {
     // Pick the first item only.
     fireEvent.click(screen.getByTestId('split-modal-item-item-1'));
     const tableSelect = screen.getByTestId('split-modal-table-select') as HTMLSelectElement;
-    expect(Array.from(tableSelect.options, option => option.value)).not.toContain('__clear__');
-    expect(Array.from(tableSelect.options, option => option.value)).toEqual(['__same__']);
-    expect(screen.getByTestId('split-modal-same-table-hint')).toHaveTextContent(
-      /comparte comensales/
-    );
+    expect(tableSelect.value).toBe('__same__');
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', {
       name: /dividir cuenta/i,

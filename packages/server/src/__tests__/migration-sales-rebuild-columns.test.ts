@@ -91,10 +91,13 @@ function declaredColumns(sql: string, table: string): string[] | null {
 /** Columns the newest drizzle snapshot believes `table` has. */
 function columnsInLatestSnapshot(table: string): string[] | null {
   const journal = JSON.parse(readFileSync(resolve(MIGRATIONS, 'meta/_journal.json'), 'utf8')) as {
-    entries: Array<{ idx: number }>;
+    entries: Array<{ idx: number; tag: string }>;
   };
-  const newest = Math.max(...journal.entries.map(entry => entry.idx));
-  const snapshotPath = resolve(MIGRATIONS, `meta/${String(newest).padStart(4, '0')}_snapshot.json`);
+  // The number comes from the newest tag, not from Math.max(idx): the chain
+  // legitimately reserves numbers for branches that have not merged yet, and
+  // an idx-derived filename then names a snapshot that does not exist.
+  const newest = journal.entries.at(-1)?.tag.slice(0, 4) ?? '';
+  const snapshotPath = resolve(MIGRATIONS, `meta/${newest}_snapshot.json`);
   const snapshot = JSON.parse(readFileSync(snapshotPath, 'utf8')) as {
     tables: Record<string, { columns: Record<string, unknown> }>;
   };

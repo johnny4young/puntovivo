@@ -82,8 +82,14 @@ Current role set:
 
 Current route defaults:
 
-- `cashier` defaults to `/sales`
+- `cashier` opens on the register of the stored business type: restaurant and
+  quick service on POS Touch (`/touch`) while that module is on, every other
+  profile (or none) on `/sales`
 - everyone else defaults to `/dashboard`
+
+Sign-in sends cashiers to `/`, where the home redirect reads the business type
+and module state before choosing the register. The sidebar's sell task points
+at the same register.
 
 Source:
 [roleAccess.ts](../apps/web/src/features/auth/roleAccess.ts)

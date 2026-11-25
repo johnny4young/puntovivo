@@ -47,6 +47,8 @@ export type PaymentChargeResult =
       status: 'pending';
       providerTransactionId: string;
       reference: string;
+      /** QR the customer scans when the provider issues one per charge. */
+      qrPayload?: string;
     }
   | {
       status: 'timeout';
@@ -112,6 +114,8 @@ export interface PaymentRailValidationContext {
 export interface PaymentRailAdapter {
   readonly railId: PaymentRailId;
   readonly capabilities: PaymentRailCapabilities;
+  /** True only for a real provider client; the manifest decides when omitted. */
+  readonly liveIntegration?: boolean;
   charge(input: PaymentChargeInput): Promise<PaymentChargeResult>;
   refund(input: PaymentRefundInput): Promise<PaymentRefundResult>;
   getStatus(input: PaymentStatusInput): Promise<PaymentStatusResult>;

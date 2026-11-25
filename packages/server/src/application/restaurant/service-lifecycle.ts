@@ -10,14 +10,16 @@
  *
  * @module application/restaurant/service-lifecycle
  */
+import { RESTAURANT_REGROUP_MAX_ACCOUNTS } from '@puntovivo/shared/restaurant-split';
 import { assertRestaurantModifierAuthority } from './modifier-catalog.js';
+import { assertRestaurantModifierGroups } from './modifier-groups.js';
 import { assertNoReservationHold, reservationError } from '../reservations/invariants.js';
 import {
   prepareReservationSeating,
   seatReservation,
   type ReservationReference,
 } from '../reservations/seating.js';
-import type { ReservationRow } from '../../db/schema.js';
+import type { ReservationRow, RestaurantPendingRounds } from '../../db/schema.js';
 import { and, count, eq, inArray, isNull, ne } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
@@ -44,6 +46,8 @@ export interface RestaurantLineModifierInput {
   /** Optional provenance; absent on historical and free-form instructions. */
   catalogId?: string | undefined;
   catalogVersion?: number | undefined;
+  /** Group the option was chosen in; requires catalogId. */
+  groupId?: string | undefined;
   name: string;
   quantity: number;
   unitPriceDelta: number;
@@ -54,6 +58,8 @@ export interface RestaurantOrderLineInput {
   itemIndex: number;
   dinerClientId?: string | null | undefined;
   courseKey: 'starter' | 'main' | 'dessert' | 'drink' | 'other';
+  /** Groups the client showed; present means their minimums apply. */
+  modifierGroups?: { id: string; version: number }[] | undefined;
   modifiers: RestaurantLineModifierInput[];
 }
 
@@ -90,7 +96,7 @@ type RestaurantTransaction = DatabaseInstance;
 
 /** Shared writer/read projection ceilings for one open table service. */
 export const RESTAURANT_SERVICE_LIMITS = {
-  openChecks: 100,
+  openChecks: RESTAURANT_REGROUP_MAX_ACCOUNTS,
   activeDiners: 200,
   openLines: 1_000,
   openRounds: 1_000,
@@ -360,7 +366,7 @@ function assertActiveTable(
   return { id: table.id, name: table.name, seatCount: table.seatCount };
 }
 
-function findOpenService(
+export function findOpenService(
   tx: RestaurantTransaction,
   tenantId: string,
   tableId: string
@@ -376,6 +382,64 @@ function findOpenService(
       )
     )
     .get();
+}
+
+/** A waiter's unsent round counts while their device reported within this window. */
+export const PENDING_ROUND_TTL_MS = 5 * 60_000;
+
+function livePendingRounds(
+  rounds: RestaurantPendingRounds | null,
+  nowMs: number
+): RestaurantPendingRounds {
+  return Object.fromEntries(
+    Object.entries(rounds ?? {}).filter(
+      ([, entry]) => nowMs - Date.parse(entry.seenAt) < PENDING_ROUND_TTL_MS
+    )
+  );
+}
+
+/** Plates waiting across every live waiter, aged from the oldest unsent one. */
+export function summarizePendingRounds(
+  rounds: RestaurantPendingRounds | null,
+  nowMs: number
+): { itemCount: number; since: string } | null {
+  const live = Object.values(livePendingRounds(rounds, nowMs));
+  if (live.length === 0) return null;
+  return {
+    itemCount: live.reduce((total, entry) => total + entry.items, 0),
+    since: live.reduce(
+      (oldest, entry) => (entry.since < oldest ? entry.since : oldest),
+      live[0]!.since
+    ),
+  };
+}
+
+/**
+ * Sets or clears one waiter's entry and drops stale ones; other waiters'
+ * live entries are kept. Returns whether any live entry remains.
+ */
+export function writePendingRound(
+  tx: RestaurantTransaction,
+  service: Pick<typeof restaurantServices.$inferSelect, 'id' | 'tenantId' | 'pendingRounds'>,
+  actorId: string,
+  itemCount: number,
+  now: Date
+): boolean {
+  const nowIso = now.toISOString();
+  const next = livePendingRounds(service.pendingRounds, now.getTime());
+  const previous = next[actorId];
+  delete next[actorId];
+  if (itemCount > 0) {
+    next[actorId] = { items: itemCount, since: previous?.since ?? nowIso, seenAt: nowIso };
+  }
+  const remaining = Object.keys(next).length > 0;
+  tx.update(restaurantServices)
+    .set({ pendingRounds: remaining ? next : null })
+    .where(
+      and(eq(restaurantServices.id, service.id), eq(restaurantServices.tenantId, service.tenantId))
+    )
+    .run();
+  return remaining;
 }
 
 function createOpenService(
@@ -396,6 +460,9 @@ function createOpenService(
     openedAt: context.now,
     closedBy: null,
     closedAt: null,
+    billRequestedAt: null,
+    billRequestedBy: null,
+    pendingRounds: null,
     version: 1,
     createdAt: context.now,
     updatedAt: context.now,
@@ -531,6 +598,7 @@ export function openRestaurantCheckInTransaction(
   const modifierSnapshots = tx
     .select({
       id: saleItems.id,
+      productId: saleItems.productId,
       restaurantModifierAmount: saleItems.restaurantModifierAmount,
     })
     .from(saleItems)
@@ -558,6 +626,16 @@ export function openRestaurantCheckInTransaction(
   assertDineInStillActive(tx, context.tenantId);
   const table = assertActiveTable(tx, context, args.input.tableId);
   assertRestaurantModifierAuthority(tx, context, args.input.lines);
+  const productBySaleItem = new Map(modifierSnapshots.map(item => [item.id, item.productId]));
+  const modifierGroups = assertRestaurantModifierGroups(
+    tx,
+    context,
+    args.input.lines.map(line => ({
+      productId: productBySaleItem.get(args.saleItemIds[line.itemIndex]!) ?? '',
+      modifierGroups: line.modifierGroups,
+      modifiers: line.modifiers,
+    }))
+  );
   if (table.seatCount !== null && args.input.guestCount > table.seatCount) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
@@ -587,6 +665,10 @@ export function openRestaurantCheckInTransaction(
   );
   if (reservation && context.envelope)
     seatReservation(tx, { ...context, envelope: context.envelope }, reservation, service.id);
+  // Sending answers the sender's own unsent-round marker.
+  if (service.pendingRounds?.[context.actorId]) {
+    writePendingRound(tx, service, context.actorId, 0, new Date(context.now));
+  }
   assertCheckCapacity(tx, context.tenantId, service.id);
   assertServiceProjectionCapacity(
     tx,
@@ -754,7 +836,7 @@ export function openRestaurantCheckInTransaction(
     })
     .run();
 
-  for (const line of args.input.lines) {
+  for (const [lineIndex, line] of args.input.lines.entries()) {
     const saleItemId = args.saleItemIds[line.itemIndex];
     if (!saleItemId) {
       throwServerError({
@@ -792,6 +874,8 @@ export function openRestaurantCheckInTransaction(
           checkLineId,
           catalogId: modifier.catalogId ?? null,
           catalogVersion: modifier.catalogVersion ?? null,
+          groupId: modifierGroups[lineIndex]?.[position]?.id ?? null,
+          groupKind: modifierGroups[lineIndex]?.[position]?.kind ?? null,
           name: modifier.name.trim(),
           quantity: modifier.quantity,
           unitPriceDelta: roundMoney(modifier.unitPriceDelta),
@@ -1174,6 +1258,32 @@ export function moveRestaurantCheckInTransaction(
   }
 }
 
+/** Copy a round onto another check; pass `sequence` when the target already uses the source's. */
+export function cloneRestaurantRound(
+  tx: RestaurantTransaction,
+  source: typeof restaurantRounds.$inferSelect,
+  checkId: string,
+  now: string,
+  sequence: number = source.sequence
+): typeof restaurantRounds.$inferSelect {
+  const clone = { ...source, id: nanoid(), checkId, sequence, createdAt: now };
+  tx.insert(restaurantRounds).values(clone).run();
+  return clone;
+}
+
+/** Copy a course onto another check; pass `position` when the target already uses the source's. */
+export function cloneRestaurantCourse(
+  tx: RestaurantTransaction,
+  source: typeof restaurantCourses.$inferSelect,
+  checkId: string,
+  now: string,
+  position: number = source.position
+): typeof restaurantCourses.$inferSelect {
+  const clone = { ...source, id: nanoid(), checkId, position, createdAt: now };
+  tx.insert(restaurantCourses).values(clone).run();
+  return clone;
+}
+
 /** Mirror an existing sale split into the normalized check model. */
 export function splitRestaurantCheckInTransaction(
   tx: RestaurantTransaction,
@@ -1328,19 +1438,7 @@ export function splitRestaurantCheckInTransaction(
       });
     }
     for (const course of sourceCourses) {
-      const clonedId = nanoid();
-      courseIdMap.set(course.id, clonedId);
-      tx.insert(restaurantCourses)
-        .values({
-          id: clonedId,
-          tenantId: context.tenantId,
-          checkId,
-          courseKey: course.courseKey,
-          name: course.name,
-          position: course.position,
-          createdAt: context.now,
-        })
-        .run();
+      courseIdMap.set(course.id, cloneRestaurantCourse(tx, course, checkId, context.now).id);
     }
   }
 
@@ -1368,21 +1466,7 @@ export function splitRestaurantCheckInTransaction(
       });
     }
     for (const round of sourceRounds) {
-      const clonedId = nanoid();
-      roundIdMap.set(round.id, clonedId);
-      tx.insert(restaurantRounds)
-        .values({
-          id: clonedId,
-          tenantId: context.tenantId,
-          checkId,
-          sequence: round.sequence,
-          label: round.label,
-          status: round.status,
-          submittedBy: round.submittedBy,
-          submittedAt: round.submittedAt,
-          createdAt: context.now,
-        })
-        .run();
+      roundIdMap.set(round.id, cloneRestaurantRound(tx, round, checkId, context.now).id);
     }
   }
 
@@ -1413,6 +1497,27 @@ export function splitRestaurantCheckInTransaction(
         message: 'Restaurant line changed while its check was being split',
       });
     }
+  }
+
+  // The source lost lines: a layout read before this split is now stale.
+  const bumped = tx
+    .update(restaurantChecks)
+    .set({ version: sourceCheck.version + 1, updatedAt: context.now })
+    .where(
+      and(
+        eq(restaurantChecks.id, sourceCheck.id),
+        eq(restaurantChecks.tenantId, context.tenantId),
+        eq(restaurantChecks.status, 'open'),
+        eq(restaurantChecks.version, sourceCheck.version)
+      )
+    )
+    .run();
+  if (bumped.changes !== 1) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+      message: 'Restaurant check changed while it was being split',
+    });
   }
 
   const updatedSale = tx

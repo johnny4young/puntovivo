@@ -21,8 +21,13 @@ const defaultValues: SequentialFormValues = {
   currentValue: 0,
 };
 
-export function createSequentialFormValues(sequential: Sequential | null): SequentialFormValues {
-  if (!sequential) return defaultValues;
+export function createSequentialFormValues(
+  sequential: Sequential | null,
+  sites: readonly { id: string }[] = []
+): SequentialFormValues {
+  if (!sequential) {
+    return sites.length === 1 ? { ...defaultValues, siteId: sites[0]!.id } : defaultValues;
+  }
 
   return {
     siteId: sequential.siteId,

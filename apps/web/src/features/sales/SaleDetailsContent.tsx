@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { formatSystemNote } from '@/lib/systemNotes';
 import { paymentsNeedBreakdown } from '@/features/sales/checkoutPayment';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { Sale } from '@/types';
@@ -327,7 +328,7 @@ export function SaleDetailsContent({
       {sale.notes && (
         <div className="surface-panel">
           <p className="text-sm text-secondary-500">{t('details.notes')}</p>
-          <p className="mt-2 text-sm text-secondary-700">{sale.notes}</p>
+          <p className="mt-2 text-sm text-secondary-700">{formatSystemNote(sale.notes, t)}</p>
         </div>
       )}
 

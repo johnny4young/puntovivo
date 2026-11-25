@@ -123,6 +123,7 @@
     "duplicate_existing_sku": "El SKU ya existe en esta empresa",
     "duplicate_file_barcode": "El código de barras está repetido en este archivo",
     "duplicate_existing_barcode": "El código de barras ya existe en esta empresa",
+    "invalid_check_digit": "El dígito de control del código de barras no es válido",
     "concurrent_duplicate": "Otra importación creó este producto mientras se ejecutaba la importación actual",
     "import_failed": "No se pudo importar el producto",
     "stock_failed": "El producto se importó, pero no se pudo registrar el stock de apertura"

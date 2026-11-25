@@ -1,7 +1,7 @@
 {
   "section": {
     "title": "Modules",
-    "description": "Activate or deactivate functional modules for this tenant. Disabled modules hide their pages and reject server calls without deleting any data.",
+    "description": "Activate or deactivate functional modules for your business. Disabled modules hide their pages and reject server calls without deleting any data.",
     "activeCount": "{{active}} of {{total}} active"
   },
   "toggle": {
@@ -17,11 +17,11 @@
     "explicit": "Custom",
     "unavailable": "Not available"
   },
-  "notActivated": "This feature is not active for your tenant",
+  "notActivated": "This feature is not active for your business",
   "items": {
     "copilot": {
       "label": "Co-pilot",
-      "description": "Tenant-scoped conversational analytics. When off, the Co-pilot screen is hidden and the chat stops responding."
+      "description": "Conversational analytics for your business. When off, the Co-pilot screen is hidden and the chat stops responding."
     },
     "operationsCenter": {
       "label": "Operations Center",
@@ -40,11 +40,11 @@
       "description": "Hybrid product search and category suggestion. When off, the smart-search button on Products is hidden."
     },
     "posTouch": {
-      "label": "POS Touch surface",
-      "description": "Touch-optimized POS layout for tablets. When on, it appears in the sidebar and loads the touch sales surface."
+      "label": "Touch POS",
+      "description": "Touch-optimized POS layout for tablets. When on, it appears in the sidebar and loads the touch sales screen."
     },
     "kds": {
-      "label": "KDS surface",
+      "label": "Kitchen display (KDS)",
       "description": "Fullscreen kitchen display for kitchen staff. When on, it becomes available without affecting the sales screen."
     },
     "customerDisplay": {
@@ -74,18 +74,18 @@
   },
   "surfaces": {
     "intelligence": "Intelligence",
-    "salesSurfaces": "Sales surfaces",
+    "salesSurfaces": "Sales screens",
     "operations": "Operations",
     "integrations": "Integrations"
   },
   "presets": {
-    "title": "Business presets",
-    "description": "One click sets the register surfaces for your type of business. It leaves the AI modules exactly as you have them.",
+    "title": "Setup by business type",
+    "description": "One click sets the register screens for your type of business. It leaves the AI modules exactly as you have them.",
     "applying": "Applying…",
-    "applied_one": "Preset applied — 1 module changed",
-    "applied_other": "Preset applied — {{count}} modules changed",
-    "noChange": "That preset is already applied",
-    "error": "The preset could not be applied",
+    "applied_one": "Setup applied — 1 module changed",
+    "applied_other": "Setup applied — {{count}} modules changed",
+    "noChange": "That setup is already applied",
+    "error": "The setup could not be applied",
     "verticals": {
       "retail": "Shop / minimarket",
       "restaurant": "Restaurant",
@@ -94,6 +94,28 @@
       "hardware": "Hardware store",
       "butchery": "Butcher shop",
       "pharmacy": "Pharmacy / drugstore"
+    }
+  },
+  "zones": {
+    "title": "Register zones",
+    "zoneColumn": "Zone",
+    "ownColumn": "Your register",
+    "on": "On",
+    "off": "Off",
+    "requiresModule": "Needs the {{module}} module",
+    "error": "We could not change the zone",
+    "items": {
+      "command-bar": "One bar: scan, search, order",
+      "quick-keys": "One-touch keys (no barcode)",
+      "weight-value": "Sell by weight or by value",
+      "credit": "Store credit: limit, balance and payments",
+      "promos-parked": "Promotions and parked sales",
+      "pharmacy-lot": "Lot, expiry and prescription",
+      "units-cut": "Units, metres and cut to size",
+      "quote-delivery": "Quote → sale · delivery",
+      "tables": "Tables, diners, courses, kitchen",
+      "tip-split": "Tip and split bill",
+      "checkout": "Total, Charge and incidents"
     }
   }
 }

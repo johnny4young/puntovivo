@@ -19,8 +19,10 @@ import {
   dayCloseSignoffs,
   tenants,
   users,
+  type DayCloseSignatureMethod,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { verifyOwnStaffPin } from '../../security/staffPinCheck.js';
 import { writeAuditLog } from '../audit-logs.js';
 import { hashCanonicalInput } from '../idempotency/keyHasher.js';
 import {
@@ -35,11 +37,15 @@ import { resolveTenantLocale } from '../tenant-locale.js';
 import { computeComprehensiveDayCloseReport } from './comprehensive-day-close.js';
 import { buildDayClosePdfFilename, renderDayClosePdf } from './day-close-pdf.js';
 
+export type DayCloseSignatureInput =
+  { method: 'pin'; pin: string } | { method: 'drawn'; path: string };
+
 interface SignDayCloseInput {
   tenantId: string;
   actorId: string;
   date: string;
   operationId: string;
+  signature?: DayCloseSignatureInput | undefined;
   now?: Date;
 }
 
@@ -54,6 +60,8 @@ const signoffSelection = {
   signedByUserId: dayCloseSignoffs.signedByUserId,
   signedByName: dayCloseSignoffs.signedByName,
   signedAt: dayCloseSignoffs.signedAt,
+  signatureMethod: dayCloseSignoffs.signatureMethod,
+  signaturePath: dayCloseSignoffs.signaturePath,
   artifactId: dayCloseArtifacts.id,
   artifactRendererVersion: dayCloseArtifacts.rendererVersion,
   artifactLocale: dayCloseArtifacts.locale,
@@ -77,6 +85,8 @@ type SignoffRow = {
   signedByUserId: string;
   signedByName: string;
   signedAt: string;
+  signatureMethod: DayCloseSignatureMethod;
+  signaturePath: string | null;
   artifactId: string | null;
   artifactRendererVersion: number | null;
   artifactLocale: string | null;
@@ -174,6 +184,7 @@ function metadataFromRow(row: SignoffRow): DayCloseSignoffMetadataOutput {
     signedAt: row.signedAt,
     signedBy: { id: row.signedByUserId, name: row.signedByName },
     pdf: artifactMetadataFromRow(row),
+    signatureMethod: row.signatureMethod,
   };
 }
 
@@ -193,7 +204,7 @@ function presentVerifiedSignoff(row: SignoffRow): DayCloseSignoffOutput {
   ) {
     throwIntegrityFailed(row);
   }
-  return { ...metadata, report: parsedReport.data };
+  return { ...metadata, report: parsedReport.data, signaturePath: row.signaturePath };
 }
 
 function findSignoffRow(
@@ -297,7 +308,12 @@ export async function signDayClose(
   if (existing) throwAlreadySigned(input.date, existing.id);
 
   const signer = db
-    .select({ id: users.id, name: users.name, tenantName: tenants.name })
+    .select({
+      id: users.id,
+      name: users.name,
+      tenantName: tenants.name,
+      staffPinHash: users.staffPinHash,
+    })
     .from(users)
     .innerJoin(tenants, eq(users.tenantId, tenants.id))
     .where(and(eq(users.id, input.actorId), eq(users.tenantId, input.tenantId)))
@@ -309,6 +325,24 @@ export async function signDayClose(
       message: 'The authenticated signer no longer exists in this tenant',
     });
   }
+
+  const signatureMethod: DayCloseSignatureMethod = input.signature?.method ?? 'session';
+  if (
+    input.signature?.method === 'pin' &&
+    !(await verifyOwnStaffPin(
+      db,
+      { tenantId: input.tenantId, userId: signer.id, staffPinHash: signer.staffPinHash },
+      input.signature.pin
+    ))
+  ) {
+    throwServerError({
+      // Not 401: the client refreshes and resends on 401, which would count one wrong PIN twice.
+      trpcCode: 'FORBIDDEN',
+      errorCode: 'DAY_CLOSE_PIN_INVALID',
+      message: 'The staff PIN does not match',
+    });
+  }
+  const signaturePath = input.signature?.method === 'drawn' ? input.signature.path : null;
 
   const report = await computeComprehensiveDayCloseReport(db, {
     tenantId: input.tenantId,
@@ -334,6 +368,7 @@ export async function signDayClose(
     reportHash,
     signedByName: signer.name,
     signedAt,
+    signatureMethod,
     locale,
   });
   const id = nanoid();
@@ -351,6 +386,8 @@ export async function signDayClose(
     signedByUserId: signer.id,
     signedByName: signer.name,
     signedAt,
+    signatureMethod,
+    signaturePath,
     artifactId,
     artifactRendererVersion: DAY_CLOSE_PDF_RENDERER_VERSION,
     artifactLocale: locale.locale,
@@ -382,6 +419,8 @@ export async function signDayClose(
             signedByUserId: row.signedByUserId,
             signedByName: row.signedByName,
             signedAt: row.signedAt,
+            signatureMethod,
+            signaturePath,
           })
           .run();
 
@@ -421,6 +460,7 @@ export async function signDayClose(
             pdfPayloadHash: artifactPayloadHash,
             pdfByteSize: artifactPayload.byteLength,
             pdfFilename: artifactFilename,
+            signatureMethod,
           },
           metadata: { attestationAccepted: true },
           operationId: input.operationId,

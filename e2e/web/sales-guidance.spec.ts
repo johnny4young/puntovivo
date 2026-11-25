@@ -30,22 +30,26 @@ for (const spanish of [false, true]) {
 
     for (const width of [320, 375, 768]) {
       await page.setViewportSize({ width, height: 1024 });
-      await expect(hint.locator('kbd')).toHaveText([searchKey, 'F5', 'F1']);
-      await expect(hint).not.toContainText('`');
-      // Responsive sidebar motion must finish before measuring visible hints.
-      // Keep the viewport assertion: a persistent overflow still fails.
-      await expect
-        .poll(() =>
-          hint.locator('span.inline-flex').evaluateAll(entries =>
-            entries.every(entry => {
-              const box = entry.getBoundingClientRect();
-              return box.left >= 0 && box.right <= window.innerWidth;
-            })
+      // Phones drop the key hints; a connected keyboard still gets the shortcuts.
+      if (width < 768) await expect(hint).toHaveCount(0);
+      else {
+        await expect(hint.locator('kbd')).toHaveText([searchKey, 'F5', 'F1']);
+        await expect(hint).not.toContainText('`');
+        // Responsive sidebar motion must finish before measuring visible hints.
+        // Keep the viewport assertion: a persistent overflow still fails.
+        await expect
+          .poll(() =>
+            hint.locator('span.inline-flex').evaluateAll(entries =>
+              entries.every(entry => {
+                const box = entry.getBoundingClientRect();
+                return box.left >= 0 && box.right <= window.innerWidth;
+              })
+            )
           )
-        )
-        .toBe(true);
-      for (const entry of await hint.locator('span.inline-flex').all()) {
-        await expect(entry).toBeVisible();
+          .toBe(true);
+        for (const entry of await hint.locator('span.inline-flex').all()) {
+          await expect(entry).toBeVisible();
+        }
       }
       await page.keyboard.press('Alt+p');
       await expectSearchInputFocused(page);

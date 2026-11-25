@@ -1,26 +1,29 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle } from 'lucide-react';
 import { ModalButton } from '@/components/form-controls/Modal';
 import { Overlay } from '@/components/overlay/Overlay';
-import { translateServerError } from '@/lib/translateServerError';
-import { trpc } from '@/lib/trpc';
 import { cn, formatCurrency } from '@/lib/utils';
-import type { Sale, SaleItem } from '@/types';
+import type { Sale } from '@/types';
+import {
+  ReturnExternalReferences,
+  ReturnLineAllocations,
+} from '@/features/sales/returns/ReturnFields';
+import {
+  lineName,
+  lineRemaining,
+  useReturnPreview,
+  useReturnSelection,
+  type ReturnDestination,
+  type ReturnItemSubmission,
+} from '@/features/sales/returns/useReturnDraft';
 
 const RETURN_REASONS = ['expired', 'duplicate', 'wrong_item', 'other'] as const;
 export type RefundReason = (typeof RETURN_REASONS)[number];
 
-type ReturnDestination = 'original' | 'store_credit';
-
 export interface RefundSubmission {
   reason?: string | undefined;
-  items: Array<{
-    saleItemId: string;
-    quantity: number;
-    lotAllocations?: Array<{ saleItemLotId: string; quantity: number }> | undefined;
-    serialIds?: string[] | undefined;
-  }>;
+  items: ReturnItemSubmission[];
   destination: ReturnDestination;
   externalReferences?: Array<{ salePaymentId: string | null; reference: string }> | undefined;
 }
@@ -33,37 +36,6 @@ interface RefundConfirmOverlayProps {
   confirmDisabled?: boolean | undefined;
   onClose: () => void;
   onConfirm: (submission: RefundSubmission) => void;
-}
-
-const EPSILON = 1e-8;
-
-function lineRemaining(line: SaleItem): number {
-  return Math.max(0, Number(line.remainingQuantity ?? line.quantity));
-}
-
-function lineBaseQuantity(line: SaleItem, quantity: number): number {
-  return quantity * Number(line.unitEquivalence ?? 1);
-}
-
-function defaultLotSelection(line: SaleItem, quantity: number): Record<string, number> {
-  let remaining = lineBaseQuantity(line, quantity);
-  const selection: Record<string, number> = {};
-  for (const lot of line.lots ?? []) {
-    if (remaining <= EPSILON) break;
-    const allocated = Math.min(Number(lot.remainingQuantity), remaining);
-    if (allocated > EPSILON) selection[lot.id] = allocated;
-    remaining -= allocated;
-  }
-  return selection;
-}
-
-function defaultSerialSelection(line: SaleItem, quantity: number): string[] {
-  const required = lineBaseQuantity(line, quantity);
-  if (!Number.isInteger(required)) return [];
-  return (line.serials ?? [])
-    .filter(serial => !serial.returned)
-    .slice(0, required)
-    .map(serial => serial.productSerialId);
 }
 
 export function RefundConfirmOverlay(props: RefundConfirmOverlayProps) {
@@ -80,165 +52,28 @@ function RefundConfirmOverlayContent({
   onClose,
   onConfirm,
 }: RefundConfirmOverlayProps) {
-  const { t } = useTranslation(['sales', 'returnErrors', 'errors']);
-  const returnableLines = useMemo(
-    () => (sale.items ?? []).filter(line => lineRemaining(line) > EPSILON),
-    [sale.items]
-  );
-  const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({});
-  const [lotSelections, setLotSelections] = useState<Record<string, Record<string, number>>>({});
-  const [serialSelections, setSerialSelections] = useState<Record<string, string[]>>({});
+  const { t } = useTranslation('sales');
+  const selection = useReturnSelection(sale);
+  const { returnableLines, selectedQuantities } = selection;
   const [destination, setDestination] = useState<ReturnDestination>('original');
-  const [externalReferences, setExternalReferences] = useState<Record<string, string>>({});
   const [reason, setReason] = useState<RefundReason | ''>('');
-
-  const selectLine = (line: SaleItem, selected: boolean) => {
-    if (!selected) {
-      setSelectedQuantities(current => {
-        const next = { ...current };
-        delete next[line.id];
-        return next;
-      });
-      setLotSelections(current => {
-        const next = { ...current };
-        delete next[line.id];
-        return next;
-      });
-      setSerialSelections(current => {
-        const next = { ...current };
-        delete next[line.id];
-        return next;
-      });
-      return;
-    }
-    const quantity = lineRemaining(line);
-    setSelectedQuantities(current => ({ ...current, [line.id]: quantity }));
-    setLotSelections(current => ({ ...current, [line.id]: defaultLotSelection(line, quantity) }));
-    setSerialSelections(current => ({
-      ...current,
-      [line.id]: defaultSerialSelection(line, quantity),
-    }));
-  };
-
-  const updateLineQuantity = (line: SaleItem, value: number) => {
-    const quantity = Number.isFinite(value) ? Math.min(lineRemaining(line), Math.max(0, value)) : 0;
-    setSelectedQuantities(current => ({ ...current, [line.id]: quantity }));
-    setLotSelections(current => ({ ...current, [line.id]: defaultLotSelection(line, quantity) }));
-    setSerialSelections(current => ({
-      ...current,
-      [line.id]: defaultSerialSelection(line, quantity),
-    }));
-  };
-
-  const selectAll = () => {
-    const quantities: Record<string, number> = {};
-    const lots: Record<string, Record<string, number>> = {};
-    const serials: Record<string, string[]> = {};
-    for (const line of returnableLines) {
-      const quantity = lineRemaining(line);
-      quantities[line.id] = quantity;
-      lots[line.id] = defaultLotSelection(line, quantity);
-      serials[line.id] = defaultSerialSelection(line, quantity);
-    }
-    setSelectedQuantities(quantities);
-    setLotSelections(lots);
-    setSerialSelections(serials);
-  };
-
-  const selectedItems = useMemo(
-    () =>
-      returnableLines.flatMap(line => {
-        const quantity = selectedQuantities[line.id];
-        if (quantity === undefined || !Number.isFinite(quantity) || quantity <= EPSILON) return [];
-        const lots = line.lots ?? [];
-        const serials = line.serials ?? [];
-        const selectedLots = Object.entries(lotSelections[line.id] ?? {})
-          .filter(([, amount]) => amount > EPSILON)
-          .map(([saleItemLotId, amount]) => ({ saleItemLotId, quantity: amount }));
-        const selectedSerialIds = serialSelections[line.id] ?? [];
-        return [
-          {
-            saleItemId: line.id,
-            quantity,
-            ...(lots.length > 0 ? { lotAllocations: selectedLots } : {}),
-            ...(serials.length > 0 ? { serialIds: selectedSerialIds } : {}),
-          },
-        ];
-      }),
-    [lotSelections, returnableLines, selectedQuantities, serialSelections]
-  );
-
-  const selectionIsValid = returnableLines.every(line => {
-    const quantity = selectedQuantities[line.id];
-    if (quantity === undefined) return true;
-    if (
-      !Number.isFinite(quantity) ||
-      quantity <= EPSILON ||
-      quantity - lineRemaining(line) > EPSILON
-    ) {
-      return false;
-    }
-    const requiredBase = lineBaseQuantity(line, quantity);
-    if ((line.lots?.length ?? 0) > 0) {
-      const allocated = Object.values(lotSelections[line.id] ?? {}).reduce(
-        (sum, amount) => sum + amount,
-        0
-      );
-      if (Math.abs(allocated - requiredBase) > EPSILON) return false;
-    }
-    if ((line.serials?.length ?? 0) > 0) {
-      if (!Number.isInteger(requiredBase)) return false;
-      if ((serialSelections[line.id]?.length ?? 0) !== requiredBase) return false;
-    }
-    return true;
-  });
-
-  const canPreview = selectedItems.length > 0 && selectionIsValid;
-  const previewQuery = trpc.sales.previewReturn.useQuery(
-    {
-      id: sale.id,
-      items: selectedItems,
-      destination,
-    },
-    {
-      enabled: canPreview,
-      retry: false,
-      staleTime: 0,
-    }
-  );
-  const preview = canPreview ? previewQuery.data : undefined;
-  const externalAllocationsRequiringEvidence = (preview?.allocations ?? []).filter(
-    allocation => allocation.destination === 'external' && allocation.amount > EPSILON
-  );
-  const externalReferenceKey = (salePaymentId: string | null, method: string) =>
-    salePaymentId ?? `legacy:${method}`;
-  const referencesAreValid = externalAllocationsRequiringEvidence.every(allocation => {
-    const key = externalReferenceKey(allocation.salePaymentId, allocation.originalMethod);
-    return (externalReferences[key] ?? '').trim().length > 0;
-  });
-  const referenceRows = externalAllocationsRequiringEvidence.map(allocation => {
-    const key = externalReferenceKey(allocation.salePaymentId, allocation.originalMethod);
-    return {
-      salePaymentId: allocation.salePaymentId,
-      reference: (externalReferences[key] ?? '').trim(),
-    };
-  });
-  const previewError = previewQuery.error
-    ? translateServerError(previewQuery.error, t, t('errors:server.unknown'))
-    : null;
+  const previewState = useReturnPreview({ saleId: sale.id, selection, destination });
+  const { preview, error: previewError } = previewState;
   const submission: RefundSubmission = {
-    items: selectedItems,
+    items: selection.selectedItems,
     destination,
     ...(reason ? { reason } : {}),
-    ...(referenceRows.length > 0 ? { externalReferences: referenceRows } : {}),
+    ...(previewState.referenceRows.length > 0
+      ? { externalReferences: previewState.referenceRows }
+      : {}),
   };
   const cannotConfirm =
     isPending ||
     confirmDisabled ||
-    !canPreview ||
-    previewQuery.isFetching ||
+    !selection.canPreview ||
+    previewState.isFetching ||
     preview === undefined ||
-    !referencesAreValid ||
+    !previewState.referencesAreValid ||
     previewError !== null;
 
   return (
@@ -277,18 +112,10 @@ function RefundConfirmOverlayContent({
               <p className="mt-1 text-sm text-secondary-600">{t('sales:refund.linesHint')}</p>
             </div>
             <div className="flex gap-2">
-              <button type="button" className="btn-outline text-xs" onClick={selectAll}>
+              <button type="button" className="btn-outline text-xs" onClick={selection.selectAll}>
                 {t('sales:refund.selectAll')}
               </button>
-              <button
-                type="button"
-                className="btn-outline text-xs"
-                onClick={() => {
-                  setSelectedQuantities({});
-                  setLotSelections({});
-                  setSerialSelections({});
-                }}
-              >
+              <button type="button" className="btn-outline text-xs" onClick={selection.clear}>
                 {t('sales:refund.clearSelection')}
               </button>
             </div>
@@ -303,9 +130,6 @@ function RefundConfirmOverlayContent({
               {returnableLines.map(line => {
                 const selected = selectedQuantities[line.id] !== undefined;
                 const remaining = lineRemaining(line);
-                const requiredBase = selected
-                  ? lineBaseQuantity(line, selectedQuantities[line.id] ?? 0)
-                  : 0;
                 return (
                   <li
                     key={line.id}
@@ -315,9 +139,9 @@ function RefundConfirmOverlayContent({
                       <input
                         type="checkbox"
                         checked={selected}
-                        onChange={event => selectLine(line, event.target.checked)}
+                        onChange={event => selection.selectLine(line, event.target.checked)}
                         aria-label={t('sales:refund.selectLine', {
-                          product: line.productNameSnapshot ?? line.productName ?? line.productId,
+                          product: lineName(line, returnableLines),
                         })}
                         className="mt-1 h-4 w-4 rounded border-line-strong text-primary-600"
                       />
@@ -325,7 +149,7 @@ function RefundConfirmOverlayContent({
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
                             <p className="font-medium text-secondary-950">
-                              {line.productNameSnapshot ?? line.productName ?? line.productId}
+                              {lineName(line, returnableLines)}
                             </p>
                             <p className="text-xs text-secondary-500">
                               {t('sales:refund.remainingLine', {
@@ -347,7 +171,7 @@ function RefundConfirmOverlayContent({
                                 step="any"
                                 value={selectedQuantities[line.id]}
                                 onChange={event =>
-                                  updateLineQuantity(line, Number(event.target.value))
+                                  selection.updateLineQuantity(line, Number(event.target.value))
                                 }
                                 className="w-24 rounded-lg border border-line-strong bg-surface px-2 py-1.5 text-right text-sm text-secondary-950"
                               />
@@ -355,91 +179,7 @@ function RefundConfirmOverlayContent({
                           )}
                         </div>
 
-                        {selected && (line.lots?.length ?? 0) > 0 && (
-                          <fieldset className="mt-3 rounded-lg border border-line/60 bg-surface-2/65 p-3">
-                            <legend className="px-1 text-xs font-semibold text-secondary-600">
-                              {t('sales:refund.lotsLegend', { quantity: requiredBase })}
-                            </legend>
-                            <div className="mt-1 grid gap-2 sm:grid-cols-2">
-                              {line.lots
-                                ?.filter(lot => lot.remainingQuantity > EPSILON)
-                                .map(lot => (
-                                  <label key={lot.id} className="text-xs text-secondary-600">
-                                    <span className="block truncate">
-                                      {t('sales:refund.lotLabel', {
-                                        lot: lot.lotNumber,
-                                        quantity: lot.remainingQuantity,
-                                      })}
-                                    </span>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max={lot.remainingQuantity}
-                                      step="any"
-                                      value={lotSelections[line.id]?.[lot.id] ?? 0}
-                                      onChange={event =>
-                                        setLotSelections(current => ({
-                                          ...current,
-                                          [line.id]: {
-                                            ...(current[line.id] ?? {}),
-                                            [lot.id]: Number.isFinite(Number(event.target.value))
-                                              ? Math.min(
-                                                  lot.remainingQuantity,
-                                                  Math.max(0, Number(event.target.value))
-                                                )
-                                              : 0,
-                                          },
-                                        }))
-                                      }
-                                      className="mt-1 w-full rounded-lg border border-line-strong bg-surface px-2 py-1.5 text-right text-sm text-secondary-950"
-                                    />
-                                  </label>
-                                ))}
-                            </div>
-                          </fieldset>
-                        )}
-
-                        {selected && (line.serials?.length ?? 0) > 0 && (
-                          <fieldset className="mt-3 rounded-lg border border-line/60 bg-surface-2/65 p-3">
-                            <legend className="px-1 text-xs font-semibold text-secondary-600">
-                              {t('sales:refund.serialsLegend', { quantity: requiredBase })}
-                            </legend>
-                            <div className="mt-1 grid gap-2 sm:grid-cols-2">
-                              {line.serials
-                                ?.filter(serial => !serial.returned)
-                                .map(serial => {
-                                  const checked = (serialSelections[line.id] ?? []).includes(
-                                    serial.productSerialId
-                                  );
-                                  return (
-                                    <label
-                                      key={serial.id}
-                                      className="flex items-center gap-2 rounded-lg border border-line/60 bg-surface px-2 py-2 text-xs text-secondary-700"
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={checked}
-                                        onChange={event =>
-                                          setSerialSelections(current => {
-                                            const currentIds = current[line.id] ?? [];
-                                            return {
-                                              ...current,
-                                              [line.id]: event.target.checked
-                                                ? [...currentIds, serial.productSerialId]
-                                                : currentIds.filter(
-                                                    id => id !== serial.productSerialId
-                                                  ),
-                                            };
-                                          })
-                                        }
-                                      />
-                                      <span className="font-mono">{serial.serialNumber}</span>
-                                    </label>
-                                  );
-                                })}
-                            </div>
-                          </fieldset>
-                        )}
+                        <ReturnLineAllocations line={line} selection={selection} />
                       </div>
                     </div>
                   </li>
@@ -447,7 +187,7 @@ function RefundConfirmOverlayContent({
               })}
             </ul>
           )}
-          {!selectionIsValid && (
+          {!selection.selectionIsValid && (
             <p className="mt-3 text-sm text-danger-600" role="alert">
               {t('sales:refund.selectionInvalid')}
             </p>
@@ -493,47 +233,7 @@ function RefundConfirmOverlayContent({
           )}
         </section>
 
-        {externalAllocationsRequiringEvidence.length > 0 && (
-          <section className="rounded-2xl border border-line/70 bg-surface-2/55 px-4 py-4">
-            <p className="text-[0.62rem] font-semibold uppercase tracking-[0.3em] text-secondary-500">
-              {t('sales:refund.externalReferencesLabel')}
-            </p>
-            <p className="mt-1 text-sm text-secondary-600">
-              {t('sales:refund.externalReferencesHint')}
-            </p>
-            <div className="mt-3 space-y-3">
-              {externalAllocationsRequiringEvidence.map(allocation => {
-                const referenceKey = externalReferenceKey(
-                  allocation.salePaymentId,
-                  allocation.originalMethod
-                );
-                return (
-                  <label
-                    key={referenceKey}
-                    className="block text-sm font-medium text-secondary-700"
-                  >
-                    {t('sales:refund.externalReferenceFor', {
-                      method: t(`sales:payment.${allocation.originalMethod}`),
-                      amount: formatCurrency(allocation.amount, sale.currencyCode),
-                    })}
-                    <input
-                      type="text"
-                      maxLength={120}
-                      value={externalReferences[referenceKey] ?? ''}
-                      onChange={event =>
-                        setExternalReferences(current => ({
-                          ...current,
-                          [referenceKey]: event.target.value,
-                        }))
-                      }
-                      className="mt-1 w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-secondary-950"
-                    />
-                  </label>
-                );
-              })}
-            </div>
-          </section>
-        )}
+        <ReturnExternalReferences preview={previewState} currencyCode={sale.currencyCode} />
 
         <section>
           <p className="text-[0.62rem] font-semibold uppercase tracking-[0.3em] text-secondary-500">
@@ -601,7 +301,7 @@ function RefundConfirmOverlayContent({
           </div>
         </div>
 
-        {previewQuery.isFetching && (
+        {previewState.isFetching && (
           <p className="text-sm text-secondary-500" role="status">
             {t('sales:refund.calculating')}
           </p>

@@ -5,7 +5,7 @@
   },
   "history": {
     "title": "Cotizaciones recientes",
-    "description": "Las cotizaciones más recientes del tenant. Use las acciones para enviar, aceptar, rechazar, expirar o eliminar borradores.",
+    "description": "Las cotizaciones más recientes del negocio. Use las acciones para enviar, aceptar, rechazar, expirar o eliminar borradores.",
     "loading": "Cargando cotizaciones…",
     "error": "No se pudieron cargar las cotizaciones",
     "empty": "Aún no hay cotizaciones. Pulse Nueva cotización para crear la primera.",

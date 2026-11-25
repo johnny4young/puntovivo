@@ -68,6 +68,7 @@ import { setupReadinessRouter } from './routers/setupReadiness.js';
 import { operationsRouter } from './routers/operations.js';
 import { registerIncidentsRouter } from './routers/registerIncidents.js';
 import { quickKeysRouter } from './routers/quickKeys.js';
+import { registerZonesRouter } from './routers/registerZones.js';
 import { transferDestinationsRouter } from './routers/transferDestinations.js';
 import { dataRetentionRouter } from './routers/dataRetention.js';
 import { employeeShiftsRouter } from './routers/employeeShifts.js';
@@ -75,6 +76,7 @@ import { managerApprovalsRouter } from './routers/managerApprovals.js';
 import { launchMigrationRouter } from './routers/launchMigration.js';
 import { lossPreventionRouter } from './routers/lossPrevention.js';
 import { companionRouter } from './routers/companion.js';
+import { ownerPushRouter } from './routers/ownerPush.js';
 import { providerPayablesRouter } from './routers/providerPayables.js';
 import { promotionsRouter } from './routers/promotions.js';
 import { inventoryTransformationsRouter } from './routers/inventoryTransformations.js';
@@ -134,6 +136,7 @@ export const appRouter = router({
   fiscalNumbering: fiscalNumberingRouter,
   peripherals: peripheralsRouter,
   modules: modulesRouter,
+  registerZones: registerZonesRouter,
   surfaces: surfacesRouter,
   events: eventsRouter,
   observability: observabilityRouter,
@@ -162,6 +165,7 @@ export const appRouter = router({
   launchMigration: launchMigrationRouter,
   lossPrevention: lossPreventionRouter,
   companion: companionRouter,
+  ownerPush: ownerPushRouter,
   providerPayables: providerPayablesRouter,
   promotions: promotionsRouter,
   inventoryTransformations: inventoryTransformationsRouter,

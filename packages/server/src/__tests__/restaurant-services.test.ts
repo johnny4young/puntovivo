@@ -26,6 +26,7 @@ import {
   restaurantCourses,
   restaurantDiners,
   restaurantLineModifiers,
+  restaurantReservations,
   restaurantRounds,
   restaurantServices,
   restaurantTables,
@@ -44,7 +45,10 @@ import { registerDevice as registerDeviceService } from '../services/devices/dev
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 import { completeSale } from '../application/sales/completeSale.js';
 import { parkDraftsForIdentityChange } from '../application/sales/parkDraftsForIdentityChange.js';
-import { RESTAURANT_SERVICE_LIMITS } from '../application/restaurant/service-lifecycle.js';
+import {
+  PENDING_ROUND_TTL_MS,
+  RESTAURANT_SERVICE_LIMITS,
+} from '../application/restaurant/service-lifecycle.js';
 import { hashStaffPin } from '../security/staffPins.js';
 import { __withExpectedTestLogs } from '../logging/logger.js';
 
@@ -1494,11 +1498,13 @@ describe('restaurantServices.openCheck', () => {
       .restaurantServices.openCheck(
         openInput({ tableId, productId, guestCount: 2, label: 'Cuenta A' })
       );
+    const secondInput = openInput({ tableId, productId, guestCount: 2, label: 'Cuenta B' });
     const second = await appRouter
       .createCaller(fresh({ role: 'cashier' }))
-      .restaurantServices.openCheck(
-        openInput({ tableId, productId, guestCount: 2, label: 'Cuenta B' })
-      );
+      .restaurantServices.openCheck({
+        ...secondInput,
+        items: [{ ...secondInput.items[0]!, notes: 'Sin cebolla' }],
+      });
     await db
       .update(saleItems)
       .set({ productNameSnapshot: null })
@@ -1515,6 +1521,11 @@ describe('restaurantServices.openCheck', () => {
     expect(state.checks.flatMap(check => check.lines.map(line => line.productName))).toEqual([
       'Entrada multi',
       'Entrada multi',
+    ]);
+    // The order rail shows each sent line's kitchen note.
+    expect(state.checks.flatMap(check => check.lines.map(line => line.notes))).toEqual([
+      null,
+      'Sin cebolla',
     ]);
 
     await expect(
@@ -3171,5 +3182,236 @@ describe('restaurant check lifecycle', () => {
       .where(eq(sales.id, draft.id));
     await caller.sales.discardDraft({ saleId: draft.id });
     expect(await stockFor(productId)).toBe(stockAfterReservation + 1);
+  });
+});
+
+describe('restaurant floor summary and table markers', () => {
+  const prefix = `Piso ${nanoid(6)}`;
+
+  async function seedReservation(tableId: string, startsInMinutes: number, guestName: string) {
+    const now = Date.now();
+    await db.insert(restaurantReservations).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      tableId,
+      guestName,
+      partySize: 2,
+      startsAt: new Date(now + startsInMinutes * 60_000).toISOString(),
+      endsAt: new Date(now + (startsInMinutes + 120) * 60_000).toISOString(),
+      status: 'booked',
+      version: 1,
+    });
+  }
+
+  async function summaryFor(tableId: string) {
+    const page = await appRouter
+      .createCaller(fresh({ role: 'cashier' }))
+      .restaurantTables.listSummary({ siteId, search: prefix });
+    const row = page.items.find(item => item.id === tableId);
+    if (!row) throw new Error('Expected the table in the floor summary');
+    return row;
+  }
+
+  it('summarizes state, amount, party, checks and the next reservation today', async () => {
+    const freeId = await createTable(`${prefix} A libre`);
+    const occupiedId = await createTable(`${prefix} B ocupada`);
+    const reservedId = await createTable(`${prefix} C reservada`);
+    const tomorrowId = await createTable(`${prefix} D mañana`);
+    const productId = await createProduct('Plato del resumen', 12);
+    const opened = await appRouter
+      .createCaller(fresh({ role: 'cashier' }))
+      .restaurantServices.openCheck(openInput({ tableId: occupiedId, productId, guestCount: 3 }));
+    await seedReservation(reservedId, -30, 'Familia Rojas');
+    await seedReservation(tomorrowId, 30 * 60, 'Mañana');
+
+    const page = await appRouter
+      .createCaller(fresh({ role: 'cashier' }))
+      .restaurantTables.listSummary({ siteId, search: prefix });
+    expect(page).toMatchObject({ totalItems: 4, occupiedTables: 1, hasMore: false });
+    expect(Date.parse(page.generatedAt)).not.toBeNaN();
+    const byId = new Map(page.items.map(item => [item.id, item]));
+    const service = await db
+      .select()
+      .from(restaurantServices)
+      .where(and(eq(restaurantServices.tableId, occupiedId), eq(restaurantServices.status, 'open')))
+      .get();
+    expect(byId.get(occupiedId)).toMatchObject({
+      state: 'occupied',
+      guestCount: 3,
+      openChecks: 1,
+      total: opened.total,
+      openedAt: service?.openedAt,
+      billRequestedAt: null,
+      pendingRound: null,
+    });
+    expect(byId.get(reservedId)).toMatchObject({
+      state: 'reserved',
+      openChecks: 0,
+      total: 0,
+      nextReservation: { guestName: 'Familia Rojas', partySize: 2, status: 'booked' },
+    });
+    expect(byId.get(freeId)).toMatchObject({
+      state: 'free',
+      openedAt: null,
+      nextReservation: null,
+    });
+    expect(byId.get(tomorrowId)).toMatchObject({ state: 'free', nextReservation: null });
+
+    const second = await appRouter
+      .createCaller(fresh({ role: 'cashier' }))
+      .restaurantTables.listSummary({ siteId, search: prefix, limit: 1, offset: 1 });
+    expect(second.items.map(item => item.id)).toEqual([occupiedId]);
+    expect(second).toMatchObject({ totalItems: 4, occupiedTables: 1, hasMore: true });
+  });
+
+  it('reads a legacy draft without a service as occupied', async () => {
+    const tableId = await createTable(`${prefix} E legado`);
+    const now = new Date().toISOString();
+    await db.insert(sales).values({
+      id: nanoid(),
+      tenantId,
+      saleNumber: `LEG-${nanoid(6)}`,
+      tableId,
+      total: 31,
+      subtotal: 31,
+      taxAmount: 0,
+      discountAmount: 0,
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'draft',
+      createdBy: adminId,
+      createdAt: now,
+      updatedAt: now,
+    });
+    expect(await summaryFor(tableId)).toMatchObject({
+      state: 'occupied',
+      openChecks: 1,
+      total: 31,
+      openedAt: now,
+      guestCount: null,
+    });
+  });
+
+  it('staff mark and clear the bill request with one audit row per change', async () => {
+    const tableId = await createTable(`${prefix} F cuenta`);
+    const productId = await createProduct('Plato de la cuenta');
+    const cashier = appRouter.createCaller(fresh({ role: 'cashier' }));
+    await expect(
+      cashier.restaurantServices.setBillRequested({ tableId, requested: true })
+    ).rejects.toMatchObject({ code: 'CONFLICT', message: expect.any(String) });
+
+    await cashier.restaurantServices.openCheck(openInput({ tableId, productId }));
+    const marked = await cashier.restaurantServices.setBillRequested({ tableId, requested: true });
+    expect(marked.billRequestedAt).toEqual(expect.any(String));
+    await cashier.restaurantServices.setBillRequested({ tableId, requested: true });
+    expect(await summaryFor(tableId)).toMatchObject({
+      state: 'billRequested',
+      billRequestedAt: marked.billRequestedAt,
+    });
+
+    const audits = await db
+      .select({ action: auditLogs.action, after: auditLogs.after })
+      .from(auditLogs)
+      .where(and(eq(auditLogs.tenantId, tenantId), eq(auditLogs.resourceId, marked.serviceId)))
+      .all();
+    expect(audits).toEqual([
+      {
+        action: 'restaurant_service.bill_requested',
+        after: { billRequestedAt: marked.billRequestedAt, billRequestedBy: adminId },
+      },
+    ]);
+
+    await cashier.restaurantServices.setBillRequested({ tableId, requested: false });
+    expect(await summaryFor(tableId)).toMatchObject({ state: 'occupied', billRequestedAt: null });
+  });
+
+  it('keeps the bill request error stable for a table without an open service', async () => {
+    const tableId = await createTable(`${prefix} G sin servicio`);
+    const error = await appRouter
+      .createCaller(fresh({ role: 'cashier' }))
+      .restaurantServices.setBillRequested({ tableId, requested: true })
+      .catch((caught: unknown) => caught);
+    expect(error).toMatchObject({
+      code: 'CONFLICT',
+      cause: expect.objectContaining({ errorCode: 'RESTAURANT_SERVICE_NOT_OPEN' }),
+    });
+  });
+
+  it('tracks each waiter unsent round and clears it when that waiter sends', async () => {
+    const tableId = await createTable(`${prefix} H ronda`);
+    const productId = await createProduct('Plato de la ronda');
+    const waiter = appRouter.createCaller(fresh({ role: 'cashier' }));
+    const otherWaiter = appRouter.createCaller(freshHandoffCashier());
+    expect(await waiter.restaurantServices.setPendingRound({ tableId, itemCount: 2 })).toEqual({
+      pending: false,
+    });
+
+    await waiter.restaurantServices.openCheck(openInput({ tableId, productId }));
+    await waiter.restaurantServices.setPendingRound({ tableId, itemCount: 2 });
+    const first = (await summaryFor(tableId)).pendingRound;
+    expect(first).toEqual({ itemCount: 2, since: expect.any(String) });
+    await waiter.restaurantServices.setPendingRound({ tableId, itemCount: 4 });
+    expect((await summaryFor(tableId)).pendingRound).toEqual({ itemCount: 4, since: first?.since });
+
+    expect(await otherWaiter.restaurantServices.setPendingRound({ tableId, itemCount: 0 })).toEqual(
+      { pending: true }
+    );
+    await otherWaiter.restaurantServices.setPendingRound({ tableId, itemCount: 1 });
+    expect((await summaryFor(tableId)).pendingRound).toEqual({ itemCount: 5, since: first?.since });
+
+    await appRouter
+      .createCaller(fresh({ role: 'cashier' }))
+      .restaurantServices.openCheck(openInput({ tableId, productId }));
+    expect(await summaryFor(tableId)).toMatchObject({
+      openChecks: 2,
+      pendingRound: { itemCount: 1 },
+    });
+
+    await otherWaiter.restaurantServices.setPendingRound({ tableId, itemCount: 0 });
+    expect((await summaryFor(tableId)).pendingRound).toBeNull();
+  });
+
+  it('drops an unsent round once its device stops reporting', async () => {
+    const tableId = await createTable(`${prefix} H2 ronda vieja`);
+    const productId = await createProduct('Plato de la ronda vieja');
+    const waiter = appRouter.createCaller(fresh({ role: 'cashier' }));
+    await waiter.restaurantServices.openCheck(openInput({ tableId, productId }));
+    await appRouter
+      .createCaller(freshHandoffCashier())
+      .restaurantServices.setPendingRound({ tableId, itemCount: 3 });
+    const staleAt = new Date(Date.now() - PENDING_ROUND_TTL_MS - 1_000).toISOString();
+    await db
+      .update(restaurantServices)
+      .set({
+        pendingRounds: { [handoffCashierId]: { items: 3, since: staleAt, seenAt: staleAt } },
+      })
+      .where(and(eq(restaurantServices.tableId, tableId), eq(restaurantServices.status, 'open')));
+    expect((await summaryFor(tableId)).pendingRound).toBeNull();
+
+    await waiter.restaurantServices.setPendingRound({ tableId, itemCount: 1 });
+    const stored = await db
+      .select({ pendingRounds: restaurantServices.pendingRounds })
+      .from(restaurantServices)
+      .where(and(eq(restaurantServices.tableId, tableId), eq(restaurantServices.status, 'open')))
+      .get();
+    expect(Object.keys(stored?.pendingRounds ?? {})).toEqual([adminId]);
+  });
+
+  it('refuses markers and the summary for another tenant or a viewer', async () => {
+    const tableId = await createTable(`${prefix} I ajena`);
+    const viewer = appRouter.createCaller(fresh({ role: 'viewer' }));
+    await expect(viewer.restaurantTables.listSummary({ siteId })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    await expect(
+      viewer.restaurantServices.setBillRequested({ tableId, requested: true })
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    const foreign = appRouter.createCaller(
+      fresh({ role: 'cashier', siteId: `foreign-${nanoid(6)}` })
+    );
+    await expect(
+      foreign.restaurantServices.setPendingRound({ tableId, itemCount: 1 })
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 });

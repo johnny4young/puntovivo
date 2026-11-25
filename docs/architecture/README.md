@@ -56,6 +56,11 @@ estimates, and private work queues do not belong in ADRs.
 | [ADR-0033](./0033-desktop-stack-stays-on-electron.md)                    | Desktop stack stays on Electron            | Accepted |
 | [ADR-0034](./0034-server-worker-restart.md)                              | Restart the server worker after a crash    | Proposed |
 | [ADR-0035](./0035-backups-off-the-main-thread.md)                        | Build backup bundles off the main thread   | Proposed |
+| [ADR-0036](./0036-mid-day-register-handoff.md)                           | Mid-day register handoff                   | Accepted |
+| [ADR-0037](./0037-guided-day-close.md)                                   | Guided day close                           | Accepted |
+| [ADR-0038](./0038-register-zones-by-profile.md)                          | Register zones by business profile         | Accepted |
+| [ADR-0039](./0039-serial-scale-reader.md)                                | Serial scale reader in the main process    | Accepted |
+| [ADR-0040](./0040-owner-web-push.md)                                     | Owner web push from the local server       | Accepted |
 
 ## Reusable implementation patterns
 

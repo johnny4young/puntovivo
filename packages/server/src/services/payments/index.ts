@@ -5,3 +5,4 @@ export * from './mock-adapter.js';
 export * from './payment-worker.js';
 export * from './reconciliation.js';
 export * from './registry.js';
+export * from './wallet-confirmation.js';

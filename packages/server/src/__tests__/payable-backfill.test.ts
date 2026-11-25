@@ -3,20 +3,20 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * The 0102 backfill turns every legacy single-purchase invoice into a bridge
+ * The 0111 backfill turns every legacy single-purchase invoice into a bridge
  * row. Replaying the whole chain for one INSERT would be the honest-but-slow
  * way; this test replays the REAL backfill SQL — read verbatim from the
- * migration file — against a minimal pre-0102 shape and asserts the invariants
+ * migration file — against a minimal pre-0111 shape and asserts the invariants
  * the migration promises.
  */
 const migrationPath = join(
   import.meta.dirname,
-  '../db/migrations/0102_provider_payable_invoice_purchases.sql'
+  '../db/migrations/0111_provider_payable_invoice_purchases.sql'
 );
 const migrationSql = readFileSync(migrationPath, 'utf8');
 const backfillSql = migrationSql.slice(migrationSql.indexOf('INSERT INTO'));
 
-describe('0102 payable backfill', () => {
+describe('0111 payable backfill', () => {
   it('bridges only invoices that carry a legacy purchase link', async () => {
     const { default: Database } = await import('better-sqlite3');
     const db = new Database(':memory:');

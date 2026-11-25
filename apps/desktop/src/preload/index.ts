@@ -9,6 +9,8 @@ import type { BackupRestoreDrillReport } from '../main/backup/restore-drill.js';
 import type { BackupScheduleFrequency, BackupScheduleStatus } from '../main/backup/scheduler.js';
 import type { WorkerRestartStats } from '../main/server-host/crash-log.js';
 import type { EmbeddedServerState } from '../main/server-lifecycle.js';
+import type { ScaleSaveResult, ScaleSettingsState } from '../main/ipc/scale-handlers.js';
+import type { ScaleConfig, ScaleReadResult } from '../main/scale/protocol.js';
 import {
   unwrapDesktopIpcSessionResult,
   type DesktopIpcSessionResult,
@@ -110,6 +112,16 @@ export interface ElectronAPI {
   }>;
   /** Opens a real print dialog for a synthetic test receipt; never records a sale. */
   testSystemPrinter?: () => Promise<{ success: boolean; errorCode?: string; error?: string }>;
+  /** Whether this device has a saved scale the register can read. */
+  getScaleStatus?: () => Promise<{ configured: boolean }>;
+  /** Admin/manager: enumerated serial ports and this device's saved scale. */
+  getScaleSettings?: () => Promise<ScaleSettingsState>;
+  /** Only an enumerated port is accepted; null removes the scale. */
+  saveScaleSettings?: (config: ScaleConfig | null) => Promise<ScaleSaveResult>;
+  /** Reads once with an unsaved configuration. */
+  testScale?: (config: ScaleConfig) => Promise<ScaleReadResult>;
+  /** One stable weight from the saved scale, in kilograms. */
+  readScale?: () => Promise<ScaleReadResult>;
   getReceiptPrintSettings: () => Promise<{
     silent: boolean;
     printBackground: boolean;
@@ -407,6 +419,11 @@ const electronAPI: ElectronAPI = {
   getSystemPrinters: () => invokeSessionProtected('list-system-printers'),
   selectSystemPrinter: name => invokeSessionProtected('select-system-printer', name),
   testSystemPrinter: () => ipcRenderer.invoke('test-system-printer'),
+  getScaleStatus: () => invokeSessionProtected('scale:get-status'),
+  getScaleSettings: () => invokeSessionProtected('scale:get-settings'),
+  saveScaleSettings: config => invokeSessionProtected('scale:save-settings', config),
+  testScale: config => invokeSessionProtected('scale:test', config),
+  readScale: () => invokeSessionProtected('scale:read'),
   getReceiptPrintSettings: () => ipcRenderer.invoke('get-receipt-print-settings'),
   updateReceiptPrintSettings: settings =>
     invokeSessionProtected('update-receipt-print-settings', settings),

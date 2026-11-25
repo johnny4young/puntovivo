@@ -51,6 +51,8 @@ export type ReceiptSale = {
   taxAmount: number;
   discountAmount: number;
   total: number;
+  /** Payable-unit rounding already folded into total. */
+  roundingAdjustment?: number | null;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   status: SaleStatus;

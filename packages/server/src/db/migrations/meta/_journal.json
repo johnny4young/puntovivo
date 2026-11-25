@@ -719,8 +719,57 @@
     {
       "idx": 102,
       "version": "6",
-      "when": 1795289348790,
-      "tag": "0102_provider_payable_invoice_purchases",
+      "when": 1795238929010,
+      "tag": "0102_cash_session_handoffs",
+      "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "6",
+      "when": 1795247341758,
+      "tag": "0103_day_close_signature",
+      "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "6",
+      "when": 1795304641980,
+      "tag": "0104_restaurant_modifier_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "6",
+      "when": 1795317614616,
+      "tag": "0105_restaurant_service_markers",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "6",
+      "when": 1795329546328,
+      "tag": "0106_manager_approval_context",
+      "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "6",
+      "when": 1795338282602,
+      "tag": "0107_owner_push_subscriptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "6",
+      "when": 1795380770170,
+      "tag": "0108_sale_rounding_adjustment",
+      "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "6",
+      "when": 1795616945897,
+      "tag": "0111_provider_payable_invoice_purchases",
       "breakpoints": true
     }
   ]

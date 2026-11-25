@@ -22,6 +22,36 @@ const activeCashSession = {
 };
 
 describe('SalesMobileCheckoutBar', () => {
+  it('renders only the keys whose register zone is on', () => {
+    const props = {
+      draftSummary: { itemCount: 1, subtotal: 10, taxAmount: 0, total: 10 },
+      cashSession: activeCashSession,
+      canCharge: true,
+      canOpenCashSession: false,
+      onCharge: vi.fn(),
+      onOpenCashSession: vi.fn(),
+      onSuspend: vi.fn(),
+      onCredit: vi.fn(),
+      onToggleSuspendedPanel: vi.fn(),
+    };
+    const { rerender } = render(
+      <SalesMobileCheckoutBar {...props} showsSuspend={false} showsCredit={false} />
+    );
+    expect(screen.queryByTestId('mobile-checkout-suspend')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('mobile-checkout-credit')).not.toBeInTheDocument();
+    expect(screen.getByTestId('mobile-park-controls')).toHaveClass('grid-cols-1');
+
+    rerender(
+      <SalesMobileCheckoutBar
+        {...props}
+        showsSuspend={false}
+        showsCredit={false}
+        onToggleSuspendedPanel={undefined}
+      />
+    );
+    expect(screen.queryByTestId('mobile-park-controls')).not.toBeInTheDocument();
+  });
+
   it('reserves the measured fixed-bar footprint and releases its observer on unmount', () => {
     const observe = vi.fn();
     const disconnect = vi.fn();
@@ -44,7 +74,6 @@ describe('SalesMobileCheckoutBar', () => {
           cashSession={null}
           canCharge={false}
           canOpenCashSession
-          onOpenSearch={vi.fn()}
           onCharge={vi.fn()}
           onOpenCashSession={vi.fn()}
         />
@@ -69,7 +98,7 @@ describe('SalesMobileCheckoutBar', () => {
     }
   });
 
-  it('renders the draft summary and actions in Spanish', async () => {
+  it('shows the total with its item count, Cobrar and the park row in Spanish', async () => {
     await i18next.changeLanguage('es');
     const expectedTotal = formatCurrency(23.8).replace(/\s+/g, ' ');
 
@@ -79,90 +108,61 @@ describe('SalesMobileCheckoutBar', () => {
         cashSession={activeCashSession}
         canCharge
         canOpenCashSession={false}
-        onOpenSearch={vi.fn()}
         onCharge={vi.fn()}
         onOpenCashSession={vi.fn()}
+        onToggleSuspendedPanel={vi.fn()}
       />
     );
 
-    expect(screen.getByText('Total borrador')).toBeInTheDocument();
-    expect(
-      screen.getByText(content => content.replace(/\s+/g, ' ') === expectedTotal)
-    ).toBeInTheDocument();
-    expect(screen.getByText('3 artículos')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Buscar' })).toHaveAttribute(
-      'aria-keyshortcuts',
-      'F5'
+    expect(screen.getByTestId('mobile-checkout-caption')).toHaveTextContent('Total · 3 artículos');
+    expect(screen.getByTestId('mobile-checkout-total').textContent?.replace(/\s+/g, ' ')).toBe(
+      expectedTotal
     );
     expect(screen.getByRole('button', { name: 'Cobrar venta' })).toHaveAttribute(
       'aria-keyshortcuts',
       'F1'
     );
+    expect(screen.getByRole('button', { name: 'Suspender' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Fiar' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Suspendidas' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Buscar' })).not.toBeInTheDocument();
   });
 
-  it('leads with search and leaves closing to the checkout panel when the cart is empty', async () => {
-    await i18next.changeLanguage('es');
-
-    const user = userEvent.setup();
-    const onOpenSearch = vi.fn();
-
+  it('keeps Cobrar in place but disabled while the ticket cannot be charged', async () => {
+    await i18next.changeLanguage('en');
     render(
       <SalesMobileCheckoutBar
         draftSummary={{ itemCount: 0, subtotal: 0, taxAmount: 0, total: 0 }}
         cashSession={activeCashSession}
         canCharge={false}
         canOpenCashSession={false}
-        onOpenSearch={onOpenSearch}
         onCharge={vi.fn()}
         onOpenCashSession={vi.fn()}
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Buscar' }));
-    expect(onOpenSearch).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('mobile-checkout-search')).toHaveClass('btn-primary');
-    expect(screen.queryByTestId('mobile-checkout-primary')).not.toBeInTheDocument();
-
-    expect(screen.queryByRole('button', { name: 'Cerrar caja' })).not.toBeInTheDocument();
-  });
-
-  it('makes charge the primary action and hides closing once the cart has items', () => {
-    render(
-      <SalesMobileCheckoutBar
-        draftSummary={{ itemCount: 2, subtotal: 8000, taxAmount: 0, total: 8000 }}
-        cashSession={activeCashSession}
-        canCharge
-        canOpenCashSession={false}
-        onOpenSearch={vi.fn()}
-        onCharge={vi.fn()}
-        onOpenCashSession={vi.fn()}
-      />
-    );
-
-    expect(screen.getByTestId('mobile-checkout-primary')).toHaveClass('btn-primary');
-    expect(screen.getByTestId('mobile-checkout-search')).toHaveClass('btn-outline');
+    expect(screen.getByTestId('mobile-checkout-primary')).toBeDisabled();
+    expect(screen.getByTestId('mobile-checkout-caption')).toHaveTextContent('Total · 0 items');
     expect(screen.queryByRole('button', { name: 'Close cash session' })).not.toBeInTheDocument();
   });
 
-  it('disables product search for an immutable cart', async () => {
-    await i18next.changeLanguage('es');
-
+  it('blocks charge and credit while the hub is unreachable', async () => {
+    await i18next.changeLanguage('en');
     render(
       <SalesMobileCheckoutBar
         draftSummary={{ itemCount: 1, subtotal: 10, taxAmount: 0, total: 10 }}
         cashSession={activeCashSession}
         canCharge
         canOpenCashSession={false}
-        canOpenSearch={false}
-        onOpenSearch={vi.fn()}
         onCharge={vi.fn()}
+        onCredit={vi.fn()}
         onOpenCashSession={vi.fn()}
+        hubReachable={false}
       />
     );
 
-    const search = screen.getByRole('button', { name: 'Buscar' });
-    expect(search).toBeDisabled();
-    expect(search).not.toHaveAttribute('aria-keyshortcuts');
+    expect(screen.getByTestId('mobile-checkout-primary')).toBeDisabled();
+    expect(screen.getByTestId('mobile-checkout-credit')).toBeDisabled();
   });
 
   it('shows "Abrir caja" instead of charge when no cash session is open', async () => {
@@ -178,7 +178,6 @@ describe('SalesMobileCheckoutBar', () => {
         cashSession={null}
         canCharge={false}
         canOpenCashSession
-        onOpenSearch={vi.fn()}
         onCharge={onCharge}
         onOpenCashSession={onOpenCashSession}
       />
@@ -194,12 +193,12 @@ describe('SalesMobileCheckoutBar', () => {
     expect(onCharge).not.toHaveBeenCalled();
   });
 
-  it('exposes park actions on mobile when wired', async () => {
+  it('runs suspend, credit and the suspended panel from the park row', async () => {
     await i18next.changeLanguage('es');
 
     const user = userEvent.setup();
     const onSuspend = vi.fn();
-    const onNewSale = vi.fn();
+    const onCredit = vi.fn();
     const onToggleSuspendedPanel = vi.fn();
 
     render(
@@ -208,36 +207,30 @@ describe('SalesMobileCheckoutBar', () => {
         cashSession={activeCashSession}
         canCharge
         canOpenCashSession={false}
-        onOpenSearch={vi.fn()}
         onCharge={vi.fn()}
         onOpenCashSession={vi.fn()}
         canSuspend
         onSuspend={onSuspend}
-        onNewSale={onNewSale}
+        onCredit={onCredit}
         suspendedDraftsCount={2}
         onToggleSuspendedPanel={onToggleSuspendedPanel}
       />
     );
 
-    await user.click(screen.getByTestId('mobile-checkout-suspend'));
-    await user.click(screen.getByTestId('mobile-checkout-new-sale'));
-    await user.click(screen.getByTestId('mobile-checkout-open-suspended-panel'));
+    await user.click(screen.getByRole('button', { name: 'Suspender' }));
+    await user.click(screen.getByRole('button', { name: 'Fiar' }));
+    await user.click(screen.getByRole('button', { name: 'Suspendidas 2' }));
 
     expect(onSuspend).toHaveBeenCalledTimes(1);
-    expect(onNewSale).toHaveBeenCalledTimes(1);
+    expect(onCredit).toHaveBeenCalledTimes(1);
     expect(onToggleSuspendedPanel).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByTestId('mobile-checkout-suspend')).toHaveAttribute('aria-keyshortcuts');
-    expect(screen.getByTestId('mobile-checkout-new-sale')).toHaveAttribute(
-      'aria-keyshortcuts',
-      'Alt+N'
-    );
     expect(screen.getByTestId('mobile-checkout-open-suspended-panel')).toHaveAttribute(
       'aria-keyshortcuts'
     );
   });
 
-  it('hides the mobile Suspend action when it is wired but unavailable', async () => {
+  it('keeps Suspend visible but disabled when the ticket cannot be parked', async () => {
     await i18next.changeLanguage('es');
 
     render(
@@ -246,17 +239,16 @@ describe('SalesMobileCheckoutBar', () => {
         cashSession={activeCashSession}
         canCharge
         canOpenCashSession={false}
-        onOpenSearch={vi.fn()}
         onCharge={vi.fn()}
         onOpenCashSession={vi.fn()}
         canSuspend={false}
         onSuspend={vi.fn()}
-        onNewSale={vi.fn()}
       />
     );
 
-    expect(screen.queryByTestId('mobile-checkout-suspend')).not.toBeInTheDocument();
-    expect(screen.getByTestId('mobile-checkout-new-sale')).toBeEnabled();
+    const suspend = screen.getByTestId('mobile-checkout-suspend');
+    expect(suspend).toBeDisabled();
+    expect(suspend).not.toHaveAttribute('aria-keyshortcuts');
   });
 
   it('does not advertise the suspended-sales shortcut when there are no drafts', async () => {
@@ -268,7 +260,6 @@ describe('SalesMobileCheckoutBar', () => {
         cashSession={activeCashSession}
         canCharge
         canOpenCashSession={false}
-        onOpenSearch={vi.fn()}
         onCharge={vi.fn()}
         onOpenCashSession={vi.fn()}
         suspendedDraftsCount={0}
@@ -278,6 +269,52 @@ describe('SalesMobileCheckoutBar', () => {
 
     expect(screen.getByTestId('mobile-checkout-open-suspended-panel')).not.toHaveAttribute(
       'aria-keyshortcuts'
+    );
+  });
+
+  it('receives the selected register when it was handed over', async () => {
+    await i18next.changeLanguage('en');
+    const open = vi.fn();
+    const onOpenCashSession = vi.fn();
+    render(
+      <SalesMobileCheckoutBar
+        draftSummary={{ itemCount: 0, subtotal: 0, taxAmount: 0, total: 0 }}
+        cashSession={null}
+        canCharge={false}
+        canOpenCashSession={false}
+        onCharge={vi.fn()}
+        onOpenCashSession={onOpenCashSession}
+        receiveHandoff={{ registerName: 'Caja 2', isSelectedRegister: true, open }}
+      />
+    );
+
+    const primary = screen.getByTestId('mobile-checkout-primary');
+    expect(primary).toHaveAccessibleName('Receive Caja 2');
+    await userEvent.click(primary);
+    expect(open).toHaveBeenCalledOnce();
+    expect(onOpenCashSession).not.toHaveBeenCalled();
+  });
+
+  it('shows what the account would come to on the narrow Fiar key', () => {
+    render(
+      <SalesMobileCheckoutBar
+        draftSummary={{ itemCount: 2, subtotal: 4_000, taxAmount: 0, total: 4_000 }}
+        cashSession={activeCashSession}
+        canCharge
+        canOpenCashSession={false}
+        onCharge={vi.fn()}
+        onOpenCashSession={vi.fn()}
+        onCredit={vi.fn()}
+        creditProjectedBalance={88_300}
+        creditLimit={150_000}
+        creditActive
+      />
+    );
+
+    const key = screen.getByTestId('mobile-checkout-credit');
+    expect(key).toHaveAttribute('data-active', 'true');
+    expect(screen.getByTestId('mobile-checkout-credit-projection')).toHaveTextContent(
+      formatCurrency(88_300)
     );
   });
 });

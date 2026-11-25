@@ -173,6 +173,12 @@ beforeAll(async () => {
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
+  // These fixtures pin cent-level invariants; whole-peso payable rounding has its own suite.
+  await db
+    .update(tenants)
+    .set({ defaultCurrencyCode: 'USD' })
+    .where(eq(tenants.id, tenantId))
+    .run();
   const seededSite = await db
     .select()
     .from(sites)

@@ -47,6 +47,8 @@ export interface ModulesSnapshot {
    * operator knows the toggles are not yet live.
    */
   isPlaceholder: boolean;
+  /** The last `getEffective` request failed, so the placeholder will not resolve on its own. */
+  isError: boolean;
 }
 
 /**
@@ -58,7 +60,8 @@ export interface ModulesSnapshot {
 interface ModulesStore extends ModulesSnapshot {
   setSnapshot(
     data: { modules?: Partial<Record<string, boolean>> } | undefined,
-    isLoading: boolean
+    isLoading: boolean,
+    isError: boolean
   ): void;
   reset(): void;
 }
@@ -88,11 +91,13 @@ const useModulesStore = create<ModulesStore>(set => ({
   modules: { ...CLIENT_MODULE_DEFAULTS },
   isLoading: true,
   isPlaceholder: true,
-  setSnapshot(data, isLoading) {
+  isError: false,
+  setSnapshot(data, isLoading, isError) {
     set({
       modules: resolveSnapshot(data?.modules),
       isLoading,
       isPlaceholder: !data,
+      isError,
     });
   },
   reset() {
@@ -100,6 +105,7 @@ const useModulesStore = create<ModulesStore>(set => ({
       modules: { ...CLIENT_MODULE_DEFAULTS },
       isLoading: false,
       isPlaceholder: true,
+      isError: false,
     });
   },
 }));
@@ -121,6 +127,9 @@ export function useModulesSync(): void {
     // no window-focus refetch; the 5-minute staleTime is the
     // freshness contract and admin flips invalidate explicitly.
     refetchOnWindowFocus: false,
+    // The embedded server answers without a network; pausing would leave
+    // module gates waiting until the browser reports online again.
+    networkMode: 'always',
   });
 
   useEffect(() => {
@@ -128,8 +137,8 @@ export function useModulesSync(): void {
       useModulesStore.getState().reset();
       return;
     }
-    useModulesStore.getState().setSnapshot(query.data, query.isLoading);
-  }, [isAuthenticated, query.data, query.isLoading]);
+    useModulesStore.getState().setSnapshot(query.data, query.isLoading, query.isError);
+  }, [isAuthenticated, query.data, query.isLoading, query.isError]);
 }
 
 /**
@@ -152,6 +161,11 @@ export function useIsModuleActive(moduleId: ClientModuleId): boolean {
   return useModulesStore(state => state.modules[moduleId]);
 }
 
+/** Like `useIsModuleActive`, but true when nothing is required. */
+export function useIsOptionalModuleActive(moduleId: ClientModuleId | null): boolean {
+  return useModulesStore(state => moduleId === null || state.modules[moduleId]);
+}
+
 /**
  * Batch-read all modules at once. Useful for the admin tab + tests.
  * Reads each field with its own selector so the returned object never
@@ -162,7 +176,8 @@ export function useModulesSnapshot(): ModulesSnapshot {
   const modules = useModulesStore(state => state.modules);
   const isLoading = useModulesStore(state => state.isLoading);
   const isPlaceholder = useModulesStore(state => state.isPlaceholder);
-  return { modules, isLoading, isPlaceholder };
+  const isError = useModulesStore(state => state.isError);
+  return { modules, isLoading, isPlaceholder, isError };
 }
 
 /**

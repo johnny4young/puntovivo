@@ -1,0 +1,20 @@
+{
+  "line": {
+    "unitFor": "Unit for {{name}}",
+    "cutToMeasure": "cut to measure",
+    "service": "Service",
+    "listPrice": "List price"
+  },
+  "search": {
+    "atSite": "{{onHand}} at {{site}}",
+    "unitChip": "{{unit}} × {{equivalence}} · {{price}}",
+    "unitChipSingle": "{{unit}} · {{price}}"
+  },
+  "delivery": {
+    "key": "Deliver to job site",
+    "title": "Deliver to job site",
+    "sale": "Sale {{saleNumber}} · {{total}}",
+    "created": "Delivery created",
+    "createdDetail": "{{saleNumber}} goes to {{address}}"
+  }
+}

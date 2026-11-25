@@ -5,14 +5,19 @@ import { shortcutDisplayFor } from '@/lib/shortcuts';
 interface SalesShortcutStripProps {
   /** Product edits are frozen, so the remove-line key does nothing. */
   itemsLocked?: boolean;
+  /** The register parks sales or some are waiting, so Ctrl+R opens them. */
+  showsParked?: boolean;
 }
 
 /** The shortest path through a sale, and where every other key lives. */
-export function SalesShortcutStrip({ itemsLocked = false }: SalesShortcutStripProps) {
+export function SalesShortcutStrip({
+  itemsLocked = false,
+  showsParked = true,
+}: SalesShortcutStripProps) {
   const { t } = useTranslation('sales');
   const more = [
     ...(itemsLocked ? [] : ([['sales.removeItem', t('sell.keys.removeLine')]] as const)),
-    ['sales.toggleSuspended', t('sell.keys.parked')],
+    ...(showsParked ? ([['sales.toggleSuspended', t('sell.keys.parked')]] as const) : []),
     ['sales.newSale', t('sell.keys.newSale')],
     ['palette.open', t('sell.keys.more')],
   ] as const;

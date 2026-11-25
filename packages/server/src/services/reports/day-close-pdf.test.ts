@@ -82,13 +82,14 @@ const locale = (language: 'en' | 'es'): ResolvedLocale => ({
   timezone: 'America/Bogota',
 });
 
-function render(language: 'en' | 'es') {
+function render(language: 'en' | 'es', signatureMethod: 'pin' | 'drawn' = 'pin') {
   return renderDayClosePdf({
     tenantName: 'Puntovivo Test Store',
     report,
     reportHash: 'a'.repeat(64),
     signedByName: 'María Manager',
     signedAt: '2026-07-15T03:00:00.000Z',
+    signatureMethod,
     locale: locale(language),
   });
 }
@@ -105,6 +106,10 @@ describe('day-close PDF renderer', () => {
     expect(first.byteLength).toBeLessThan(MAX_DAY_CLOSE_PDF_BYTES);
     expect(raw).toContain('Signed day-close report 2026-07-14');
     expect(raw).toContain('Puntovivo Test Store');
+  });
+
+  it('prints how the manager signed', () => {
+    expect(render('en').equals(render('en', 'drawn'))).toBe(false);
   });
 
   it('selects neutral Spanish copy from the resolved tenant locale', () => {

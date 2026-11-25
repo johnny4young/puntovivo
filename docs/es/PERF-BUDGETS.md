@@ -555,7 +555,10 @@ incluye siguen bloqueando. El working set no ve todo: en macOS el proceso GPU
 reporta unos 100 MB mientras `footprint` muestra casi toda la memoria gráfica
 fuera de él, y el runner Linux de CI arranca un proceso GPU solo en algunos
 inicios. Cada techo es el mayor entre las mediciones de macOS y del Linux
-hospedado. El gate compara la mediana de los tres inicios. El inicio va de la
+hospedado. El tramo Linux corre en una imagen fija `ubuntu-26.04`, porque un
+cambio de imagen del runner por sí solo movió el working set de utility de unos
+95 a 120 MB. Al mover esa imagen, recapture las bases en la nueva. El gate
+compara la mediana de los tres inicios. El inicio va de la
 creación del proceso al final del evento load de la primera ventana, contra
 `operationalProfile.desktopLaunchElapsedMs`; el tiempo de antes contaba
 también la medición y el cierre, así que el mismo build ahora marca mucho

@@ -51,6 +51,7 @@ beforeEach(() => {
     modules: { ...CLIENT_MODULE_DEFAULTS },
     isLoading: true,
     isPlaceholder: true,
+    isError: false,
   });
 });
 
@@ -201,5 +202,34 @@ describe('ModulesSync — auth gating', () => {
     );
     // The unauth branch reset() restores the manifest default (copilot=true).
     expect(screen.getByTestId('copilot')).toHaveTextContent('on');
+  });
+});
+
+describe('ModulesSync — failed request', () => {
+  it('flags a failed request so placeholder waits can give up', () => {
+    useAuthMock.mockReturnValue({ isAuthenticated: true });
+    useGetEffectiveMock.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+
+    function Probe() {
+      const snapshot = useModulesSnapshot();
+      return (
+        <span data-testid="state">
+          {snapshot.isPlaceholder ? 'placeholder' : 'live'}-{snapshot.isError ? 'error' : 'ok'}
+        </span>
+      );
+    }
+
+    render(
+      <>
+        <ModulesSync />
+        <Probe />
+      </>
+    );
+    expect(screen.getByTestId('state')).toHaveTextContent('placeholder-error');
+    // The local server answers offline, so the query must never pause.
+    expect(useGetEffectiveMock).toHaveBeenCalledWith(
+      undefined,
+      expect.objectContaining({ networkMode: 'always' })
+    );
   });
 });

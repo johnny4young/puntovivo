@@ -11,12 +11,15 @@ import i18n from '@/i18n';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { useAuthMock, useIsModuleActiveMock, dashboardError, refetchMock } = vi.hoisted(() => ({
-  dashboardError: { current: null as null | { message: string; data: { errorCode: string } } },
-  refetchMock: vi.fn(),
-  useAuthMock: vi.fn(),
-  useIsModuleActiveMock: vi.fn(),
-}));
+const { useAuthMock, useIsModuleActiveMock, dashboardError, refetchMock, todayData } = vi.hoisted(
+  () => ({
+    todayData: { current: undefined as undefined | { generatedAt: string } },
+    dashboardError: { current: null as null | { message: string; data: { errorCode: string } } },
+    refetchMock: vi.fn(),
+    useAuthMock: vi.fn(),
+    useIsModuleActiveMock: vi.fn(),
+  })
+);
 
 vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: useAuthMock,
@@ -35,6 +38,9 @@ vi.mock('@/hooks', () => ({
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
+    operations: {
+      today: { useQuery: () => ({ data: todayData.current }) },
+    },
     dashboard: {
       summary: {
         useQuery: () => ({
@@ -62,10 +68,14 @@ vi.mock('@/lib/trpc', () => ({
 
 vi.mock('@/features/dashboard/DashboardPanels', () => ({
   DashboardLoadingState: () => <div data-testid="dashboard-loading" />,
-  DashboardStatsGrid: () => <div data-testid="dashboard-stats" />,
+  DashboardStatsGrid: ({ metrics }: { metrics: Array<{ title: string }> }) => (
+    <div data-testid="dashboard-stats">{metrics.map(metric => metric.title).join(' | ')}</div>
+  ),
   LowStockAlertsCard: () => <div data-testid="low-stock-card" />,
   RecentSalesCard: () => <div data-testid="recent-sales-card" />,
-  RevenueTrendCard: () => <div data-testid="revenue-trend-card" />,
+  RevenueTrendCard: ({ hideLatestDay }: { hideLatestDay?: boolean }) => (
+    <div data-testid="revenue-trend-card" data-hide-latest-day={String(Boolean(hideLatestDay))} />
+  ),
   TopProductsCard: () => <div data-testid="top-products-card" />,
 }));
 
@@ -83,6 +93,7 @@ import { DashboardPage } from './DashboardPage';
 
 beforeEach(() => {
   dashboardError.current = null;
+  todayData.current = { generatedAt: '2026-05-07T00:00:00.000Z' };
   refetchMock.mockReset();
   useAuthMock.mockReset();
   useIsModuleActiveMock.mockReset();
@@ -118,8 +129,23 @@ describe('DashboardPage audience', () => {
     render(<DashboardPage />);
     expect(await screen.findByTestId('today-overview')).toBeInTheDocument();
     expect(screen.queryByTestId('dashboard-briefing')).not.toBeInTheDocument();
-    expect(screen.getByTestId('revenue-trend-card')).toBeInTheDocument();
+    // Hoy already shows today's sales, so the 30-day card drops its latest-day figure.
+    expect(screen.getByTestId('revenue-trend-card')).toHaveAttribute(
+      'data-hide-latest-day',
+      'true'
+    );
     expect(screen.getByTestId('low-stock-card')).toBeInTheDocument();
+  });
+
+  it('keeps the latest-day figure while Hoy has no day to show', async () => {
+    todayData.current = undefined;
+    useIsModuleActiveMock.mockReturnValue(false);
+    render(<DashboardPage />);
+    await screen.findByTestId('today-overview');
+    expect(screen.getByTestId('revenue-trend-card')).toHaveAttribute(
+      'data-hide-latest-day',
+      'false'
+    );
   });
 
   it('keeps the read-only briefing for viewers', () => {
@@ -128,6 +154,17 @@ describe('DashboardPage audience', () => {
     render(<DashboardPage />);
     expect(screen.getByTestId('dashboard-briefing')).toBeInTheDocument();
     expect(screen.queryByTestId('today-overview')).not.toBeInTheDocument();
+    // The count metric counts completed sales, not purchase or customer orders.
+    expect(screen.getByTestId('dashboard-stats')).toHaveTextContent('Sales count today');
+    expect(screen.getByTestId('dashboard-stats')).not.toHaveTextContent(/orders/i);
+    // Viewers cannot open a till, so the briefing offers no way into sales.
+    expect(
+      screen.queryByRole('link', { name: /go to sales|ir a ventas/i })
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('revenue-trend-card')).toHaveAttribute(
+      'data-hide-latest-day',
+      'false'
+    );
   });
 });
 

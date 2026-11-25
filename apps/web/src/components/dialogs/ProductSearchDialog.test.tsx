@@ -13,9 +13,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { act, screen, waitFor } from '@testing-library/react';
-import { render } from '@/test/utils';
+import { createMockTenantSettings, render } from '@/test/utils';
 import i18n from '@/i18n';
+import { AuthContext, type AuthContextType } from '@/features/auth/AuthContext';
+import type { TenantSettings } from '@/types';
 import { ProductSearchDialog } from './ProductSearchDialog';
+import { PRODUCT_SEARCH_UNIT_SELECT_ID } from './productSearchSelection';
 
 // Default mock: zero matches, not loading, no error. Individual tests
 // override per-suite when they need other shapes.
@@ -34,6 +37,10 @@ const suggestionsQueryState = {
   error: null as { message: string } | null,
 };
 const activeSuggestionsUseQuery = vi.fn((..._args: unknown[]) => suggestionsQueryState);
+const genericQueryState = {
+  data: { sourcePrice: null as number | null, items: [] as unknown[] },
+};
+const genericAlternativesUseQuery = vi.fn((..._args: unknown[]) => genericQueryState);
 const productsSearchUseQuery = vi.fn((..._args: unknown[]) => trpcQueryState);
 
 vi.mock('@/lib/trpc', () => ({
@@ -48,6 +55,11 @@ vi.mock('@/lib/trpc', () => ({
         useQuery: (...args: unknown[]) => activeSuggestionsUseQuery(...args),
       },
     },
+    pharmacy: {
+      genericAlternatives: {
+        useQuery: (...args: unknown[]) => genericAlternativesUseQuery(...args),
+      },
+    },
   },
 }));
 
@@ -59,7 +71,9 @@ beforeEach(async () => {
   trpcQueryState.isLoading = false;
   trpcQueryState.error = null;
   suggestionsQueryState.data = { items: [] };
+  genericQueryState.data = { sourcePrice: null, items: [] };
   activeSuggestionsUseQuery.mockClear();
+  genericAlternativesUseQuery.mockClear();
   productsSearchUseQuery.mockClear();
 });
 
@@ -226,6 +240,42 @@ describe('<ProductSearchDialog /> empty-state CTA', () => {
     expect(screen.queryByTestId('product-search-empty-state')).not.toBeInTheDocument();
   });
 
+  it('lists the unit cost instead of the sale price for procurement', async () => {
+    trpcQueryState.data = {
+      items: [
+        {
+          id: 'p-1',
+          name: 'Gaseosa',
+          sku: 'GAS-01',
+          stock: 10,
+          price: 2500,
+          cost: 1550,
+          baseUnitPrice: 2500,
+          baseUnitAbbreviation: 'UND',
+          unitAssignments: [
+            {
+              unitId: 'u-1',
+              unitName: 'Unidad',
+              unitAbbreviation: 'UND',
+              equivalence: 1,
+              price: 2500,
+              isBase: true,
+            },
+          ],
+        },
+      ],
+      total: 1,
+    } as unknown as typeof trpcQueryState.data;
+    const user = userEvent.setup();
+    renderDialog({ priceMode: 'cost' });
+    await user.type(screen.getByPlaceholderText(/Search by SKU/i), 'gas');
+
+    expect(await screen.findByRole('columnheader', { name: 'Cost' })).toBeInTheDocument();
+    const row = screen.getByText('Gaseosa').closest('tr')!;
+    expect(row).toHaveTextContent(/1[.,]550/);
+    expect(row).not.toHaveTextContent(/2[.,]500/);
+  });
+
   it('requests stock-tracked products only for inventory workflows', async () => {
     const user = userEvent.setup();
     const { unmount } = renderDialog({ stockTrackedOnly: true });
@@ -279,7 +329,7 @@ describe('<ProductSearchDialog /> empty-state CTA', () => {
   });
 
   // the expiry-radar badge is opt-in per caller: only rows whose
-  // product has an active suggestion AND showDiscountSuggestions is on
+  // product has an active suggestion AND registerHints is on
   // render the chip.
   it('renders the discount-suggestion badge only when the caller opts in', async () => {
     const matchedProduct = {
@@ -314,7 +364,7 @@ describe('<ProductSearchDialog /> empty-state CTA', () => {
 
     const user = userEvent.setup();
     const { unmount } = renderDialog({
-      showDiscountSuggestions: true,
+      registerHints: true,
       siteId: 'site-1',
     });
     await user.type(screen.getByPlaceholderText(/Search by SKU/i), 'arroz');
@@ -648,5 +698,236 @@ describe('<ProductSearchDialog /> keyboard navigation', () => {
     // Just rendering with an empty list should not throw — activeRowIndex
     // stays at 0 with no rows to focus.
     expect(screen.queryAllByTestId(/product-search-row-/i)).toHaveLength(0);
+  });
+});
+
+describe('<ProductSearchDialog /> register zones', () => {
+  const boxedRice = buildProduct({
+    id: 'p-1',
+    unitAssignments: [
+      { unitId: 'u-box', unitName: 'Caja', equivalence: 12, price: 36000, isBase: false },
+      { unitId: 'u-1', unitName: 'Unidad', equivalence: 1, price: 3200, isBase: true },
+    ],
+  });
+  const unitSelect = () => document.getElementById(PRODUCT_SEARCH_UNIT_SELECT_ID);
+
+  function renderForProfile(
+    businessType: NonNullable<TenantSettings['businessType']>,
+    overrides: Partial<React.ComponentProps<typeof ProductSearchDialog>> = {}
+  ) {
+    const session = { tenant: { settings: createMockTenantSettings({ businessType }) } };
+    const onSelect = vi.fn();
+    render(
+      <AuthContext.Provider value={session as unknown as AuthContextType}>
+        <ProductSearchDialog
+          isOpen
+          onClose={vi.fn()}
+          onSelect={onSelect}
+          registerHints
+          siteId="site-1"
+          {...overrides}
+        />
+      </AuthContext.Provider>
+    );
+    return onSelect;
+  }
+
+  beforeEach(() => {
+    trpcQueryState.data = { items: [boxedRice], total: 1 } as typeof trpcQueryState.data;
+    suggestionsQueryState.data = {
+      items: [{ id: 's-1', productId: 'p-1', lotId: 'lot-1', discountPct: 20 }],
+    };
+  });
+
+  it('sells the base unit with no unit details when the picker is off', async () => {
+    const onSelect = renderForProfile('pharmacy', {
+      showUnitPicker: false,
+      confirmLabel: 'Add to cart',
+    });
+    const user = await fillSearchAndAwaitRows(1);
+    await user.click(screen.getByText('Arroz Diana 500g'));
+
+    expect(screen.getByText('Available stock')).toBeInTheDocument();
+    expect(unitSelect()).toBeNull();
+    expect(screen.queryByText('Equivalence')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Add to cart' }));
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ unit: expect.objectContaining({ unitId: 'u-1' }), price: 3200 })
+    );
+  });
+
+  it('keeps the unit picker by default', async () => {
+    renderForProfile('hardware');
+    const user = await fillSearchAndAwaitRows(1);
+    await user.click(screen.getByText('Arroz Diana 500g'));
+    expect(unitSelect()).not.toBeNull();
+  });
+
+  it('offers the other units as price chips on hardware; a chip picks the product in that unit', async () => {
+    const onSelect = renderForProfile('hardware', { confirmLabel: 'Add to cart' });
+    const user = await fillSearchAndAwaitRows(1);
+    const chip = screen.getByTestId('product-unit-chip-ABR-0001-u-box');
+    expect(chip).toHaveTextContent('Caja × 12 · $36,000.00');
+    // The default unit's price is the row's price column.
+    expect(screen.queryByTestId('product-unit-chip-ABR-0001-u-1')).not.toBeInTheDocument();
+
+    await user.click(chip);
+    expect(chip).toHaveAttribute('aria-pressed', 'true');
+    expect(unitSelect()).toHaveValue('u-box');
+    await user.click(screen.getByRole('button', { name: 'Add to cart' }));
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ unit: expect.objectContaining({ unitId: 'u-box' }), price: 36000 })
+    );
+  });
+
+  it.each(['pharmacy', 'retail'] as const)('keeps unit chips off for %s', async businessType => {
+    renderForProfile(businessType);
+    await fillSearchAndAwaitRows(1);
+    expect(screen.queryByTestId('product-unit-chips-ABR-0001')).not.toBeInTheDocument();
+  });
+
+  it('names the site with the most stock beside this site, in the register only', async () => {
+    trpcQueryState.data = {
+      items: [{ ...boxedRice, otherSites: [{ siteId: 's-2', siteName: 'Sede Sur', onHand: 120 }] }],
+      total: 1,
+    } as typeof trpcQueryState.data;
+    const { unmount } = render(
+      <ProductSearchDialog isOpen onClose={vi.fn()} onSelect={vi.fn()} registerHints siteId="s-1" />
+    );
+    await fillSearchAndAwaitRows(1);
+    expect(screen.getByTestId('product-other-site-ABR-0001')).toHaveTextContent('120 at Sede Sur');
+    unmount();
+
+    renderDialog({ siteId: 's-1' });
+    await fillSearchAndAwaitRows(1);
+    expect(screen.queryByTestId('product-other-site-ABR-0001')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['pharmacy', true],
+    ['retail', false],
+    ['hardware', false],
+    ['restaurant', false],
+  ] as const)('expiry badges follow the lot zone for %s', async (businessType, shown) => {
+    renderForProfile(businessType);
+    await fillSearchAndAwaitRows(1);
+
+    expect(screen.queryByTestId('product-discount-suggestion-ABR-0001') !== null).toBe(shown);
+    expect(activeSuggestionsUseQuery).toHaveBeenLastCalledWith(
+      { siteId: 'site-1' },
+      expect.objectContaining({ enabled: shown })
+    );
+  });
+});
+
+describe('ProductSearchDialog pharmacy hints', () => {
+  const unit = {
+    unitId: 'u-1',
+    unitName: 'Unidad',
+    unitAbbreviation: 'UND',
+    equivalence: 1,
+    price: 0,
+    isBase: true,
+  };
+  function medicine(
+    id: string,
+    sku: string,
+    name: string,
+    price: number,
+    nextLot: unknown,
+    classification: 'otc' | 'prescription' = 'otc'
+  ) {
+    return {
+      id,
+      sku,
+      name,
+      stock: 10,
+      baseUnitPrice: price,
+      unitAssignments: [{ ...unit, price }],
+      categoryName: null,
+      providerName: null,
+      nextLot,
+      pharmacy: { activeIngredient: 'Acetaminofén', manufacturer: 'GSK', classification },
+    };
+  }
+  const results = [
+    medicine('p-dolex', 'DOLEX', 'Dolex 500 mg', 9300, {
+      lotNumber: 'L2409',
+      expiresAt: '2027-03-15',
+      daysToExpiry: 480,
+      nearExpiry: false,
+    }),
+    medicine('p-mk', 'MK', 'Acetaminofén MK 500 mg', 3200, null),
+    medicine(
+      'p-jbe',
+      'JBE',
+      'Acetaminofén jarabe',
+      5400,
+      { lotNumber: 'L2318', expiresAt: '2026-12-31', daysToExpiry: 40, nearExpiry: true },
+      'prescription'
+    ),
+  ];
+
+  it('shows each medicine lot and class, and the savings of cheaper equivalents of the pick', async () => {
+    trpcQueryState.data = { items: results, total: 3 } as unknown as typeof trpcQueryState.data;
+    genericQueryState.data = {
+      sourcePrice: 9300,
+      items: [
+        {
+          productId: 'p-mk',
+          name: 'Acetaminofén MK 500 mg',
+          sku: 'MK',
+          price: 3200,
+          savings: 6100,
+        },
+        {
+          productId: 'p-other',
+          name: 'Acetaminofén Genérico',
+          sku: 'OTHER',
+          price: 2900,
+          savings: 6400,
+        },
+      ],
+    };
+    const user = userEvent.setup();
+    renderDialog({ registerHints: true, siteId: 'site-1', priceTier: 2 });
+    await user.type(screen.getByPlaceholderText(/Search by SKU/i), 'acetam');
+
+    expect(await screen.findByTestId('product-lot-DOLEX')).toHaveTextContent(
+      'Lot L2409 · expires Mar 2027'
+    );
+    expect(screen.getByTestId('product-lot-JBE')).toHaveTextContent(
+      'Expires in 40 days · sell this lot first'
+    );
+    expect(screen.getByTestId('product-class-DOLEX')).toHaveTextContent('Over the counter');
+    expect(screen.getByTestId('product-class-JBE')).toHaveTextContent('Prescription');
+    expect(screen.queryByTestId('product-generic-savings-MK')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('product-search-row-DOLEX'));
+    expect(genericAlternativesUseQuery).toHaveBeenLastCalledWith(
+      { productId: 'p-dolex', siteId: 'site-1', priceTier: 2, limit: 3 },
+      expect.objectContaining({ enabled: true })
+    );
+    expect(screen.getByTestId('product-generic-savings-MK')).toHaveTextContent(
+      /Saves the customer/
+    );
+    // The listed equivalent is badged on its row, the other one is offered beside the pick.
+    expect(screen.queryByTestId('product-generic-choose-MK')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('product-generic-choose-OTHER'));
+    expect(screen.getByPlaceholderText(/Search by SKU/i)).toHaveValue('OTHER');
+  });
+
+  it('keeps the catalog line and asks for no generics outside the register', async () => {
+    trpcQueryState.data = { items: results, total: 3 } as unknown as typeof trpcQueryState.data;
+    const user = userEvent.setup();
+    renderDialog({});
+    await user.type(screen.getByPlaceholderText(/Search by SKU/i), 'acetam');
+    await user.click(await screen.findByTestId('product-search-row-DOLEX'));
+
+    expect(screen.queryByTestId('product-pharmacy-hints-DOLEX')).not.toBeInTheDocument();
+    expect(genericAlternativesUseQuery).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ enabled: false })
+    );
   });
 });

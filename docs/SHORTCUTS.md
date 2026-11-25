@@ -48,6 +48,7 @@ remap an ordinary printable key by keyboard position.
 | `sales.charge`           | `F1`          | Open payment, or submit the payment form when it already owns focus. |
 | `sales.fastCash`         | `F2`          | Open/reset exact-cash payment.                                       |
 | `sales.productSearch`    | `F5`          | Open product search.                                                 |
+| `sales.incident`         | `F9`          | Open or close the incident sheet over the sale.                      |
 | `sales.focusProduct`     | `Alt+P`       | Focus product/barcode search.                                        |
 | `sales.focusQuantity`    | `Alt+C`       | Focus the selected line quantity.                                    |
 | `sales.focusDiscount`    | `Alt+D`       | Focus the selected line discount.                                    |
@@ -65,6 +66,12 @@ remap an ordinary printable key by keyboard position.
 All sales/register shortcuts are limited to admin, manager and cashier roles.
 State guards intentionally leave unavailable actions inert instead of opening
 an unrelated fallback.
+
+Inside the incident sheet each tile has a fixed letter in every language: `D`
+return, `A` void, `P` price check, `G` out of stock, `S` no barcode, `C` price
+mismatch, `M` cash in or out, `R` reprint and `L` call the manager. Letters act
+only while the tiles show and never from an editable field; `Enter` sends a
+report and `Esc` closes.
 
 ### Register command bar prefixes
 
@@ -107,8 +114,8 @@ or recovery controls do not claim a shortcut they cannot execute.
 
 Current ARIA wiring includes desktop/mobile navigation, the command-palette
 launcher, product search and unit selection, payment and fast cash, cart
-quantity/discount/remove/undo, suspended carts, new sale and cash-session
-open/movement/close controls.
+quantity/discount/remove/undo, suspended carts, new sale, the incident key and
+its lettered tiles, and cash-session open/movement/close controls.
 
 Automated accessibility and live browser assertions protect this mapping, but
 they do not replace a moderated keyboard study or a real Windows NVDA pass;

@@ -2,6 +2,7 @@
 // monolithic `types/domain.ts`,  slice 28). String-literal unions
 // live in `../ui`.
 
+import type { RegisterZoneOverrides } from '@puntovivo/shared/register-zones';
 import type { VerticalPresetId } from '@puntovivo/shared/vertical-presets';
 import type { UserRole } from '../ui';
 
@@ -59,6 +60,7 @@ export interface TenantSettings {
    */
   cashClose?: {
     blindClose: boolean;
+    cashRoundingStep?: number | null;
   };
   /**
    * tenant-tuned expiry-discount ladder (first match wins,
@@ -68,6 +70,8 @@ export interface TenantSettings {
   discount?: {
     expiryTiers: Array<{ maxDays: number; pct: number }>;
   };
+  /** Admin overrides of the register zones; absent zones follow the profile. */
+  registerZones?: RegisterZoneOverrides;
 }
 
 export interface Site {

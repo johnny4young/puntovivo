@@ -1,7 +1,6 @@
 {
   "brand": {
     "title": "Puntovivo",
-    "tagline": "Consola Retail",
     "workspaceKicker": "Punto de venta"
   },
   "header": {
@@ -126,7 +125,7 @@
       "title": "Dispositivos"
     },
     "auditLogs": {
-      "kicker": "Gobierno",
+      "kicker": "Control",
       "title": "Auditoría"
     },
     "fiscalDocuments": {
@@ -186,7 +185,7 @@
     "overview": "Resumen",
     "flow": "Operaciones",
     "setup": "Configuración",
-    "surfaces": "Superficies"
+    "surfaces": "Pantallas"
   },
   "items": {
     "dashboard": "Hoy",

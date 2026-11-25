@@ -1,3 +1,4 @@
+import { seedCustomerReferenceCatalogs } from '../customers/reference-catalog-defaults.js';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -226,6 +227,8 @@ export function createInstallationSetup(db: DatabaseInstance): InstallationSetup
                 updatedAt: now,
               })
               .run();
+            // Reference lists only; a customer's own document and regime are still chosen per customer.
+            seedCustomerReferenceCatalogs(tx, { tenantId, countryCode: country.code, now });
             const completed = tx
               .update(installationSetup)
               .set({ completedAt: now, completionKind: 'owner_claim' })

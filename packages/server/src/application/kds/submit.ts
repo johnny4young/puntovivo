@@ -162,6 +162,7 @@ export function submitKitchenSaleInTransaction(
           checkLineId: restaurantLineModifiers.checkLineId,
           name: restaurantLineModifiers.name,
           quantity: restaurantLineModifiers.quantity,
+          kind: restaurantLineModifiers.groupKind,
         })
         .from(restaurantLineModifiers)
         .where(
@@ -184,7 +185,11 @@ export function submitKitchenSaleInTransaction(
   const modifiersByLine = new Map<string, KdsModifierSnapshot[]>();
   for (const modifier of modifiers) {
     const values = modifiersByLine.get(modifier.checkLineId) ?? [];
-    values.push({ name: modifier.name, quantity: modifier.quantity });
+    values.push({
+      name: modifier.name,
+      quantity: modifier.quantity,
+      ...(modifier.kind ? { kind: modifier.kind } : {}),
+    });
     modifiersByLine.set(modifier.checkLineId, values);
   }
   const groups = new Map<string, { station: KdsStationRow; rows: typeof pending }>();

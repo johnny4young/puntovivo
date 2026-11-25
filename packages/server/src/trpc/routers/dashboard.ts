@@ -11,7 +11,7 @@
 
 import { and, asc, desc, eq, lte, sql } from 'drizzle-orm';
 import { router } from '../init.js';
-import { tenantProcedure } from '../middleware/tenant.js';
+import { dashboardReadProcedure } from '../middleware/roles.js';
 import { customers, products, sales } from '../../db/schema.js';
 import { productStockTotalSql } from '../../services/inventory-balances/derive.js';
 import {
@@ -33,7 +33,7 @@ function getRevenueEligibleSaleConditions(tenantId: string) {
 }
 
 export const dashboardRouter = router({
-  summary: tenantProcedure.query(async ({ ctx }) => {
+  summary: dashboardReadProcedure.query(async ({ ctx }) => {
     const now = new Date();
     // The shared business clock owns the tenant calendar: it fails closed with
     // TENANT_TIMEZONE_INVALID for a legacy unsupported override instead of

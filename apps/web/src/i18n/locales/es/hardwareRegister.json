@@ -1,0 +1,20 @@
+{
+  "line": {
+    "unitFor": "Unidad de {{name}}",
+    "cutToMeasure": "corte a medida",
+    "service": "Servicio",
+    "listPrice": "Precio de lista"
+  },
+  "search": {
+    "atSite": "{{onHand}} en {{site}}",
+    "unitChip": "{{unit}} × {{equivalence}} · {{price}}",
+    "unitChipSingle": "{{unit}} · {{price}}"
+  },
+  "delivery": {
+    "key": "Entregar en obra",
+    "title": "Entregar en obra",
+    "sale": "Venta {{saleNumber}} · {{total}}",
+    "created": "Entrega creada",
+    "createdDetail": "{{saleNumber}} va para {{address}}"
+  }
+}

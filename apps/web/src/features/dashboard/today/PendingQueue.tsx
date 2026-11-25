@@ -10,12 +10,21 @@ import {
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { cn } from '@/lib/utils';
-import { filterPending, type PendingFilter, type TodayPendingItem } from './todayModel';
+import {
+  ago,
+  clip,
+  REASON_MAX,
+  filterPending,
+  type PendingFilter,
+  type TodayPendingItem,
+} from './todayModel';
 
 interface PendingQueueProps {
   numbered: ReadonlyArray<{ item: TodayPendingItem; rank: number }>;
   canAct: boolean;
   approverId: string | null;
+  /** When the queue was read; ages are measured against it. */
+  nowIso: string;
   formatCurrency: (value: number) => string;
   formatTime: (iso: string) => string;
 }
@@ -30,6 +39,7 @@ export function PendingQueue({
   numbered,
   canAct,
   approverId,
+  nowIso,
   formatCurrency,
   formatTime,
 }: PendingQueueProps) {
@@ -101,6 +111,7 @@ export function PendingQueue({
                     emphasized={item.id === firstBlocking}
                     canAct={canAct}
                     approverId={approverId}
+                    nowIso={nowIso}
                     formatCurrency={formatCurrency}
                     formatTime={formatTime}
                   />
@@ -120,6 +131,7 @@ function PendingRow({
   emphasized,
   canAct,
   approverId,
+  nowIso,
   formatCurrency,
   formatTime,
 }: {
@@ -128,6 +140,7 @@ function PendingRow({
   emphasized: boolean;
   canAct: boolean;
   approverId: string | null;
+  nowIso: string;
   formatCurrency: (value: number) => string;
   formatTime: (iso: string) => string;
 }) {
@@ -140,7 +153,7 @@ function PendingRow({
     onError: onErrorToast(toast, t, { titleKey: 'dashboard:today.pending.resolveError' }),
   });
 
-  const { title, detail } = describe(item, t, formatCurrency, formatTime);
+  const { title, detail } = describe(item, t, nowIso, formatCurrency, formatTime);
   const action = canAct ? rowAction(item, t) : null;
 
   return (
@@ -226,10 +239,50 @@ function PendingRow({
 }
 
 type Translate = ReturnType<typeof useTranslation>['t'];
+type Incident = Extract<TodayPendingItem, { kind: 'incident' }>['incident'];
+
+/** Only a stockout offers a transfer, from the other site holding the most stock. */
+function transferSource(incident: Incident) {
+  if (incident.kind !== 'stockout') return null;
+  return incident.stockBySite.reduce<Incident['stockBySite'][number] | null>(
+    (best, site) =>
+      site.siteId !== incident.siteId && site.onHand > (best?.onHand ?? 0) ? site : best,
+    null
+  );
+}
+
+/** What the cashier reported beyond the product: the reason, both prices, or the note. */
+function incidentFacts(
+  incident: Incident,
+  t: Translate,
+  formatCurrency: (value: number) => string
+): Array<string | false | null> {
+  switch (incident.kind) {
+    case 'stockout':
+      return [incident.reason && t(`dashboard:today.pending.incidentReason.${incident.reason}`)];
+    case 'price_mismatch':
+      return [
+        incident.shelfPrice !== null &&
+          t('dashboard:today.pending.incidentShelfPrice', {
+            price: formatCurrency(incident.shelfPrice),
+          }),
+        incident.systemPrice !== null &&
+          t('dashboard:today.pending.incidentSystemPrice', {
+            price: formatCurrency(incident.systemPrice),
+          }),
+      ];
+    case 'no_barcode':
+      // Without a product the note is already the title.
+      return [incident.productName ? incident.note : null];
+    case 'call_manager':
+      return [incident.note];
+  }
+}
 
 function describe(
   item: TodayPendingItem,
   t: Translate,
+  nowIso: string,
   formatCurrency: (value: number) => string,
   formatTime: (iso: string) => string
 ): { title: string; detail: string } {
@@ -237,14 +290,15 @@ function describe(
     case 'approval':
       return {
         title: t('dashboard:today.pending.approval', {
-          label: item.label,
+          label: item.label ?? t(`common:userMenu.approvals.actions.${item.action}`),
           amount: item.amount === null ? '' : formatCurrency(item.amount),
         }),
-        detail: t('dashboard:today.pending.approvalDetail', {
-          requester: item.requesterName,
-          site: item.siteName,
-          time: formatTime(item.at),
-        }),
+        detail: [
+          item.requesterName,
+          clip(item.reason, REASON_MAX),
+          item.siteName,
+          ago(item.at, nowIso, t),
+        ].join(' · '),
       };
     case 'staleSession':
       return {
@@ -255,23 +309,25 @@ function describe(
         detail: t('dashboard:today.pending.staleSessionDetail', { cashier: item.cashierName }),
       };
     case 'incident': {
-      const elsewhere = item.incident.stockBySite.find(
-        site => site.siteId !== item.incident.siteId && site.onHand > 0
-      );
+      const { incident } = item;
+      const source = transferSource(incident);
       return {
-        title: t(`dashboard:today.pending.incident.${item.incident.kind}`, {
-          product: item.incident.productName ?? item.incident.note ?? '',
+        title: t(`dashboard:today.pending.incident.${incident.kind}`, {
+          product: incident.productName ?? incident.note ?? '',
+          reporter: incident.reportedByName,
         }),
-        detail: t('dashboard:today.pending.incidentDetail', {
-          reporter: item.incident.reportedByName,
-          site: item.incident.siteName,
-          elsewhere: elsewhere
-            ? t('dashboard:today.pending.elsewhere', {
-                site: elsewhere.siteName,
-                count: elsewhere.onHand,
-              })
-            : '',
-        }),
+        detail: [
+          ...incidentFacts(incident, t, formatCurrency),
+          // A call already names the cashier in its title.
+          incident.kind !== 'call_manager' &&
+            t('dashboard:today.pending.incidentReporter', { reporter: incident.reportedByName }),
+          incident.siteName,
+          formatTime(item.at),
+          source &&
+            t('dashboard:today.pending.elsewhere', { site: source.siteName, count: source.onHand }),
+        ]
+          .filter(Boolean)
+          .join(' · '),
       };
     }
     case 'attention':
@@ -296,14 +352,12 @@ function rowAction(
         label: t('dashboard:today.pending.actions.countAndClose'),
       };
     case 'incident': {
-      const elsewhere = item.incident.stockBySite.find(
-        site => site.siteId !== item.incident.siteId && site.onHand > 0
-      );
-      return item.incident.kind === 'stockout' && elsewhere
+      const source = transferSource(item.incident);
+      return source
         ? {
             kind: 'link',
             to: '/inventory?view=balances',
-            label: t('dashboard:today.pending.actions.transfer', { count: elsewhere.onHand }),
+            label: t('dashboard:today.pending.actions.transfer', { count: source.onHand }),
           }
         : null;
     }

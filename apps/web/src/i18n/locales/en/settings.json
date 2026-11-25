@@ -234,13 +234,13 @@
     },
     "logo": {
       "title": "Logo Library",
-      "description": "Manage reusable tenant logos and choose which one represents the company.",
+      "description": "Manage reusable company logos and choose which one represents the company.",
       "addLogo": "Add Logo",
       "currentLogo": "Current company logo",
       "selectedLogo": "Selected logo",
       "noLogoSelected": "No logo selected for the company.",
       "loadingTitle": "Logo library",
-      "loadingDescription": "Loading saved tenant logos.",
+      "loadingDescription": "Loading saved company logos.",
       "loadError": "Unable to load logos",
       "emptyLibrary": "No saved logos yet. Add one to start building a reusable brand library.",
       "companyAssignments_one": "{{count}} company assignment",
@@ -389,7 +389,7 @@
         "acceptRemoteMessage": "Accept the remote {{entity}} version and discard the local conflict state?",
         "discardLocalMessage": "The local {{entity}} record no longer exists. Discard this stale local change so the rest of the queue can continue?",
         "mergeTitle": "Merge Conflict Data",
-        "mergeDescription": "Review the local and remote payloads for this {{entity}}, then edit the merged JSON that should be requeued for sync.",
+        "mergeDescription": "Review the local and remote data for this {{entity}}, then edit the merged JSON that should be requeued for sync.",
         "localData": "Local Data",
         "remoteData": "Remote Data",
         "mergedJson": "Merged JSON",
@@ -633,6 +633,9 @@
       "blindLabel": "Blind close",
       "blindOnHint": "Cashiers count without seeing the expected balance; managers and admins see the live over/short indicator.",
       "blindOffHint": "Every role sees the live over/short indicator while counting.",
+      "cashRoundingLabel": "Round cash to multiples of {{step}}",
+      "cashRoundingOnHint": "Cash sales round to the nearest {{step}} so drawers match physical coins; card and transfer stay on the exact currency unit.",
+      "cashRoundingOffHint": "Every sale uses the currency's exact payable unit without coin rounding.",
       "sessionNote": "Changes reach each register on the next login or page refresh.",
       "toast": {
         "saved": "Cash close settings saved",
@@ -870,9 +873,9 @@
       "denied": "No access",
       "cellLabel": "{{role}}: {{workspace}} — {{access}}",
       "roleDescriptions": {
-        "admin": "Full tenant setup, financial controls, staff, and daily operations.",
+        "admin": "Full business setup, financial controls, staff, and daily operations.",
         "manager": "Daily operations, catalog, inventory, procurement, and customers.",
-        "cashier": "Sales and the enabled point-of-service surfaces.",
+        "cashier": "Sales and the enabled register screens.",
         "viewer": "Read-only access to the dashboard overview."
       },
       "note": "This matrix shows default workspace access. Active modules can hide individual tools, and server authorization is always enforced for every action."

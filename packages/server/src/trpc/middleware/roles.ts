@@ -43,6 +43,13 @@ export const companionReadProcedure = tenantProcedure.use(
   )
 );
 
+export const dashboardReadProcedure = tenantProcedure.use(
+  createRoleGuard(
+    DASHBOARD_ROLES,
+    'Only administrators, managers, and viewers can view dashboard summaries'
+  )
+);
+
 export const cashierManagerOrAdminProcedure = tenantProcedure.use(
   createRoleGuard(
     SALES_ROLES,

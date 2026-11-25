@@ -2,8 +2,7 @@
   "page": {
     "todaySales": "Today's sales",
     "transactions": "Transactions",
-    "averageOrder": "Average order",
-    "draftTotal": "Draft total"
+    "averageOrder": "Average order"
   },
   "view": {
     "history": "History",
@@ -35,8 +34,6 @@
     "addToCart": "Add to cart",
     "itemCount": "Items",
     "activeTicket": "Active ticket",
-    "lineItems_one": "{{count}} line item",
-    "lineItems_other": "{{count}} line items",
     "clearCart": "Clear cart",
     "priceTier": {
       "groupLabel": "Price level for this ticket",
@@ -100,6 +97,8 @@
     "closingCount": "Closing count",
     "openAction": "Open cash session",
     "closeAction": "Close cash session",
+    "handOverAction": "Hand over shift",
+    "receiveAction": "Receive {{register}}",
     "recordMovementAction": "Record movement",
     "assignmentLabel": "Assigned register",
     "assignmentPlaceholder": "Select a register",
@@ -159,15 +158,12 @@
       "registerNameRequired": "Enter the register name.",
       "openingFloat": "Opening float",
       "openingFloatRequired": "Opening float cannot be negative.",
-      "countedTotal": "Counted total",
-      "description": "Count each denomination and confirm it matches the opening float before starting the shift.",
-      "mismatch": "The opening float must match the denomination count total.",
+      "description": "Count each denomination; the opening float is their total.",
       "denominations": "Denomination count",
       "denominationsHint": "Use whole counts for each bill or coin available in the drawer.",
       "lineTotal": "Line total: {{total}}",
       "countFor": "Count for denomination {{denomination}}",
       "firstDay": "First day",
-      "differenceLabel": "Difference",
       "incrementCount": "Increment",
       "decrementCount": "Decrement",
       "defaultRegisterName": "Main register"
@@ -178,25 +174,20 @@
       "cancel": "Cancel",
       "confirm": "Close session",
       "closing": "Closing...",
-      "description": "Count the full drawer, enter the blind closing total, and submit the denomination breakdown to reconcile the shift.",
+      "description": "Count the full drawer by denomination; the blind closing total is their sum.",
       "supervisedDescription": "Count the drawer by denomination. Live balancing feedback is available because you are supervising this close.",
       "registerName": "Register",
       "openedAt": "Opened at",
       "actualCount": "Blind closing total",
       "supervisedActualCount": "Closing total",
       "actualCountRequired": "Closing count cannot be negative.",
-      "countedTotal": "Denomination total",
       "blindCloseHint": "The expected drawer balance stays hidden until you submit the count.",
       "supervisedCloseHint": "Live over/short feedback is visible to managers and administrators.",
-      "mismatch": "The blind closing total must match the denomination count total.",
-      "supervisedMismatch": "The closing total must match the denomination count total.",
       "denominations": "Closing denomination count",
       "denominationsHint": "Use whole counts for every bill or coin still in the drawer.",
       "countFor": "Count for denomination {{denomination}}",
       "blindBadge": "Blind close",
       "supervisedBadge": "Supervised close",
-      "justificationLabel": "Justification (optional)",
-      "justificationPlaceholder": "Explain any surplus or shortage…",
       "liveDelta": {
         "balanced": "Balanced — counted matches expected",
         "over": "Over — counted exceeds expected",
@@ -342,22 +333,24 @@
     "notes": "Notes",
     "notesHint": "Optional comments for the sale",
     "tip": {
-      "heading": "Tip",
+      "heading": "Voluntary tip",
       "presetZero": "No tip",
       "presetPercentage": "{{percentage}}%",
-      "customLabel": "Custom amount",
-      "grandTotalBreakdown": "Base {{base}} + tip {{tip}}"
+      "custom": "Other amount",
+      "customLabel": "Tip amount"
     },
+    "consumption": "Consumption {{amount}}",
+    "consumptionTaxIncluded": "Consumption tax included {{amount}}",
+    "rounding": "Rounding {{amount}}",
     "serviceCharge": {
       "heading": "Service charge",
       "helper": "Auto-applied to the subtotal.",
-      "rateLabel": "Service ({{rate}}%)",
-      "grandTotalBreakdownOnly": "Base {{base}} + service {{service}}",
-      "grandTotalBreakdownWithTip": "Base {{base}} + service {{service}} + tip {{tip}}"
+      "rateLabel": "Service ({{rate}}%)"
     },
     "lockedCustomer": "Quotation customer",
     "confirmPartialAmount": "Confirm partial sale · {{amount}} missing",
     "confirmSplitMissing": "Confirm sale · {{amount}} missing",
+    "confirmWholeAmounts": "Use whole amounts, without cents",
     "confirmSplitOver": "Confirm sale · {{amount}} over",
     "partialTitle": "This sale will remain partially paid",
     "partialWarning": "The outstanding balance is {{amount}}. Confirm only if you intend to leave this balance unpaid.",
@@ -394,13 +387,22 @@
       "configure": "Set up",
       "loadError": "The transfer accounts could not be loaded.",
       "approvalNeedsReference": "Type the transfer reference before asking for approval."
+    },
+    "wallet": {
+      "providerQrTitle": "Show the {{rail}} QR",
+      "pending": "Waiting for {{rail}} to confirm. The sale confirms itself when the payment arrives.",
+      "approved": "{{rail}} confirmed the payment.",
+      "approvedConfirming": "{{rail}} confirmed the payment. Confirming the sale…",
+      "declined": "{{rail}} declined the payment. Ask for another payment method.",
+      "unavailable": "The payment provider did not answer. You confirm the money arrived.",
+      "leftApproved": "{{rail}} had already confirmed that charge. Check before charging again."
     }
   },
   "history": {
     "title": "Sales history",
     "kicker": "Receipts",
     "description": "Review recent receipts, payment states, and cashier activity without leaving the POS workspace.",
-    "search": "Search by invoice...",
+    "search": "Search by sale number...",
     "loading": "Loading sales...",
     "error": "Unable to load sales",
     "recordsLoaded": "records loaded",
@@ -409,7 +411,7 @@
     "viewSale": "View {{number}}",
     "viewSaleTitle": "View sale",
     "columns": {
-      "invoiceNumber": "Invoice #",
+      "saleNumber": "Sale #",
       "date": "Date",
       "customer": "Customer",
       "total": "Total",
@@ -490,6 +492,7 @@
       "expired": "Expired / damaged",
       "duplicate": "Duplicate purchase",
       "wrong_item": "Wrong item",
+      "charge_error": "Charge error",
       "other": "Other"
     },
     "linesLabel": "Returnable items",
@@ -541,7 +544,8 @@
     "shortcut": {
       "focusSearch": "Focus search",
       "openCatalog": "Open catalog"
-    }
+    },
+    "phonePlaceholder": "Search for a product"
   },
   "commandBar": {
     "grammar": "Type 3* before scanning to sell three, @ to find a customer or / to see register actions.",
@@ -578,7 +582,8 @@
       "catalog": "Search the catalog",
       "cashMovement": "Cash movement",
       "openCashSession": "Open register",
-      "closeCashSession": "Close register"
+      "closeCashSession": "Close register",
+      "incident": "Incident"
     }
   },
   "paymentStatus": {
@@ -678,7 +683,21 @@
     "weightFromLabel": "Weight applied from the label",
     "priceFromLabel": "Price applied from the label",
     "noBaseUnit": "Product has no unit configured",
-    "resumedCartLocked": "Discard the resumed cart to add new items"
+    "resumedCartLocked": "Discard the resumed cart to add new items",
+    "camera": {
+      "open": "Scan with the camera",
+      "title": "Scan with the camera",
+      "aim": "Point the camera at the barcode.",
+      "cancel": "Cancel",
+      "retry": "Try again",
+      "torch": "Flashlight",
+      "error": {
+        "permission-denied": "Allow camera access to scan.",
+        "no-camera": "This device has no camera available.",
+        "unavailable": "The camera could not open. Search for the product by name.",
+        "busy": "Another app is using the camera. Close it and try again."
+      }
+    }
   },
   "printer": {
     "escposRetryQueued": "ESC/POS printing is saved in the queue. Check the printer and task status before printing another copy.",
@@ -740,14 +759,14 @@
     "progress": "{{collected}} of {{required}} distinct approvals received",
     "inline": {
       "title": "Approve at this register",
-      "help": "Keep this checkout open. A manager chooses their name and enters their own PIN.",
+      "help": "Keep this screen open. A manager chooses their name and enters their own PIN.",
       "loadError": "Eligible managers could not be loaded.",
       "empty": "No eligible manager is available for this approval.",
       "pinMissing": "Eligible managers need a staff PIN before they can approve here.",
       "approverLabel": "Responsible person",
       "pinLabel": "Their staff PIN",
-      "submit": "Approve checkout",
-      "success": "Checkout approved"
+      "submit": "Approve",
+      "success": "Approval recorded"
     },
     "actions": {
       "sale_discount": "Discounted checkout",
@@ -824,7 +843,7 @@
         "recovery": "Set up printer"
       },
       "payment_rail_missing": {
-        "message": "Only cash is configured — add a card or transfer rail when you need one.",
+        "message": "Only cash is configured — add a card or transfer method when you need one.",
         "recovery": "Set up payments"
       },
       "sync_backlog": {
@@ -883,8 +902,12 @@
     "storeCreditBalance": "{{amount}} store credit"
   },
   "quotationCart": {
-    "banner": "Charging quotation {{quotationNumber}}",
-    "bannerHint": "Products, quantities, prices, discounts, customer, and tier are locked to the accepted quotation. Select required serials and choose payment.",
+    "banner": "From quotation {{quotationNumber}} · prices and terms locked",
+    "bannerHint": "Select the required serials before charging.",
+    "expiresIn_one": "expires in {{count}} day",
+    "expiresIn_other": "expires in {{count}} days",
+    "expiresToday": "expires today",
+    "expired": "expired",
     "workspaceLabel": "Quotation {{quotationNumber}}"
   },
   "exchangeCart": {
@@ -929,8 +952,11 @@
       "items_other": "{{count}} items",
       "lines_one": "{{count}} line",
       "lines_other": "{{count}} lines",
+      "prescriptions": "{{count}} with prescription",
       "savings": "Discounts",
-      "taxIncluded": "Tax included"
+      "taxIncluded": "Tax included",
+      "consumptionTaxIncluded": "Consumption tax included",
+      "rounding": "Rounding"
     },
     "ready": {
       "title": "Ready to charge",
@@ -955,7 +981,11 @@
     },
     "actions": {
       "suspend": "Suspend",
-      "returns": "Return"
+      "returns": "Return",
+      "credit": "On credit",
+      "suspended": "Suspended",
+      "incident": "Incident",
+      "onAccount": "On account"
     },
     "keys": {
       "shortest": "Shortest path:",
@@ -967,6 +997,21 @@
       "parked": "sales on hold",
       "newSale": "new sale",
       "more": "everything else"
+    },
+    "phone": {
+      "total_one": "Total · {{count}} item",
+      "total_other": "Total · {{count}} items"
+    },
+    "credit": {
+      "wouldOwe": "would owe {{amount}}",
+      "owesAfter": "owes {{amount}} after",
+      "overLimit": "over the credit limit"
+    },
+    "account": {
+      "owes": "owes",
+      "ofLimit": "of {{limit}}",
+      "inFavor": "credit in favor",
+      "pay": "Take payment"
     }
   }
 }

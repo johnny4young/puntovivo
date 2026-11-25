@@ -80,7 +80,7 @@ describe('InlineApprovalDecision', () => {
 
     expect(screen.getByRole('option', { name: 'Marta Manager' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Ada Admin' })).not.toBeInTheDocument();
-    const submit = screen.getByRole('button', { name: 'Approve checkout' });
+    const submit = screen.getByRole('button', { name: 'Approve' });
     expect(submit).toBeDisabled();
 
     await user.type(screen.getByLabelText('Their staff PIN'), '97a5310');
@@ -115,6 +115,6 @@ describe('InlineApprovalDecision', () => {
       requestId: 'approval-1',
     });
     expect(onDecided).toHaveBeenCalledOnce();
-    expect(toastSuccess).toHaveBeenCalledWith({ title: 'Checkout approved' });
+    expect(toastSuccess).toHaveBeenCalledWith({ title: 'Approval recorded' });
   });
 });

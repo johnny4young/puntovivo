@@ -6,10 +6,11 @@ import { DataTable } from '../DataTable';
 import { render, createMockProduct } from '@/test/utils';
 import type { Product } from '@/types';
 
-it('does not show a first page that exceeds the empty page count', () => {
+it('hides page controls when the table is empty', () => {
   render(<DataTable columns={columns} data={[]} />);
-  expect(screen.getByText('Page 0 of 0')).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Go to next page' })).toBeDisabled();
+  expect(screen.getByText('No entries to display')).toBeVisible();
+  expect(screen.queryByText(/Page \d+ of/)).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Go to next page' })).not.toBeInTheDocument();
 });
 
 // ============================================================================

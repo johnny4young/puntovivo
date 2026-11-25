@@ -15,11 +15,12 @@ interface CashSessionMovementModalProps {
   error: string | null;
   onClose: () => void;
   onSubmit: (values: CashSessionMovementValues) => Promise<void>;
+  defaultType?: CashSessionMovementValues['type'] | undefined;
 }
 
-function createDefaultValues(): CashSessionMovementValues {
+function createDefaultValues(type: CashSessionMovementValues['type']): CashSessionMovementValues {
   return {
-    type: 'paid_in',
+    type,
     amount: 0,
     note: '',
   };
@@ -31,10 +32,11 @@ export function CashSessionMovementModal({
   error,
   onClose,
   onSubmit,
+  defaultType = 'paid_in',
 }: CashSessionMovementModalProps) {
   const { t } = useTranslation('sales');
   const form = useForm<CashSessionMovementValues>({
-    defaultValues: createDefaultValues(),
+    defaultValues: createDefaultValues(defaultType),
   });
   // Mirrors the confirm button's disabled expression, so the Enter path
   // cannot submit what the click path refuses.

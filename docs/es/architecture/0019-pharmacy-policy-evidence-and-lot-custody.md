@@ -85,6 +85,27 @@ presentar replicación parcial como completa.
   `products.list` y `products.search` evalúan metadatos solo si el negocio tiene
   perfil farmacéutico. Manda propiedad, no preset; salir del preset conserva
   búsqueda. Perfil de 50,000 productos sigue gate con presupuestos separados minorista/farmacia.
+- `pharmacy.genericAlternatives` es una lectura de sugerencia para cualquier
+  rol de venta. Para un medicamento lista los más baratos con el mismo principio
+  activo, concentración, forma farmacéutica y presentación (sin distinguir
+  mayúsculas, tildes, espacios ni separador decimal; un campo vacío nunca
+  coincide), de clase no más estricta que la del original, en la tarifa pedida y
+  la misma moneda, con el
+  ahorro, el stock vendible de la sede y el lote FEFO. Solo sugiere lo que la
+  política vigente permite hoy, con el mismo predicado de producto que el
+  cobro: los controlados nunca se sugieren ni se responden, y el stock cuenta
+  solo lotes activos sin vencer, así un retiro excluye al candidato igual que
+  bloquea la venta. Un producto desconocido, de otro negocio o que no es
+  medicamento devuelve lista vacía.
+- La caja lee el mismo preflight del cobro antes de Cobrar, así cada línea de
+  medicamento muestra su clase, el lote FEFO que tomará la venta y si una
+  evidencia aprobada la cubre, y el ticket dice cuándo se requiere cliente. El
+  preflight agrega el requisito de cliente de la política, el siguiente lote y
+  el nombre del empleado que aprobó; no devuelve datos del cliente ni contenido
+  de la evidencia. Una búsqueda de productos por sede, pedida por un rol de
+  venta, también trae el siguiente lote de cada producto con lotes, marcado cuando cae dentro de la
+  ventana de descuento por vencimiento más amplia del negocio. Son pistas: el
+  cobro sigue siendo la autoridad.
 - Gerentes/admin operan lotes, evidencia, autorizaciones y retiros. Contactos
   PII de retiro solo admin; gerente recibe IDs; cajero no abre investigación.
 - Credencial actual corrupta desactiva aprobación y muestra integridad, pero no

@@ -19,9 +19,14 @@ const listInvalidate = vi.fn();
 
 let mockUserRole: 'admin' | 'manager' = 'admin';
 let mockTables: Array<Record<string, unknown>> = [];
-let mockFloorTables: Array<Record<string, unknown>> = [];
-let mockOccupancy: Array<{ id: string; openDrafts: unknown[] }> | null = null;
-let mockReservations: Array<Record<string, unknown>> = [];
+let mockFloor: {
+  items: Array<Record<string, unknown>>;
+  occupiedTables: number;
+  takeaway?: { totalItems: number; items: Array<Record<string, unknown>> };
+} | null = null;
+let mockDeliveryActive = false;
+let mockDeliveryCounts: Record<string, number> | undefined;
+let summaryInputs: Array<Record<string, unknown>> = [];
 let mockTotalItems = 0;
 let mockHasMore = false;
 let lastTableListInput: Record<string, unknown> | null = null;
@@ -49,14 +54,25 @@ vi.mock('@/features/tenant/TenantProvider', () => ({
   }),
 }));
 
+vi.mock('@/features/modules', () => ({
+  useIsModuleActive: (moduleId: string) => moduleId === 'delivery' && mockDeliveryActive,
+}));
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
       restaurantTables: {
         list: { invalidate: listInvalidate },
-        listWithDraftStatus: { invalidate: vi.fn() },
+        listSummary: { invalidate: vi.fn() },
       },
     }),
+    deliveryOrders: {
+      counts: {
+        useQuery: (_input: unknown, options: { enabled: boolean }) => ({
+          data: options.enabled ? mockDeliveryCounts : undefined,
+        }),
+      },
+    },
     sites: {
       list: {
         useQuery: () => ({
@@ -71,25 +87,36 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
     },
-    reservations: {
-      list: { useQuery: () => ({ data: { rows: mockReservations } }) },
-    },
     restaurantTables: {
-      listWithDraftStatus: {
-        useQuery: () => ({ data: mockOccupancy ? { items: mockOccupancy } : undefined }),
+      listSummary: {
+        useQuery: (input: Record<string, unknown>) => {
+          summaryInputs.push(input);
+          return {
+            data: mockFloor
+              ? {
+                  generatedAt: '2026-05-10T21:00:00.000Z',
+                  offset: 0,
+                  limit: 500,
+                  totalItems: mockFloor.items.length,
+                  occupiedTables: mockFloor.occupiedTables,
+                  hasMore: false,
+                  items: mockFloor.items,
+                  takeaway: mockFloor.takeaway ?? { totalItems: 0, items: [] },
+                }
+              : undefined,
+            error: null,
+          };
+        },
       },
       list: {
         useQuery: (input: Record<string, unknown>) => {
           tableListInputs.push(input);
-          const isFloorMapQuery = input.limit === 500;
-          if (!isFloorMapQuery) {
-            lastTableListInput = input;
-          }
+          lastTableListInput = input;
           return {
             data: {
-              items: isFloorMapQuery ? mockFloorTables : mockTables,
-              totalItems: isFloorMapQuery ? mockFloorTables.length : mockTotalItems,
-              hasMore: isFloorMapQuery ? false : mockHasMore,
+              items: mockTables,
+              totalItems: mockTotalItems,
+              hasMore: mockHasMore,
             },
             isLoading: false,
             error: null,
@@ -129,6 +156,30 @@ vi.mock('@/lib/trpc', () => ({
 }));
 
 import { RestaurantTablesPage } from '../RestaurantTablesPage';
+
+function floorTable(
+  id: string,
+  name: string,
+  state: 'free' | 'occupied' | 'billRequested' | 'reserved',
+  overrides: Record<string, unknown> = {}
+) {
+  return {
+    id,
+    name,
+    seatCount: 4,
+    area: 'Salón',
+    notes: null,
+    state,
+    openedAt: null,
+    guestCount: null,
+    openChecks: state === 'occupied' || state === 'billRequested' ? 1 : 0,
+    total: 0,
+    billRequestedAt: null,
+    pendingRound: null,
+    nextReservation: null,
+    ...overrides,
+  };
+}
 
 function renderPage(path = '/restaurants/tables?view=list') {
   const queryClient = new QueryClient({
@@ -184,10 +235,11 @@ beforeEach(() => {
     },
   ];
   mockTotalItems = mockTables.length;
-  mockFloorTables = mockTables;
   mockHasMore = false;
-  mockOccupancy = null;
-  mockReservations = [];
+  mockFloor = null;
+  mockDeliveryActive = false;
+  mockDeliveryCounts = undefined;
+  summaryInputs = [];
   void i18n.changeLanguage('en');
 });
 
@@ -262,51 +314,178 @@ describe('RestaurantTablesPage — admin', () => {
   });
 
   it('opens on the floor map with each table state and keeps the list one tab away', () => {
-    mockOccupancy = [
-      { id: 'rt-1', openDrafts: [{ saleId: 's-1' }, { saleId: 's-2' }] },
-      { id: 'rt-2', openDrafts: [] },
-    ];
-    mockReservations = [
-      { tableId: 'rt-2', status: 'booked', startsAt: '2026-05-10T20:00:00.000Z' },
-    ];
+    mockFloor = {
+      occupiedTables: 3,
+      items: [
+        floorTable('rt-10', 'Mesa 10', 'free', { seatCount: 2 }),
+        floorTable('rt-8', 'Mesa 8', 'occupied', {
+          guestCount: 6,
+          openedAt: '2026-05-10T19:55:00.000Z',
+          openChecks: 2,
+          total: 312000,
+          pendingRound: { itemCount: 3, since: '2026-05-10T20:58:00.000Z' },
+        }),
+        floorTable('rt-3', 'Mesa 3', 'billRequested', {
+          openedAt: '2026-05-10T20:10:00.000Z',
+          total: 88500,
+          billRequestedAt: '2026-05-10T20:57:00.000Z',
+          pendingRound: { itemCount: 1, since: '2026-05-10T20:59:00.000Z' },
+        }),
+        floorTable('rt-4', 'Mesa 4', 'reserved', {
+          nextReservation: {
+            id: 'r-1',
+            status: 'booked',
+            guestName: 'Rojas',
+            partySize: 4,
+            startsAt: '2026-05-10T22:00:00.000Z',
+          },
+        }),
+        floorTable('rt-1', 'Mesa 1', 'occupied', {
+          guestCount: 2,
+          openedAt: '2026-05-10T20:42:00.000Z',
+          total: 46000,
+        }),
+      ],
+    };
     renderPage('/restaurants/tables');
 
+    expect(summaryInputs).toContainEqual(
+      expect.objectContaining({ siteId: 'site-1', limit: 500, offset: 0 })
+    );
     const map = screen.getByTestId('restaurant-floor-map-preview');
-    expect(map).toHaveTextContent('2 open checks');
-    expect(map).toHaveTextContent('Reserved');
+    expect(screen.getByTestId('restaurant-floor-table-rt-1')).toHaveTextContent(
+      '2 guests · 18 min'
+    );
+    const big = screen.getByTestId('restaurant-floor-table-rt-8');
+    expect(big).toHaveTextContent('6 guests · 1 h 05');
+    expect(big).toHaveTextContent('2 checks');
+    expect(big).toHaveTextContent('round ready to send');
+    expect(screen.getByTestId('restaurant-floor-table-rt-3')).toHaveAttribute(
+      'data-state',
+      'billRequested'
+    );
+    expect(screen.getByTestId('restaurant-floor-table-rt-3')).toHaveTextContent(
+      'Asked for the bill'
+    );
+    expect(screen.getByTestId('restaurant-floor-table-rt-3')).toHaveTextContent(
+      'round ready to send'
+    );
+    expect(screen.getByTestId('restaurant-floor-table-rt-4')).toHaveTextContent('Reserved');
+    expect(screen.getByTestId('restaurant-floor-occupancy')).toHaveTextContent('3 of 5 occupied');
+    const names = Array.from(map.querySelectorAll('[data-testid^="restaurant-floor-table-"]')).map(
+      tile => tile.getAttribute('data-testid')
+    );
+    expect(names.indexOf('restaurant-floor-table-rt-8')).toBeLessThan(
+      names.indexOf('restaurant-floor-table-rt-10')
+    );
     expect(screen.queryByTestId('restaurant-tables-pagination')).not.toBeInTheDocument();
-    expect(screen.getByTestId('restaurant-tables-create-cta')).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId('restaurant-tables-view-list'));
     expect(screen.getByTestId('restaurant-table-archive-rt-1')).toBeInTheDocument();
     expect(screen.queryByTestId('restaurant-floor-map-preview')).not.toBeInTheDocument();
   });
 
-  it('never claims a table is free while occupancy is unknown', () => {
+  it('never draws the map while the floor state is unknown', () => {
     renderPage('/restaurants/tables');
 
-    expect(screen.getByTestId('restaurant-floor-map-preview')).not.toHaveTextContent('Free');
+    expect(screen.queryByTestId('restaurant-floor-map-preview')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('restaurant-floor-status-free')).not.toBeInTheDocument();
   });
 
-  it('marks a table free once occupancy confirms it', () => {
-    mockOccupancy = [
-      { id: 'rt-1', openDrafts: [] },
-      { id: 'rt-2', openDrafts: [] },
-    ];
+  it('opens the edit form from a floor tile', () => {
+    mockFloor = { occupiedTables: 0, items: [floorTable('rt-2', 'Mesa 2', 'free')] };
     renderPage('/restaurants/tables');
 
-    expect(screen.getAllByTestId('restaurant-floor-status-free')).toHaveLength(2);
+    fireEvent.click(screen.getByTestId('restaurant-floor-table-rt-2'));
+    expect(screen.getByTestId('restaurant-table-name')).toHaveValue('Mesa 2');
   });
 
-  it('searches on the server and keeps the complete active catalog in the floor map', async () => {
-    mockFloorTables = [
-      ...mockTables,
-      {
-        ...mockTables[0],
-        id: 'rt-101',
-        name: 'Mesa Terraza 101',
+  it('outlines the chosen tile and keeps it outlined after the editor closes', () => {
+    mockFloor = {
+      occupiedTables: 0,
+      items: [floorTable('rt-2', 'Mesa 2', 'free'), floorTable('rt-3', 'Mesa 3', 'free')],
+    };
+    renderPage('/restaurants/tables');
+
+    expect(screen.getByTestId('restaurant-floor-table-rt-2')).not.toHaveAttribute('aria-current');
+    fireEvent.click(screen.getByTestId('restaurant-floor-table-rt-2'));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByTestId('restaurant-table-name')).not.toBeInTheDocument();
+    expect(screen.getByTestId('restaurant-floor-table-rt-2')).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+    expect(screen.getByTestId('restaurant-floor-table-rt-3')).not.toHaveAttribute('aria-current');
+  });
+
+  it('switches to takeaway orders and links open deliveries when the module is on', () => {
+    mockDeliveryActive = true;
+    mockDeliveryCounts = { accepted: 1, preparing: 2, dispatched: 1, delivered: 9, cancelled: 3 };
+    mockFloor = {
+      occupiedTables: 0,
+      items: [floorTable('rt-2', 'Mesa 2', 'free')],
+      takeaway: {
+        totalItems: 51,
+        items: [
+          {
+            id: 'sale-a',
+            saleNumber: 'VTA-9',
+            label: 'Camilo',
+            openedAt: '2026-05-10T20:46:00.000Z',
+            total: 36000,
+          },
+          {
+            id: 'sale-b',
+            saleNumber: 'VTA-10',
+            label: null,
+            openedAt: '2026-05-10T19:55:00.000Z',
+            total: 52000,
+          },
+        ],
       },
-    ];
+    };
+    renderPage('/restaurants/tables');
+
+    expect(screen.getByTestId('restaurant-floor-channel-floor')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(screen.getByTestId('restaurant-floor-channel-delivery')).toHaveTextContent(
+      'Delivery · 4'
+    );
+    expect(screen.getByTestId('restaurant-floor-channel-delivery')).toHaveAttribute(
+      'href',
+      '/delivery'
+    );
+    fireEvent.click(screen.getByTestId('restaurant-floor-channel-takeaway'));
+
+    expect(screen.getByTestId('restaurant-floor-channel-takeaway')).toHaveTextContent(
+      'Takeaway · 51'
+    );
+    expect(screen.queryByTestId('restaurant-floor-table-rt-2')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('restaurant-floor-occupancy')).not.toBeInTheDocument();
+    expect(screen.getByTestId('restaurant-takeaway-sale-a')).toHaveTextContent('Camilo');
+    expect(screen.getByTestId('restaurant-takeaway-sale-a')).toHaveTextContent('14 min');
+    expect(screen.getByTestId('restaurant-takeaway-sale-b')).toHaveTextContent('Sale VTA-10');
+    expect(screen.getByTestId('restaurant-takeaway-sale-b')).toHaveTextContent('1 h 05');
+    expect(screen.getByText('Showing 2 of 51.')).toBeInTheDocument();
+  });
+
+  it('hides the delivery tab without the module and shows an empty takeaway list', () => {
+    mockFloor = { occupiedTables: 0, items: [floorTable('rt-2', 'Mesa 2', 'free')] };
+    renderPage('/restaurants/tables');
+
+    expect(screen.queryByTestId('restaurant-floor-channel-delivery')).not.toBeInTheDocument();
+    expect(screen.getByTestId('restaurant-floor-channel-takeaway')).toHaveTextContent(/^Takeaway$/);
+    fireEvent.click(screen.getByTestId('restaurant-floor-channel-takeaway'));
+    expect(screen.getByTestId('restaurant-takeaway-empty')).toHaveTextContent(
+      'No takeaway orders.'
+    );
+  });
+
+  it('searches the list on the server without narrowing the floor map', async () => {
+    mockFloor = { occupiedTables: 0, items: [floorTable('rt-101', 'Mesa Terraza 101', 'free')] };
     renderPage('/restaurants/tables');
 
     expect(screen.getByText('Mesa Terraza 101')).toBeInTheDocument();
@@ -324,9 +503,7 @@ describe('RestaurantTablesPage — admin', () => {
         })
       );
     });
-    expect(tableListInputs).toContainEqual(
-      expect.objectContaining({ includeArchived: false, limit: 500, offset: 0 })
-    );
+    expect(summaryInputs.every(input => input.search === undefined)).toBe(true);
   });
 
   it('returns to the first page when archiving the last row of a trailing page', async () => {

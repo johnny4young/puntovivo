@@ -8,13 +8,10 @@ import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
-import { useIsModuleActive } from '@/features/modules/ModulesContext';
+import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import { LazySalePaymentModal } from '@/features/sales/lazySalePaymentModal';
 import { preloadSalePaymentModal } from '@/features/sales/salePaymentModal.loader';
-import type {
-  InitialTender,
-  SalePaymentValues,
-} from '@/features/sales/salePaymentModal.types';
+import type { InitialTender, SalePaymentValues } from '@/features/sales/salePaymentModal.types';
 import type { PaymentFocusTarget } from '@/features/sales/useSalesModals';
 import { mergeCartItem, type SaleCartItem } from '@/features/sales/saleCart';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
@@ -82,6 +79,7 @@ interface SalesModalsProps {
   isPaymentModalOpen: boolean;
   paymentModalKey: number;
   paymentTotal: number;
+  paymentConsumptionTax?: number | undefined;
   paymentApprovalSaleId: string | null;
   paymentApprovalCustomerId: string | null;
   paymentCustomerLocked: boolean;
@@ -93,6 +91,7 @@ interface SalesModalsProps {
   isPaymentSaving: boolean;
   saleError: string | null;
   serviceChargeRate: number;
+  cashRoundingStep?: number | null | undefined;
   allowTip: boolean;
   fastCashTrigger: number;
   fastCashAmount?: number | null | undefined;
@@ -108,6 +107,7 @@ interface SalesModalsProps {
   /** Opens the receipt's WhatsApp share review along with the sale. */
   shareReceiptOnOpen?: boolean | undefined;
   onCloseSaleDetails: () => void;
+  onExchangeStarted?: () => void;
   // Suspend-label prompt
   isSuspendLabelPromptOpen: boolean;
   isSuspending: boolean;
@@ -132,6 +132,7 @@ export function SalesModals({
   isPaymentModalOpen,
   paymentModalKey,
   paymentTotal,
+  paymentConsumptionTax,
   paymentApprovalSaleId,
   paymentApprovalCustomerId,
   paymentCustomerLocked,
@@ -143,6 +144,7 @@ export function SalesModals({
   isPaymentSaving,
   saleError,
   serviceChargeRate,
+  cashRoundingStep = null,
   allowTip,
   fastCashTrigger,
   fastCashAmount = null,
@@ -156,6 +158,7 @@ export function SalesModals({
   selectedSaleId,
   shareReceiptOnOpen = false,
   onCloseSaleDetails,
+  onExchangeStarted,
   isSuspendLabelPromptOpen,
   isSuspending,
   suspendLabelDraft,
@@ -166,7 +169,8 @@ export function SalesModals({
   const { t } = useTranslation(['sales', 'restaurants', 'common']);
   const { user, tenant } = useAuth();
   const { currentSite } = useTenant();
-  const dineInActive = useIsModuleActive('dine-in');
+  const showsTables = useRegisterZone('tables');
+  const sellsInUnits = useRegisterZone('units-cut');
   const [suspendTableId, setSuspendTableId] = useState('');
   const [suspendGuestCount, setSuspendGuestCount] = useState(1);
   const [reservationSelection, setReservationSelection] = useState('');
@@ -219,11 +223,11 @@ export function SalesModals({
   );
   const suspendTablesQuery = trpc.restaurantTables.list.useQuery(
     currentSite ? { siteId: currentSite.id, includeArchived: false } : (undefined as never),
-    { enabled: isSuspendLabelPromptOpen && dineInActive && Boolean(currentSite) }
+    { enabled: isSuspendLabelPromptOpen && showsTables && Boolean(currentSite) }
   );
   const suspendTableStateQuery = trpc.restaurantServices.getTableState.useQuery(
     suspendTableId ? { tableId: suspendTableId } : (undefined as never),
-    { enabled: isSuspendLabelPromptOpen && dineInActive && suspendTableId.length > 0 }
+    { enabled: isSuspendLabelPromptOpen && showsTables && suspendTableId.length > 0 }
   );
   const selectedSuspendTable = suspendTablesQuery.data?.items.find(
     table => table.id === suspendTableId
@@ -235,7 +239,7 @@ export function SalesModals({
   const suspendGuestCapacity = selectedSuspendTable?.seatCount ?? 200;
   const suspendTableSelectionInvalid =
     suspendTableId.length > 0 &&
-    (!dineInActive ||
+    (!showsTables ||
       suspendTablesQuery.isLoading ||
       Boolean(suspendTablesQuery.error) ||
       !selectedSuspendTable ||
@@ -299,11 +303,12 @@ export function SalesModals({
             useQuickCreateStore.getState().requestCreateProduct({ defaultName });
           }}
           canCreateProducts={user?.role === 'admin' || user?.role === 'manager'}
-          // the POS is the surface where the expiry-radar
-          // suggestion must reach the cashier; other dialog consumers
-          // keep the prop off (zero extra queries).
-          showDiscountSuggestions
+          // Only the register shows expiry suggestions, lots and generics;
+          // other dialog consumers keep the prop off (zero extra queries).
+          registerHints
+          priceTier={activePriceTier}
           siteId={discountSuggestionSiteId}
+          showUnitPicker={sellsInUnits}
         />
       )}
       {(shouldRenderQuickCreateProductGate || shouldRenderQuickCreateCustomerGate) && (
@@ -361,6 +366,7 @@ export function SalesModals({
             key={paymentModalKey}
             isOpen={isPaymentModalOpen}
             total={paymentTotal}
+            consumptionTaxAmount={paymentConsumptionTax}
             approvalSaleId={paymentApprovalSaleId}
             approvalCustomerId={paymentApprovalCustomerId}
             customerLocked={paymentCustomerLocked}
@@ -373,6 +379,7 @@ export function SalesModals({
             isSaving={isPaymentSaving}
             error={saleError}
             serviceChargeRate={serviceChargeRate}
+            cashRoundingStep={cashRoundingStep}
             allowTip={allowTip}
             // role gates the credit method tile inside the
             // modal. Cashier never sees it; manager + admin do; admin
@@ -399,6 +406,7 @@ export function SalesModals({
             saleId={selectedSaleId}
             isOpen={!!selectedSaleId}
             onClose={onCloseSaleDetails}
+            onExchangeStarted={onExchangeStarted}
             receiptShareSection={
               <Suspense fallback={null}>
                 <LazyReceiptShareSection
@@ -471,7 +479,7 @@ export function SalesModals({
               disabled={isSuspending}
               data-testid="suspend-label-input"
             />
-            {dineInActive && (suspendTablesQuery.data?.items.length ?? 0) > 0 && (
+            {showsTables && (suspendTablesQuery.data?.items.length ?? 0) > 0 && (
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="text-xs font-medium text-secondary-700">
                   {t('restaurants:tableLabel.label')}

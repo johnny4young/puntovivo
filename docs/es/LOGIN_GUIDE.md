@@ -88,8 +88,14 @@ Roles actuales:
 
 Rutas predeterminadas:
 
-- `cashier` comienza en `/sales`.
+- `cashier` comienza en la caja del tipo de negocio guardado: restaurante y
+  comida rápida en POS Táctil (`/touch`) mientras ese módulo esté activo; los
+  demás perfiles (o ninguno) en `/sales`.
 - Los demás comienzan en `/dashboard`.
+
+Al iniciar sesión el cajero va a `/`, donde la redirección de inicio lee el tipo
+de negocio y el estado de los módulos antes de elegir la caja. La tarea de vender
+del menú lateral apunta a la misma caja.
 
 Código fuente:
 [roleAccess.ts](../../apps/web/src/features/auth/roleAccess.ts)

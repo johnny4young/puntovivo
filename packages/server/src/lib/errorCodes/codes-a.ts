@@ -194,6 +194,8 @@ export const SERVER_ERROR_CODES_A = {
   DAY_CLOSE_ALREADY_SIGNED: 'DAY_CLOSE_ALREADY_SIGNED',
   /** a report with readiness blockers cannot be attested. */
   DAY_CLOSE_NOT_READY: 'DAY_CLOSE_NOT_READY',
+  /** the manager chose to sign the close with a staff PIN that did not match. */
+  DAY_CLOSE_PIN_INVALID: 'DAY_CLOSE_PIN_INVALID',
   /** the persisted snapshot no longer matches its canonical hash or schema. */
   DAY_CLOSE_SIGNOFF_INTEGRITY_FAILED: 'DAY_CLOSE_SIGNOFF_INTEGRITY_FAILED',
   /**
@@ -234,6 +236,8 @@ export const SERVER_ERROR_CODES_A = {
   PRODUCT_FRACTION_MINIMUM_BELOW_STEP: 'PRODUCT_FRACTION_MINIMUM_BELOW_STEP',
   /** Admin config: fractionMinimum is not a multiple of fractionStep. */
   PRODUCT_FRACTION_MINIMUM_NOT_ALIGNED: 'PRODUCT_FRACTION_MINIMUM_NOT_ALIGNED',
+  /** Catalog write: an EAN-8/UPC-A/EAN-13 barcode fails its check digit. */
+  PRODUCT_BARCODE_CHECK_DIGIT_INVALID: 'PRODUCT_BARCODE_CHECK_DIGIT_INVALID',
   /** : enabling lot tracking would orphan existing/opening stock. */
   PRODUCT_LOT_TRACKING_REQUIRES_ZERO_STOCK: 'PRODUCT_LOT_TRACKING_REQUIRES_ZERO_STOCK',
   /** : a direct stock edit would bypass lot and FEFO evidence. */
@@ -338,6 +342,8 @@ export const SERVER_ERROR_CODES_A = {
   GS1_CHECK_DIGIT_INVALID: 'GS1_CHECK_DIGIT_INVALID',
   /** Split-payment input: Σ(payments.amount) does not match the sale total. */
   SALE_PAYMENTS_SUM_MISMATCH: 'SALE_PAYMENTS_SUM_MISMATCH',
+  /** A tender or cash received is finer than the currency's payable unit (pesos have no cents). */
+  SALE_TENDER_NOT_PAYABLE_UNIT: 'SALE_TENDER_NOT_PAYABLE_UNIT',
 
   // --- inventory transfers domain ---
   TRANSFER_SITES_IDENTICAL: 'TRANSFER_SITES_IDENTICAL',
@@ -490,6 +496,10 @@ export const SERVER_ERROR_CODES_A = {
   SALE_SEQUENTIAL_MISSING: 'SALE_SEQUENTIAL_MISSING',
   /** A document number could not be reserved from the selected sequential. */
   DOCUMENT_SEQUENTIAL_CHANGED: 'DOCUMENT_SEQUENTIAL_CHANGED',
+  /** A manual counter would reissue a number already used; details.highestIssued. */
+  SEQUENTIAL_BELOW_ISSUED: 'SEQUENTIAL_BELOW_ISSUED',
+  /** The allocated sale number already exists, usually after a counter rewind. */
+  SALE_NUMBER_COLLISION: 'SALE_NUMBER_COLLISION',
   /** The selected customer was not found or is inactive. */
   SALE_CUSTOMER_INVALID: 'SALE_CUSTOMER_INVALID',
   /** A line references a product that is missing or inactive; details.productName. */

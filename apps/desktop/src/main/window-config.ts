@@ -90,3 +90,17 @@ export function buildCustomerDisplayWindowWebPreferences(
 export function disableBuiltinSpellchecker(session: Pick<Session, 'setSpellCheckerEnabled'>): void {
   session.setSpellCheckerEnabled(RENDERER_SPELLCHECK);
 }
+
+/** The till scans with a wedge reader; every other permission, including the microphone, stays granted. */
+export function denyCameraCapture(
+  session: Pick<Session, 'setPermissionRequestHandler' | 'setPermissionCheckHandler'>
+): void {
+  session.setPermissionRequestHandler((_contents, permission, callback, details) => {
+    const mediaTypes = 'mediaTypes' in details ? details.mediaTypes : undefined;
+    callback(!(permission === 'media' && mediaTypes?.includes('video')));
+  });
+  session.setPermissionCheckHandler(
+    (_contents, permission, _origin, details) =>
+      !(permission === 'media' && details.mediaType === 'video')
+  );
+}

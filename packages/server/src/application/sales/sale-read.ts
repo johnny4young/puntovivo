@@ -15,7 +15,7 @@
  * @module application/sales/sale-read
  */
 
-import { and, eq, inArray, or } from 'drizzle-orm';
+import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import { isPriceTier } from '@puntovivo/shared/price-tier';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
@@ -104,6 +104,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       serviceChargeAmount: sales.serviceChargeAmount,
       serviceChargeRate: sales.serviceChargeRate,
       total: sales.total,
+      roundingAdjustment: sales.roundingAdjustment,
       paymentMethod: sales.paymentMethod,
       paymentStatus: sales.paymentStatus,
       returnState: sales.returnState,
@@ -190,7 +191,8 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       )
     )
     .where(and(eq(saleItems.saleId, saleId), eq(sales.id, saleId)))
-    .orderBy(saleItems.id)
+    // Ids are random; insertion order is the order the cashier rang the lines up.
+    .orderBy(sql`${saleItems}.rowid`)
     .all();
 
   const serialNumbersByItem = listSaleItemSerialNumbers(db, {

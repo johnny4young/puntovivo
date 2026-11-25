@@ -48,10 +48,16 @@ import { hasPharmacyProductProfiles } from '../../../services/pharmacy/operation
 import { findExactProductMatches } from '../../../services/products/exact-search.js';
 import { findFtsProductMatches } from '../../../services/products/fts-search.js';
 import { hydrateSearchProducts } from '../../../services/products/search-hydration.js';
+import { resolveNextLotHints } from '../../../services/inventory-lots/next-lot.js';
+import { SALES_ROLES } from '@puntovivo/shared/roles';
 import {
   productStockTotalSql,
   withSiteStock,
 } from '../../../services/inventory-balances/derive.js';
+import { withSiteStockBreakdown } from '../../../services/inventory-balances/site-stock.js';
+
+const isSalesRole = (role: string | undefined) =>
+  (SALES_ROLES as readonly string[]).includes(role ?? '');
 
 function literalContains(column: AnySQLiteColumn, value: string) {
   // The compatibility fallback is a literal substring search, not an SQL
@@ -460,9 +466,26 @@ export const productQueryProcedures = {
       ctx.db,
       items.map(item => item.id)
     );
+    // Only the register asks for the lot it sells next, for one site and a selling role.
+    const nextLots =
+      input.includeNextLot && input.siteId && isSalesRole(ctx.user?.role)
+        ? await resolveNextLotHints(ctx.db, {
+            tenantId: ctx.tenantId,
+            siteId: input.siteId,
+            productIds: items.filter(item => item.tracksLots).map(item => item.id),
+          })
+        : null;
+
+    // Other sites' stock stays with the roles that can already see it while selling.
+    const stockedItems = isSalesRole(ctx.user?.role)
+      ? withSiteStockBreakdown(ctx.db, ctx.tenantId, input.siteId, items)
+      : withSiteStock(ctx.db, ctx.tenantId, input.siteId, items).map(item => ({
+          ...item,
+          otherSites: null,
+        }));
 
     return {
-      items: withSiteStock(ctx.db, ctx.tenantId, input.siteId, items).map(item => {
+      items: stockedItems.map(item => {
         const unitAssignments = assignmentsMap.get(item.id) ?? [];
         const baseUnit =
           unitAssignments.find(assignment => assignment.isBase) ?? unitAssignments[0];
@@ -477,6 +500,7 @@ export const productQueryProcedures = {
           baseUnitName: baseUnit?.unitName ?? null,
           baseUnitAbbreviation: baseUnit?.unitAbbreviation ?? null,
           baseUnitPrice: baseUnit?.price ?? item.price,
+          nextLot: nextLots?.get(item.id) ?? null,
         };
       }),
     };
@@ -513,7 +537,7 @@ export const productQueryProcedures = {
       ? await resolveSiteGs1ParseOptions({
           db: ctx.db,
           tenantId: ctx.tenantId,
-          siteId: ctx.siteId,
+          siteId: input.siteId ?? ctx.siteId,
         })
       : undefined;
     const parsed = parseScan(input.barcode, scannerOptions);

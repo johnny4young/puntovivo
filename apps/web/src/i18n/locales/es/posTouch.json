@@ -6,7 +6,8 @@
     "noActiveSite": "Seleccione una sede activa antes de abrir el cobro táctil.",
     "loadingProducts": "Cargando catálogo…",
     "loadingError": "No pudimos cargar el catálogo. Intente de nuevo.",
-    "voiceLink": "Abrir cobro por voz"
+    "voiceLink": "Abrir cobro por voz",
+    "tillLink": "Caja y turno"
   },
   "categories": {
     "all": "Todas",

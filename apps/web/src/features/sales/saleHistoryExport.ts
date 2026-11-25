@@ -3,7 +3,7 @@ import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { Sale } from '@/types';
 
 export const saleHistoryExportColumns: ExportColumn<Sale>[] = [
-  { key: 'saleNumber', header: 'Invoice #' },
+  { key: 'saleNumber', header: 'Sale #' },
   {
     key: 'createdAt',
     header: 'Date',

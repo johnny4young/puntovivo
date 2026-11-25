@@ -1,0 +1,25 @@
+{
+  "title": "{{name}} · how much did it weigh?",
+  "readout": "{{weight}} kg = {{total}}",
+  "presets": {
+    "quarter": "¼ kg",
+    "half": "½ kg",
+    "one": "1 kg"
+  },
+  "value": {
+    "button": "By value",
+    "buttonAmount": "By value {{amount}}",
+    "label": "Amount"
+  },
+  "weight": {
+    "button": "Type weight",
+    "label": "Weight in kg"
+  },
+  "add": "Add",
+  "close": "Close",
+  "errors": {
+    "invalid": "Enter an amount above zero.",
+    "unpriced": "This product has no price.",
+    "belowMinimum": "The minimum is {{minimum}} kg."
+  }
+}

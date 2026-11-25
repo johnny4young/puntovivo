@@ -284,7 +284,7 @@ test('the desktop gate runs on Linux and Windows with Linux-only steps guarded',
   const workflow = readRepoFile('.github/workflows/ci.yml');
   const job = workflow.slice(workflow.indexOf('\n  desktop:\n'));
   const desktop = job.slice(0, job.indexOf('\n  # ====', 1));
-  assert.match(desktop, /^ {8}os: \[ubuntu-latest, windows-latest\]$/mu);
+  assert.match(desktop, /^ {8}os: \[ubuntu-26\.04, windows-latest\]$/mu);
   assert.match(desktop, /^ {4}runs-on: \$\{\{ matrix\.os \}\}$/mu);
   assert.match(
     desktop,

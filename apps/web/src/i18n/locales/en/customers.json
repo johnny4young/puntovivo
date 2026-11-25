@@ -42,7 +42,7 @@
       "anonymizeDescription": "This customer has linked records that must remain for fiscal, financial, or operational traceability. Personal fields will be irreversibly anonymized.",
       "linkedRecords_one": "{{count}} linked record requires retention",
       "linkedRecords_other": "{{count}} linked records require retention",
-      "retentionNote": "Linked records and immutable fiscal or delivery snapshots stay intact under their retention obligations. The reusable customer profile, audit payloads, and queued sync snapshots are scrubbed.",
+      "retentionNote": "Linked records and immutable fiscal or delivery snapshots stay intact under their retention obligations. The reusable customer profile, audit details, and queued sync snapshots are scrubbed.",
       "records": {
         "sales": "Sales",
         "quotations": "Quotations",
@@ -188,7 +188,19 @@
       "filename": "account-statement",
       "successToast": "Statement downloaded"
     },
-    "adminOnly": "Admin role required to charge adjustments"
+    "adminOnly": "Admin role required to charge adjustments",
+    "tillModal": {
+      "title": "Payment from {{name}}",
+      "description": "Owes {{balance}}.",
+      "amountLabel": "Payment amount",
+      "amountRequired": "Enter an amount greater than zero",
+      "amountTooHigh": "The payment cannot exceed what is owed ({{balance}}).",
+      "noteLabel": "Note",
+      "payAll": "All: {{balance}}",
+      "confirm": "Take payment",
+      "success": "Payment taken into the register",
+      "error": "Could not record the payment"
+    }
   },
   "delete": {
     "title": "Delete Customer",

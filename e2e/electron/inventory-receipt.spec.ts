@@ -169,7 +169,10 @@ async function expectReceiptAudit(
   await expect(row).toContainText(
     `${options.purchaseNumber} · ${RECEIVED_QUANTITY} base units received at ${options.siteName}`
   );
-  const resourceId = (await row.locator('td').nth(3).locator('.font-mono').innerText()).trim();
+  // The Resource column names the purchase and keeps its id as the tooltip.
+  const resource = row.locator('td').nth(3).locator('[title]');
+  await expect(resource).toHaveText(options.purchaseNumber);
+  const resourceId = ((await resource.getAttribute('title')) ?? '').trim();
   expect(resourceId, 'receipt audit exposes its immutable purchase resource id').not.toBe('');
   return resourceId;
 }

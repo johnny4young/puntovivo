@@ -27,6 +27,10 @@ describe('RolePermissionAudit', () => {
       within(operateRow).getByLabelText('Viewer: Today and close — Allowed')
     ).toBeInTheDocument();
 
+    const sellRow = screen.getByRole('row', { name: /^sell/i });
+    expect(within(sellRow).getByLabelText('Cashier: Sell — Allowed')).toBeInTheDocument();
+    expect(within(sellRow).getByLabelText('Viewer: Sell — No access')).toBeInTheDocument();
+
     const setupRow = screen.getByRole('row', { name: /^manage business/i });
     expect(within(setupRow).getByLabelText('Admin: Manage business — Allowed')).toBeInTheDocument();
     expect(

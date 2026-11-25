@@ -23,6 +23,7 @@
  * @module features/voice/useVoiceRecorder
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { mediaDeviceErrorKind } from '@/lib/mediaDeviceError';
 
 /**
  * MIME types the server's `ai.transcribeAudio` route accepts. The
@@ -117,22 +118,15 @@ function detectSupportedMimeType(): VoiceRecorderMimeType | null {
 }
 
 function classifyGetUserMediaError(err: unknown): VoiceRecorderError {
-  if (err instanceof Error) {
-    if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
-      return {
-        kind: 'permission-denied',
-        message: err.message || 'Microphone access denied',
-      };
-    }
-    if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
-      return {
-        kind: 'no-microphone',
-        message: err.message || 'No microphone available',
-      };
-    }
-    return { kind: 'unknown', message: err.message };
+  const message = err instanceof Error ? err.message : '';
+  switch (mediaDeviceErrorKind(err)) {
+    case 'permission-denied':
+      return { kind: 'permission-denied', message: message || 'Microphone access denied' };
+    case 'no-device':
+      return { kind: 'no-microphone', message: message || 'No microphone available' };
+    default:
+      return { kind: 'unknown', message: message || 'Unknown error starting recording' };
   }
-  return { kind: 'unknown', message: 'Unknown error starting recording' };
 }
 
 export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecorderHook {

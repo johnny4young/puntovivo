@@ -2,11 +2,12 @@
   "page": {
     "kicker": "Touch checkout",
     "title": "POS Touch",
-    "subtitle": "Tap a product to add it to the cart. Charge directly from the right rail.",
+    "subtitle": "Tap a product to add it to the cart. Charge directly from the right panel.",
     "noActiveSite": "Select an active site before opening the touch register.",
     "loadingProducts": "Loading catalog…",
     "loadingError": "We could not load the catalog. Try again.",
-    "voiceLink": "Open voice ordering"
+    "voiceLink": "Open voice ordering",
+    "tillLink": "Till and shift"
   },
   "categories": {
     "all": "All",

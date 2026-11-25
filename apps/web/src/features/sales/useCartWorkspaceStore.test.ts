@@ -183,6 +183,7 @@ describe('useCartWorkspaceStore', () => {
       siteId: 'site-1',
       customerId: 'customer-42',
       customerName: 'Customer 42',
+      validUntil: '2026-11-25T23:59:59.000Z',
       priceTier: 3,
       items: [sampleItem({ sourceQuotationItemId: 'quote-line-1' })],
     });
@@ -194,6 +195,7 @@ describe('useCartWorkspaceStore', () => {
       sourceQuotationSiteId: 'site-1',
       sourceQuotationCustomerId: 'customer-42',
       sourceQuotationCustomerName: 'Customer 42',
+      sourceQuotationValidUntil: '2026-11-25T23:59:59.000Z',
       priceTier: 3,
       historyStack: [],
     });
@@ -622,6 +624,7 @@ describe('persisted workspace migration', () => {
     expect(workspace.sourceQuotationSiteId).toBeNull();
     expect(workspace.sourceQuotationCustomerId).toBeNull();
     expect(workspace.sourceQuotationCustomerName).toBeNull();
+    expect(workspace.sourceQuotationValidUntil).toBeNull();
     expect(workspace.serverCustomerId).toBeNull();
     expect(workspace.serverCustomerName).toBeNull();
     expect(workspace.sourceReturnId).toBeNull();
@@ -633,6 +636,26 @@ describe('persisted workspace migration', () => {
     expect(workspace.priceTier).toBe(1);
     expect(workspace.historyStack).toEqual([]);
     expect(workspace.checkoutStartedAt).toBeNull();
+  });
+
+  it('keeps the quotation of a version 10 cart and gives it no end date', () => {
+    const migrated = migrateFrom(10, {
+      activeId: 'ws-q',
+      workspaces: {
+        'ws-q': {
+          id: 'ws-q',
+          ownerKey: 'tenant-1:user-1',
+          items: [sampleItem()],
+          sourceQuotationId: 'q-1',
+          sourceQuotationNumber: 'COT-1',
+        },
+      },
+    });
+    expect(migrated.workspaces['ws-q']).toMatchObject({
+      sourceQuotationId: 'q-1',
+      sourceQuotationNumber: 'COT-1',
+      sourceQuotationValidUntil: null,
+    });
   });
 
   it('leaves an already-migrated workspace untouched', () => {

@@ -31,6 +31,12 @@ export const listRestaurantTablesInput = z.object({
 });
 export type ListRestaurantTablesInput = z.infer<typeof listRestaurantTablesInput>;
 
+/** Operational floor summary: active tables only, paginated like the catalog. */
+export const listRestaurantTableSummaryInput = listRestaurantTablesInput
+  .omit({ includeArchived: true })
+  .strict();
+export type ListRestaurantTableSummaryInput = z.infer<typeof listRestaurantTableSummaryInput>;
+
 export const getRestaurantTableByIdInput = z.object({
   id: z.string().min(1),
 });

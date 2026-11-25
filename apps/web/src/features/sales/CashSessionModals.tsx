@@ -57,6 +57,7 @@ interface CashSessionModalsProps {
   onReviewSuspended?: (() => void) | undefined;
   isCashSessionMovementModalOpen: boolean;
   cashSessionMovementModalKey: number;
+  cashSessionMovementType?: CashSessionMovementValues['type'] | undefined;
   isRecordingMovement: boolean;
   cashSessionMovementError: string | null;
   onCloseMovementModal: () => void;
@@ -86,6 +87,7 @@ export function CashSessionModals({
   onReviewSuspended,
   isCashSessionMovementModalOpen,
   cashSessionMovementModalKey,
+  cashSessionMovementType,
   isRecordingMovement,
   cashSessionMovementError,
   onCloseMovementModal,
@@ -122,6 +124,7 @@ export function CashSessionModals({
       {isCashSessionMovementModalOpen && (
         <LazyCashSessionMovementModal
           key={cashSessionMovementModalKey}
+          defaultType={cashSessionMovementType}
           isOpen={isCashSessionMovementModalOpen}
           isSaving={isRecordingMovement}
           error={cashSessionMovementError}

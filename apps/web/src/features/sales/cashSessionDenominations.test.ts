@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  cashSessionTotalsMatch,
   createCashSessionDenominations,
   getCashSessionCountedTotal,
+  resolveCashSessionAmount,
 } from './cashSessionDenominations';
 
 describe('cashSessionDenominations', () => {
@@ -30,9 +30,9 @@ describe('cashSessionDenominations', () => {
     expect(total).toBe(111500);
   });
 
-  it('compares opening float and counted total with a small numeric tolerance', () => {
-    expect(cashSessionTotalsMatch(100, [{ value: 50, count: 2 }])).toBe(true);
-
-    expect(cashSessionTotalsMatch(120, [{ value: 50, count: 2 }])).toBe(false);
+  it('takes the amount from the denominations and the typed total only when none were counted', () => {
+    expect(resolveCashSessionAmount(120, [{ value: 50, count: 2 }])).toBe(100);
+    expect(resolveCashSessionAmount(120, [{ value: 50, count: 0 }])).toBe(120);
+    expect(resolveCashSessionAmount(Number.NaN, [])).toBe(0);
   });
 });

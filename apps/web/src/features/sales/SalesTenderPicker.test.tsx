@@ -11,12 +11,17 @@ describe('SalesTenderPicker', () => {
 
     expect(screen.getByTestId('sales-tender-card')).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByTestId('sales-tender-cash')).toHaveAttribute('aria-pressed', 'false');
-    for (const tender of ['cash', 'card', 'transfer', 'credit', 'split']) {
+    for (const tender of ['cash', 'card', 'transfer', 'split']) {
       expect(screen.getByTestId(`sales-tender-${tender}`)).toBeInTheDocument();
     }
 
     fireEvent.click(screen.getByTestId('sales-tender-split'));
     expect(onTenderChange).toHaveBeenCalledWith('split');
+  });
+
+  it('leaves credit to the Fiar key beside Cobrar', () => {
+    render(<SalesTenderPicker tender="cash" onTenderChange={vi.fn()} cashDue={1_000} />);
+    expect(screen.queryByTestId('sales-tender-credit')).not.toBeInTheDocument();
   });
 
   it('shows exact cash and the next two bills with their change', () => {

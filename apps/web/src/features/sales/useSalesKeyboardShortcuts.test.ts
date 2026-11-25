@@ -9,6 +9,7 @@
 
 import { renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { PRODUCT_SEARCH_UNIT_SELECT_ID } from '@/components/dialogs/productSearchSelection';
 import { useSalesKeyboardShortcuts } from './useSalesKeyboardShortcuts';
 
 function fireKey(key: string, options: Partial<KeyboardEventInit> = {}): KeyboardEvent {
@@ -195,6 +196,18 @@ describe('useSalesKeyboardShortcuts — Ctrl/Cmd guard lift', () => {
     expect(altPEvent.defaultPrevented).toBe(false);
   });
 
+  it('claims Alt+U in product search only while the unit picker is shown', () => {
+    renderHook(() => useSalesKeyboardShortcuts({ ...defaultOptions, isProductSearchOpen: true }));
+    expect(fireKey('u', { altKey: true, code: 'KeyU' }).defaultPrevented).toBe(false);
+
+    const select = document.createElement('select');
+    select.id = PRODUCT_SEARCH_UNIT_SELECT_ID;
+    document.body.append(select);
+    expect(fireKey('u', { altKey: true, code: 'KeyU' }).defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(select);
+    select.remove();
+  });
+
   // Mod+Z undo binding.
   describe('Mod+Z undo', () => {
     it('fires onUndo on Ctrl+Z and prevents the browser default', () => {
@@ -248,6 +261,92 @@ describe('useSalesKeyboardShortcuts — Ctrl/Cmd guard lift', () => {
 
       expect(onUndo).not.toHaveBeenCalled();
       expect(event.defaultPrevented).toBe(false);
+    });
+  });
+
+  it('leaves the cart alone while a sheet over the register owns the keyboard', () => {
+    const onOpenPayment = vi.fn();
+    const onRemoveSelectedItem = vi.fn();
+    const onOpenSearch = vi.fn();
+    const onFastCash = vi.fn();
+    const onSuspend = vi.fn();
+    const onUndo = vi.fn();
+    renderHook(() =>
+      useSalesKeyboardShortcuts({
+        ...defaultOptions,
+        selectedItemKey: 'line-1',
+        canOpenSearch: true,
+        canSuspend: true,
+        onOpenPayment,
+        onRemoveSelectedItem,
+        onOpenSearch,
+        onFastCash,
+        onSuspend,
+        onUndo,
+      })
+    );
+    const sheet = document.createElement('div');
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-modal', 'true');
+    document.body.append(sheet);
+
+    for (const key of ['F1', 'F2', 'F5', 'Delete']) fireKey(key);
+    fireKey('p', { ctrlKey: true });
+    fireKey('z', { ctrlKey: true });
+
+    expect(onOpenPayment).not.toHaveBeenCalled();
+    expect(onFastCash).not.toHaveBeenCalled();
+    expect(onOpenSearch).not.toHaveBeenCalled();
+    expect(onRemoveSelectedItem).not.toHaveBeenCalled();
+    expect(onSuspend).not.toHaveBeenCalled();
+    expect(onUndo).not.toHaveBeenCalled();
+
+    sheet.remove();
+    fireKey('Delete');
+    expect(onRemoveSelectedItem).toHaveBeenCalledWith('line-1');
+  });
+
+  describe('F9 incident sheet', () => {
+    it('opens the sheet from the scan field and prevents the browser default', () => {
+      const onOpenIncident = vi.fn();
+      renderHook(() => useSalesKeyboardShortcuts({ ...defaultOptions, onOpenIncident }));
+      const input = document.createElement('input');
+      input.id = 'sales-product-search-input';
+      document.body.appendChild(input);
+      input.focus();
+      const event = new KeyboardEvent('keydown', { key: 'F9', bubbles: true, cancelable: true });
+      input.dispatchEvent(event);
+      expect(onOpenIncident).toHaveBeenCalledOnce();
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it('does not reopen the sheet when the sheet already took the F9 to close', () => {
+      const onOpenIncident = vi.fn();
+      renderHook(() => useSalesKeyboardShortcuts({ ...defaultOptions, onOpenIncident }));
+      const closeSheet = (event: KeyboardEvent) => event.preventDefault();
+      window.addEventListener('keydown', closeSheet, { capture: true });
+      fireKey('F9');
+      window.removeEventListener('keydown', closeSheet, { capture: true });
+      expect(onOpenIncident).not.toHaveBeenCalled();
+    });
+
+    it('stays inert while payment, product search or another dialog is open', () => {
+      const onOpenIncident = vi.fn();
+      const { rerender } = renderHook(
+        (props: { isPaymentModalOpen: boolean; isProductSearchOpen: boolean }) =>
+          useSalesKeyboardShortcuts({ ...defaultOptions, ...props, onOpenIncident }),
+        { initialProps: { isPaymentModalOpen: true, isProductSearchOpen: false } }
+      );
+      fireKey('F9');
+      rerender({ isPaymentModalOpen: false, isProductSearchOpen: true });
+      fireKey('F9');
+      rerender({ isPaymentModalOpen: false, isProductSearchOpen: false });
+      const dialog = document.createElement('div');
+      dialog.setAttribute('role', 'dialog');
+      dialog.setAttribute('aria-modal', 'true');
+      document.body.appendChild(dialog);
+      expect(fireKey('F9').defaultPrevented).toBe(false);
+      expect(onOpenIncident).not.toHaveBeenCalled();
     });
   });
 

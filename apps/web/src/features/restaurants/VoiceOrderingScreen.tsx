@@ -1,37 +1,25 @@
-import { ReservationChoice } from '@/features/reservations/ReservationChoice';
-import { reservationChoiceKey } from '@/features/reservations/reservationSelection';
 /**
- * Restaurant voice-ordering screen.
+ * Restaurant ordering screen shared by `/touch/voice` (three columns: dishes,
+ * plate sheet, order rail) and `/m` (stacked, sheet in a dialog).
  *
- * Shared component for both `/touch/voice` (tablet two-column) and `/m`
- * (phone-width stacked) surface variants. Builds on the shared voice
- * infrastructure plus the existing
- * atomic `restaurantServices.openCheck` command.
- *
- * Flow:
- * 1. Waiter enters a table label (e.g. "Mesa 5").
- * 2. Mic CTA opens the lazy-loaded `VoiceCartCommandModal`. Modal
- * reviews the parsed lines + notes; on Aplicar the items hydrate
- * into the local cart.
- * 3. Operator can adjust quantity (-/+), remove a line, or edit the
- * inline note before saving.
- * 4. "Guardar orden" commits the draft sale, service, check, diners,
- * round, courses and modifiers in one SQLite transaction.
- *
- * Per-line notes live in a local `Record<itemKey, string>`; on save
- * each cart line forwards its trimmed note as `sale_items.notes`.
- * The sale-level `notes` field is no longer populated
- * by this surface; `tableId` / `suspendedLabel` already carry the
- * table identifier so no aggregation is needed.
+ * A tapped dish opens its plate sheet; «Agregar al pedido» puts it in the
+ * round being built, and «Enviar ronda N» commits that round through the
+ * atomic `restaurantServices.openCheck` command, which also routes it to the
+ * kitchen. The table stays selected so the rail shows the round as sent.
  *
  * @module features/restaurants/VoiceOrderingScreen
  */
-import { Suspense, lazy, useRef, useState } from 'react';
+import { Suspense, lazy, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { Split } from 'lucide-react';
+import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { useIsModuleActive } from '@/features/modules/ModulesContext';
+import { useRegisterZone } from '@/features/modules/useRegisterZone';
+import { MANAGER_OR_ADMIN_ROLES } from '@puntovivo/shared/roles';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { trpc } from '@/lib/trpc';
@@ -39,27 +27,50 @@ import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import {
   invalidateCommittedGroups,
   INVENTORY_RESERVATION_INVALIDATIONS,
+  RESTAURANT_TABLE_INVALIDATIONS,
 } from '@/lib/invalidateGroups';
 import { translateServerError } from '@/lib/translateServerError';
-import { formatCurrency } from '@/lib/utils';
-import { roundQuantity } from '@puntovivo/shared/unit-math';
+import { roundMoney } from '@/lib/money';
 import {
   buildCartItem,
   getSaleMinimumQuantity,
   getSaleQuantityStep,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
+import { getCartSummary } from '@/features/sales/saleCartTotals';
+import { selectionFromHydratedProduct } from '@/features/sales/productSelection';
+import { Modal } from '@/components/form-controls/Modal';
 import type { VoiceCartItem } from '@/features/voice/VoiceCartCommandModal';
-import type { ProductSearchSelection } from '@/types';
-import { VoiceOrderingCart } from './VoiceOrderingCart';
+import type { Product, ProductSearchSelection } from '@/types';
+import { ReservationChoice } from '@/features/reservations/ReservationChoice';
+import { reservationChoiceKey } from '@/features/reservations/reservationSelection';
 import { VoiceOrderingControls } from './VoiceOrderingControls';
+import { RestaurantBillRequestToggle } from './RestaurantBillRequestToggle';
+import { usePendingRoundReport } from './usePendingRoundReport';
+import { RestaurantDishCatalog } from './RestaurantDishCatalog';
+import { RestaurantOrderRail } from './RestaurantOrderRail';
+import { sentRoundsFromTableState, type RailLine } from './orderRounds';
 import {
   DEFAULT_LINE_DETAILS,
+  getRestaurantModifierPriceDelta,
   hasDuplicateRestaurantModifiers,
   restaurantModifierSnapshot,
   normalizeRestaurantGuestCount,
   type RestaurantLineDraft,
 } from './restaurantDraft';
+
+// The sheet loads on the first tapped dish, not with the empty ordering screen.
+const loadPlateSheet = () => import('./RestaurantPlateSheet');
+const RestaurantPlateSheet = lazy(() =>
+  loadPlateSheet().then(module => ({ default: module.RestaurantPlateSheet }))
+);
+
+type SheetState =
+  { mode: 'add'; selection: ProductSearchSelection } | { mode: 'edit'; key: string };
+
+const RestaurantSplitSheet = lazy(() =>
+  import('./RestaurantSplitSheet').then(module => ({ default: module.RestaurantSplitSheet }))
+);
 
 const VoiceCartCommandModal = lazy(() =>
   import('@/features/voice/VoiceCartCommandModal').then(mod => ({
@@ -75,11 +86,16 @@ export interface VoiceOrderingScreenProps {
 export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): React.ReactElement {
   const { t } = useTranslation(['restaurants', 'voice', 'errors', 'common', 'fulfillmentErrors']);
   const toast = useToast();
+  const priceIncludesTax = usePriceIncludesTax();
   const { logout, user } = useAuth();
   const { currentTenant, currentSite } = useTenant();
 
   const semanticSearchActive = useIsModuleActive('semantic-search');
   const dineInActive = useIsModuleActive('dine-in');
+  const kdsActive = useIsModuleActive('kds');
+  const splitsBills = useRegisterZone('tip-split');
+  const navigate = useNavigate();
+  const [splitOpen, setSplitOpen] = useState(false);
   const voiceAvailabilityQuery = trpc.ai.settings.voiceAvailability.useQuery(undefined, {
     enabled: semanticSearchActive,
   });
@@ -88,10 +104,8 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
     { enabled: Boolean(currentSite) }
   );
 
-  // Pull the persistent table catalog when the active site resolves. A
-  // restaurant check always targets an authoritative table row; an empty or
-  // failed catalog therefore exposes setup guidance instead of accepting a
-  // free-text label that cannot participate in service lifecycle invariants.
+  // A restaurant check always targets an authoritative table row; an empty or
+  // failed catalog exposes setup guidance instead of a free-text label.
   const tableCatalogQuery = trpc.restaurantTables.list.useQuery(
     currentSite ? { siteId: currentSite.id, includeArchived: false } : (undefined as never),
     { enabled: Boolean(currentSite) && dineInActive }
@@ -107,16 +121,9 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
   const openCheckMutation = useCriticalMutation('restaurantServices.openCheck');
 
   const [tableLabel, setTableLabel] = useState<string>('');
-  // Guard against a stale selection after catalog refresh. The operator must
-  // explicitly choose a currently active row before opening a check.
+  // Guard against a stale selection after catalog refresh.
   const tableLabelMatchesCatalog =
     !useCatalogDropdown || tableCatalog.some(row => row.name === tableLabel);
-  // resolve the picked table's id from the label so we can
-  // persist the FK alongside the denormalized display label. The
-  // dropdown stores the table name for compatibility with the original
-  // controlled input;
-  // looking up the id on save keeps a single source of truth without
-  // doubling the controlled state.
   const resolvedPickedTableId = useCatalogDropdown
     ? (tableCatalog.find(row => row.name === tableLabel)?.id ?? null)
     : null;
@@ -140,6 +147,8 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
   const [cartItems, setCartItems] = useState<SaleCartItem[]>([]);
   const [itemNotes, setItemNotes] = useState<Record<string, string>>({});
   const [lineDetails, setLineDetails] = useState<Record<string, RestaurantLineDraft>>({});
+  const [sheet, setSheet] = useState<SheetState | null>(null);
+  const [hydratingDishId, setHydratingDishId] = useState<string | null>(null);
   const [voiceModalOpen, setVoiceModalOpen] = useState<boolean>(false);
   const [searchDialogOpen, setSearchDialogOpen] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -169,6 +178,43 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
     ) ||
     isSaving;
 
+  const detailFor = (key: string) => lineDetails[key] ?? DEFAULT_LINE_DETAILS;
+  // A party that shrank after a plate was assigned keeps the plate on the last seat.
+  const seatFor = (detail: RestaurantLineDraft) =>
+    detail.seatNumber === null ? null : Math.min(detail.seatNumber, effectiveGuestCount);
+  const pricedCartItems = cartItems.map(item => ({
+    ...item,
+    unitPrice: roundMoney(
+      item.unitPrice + getRestaurantModifierPriceDelta(detailFor(item.key).modifiers)
+    ),
+  }));
+  const draftTotal = getCartSummary(pricedCartItems, priceIncludesTax).total;
+  const sentRounds = sentRoundsFromTableState(tableStateQuery.data);
+  const sentTotal = (tableStateQuery.data?.checks ?? []).reduce(
+    (sum, check) => roundMoney(sum + check.total),
+    0
+  );
+  const roundNumber = sentRounds.length + 1;
+  // Regrouping checks is a manager or admin override, like the server command.
+  const canSplit =
+    splitsBills &&
+    MANAGER_OR_ADMIN_ROLES.some(role => role === user?.role) &&
+    sentRounds.reduce((count, round) => count + round.lines.length, 0) > 1;
+  const openService = tableStateQuery.data?.service ?? null;
+  usePendingRoundReport(resolvedPickedTableId, cartItems.length, openService !== null);
+  const draftLines: RailLine[] = pricedCartItems.map(item => {
+    const detail = detailFor(item.key);
+    return {
+      key: item.key,
+      quantity: item.quantity,
+      productName: item.productName,
+      total: roundMoney(item.quantity * item.unitPrice),
+      seatNumber: seatFor(detail),
+      modifiers: detail.modifiers.filter(modifier => modifier.name.trim()),
+      note: itemNotes[item.key]?.trim() || null,
+    };
+  });
+
   function applyVoiceItems(items: VoiceCartItem[]): void {
     if (items.length === 0) return;
     const additions = items.map(item => {
@@ -177,23 +223,39 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
     });
     const notesUpdate: Record<string, string> = {};
     for (const { cartItem, note } of additions) {
-      if (note) {
-        notesUpdate[cartItem.key] = note;
-      }
+      if (note) notesUpdate[cartItem.key] = note;
     }
-
-    // Restaurant additions intentionally remain distinct even when product
-    // and unit match. Two diners may order the same item with different
-    // modifiers, notes or courses; the generic POS merge key would silently
-    // collapse those operationally different kitchen lines.
+    // Restaurant additions stay distinct even when product and unit match:
+    // two diners may order the same dish with different options or courses.
     setCartItems(previous => [...previous, ...additions.map(({ cartItem }) => cartItem)]);
     if (Object.keys(notesUpdate).length > 0) {
       setItemNotes(prevNotes => ({ ...prevNotes, ...notesUpdate }));
     }
   }
 
-  function handleProductSearchSelect(selection: ProductSearchSelection): void {
-    setCartItems(previous => [...previous, buildRestaurantCartItem(selection)]);
+  async function handleDishPick(dishId: string): Promise<void> {
+    if (!currentSite || hydratingDishId) return;
+    setHydratingDishId(dishId);
+    try {
+      // The sheet's chunk and the dish's groups load while the dish hydrates.
+      void loadPlateSheet();
+      void utils.restaurantModifiers.productGroups.prefetch(
+        { siteId: currentSite.id, productId: dishId },
+        { staleTime: 30_000 }
+      );
+      // `products.list` skips unit assignments to keep the grid payload small.
+      const full = await utils.products.getById.fetch({ id: dishId, siteId: currentSite.id });
+      const selection = selectionFromHydratedProduct(full as unknown as Product);
+      if (!selection) throw new Error('missing unit');
+      setSheet({ mode: 'add', selection });
+    } catch (error) {
+      toast.error({
+        title: t('restaurants:catalogGrid.error'),
+        description: translateServerError(error, t, t('errors:server.unknown')),
+      });
+    } finally {
+      setHydratingDishId(null);
+    }
   }
 
   function buildRestaurantCartItem(
@@ -212,32 +274,33 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
     };
   }
 
+  function handleSheetSubmit(detail: RestaurantLineDraft, note: string, quantity: number): void {
+    if (!sheet) return;
+    let key: string;
+    if (sheet.mode === 'edit') {
+      key = sheet.key;
+      setCartItems(previous =>
+        previous.map(item => (item.key === key ? { ...item, quantity } : item))
+      );
+    } else {
+      const item = { ...buildRestaurantCartItem(sheet.selection), quantity };
+      key = item.key;
+      setCartItems(previous => [...previous, item]);
+    }
+    setLineDetails(previous => ({ ...previous, [key]: detail }));
+    handleNoteChange(key, note);
+    setSheet(null);
+  }
+
   function handleTableLabelChange(value: string): void {
     setTableLabel(value);
     const table = tableCatalog.find(row => row.name === value);
     if (table?.seatCount) {
       const capacity = table.seatCount;
-      // A table's capacity is a ceiling, not the default party size. Preserve
-      // the operator's current count and clamp only when moving to a smaller
-      // table so selecting a 12-seat table never invents 12 diners.
+      // Capacity is a ceiling, not the party size: clamp only when moving to a smaller table.
       setGuestCount(current => normalizeRestaurantGuestCount(current, capacity));
     }
     setCheckLabel('');
-  }
-
-  function handleQuantityChange(itemKey: string, delta: number): void {
-    // The decrement button is `disabled` at `quantity === minQty` so
-    // the operator never sees a no-op press; we still clamp here as
-    // defense-in-depth against keyboard / programmatic invocations.
-    setCartItems(prev =>
-      prev.map(item => {
-        if (item.key !== itemKey) return item;
-        const step = getSaleQuantityStep(item);
-        const minQty = getSaleMinimumQuantity(item);
-        const nextQty = roundQuantity(Math.max(minQty, item.quantity + delta * step), 12);
-        return { ...item, quantity: nextQty };
-      })
-    );
   }
 
   function handleRemoveLine(itemKey: string): void {
@@ -252,6 +315,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
       delete next[itemKey];
       return next;
     });
+    if (sheet?.mode === 'edit' && sheet.key === itemKey) setSheet(null);
   }
 
   function handleNoteChange(itemKey: string, value: string): void {
@@ -264,10 +328,6 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
       }
       return next;
     });
-  }
-
-  function handleLineDetailsChange(itemKey: string, value: RestaurantLineDraft): void {
-    setLineDetails(previous => ({ ...previous, [itemKey]: value }));
   }
 
   async function handleSave(): Promise<void> {
@@ -293,12 +353,9 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
             clientId: `seat-${index + 1}`,
             seatNumber: index + 1,
           })),
-          // Per-item notes persist on `sale_items.notes` directly. The check
-          // already owns table/label identity; structured modifiers remain in
-          // the restaurant projection and PR11 owns durable KDS routing.
           items: cartItems.map(item => {
             const trimmedNote = itemNotes[item.key]?.trim();
-            const detail = lineDetails[item.key] ?? DEFAULT_LINE_DETAILS;
+            const detail = detailFor(item.key);
             return {
               productId: item.productId,
               unitId: item.unitId,
@@ -307,8 +364,9 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
               discount: item.discount,
               taxRate: item.taxRate,
               notes: trimmedNote && trimmedNote.length > 0 ? trimmedNote : null,
-              dinerClientId: `seat-${Math.min(detail.seatNumber, effectiveGuestCount)}`,
+              dinerClientId: seatFor(detail) === null ? null : `seat-${seatFor(detail)}`,
               courseKey: detail.courseKey,
+              ...(detail.modifierGroups ? { modifierGroups: detail.modifierGroups } : {}),
               modifiers: restaurantModifierSnapshot(detail.modifiers),
             };
           }),
@@ -321,31 +379,32 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
         return;
       }
 
-      // The order is durable now. Empty the local cart before any read-side
-      // refresh so a failed invalidation cannot make a duplicate save likely.
+      // The round is durable now. Empty the local round before any read-side
+      // refresh so a failed invalidation cannot make a duplicate send likely.
+      // The table stays picked so the rail shows the round as sent.
       setCartItems([]);
       setItemNotes({});
       setLineDetails({});
-      setTableLabel('');
+      setSheet(null);
       setCheckLabel('');
-      setGuestCount(1);
       setReservationSelection('');
       const refreshed = await invalidateCommittedGroups(utils, [
         u => u.sales.list,
         u => u.sales.listDrafts,
         u => u.sales.summary,
         u => u.cashSessions.getActive,
-        u => u.restaurantTables.listWithDraftStatus,
-        u => u.restaurantServices.getTableState,
-        // The same writer may have seated the arrived reservation. Refresh its
-        // inactive list cache too, before the operator navigates back to it.
+        ...RESTAURANT_TABLE_INVALIDATIONS,
+        // The same writer may have seated the arrived reservation.
         u => u.reservations.list,
         ...INVENTORY_RESERVATION_INVALIDATIONS,
       ]);
-      const successTitle = t('restaurants:save.successToast', {
-        count: cartItems.length,
-        tableLabel: trimmedLabel,
-      });
+      const successTitle = t(
+        kdsActive ? 'restaurants:rail.sentToast' : 'restaurants:rail.savedToast',
+        {
+          count: roundNumber,
+          tableLabel: trimmedLabel,
+        }
+      );
       if (refreshed) {
         toast.success({ title: successTitle });
       } else {
@@ -363,26 +422,145 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
     await logout();
   }
 
-  const containerLayout =
-    variant === 'mobile'
-      ? 'flex flex-col gap-4'
-      : 'grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]';
+  const editingItem =
+    sheet?.mode === 'edit' ? cartItems.find(item => item.key === sheet.key) : null;
+  const addItem = useMemo(
+    () => (sheet?.mode === 'add' ? buildCartItem(sheet.selection) : null),
+    [sheet]
+  );
+  const sheetItem = addItem ?? editingItem;
+  const sheetProduct = sheetItem
+    ? {
+        productId: sheetItem.productId,
+        productName: sheetItem.productName,
+        unitPrice: sheetItem.unitPrice,
+        quantity: sheetItem.quantity,
+        minQuantity: getSaleMinimumQuantity(sheetItem),
+        quantityStep: getSaleQuantityStep(sheetItem),
+      }
+    : null;
+  const sheetBody =
+    sheet && sheetProduct && currentSite ? (
+      <Suspense
+        fallback={
+          <p role="status" className="p-5 text-sm text-fg3">
+            {t('restaurants:sheet.loading')}
+          </p>
+        }
+      >
+        <RestaurantPlateSheet
+          key={sheet.mode === 'edit' ? sheet.key : `add:${sheetProduct.productId}`}
+          siteId={currentSite.id}
+          productId={sheetProduct.productId}
+          productName={sheetProduct.productName}
+          unitPrice={sheetProduct.unitPrice}
+          quantity={sheetProduct.quantity}
+          minQuantity={sheetProduct.minQuantity}
+          quantityStep={sheetProduct.quantityStep}
+          guestCount={effectiveGuestCount}
+          canManage={user?.role === 'admin' || user?.role === 'manager'}
+          initialDetail={sheet.mode === 'edit' ? detailFor(sheet.key) : DEFAULT_LINE_DETAILS}
+          initialNote={sheet.mode === 'edit' ? (itemNotes[sheet.key] ?? '') : ''}
+          mode={sheet.mode}
+          onSubmit={handleSheetSubmit}
+          onClose={() => setSheet(null)}
+        />
+      </Suspense>
+    ) : null;
+
+  const isMobile = variant === 'mobile';
+  const sendLabel = t(kdsActive ? 'restaurants:rail.send' : 'restaurants:rail.save', {
+    count: roundNumber,
+  });
+
+  const tableControls = (
+    <>
+      <VoiceOrderingControls
+        tablePicker={isMobile ? 'grid' : 'dropdown'}
+        canCreateTables={user?.role === 'admin'}
+        dineInActive={dineInActive}
+        tableLabel={tableLabel}
+        tableCatalog={tableCatalog}
+        useCatalogDropdown={useCatalogDropdown}
+        tableCatalogLoading={tableCatalogQuery.isLoading}
+        tableCatalogError={Boolean(tableCatalogQuery.error)}
+        guestCount={effectiveGuestCount}
+        guestCountMaximum={pickedTableGuestMaximum}
+        guestCountLocked={lockedGuestCount !== null || reservationSelected}
+        checkLabel={checkLabel}
+        interactionDisabled={isSaving}
+        micDisabled={micDisabled}
+        micDisabledReason={micDisabledReason}
+        onTableLabelChange={value => {
+          setReservationSelection('');
+          handleTableLabelChange(value);
+        }}
+        onGuestCountChange={value =>
+          setGuestCount(normalizeRestaurantGuestCount(value, pickedTableGuestMaximum))
+        }
+        onCheckLabelChange={setCheckLabel}
+        onOpenVoice={() => setVoiceModalOpen(true)}
+        onOpenSearch={() => setSearchDialogOpen(true)}
+      />
+      {arrivedReservation && (
+        <ReservationChoice
+          row={arrivedReservation}
+          checked={reservationSelected}
+          disabled={isSaving}
+          onChange={checked =>
+            setReservationSelection(checked ? reservationChoiceKey(arrivedReservation) : '')
+          }
+        />
+      )}
+      {resolvedPickedTableId && openService && (
+        <div className="flex flex-wrap gap-2">
+          <RestaurantBillRequestToggle
+            tableId={resolvedPickedTableId}
+            requested={openService.billRequestedAt !== null}
+            disabled={isSaving}
+          />
+          {canSplit && (
+            <button
+              type="button"
+              className="btn-outline"
+              disabled={isSaving}
+              onClick={() => setSplitOpen(true)}
+              data-testid="voice-ordering-split"
+            >
+              <Split className="h-4 w-4" aria-hidden="true" />
+              {t('restaurants:split.ctaLabel')}
+            </button>
+          )}
+        </div>
+      )}
+      {resolvedPickedTableId && tableStateQuery.isLoading && (
+        <p className="text-sm text-secondary-500" data-testid="voice-ordering-table-state-loading">
+          {t('restaurants:service.tableStateLoading')}
+        </p>
+      )}
+      {resolvedPickedTableId && tableStateQuery.error && (
+        <p className="text-sm text-danger-700" data-testid="voice-ordering-table-state-error">
+          {t('restaurants:service.tableStateError')}
+        </p>
+      )}
+    </>
+  );
 
   return (
     <div
-      className="flex min-h-full flex-col"
+      className={`flex min-h-full flex-col ${isMobile ? '' : 'lg:h-[calc(100dvh-4rem)] lg:min-h-0'}`}
       data-testid="voice-ordering-screen"
       data-variant={variant}
       aria-busy={isSaving}
     >
       {/* Top bar — no sidebar, no Header. Logout is the only escape. */}
       <header
-        className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-line/60 pb-3"
+        className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line/60 pb-3"
         data-testid="voice-ordering-topbar"
       >
         <div>
           <p className="text-xs uppercase tracking-wide text-secondary-500">
-            {variant === 'mobile'
+            {isMobile
               ? t('restaurants:surface.mobileHeading')
               : t('restaurants:surface.touchHeading')}
           </p>
@@ -402,98 +580,102 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
         </button>
       </header>
 
-      <div className={containerLayout}>
-        <div className="space-y-4">
-          <VoiceOrderingControls
-            tablePicker={variant === 'mobile' ? 'grid' : 'dropdown'}
-            canCreateTables={user?.role === 'admin'}
-            dineInActive={dineInActive}
-            tableLabel={tableLabel}
-            tableCatalog={tableCatalog}
-            useCatalogDropdown={useCatalogDropdown}
-            tableCatalogLoading={tableCatalogQuery.isLoading}
-            tableCatalogError={Boolean(tableCatalogQuery.error)}
-            guestCount={effectiveGuestCount}
-            guestCountMaximum={pickedTableGuestMaximum}
-            guestCountLocked={lockedGuestCount !== null || reservationSelected}
-            checkLabel={checkLabel}
-            interactionDisabled={isSaving}
-            micDisabled={micDisabled}
-            micDisabledReason={micDisabledReason}
-            onTableLabelChange={value => {
-              setReservationSelection('');
-              handleTableLabelChange(value);
-            }}
-            onGuestCountChange={value =>
-              setGuestCount(normalizeRestaurantGuestCount(value, pickedTableGuestMaximum))
-            }
-            onCheckLabelChange={setCheckLabel}
-            onOpenVoice={() => setVoiceModalOpen(true)}
-            onOpenSearch={() => setSearchDialogOpen(true)}
-          />
-          {arrivedReservation && (
-            <ReservationChoice
-              row={arrivedReservation}
-              checked={reservationSelected}
-              disabled={isSaving}
-              onChange={checked =>
-                setReservationSelection(checked ? reservationChoiceKey(arrivedReservation) : '')
-              }
-            />
-          )}
-          {resolvedPickedTableId && tableStateQuery.isLoading && (
-            <p
-              className="text-sm text-secondary-500"
-              data-testid="voice-ordering-table-state-loading"
-            >
-              {t('restaurants:service.tableStateLoading')}
-            </p>
-          )}
-          {resolvedPickedTableId && tableStateQuery.error && (
-            <p className="text-sm text-danger-700" data-testid="voice-ordering-table-state-error">
-              {t('restaurants:service.tableStateError')}
-            </p>
-          )}
-          {tableStateQuery.data?.checks && tableStateQuery.data.checks.length > 0 && (
-            <section className="card p-4" data-testid="voice-ordering-open-checks">
-              <h2 className="font-display text-base text-secondary-950">
-                {t('restaurants:service.openChecks', {
-                  count: tableStateQuery.data.checks.length,
-                })}
-              </h2>
-              <ul className="mt-2 space-y-2">
-                {tableStateQuery.data.checks.map(check => (
-                  <li
-                    key={check.id}
-                    className="flex items-center justify-between rounded-md bg-secondary-50 px-3 py-2 text-sm"
-                  >
-                    <span>{check.label || check.saleNumber}</span>
-                    <span className="font-medium">{formatCurrency(check.total)}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
+      {!isMobile && <div className="mb-4 shrink-0 space-y-3">{tableControls}</div>}
+
+      <div
+        className={
+          isMobile
+            ? 'flex flex-col gap-4'
+            : 'grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.95fr)]'
+        }
+      >
+        <div className="space-y-4 lg:min-h-0 lg:overflow-y-auto">
+          {isMobile && tableControls}
+          {currentSite && dineInActive && (
+            <div className="card p-4">
+              <RestaurantDishCatalog
+                siteId={currentSite.id}
+                activeDishId={sheetProduct?.productId ?? hydratingDishId}
+                disabled={isSaving || hydratingDishId !== null}
+                onPick={dishId => void handleDishPick(dishId)}
+              />
+            </div>
           )}
         </div>
 
-        <VoiceOrderingCart
-          siteId={currentSite?.id}
-          canManageModifiers={user?.role === 'admin' || user?.role === 'manager'}
-          cartItems={cartItems}
-          itemNotes={itemNotes}
-          lineDetails={lineDetails}
-          guestCount={effectiveGuestCount}
-          tableLabel={tableLabel}
-          saveDisabled={saveDisabled}
-          interactionDisabled={isSaving}
-          onQuantityChange={handleQuantityChange}
-          onRemoveLine={handleRemoveLine}
-          onNoteChange={handleNoteChange}
-          onLineDetailsChange={handleLineDetailsChange}
-          onSave={() => void handleSave()}
-          compactCheck={variant === 'mobile'}
-        />
+        {!isMobile && (
+          <div className="card overflow-hidden p-0 lg:min-h-0">
+            {sheetBody ?? (
+              <p
+                className="flex h-full min-h-40 items-center justify-center p-6 text-sm text-fg3"
+                data-testid="plate-sheet-empty"
+              >
+                {t('restaurants:sheet.empty')}
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className={`card p-0 ${isMobile ? '' : 'overflow-hidden lg:min-h-0'}`}>
+          <RestaurantOrderRail
+            sentRounds={sentRounds}
+            draftLines={draftLines}
+            tableTotal={roundMoney(sentTotal + draftTotal)}
+            sendLabel={sendLabel}
+            sendDisabled={saveDisabled}
+            interactionDisabled={isSaving}
+            sticky={isMobile}
+            onEdit={key => setSheet({ mode: 'edit', key })}
+            onRemove={handleRemoveLine}
+            onSend={() => void handleSave()}
+            hints={
+              <>
+                {tableLabel.trim().length === 0 && cartItems.length > 0 && (
+                  <p
+                    className="text-xs text-warning-700"
+                    data-testid="voice-ordering-save-table-hint"
+                  >
+                    {t('restaurants:save.tableRequired')}
+                  </p>
+                )}
+                {cartItems.length === 0 && tableLabel.trim().length > 0 && (
+                  <p
+                    className="text-xs text-warning-700"
+                    data-testid="voice-ordering-save-empty-hint"
+                  >
+                    {t('restaurants:save.emptyCartHint')}
+                  </p>
+                )}
+              </>
+            }
+          />
+        </div>
       </div>
+
+      {isMobile && (
+        <Modal
+          isOpen={sheetBody !== null}
+          onClose={() => setSheet(null)}
+          ariaLabel={sheetProduct?.productName ?? t('restaurants:sheet.empty')}
+          size="full"
+          showCloseButton={false}
+          contentClassName="p-0"
+        >
+          {/* A fixed height lets the sheet scroll inside and keep its actions in reach. */}
+          <div className="h-[min(82dvh,48rem)]">{sheetBody}</div>
+        </Modal>
+      )}
+
+      {splitOpen && resolvedPickedTableId && (
+        <Suspense fallback={null}>
+          <RestaurantSplitSheet
+            tableId={resolvedPickedTableId}
+            tableName={tableLabel}
+            onClose={() => setSplitOpen(false)}
+            onCharge={account => navigate('/sales', { state: { restaurantCharge: account } })}
+          />
+        </Suspense>
+      )}
 
       {voiceModalOpen && (
         <Suspense fallback={null}>
@@ -508,7 +690,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
       <ProductSearchDialog
         isOpen={searchDialogOpen}
         onClose={() => setSearchDialogOpen(false)}
-        onSelect={handleProductSearchSelect}
+        onSelect={selection => setSheet({ mode: 'add', selection })}
         siteId={currentSite?.id ?? null}
       />
     </div>

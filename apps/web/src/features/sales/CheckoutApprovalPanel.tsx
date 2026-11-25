@@ -2,9 +2,10 @@ import { RefreshCw, ShieldCheck } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ManagerApprovalAction } from '@puntovivo/shared/manager-approval';
-import type { ApprovalRequestView } from './useCheckoutApprovals';
+import { RETRYABLE_APPROVAL_STATUSES, type ApprovalRequestView } from './useCheckoutApprovals';
 
-const InlineApprovalDecision = lazy(async () => {
+/** The PIN form loads on demand; checkout and the till return share this boundary. */
+export const LazyInlineApprovalDecision = lazy(async () => {
   const module = await import('@/features/approvals/InlineApprovalDecision');
   return { default: module.InlineApprovalDecision };
 });
@@ -21,14 +22,6 @@ interface CheckoutApprovalPanelProps<Action extends ManagerApprovalAction> {
   /** Why a request cannot be sent yet; a grant asked for now would not match the sale. */
   requestBlockedReason?: string | undefined;
 }
-
-const RETRYABLE_STATUSES = new Set<ApprovalRequestView['status']>([
-  'not_requested',
-  'rejected',
-  'cancelled',
-  'consumed',
-  'expired',
-]);
 
 /** cashier-facing status, never an elevated manager session. */
 export function CheckoutApprovalPanel<Action extends ManagerApprovalAction>({
@@ -89,7 +82,7 @@ export function CheckoutApprovalPanel<Action extends ManagerApprovalAction>({
       <div className="mt-3 space-y-3">
         {views.map(view => {
           const reason = reasons[view.action] ?? '';
-          const canRequest = RETRYABLE_STATUSES.has(view.status);
+          const canRequest = RETRYABLE_APPROVAL_STATUSES.has(view.status);
           return (
             <article
               key={view.action}
@@ -140,7 +133,7 @@ export function CheckoutApprovalPanel<Action extends ManagerApprovalAction>({
                     </p>
                   }
                 >
-                  <InlineApprovalDecision
+                  <LazyInlineApprovalDecision
                     action={view.action}
                     requestId={view.requestId}
                     onDecided={onRefresh}

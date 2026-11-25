@@ -5,18 +5,30 @@ import { formatCurrency } from '@/lib/utils';
 import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
 import type { ProductSearchItem, ProductUnitAssignment } from '@/types';
 
-import { PRODUCT_SEARCH_UNIT_SELECT_ID } from './productSearchSelection';
+import { PharmacyAlternatives } from '@/features/sales/PharmacyAlternatives';
+import type { GenericAlternative } from '@/features/sales/useGenericAlternatives';
+
+import { PRODUCT_SEARCH_UNIT_SELECT_ID, productUnitCost } from './productSearchSelection';
 
 interface ProductSearchSelectionPanelProps {
   product: ProductSearchItem | null;
   unit: ProductUnitAssignment | null;
+  showUnits?: boolean;
+  /** Cheaper equivalents of the pick that the current results do not list. */
+  alternatives?: readonly GenericAlternative[];
+  onChooseAlternative?: (alternative: GenericAlternative) => void;
   onUnitChange: (unitId: string) => void;
+  priceMode?: 'sale' | 'cost';
 }
 
 export function ProductSearchSelectionPanel({
   product,
   unit,
+  showUnits = true,
+  alternatives = [],
+  onChooseAlternative,
   onUnitChange,
+  priceMode = 'sale',
 }: ProductSearchSelectionPanelProps) {
   const { t } = useTranslation('common');
 
@@ -38,34 +50,44 @@ export function ProductSearchSelectionPanel({
           </div>
 
           <div className="grid gap-3">
-            <div>
-              <label className="label" htmlFor={PRODUCT_SEARCH_UNIT_SELECT_ID}>
-                {t('productSearch.unit')}
-              </label>
-              <select
-                id={PRODUCT_SEARCH_UNIT_SELECT_ID}
-                className="input mt-1"
-                value={unit.unitId}
-                aria-keyshortcuts={ariaKeyshortcutsFor('sales.focusUnit')}
-                onChange={event => onUnitChange(event.target.value)}
-              >
-                {product.unitAssignments?.map(assignment => (
-                  <option key={assignment.unitId} value={assignment.unitId}>
-                    {assignment.unitName ?? assignment.unitAbbreviation ?? assignment.unitId}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {showUnits && (
+              <div>
+                <label className="label" htmlFor={PRODUCT_SEARCH_UNIT_SELECT_ID}>
+                  {t('productSearch.unit')}
+                </label>
+                <select
+                  id={PRODUCT_SEARCH_UNIT_SELECT_ID}
+                  className="input mt-1"
+                  value={unit.unitId}
+                  aria-keyshortcuts={ariaKeyshortcutsFor('sales.focusUnit')}
+                  onChange={event => onUnitChange(event.target.value)}
+                >
+                  {product.unitAssignments?.map(assignment => (
+                    <option key={assignment.unitId} value={assignment.unitId}>
+                      {assignment.unitName ?? assignment.unitAbbreviation ?? assignment.unitId}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="rounded-[14px] border border-line/70 bg-surface/92 px-4 py-4">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-secondary-500">{t('productSearch.price')}</span>
-                <span className="font-medium text-secondary-900">{formatCurrency(unit.price)}</span>
+                <span className="text-secondary-500">
+                  {t(priceMode === 'cost' ? 'productSearch.cost' : 'productSearch.price')}
+                </span>
+                <span className="font-medium text-secondary-900">
+                  {formatCurrency(
+                    priceMode === 'cost' ? productUnitCost(product, unit) : unit.price
+                  )}
+                </span>
               </div>
-              <div className="mt-2 flex items-center justify-between text-sm">
-                <span className="text-secondary-500">{t('productSearch.equivalence')}</span>
-                <span className="font-medium text-secondary-900">{unit.equivalence}</span>
-              </div>
+              {showUnits && (
+                <div className="mt-2 flex items-center justify-between text-sm">
+                  <span className="text-secondary-500">{t('productSearch.equivalence')}</span>
+                  <span className="font-medium text-secondary-900">{unit.equivalence}</span>
+                </div>
+              )}
               <div className="mt-2 flex items-center justify-between text-sm">
                 <span className="text-secondary-500">{t('productSearch.availableStock')}</span>
                 <span className="font-medium text-secondary-900">
@@ -91,6 +113,9 @@ export function ProductSearchSelectionPanel({
                 </>
               )}
             </div>
+            {alternatives.length > 0 && onChooseAlternative && (
+              <PharmacyAlternatives alternatives={alternatives} onChoose={onChooseAlternative} />
+            )}
           </div>
         </div>
       )}

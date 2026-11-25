@@ -22,12 +22,16 @@ function toCompletedSale(sale: {
   saleNumber: string;
   total: number;
   cashChangeSnapshot?: number | null;
+  customerId?: string | null;
+  customerNameSnapshot?: string | null;
 }): CompletedSaleSummary {
   return {
     id: sale.id,
     saleNumber: sale.saleNumber,
     total: sale.total,
     change: sale.cashChangeSnapshot ?? 0,
+    customerId: sale.customerId ?? null,
+    customerName: sale.customerNameSnapshot ?? null,
   };
 }
 
@@ -107,6 +111,7 @@ export function useSalesMutations({
       // Clear the chargeable workspace first so a read-cache failure cannot
       // leave merchandise on screen and invite a duplicate sale.
       const storeState = useCartWorkspaceStore.getState();
+      const charged = storeState.activeId ? storeState.workspaces[storeState.activeId] : undefined;
       if (storeState.activeId) {
         storeState.removeWorkspace(storeState.activeId);
       }
@@ -117,7 +122,7 @@ export function useSalesMutations({
       setSaleError(null);
       setIsPaymentModalOpen(false);
       playSaleComplete();
-      onSaleCompleted(sale);
+      onSaleCompleted(charged?.deliveryRequested ? { ...sale, deliveryRequested: true } : sale);
       const refreshed = await invalidateCommittedGroups(utils, SALE_COMPLETION_INVALIDATIONS);
       // when the sale accrued points, the cashier should be able
       // to tell the customer without opening another screen. The base copy

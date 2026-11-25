@@ -1,4 +1,12 @@
-import { FileText, PauseCircle, Undo2, UserRound, WalletCards } from 'lucide-react';
+import {
+  FileText,
+  PauseCircle,
+  TriangleAlert,
+  Truck,
+  Undo2,
+  UserRound,
+  WalletCards,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   CheckoutPreflightPanel,
@@ -7,14 +15,22 @@ import {
 import { CashierPaceStrip } from '@/features/sales/CashierPaceStrip';
 import { SalesRegisterAssignmentField } from '@/features/sales/SalesRegisterAssignmentField';
 import { SalesTenderPicker } from '@/features/sales/SalesTenderPicker';
+import { SalesCreditKey } from '@/features/sales/SalesCreditKey';
+import { useHardwareCopy } from '@/features/sales/useHardwareCopy';
+import { initialsOf } from '@/features/sales/handoff/handoffModel';
+
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
+import { useResolvedLocale } from '@/features/locale/LocaleProvider';
+import { getPayableCartTotal } from '@/features/sales/saleCartTotals';
 import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
+import { roundMoney } from '@/lib/money';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { CompletedSaleSummary } from '@/features/sales/SaleCompleteStrip';
 import type { InitialTender } from '@/features/sales/salePaymentModal.types';
 import type { PreflightItem } from '@/features/sales/useCheckoutPreflight';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
 import type { CashSession, RegisterAssignment, Site, UserRole } from '@/types';
+import type { ReceivableHandoff } from './handoff/useShiftHandoff';
 import { Button, SeverityMark } from '@/components/ui';
 
 interface SalesCheckoutPanelProps {
@@ -26,6 +42,8 @@ interface SalesCheckoutPanelProps {
   draftSummary: SaleCartSummary;
   /** Number of ticket lines, next to the unit count. */
   lineCount?: number | undefined;
+  /** Ticket lines that need a prescription, named next to the item count. */
+  prescriptionLineCount?: number | undefined;
   /** Sum of the manual line discounts already inside the total. */
   discountAmount?: number | undefined;
   canCharge: boolean;
@@ -36,6 +54,9 @@ interface SalesCheckoutPanelProps {
   onCharge: () => void;
   onOpenCashSession: () => void;
   onCloseCashSession: () => void;
+  /** Mid-day hand-over to the next cashier; absent when it cannot run. */
+  onHandOver?: (() => void) | undefined;
+  receiveHandoff?: ReceivableHandoff | null | undefined;
   onOpenMovement: () => void;
   /** Hidden when undefined: no supported drawer or no sales role. */
   onKickCashDrawer?: (() => void | Promise<void>) | undefined;
@@ -68,6 +89,21 @@ interface SalesCheckoutPanelProps {
   onOpenLastSale?: (() => void) | undefined;
   /** Opens the sales history, where a return starts from its sale. */
   onOpenReturns?: (() => void) | undefined;
+  onOpenIncident?: (() => void) | undefined;
+  isIncidentOpen?: boolean | undefined;
+  /** The register sells on credit: Fiar sits beside Cobrar. */
+  showsCreditKey?: boolean | undefined;
+  /** Opens the charge drawer on credit; absent while the ticket cannot be charged. */
+  onCredit?: (() => void) | undefined;
+  /** What the customer would owe after this ticket; null while unknown. */
+  creditProjectedBalance?: number | null | undefined;
+  creditLimit?: number | undefined;
+  /** «Entregar en obra» sits in the charge row. */
+  showsDeliveryKey?: boolean | undefined;
+  /** Marks the ticket for delivery, or sends the sale just charged; absent when neither applies. */
+  onDelivery?: (() => void) | undefined;
+  /** The ticket goes out as a delivery once charged. */
+  deliveryActive?: boolean | undefined;
 }
 
 /** Characters of a condensed total that fit one line of the card. */
@@ -87,6 +123,7 @@ export function SalesCheckoutPanel({
   isCashSessionLoading,
   draftSummary,
   lineCount = 0,
+  prescriptionLineCount = 0,
   discountAmount = 0,
   canCharge,
   canOpenCashSession,
@@ -95,6 +132,8 @@ export function SalesCheckoutPanel({
   onCharge,
   onOpenCashSession,
   onCloseCashSession,
+  onHandOver,
+  receiveHandoff = null,
   onOpenMovement,
   onKickCashDrawer,
   isKickingCashDrawer,
@@ -116,6 +155,15 @@ export function SalesCheckoutPanel({
   lastSale = null,
   onOpenLastSale,
   onOpenReturns,
+  onOpenIncident,
+  isIncidentOpen = false,
+  showsCreditKey = false,
+  onCredit,
+  creditProjectedBalance = null,
+  showsDeliveryKey = false,
+  onDelivery,
+  deliveryActive = false,
+  creditLimit = 0,
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
   const priceIncludesTax = usePriceIncludesTax();
@@ -127,14 +175,29 @@ export function SalesCheckoutPanel({
       !SHOWN_ELSEWHERE.has(item.id) && (cashSession !== null || item.id !== 'cash_session_required')
   );
   const hasVisibleBlocker = visiblePreflightItems.some(item => item.severity === 'blocker');
-  const primaryAction = cashSession ? onCharge : onOpenCashSession;
+  // Opening a register that is waiting to be received would discard its handoff.
+  const receivesSelected = !cashSession && receiveHandoff?.isSelectedRegister === true;
+  const primaryAction = cashSession
+    ? onCharge
+    : receivesSelected
+      ? receiveHandoff!.open
+      : onOpenCashSession;
   const primaryActionDisabled =
-    isHubGated || (cashSession ? !canCharge || preflightHasBlockers : !canOpenCashSession);
+    isHubGated ||
+    (cashSession ? !canCharge || preflightHasBlockers : !receivesSelected && !canOpenCashSession);
   const canFastCash = !!cashSession && canCharge && !isHubGated && !preflightHasBlockers;
   const isReady = canFastCash && visiblePreflightItems.length === 0;
   // Unavailable Suspend stays out of the tab order: a disabled key fails contrast.
   const showSuspendAction = !!onSuspend && canSuspend;
-  const totalText = formatCurrency(draftSummary.total);
+  const { currency } = useResolvedLocale();
+  const payable = getPayableCartTotal(draftSummary, currency);
+  const totalText = formatCurrency(payable.total);
+  const consumptionTax = draftSummary.consumptionTaxAmount ?? 0;
+  const vatAmount = roundMoney(draftSummary.taxAmount - consumptionTax);
+  const creditKeyShown = !!cashSession && showsCreditKey;
+  const { t: th, ready: hardwareReady } = useHardwareCopy();
+  const deliveryKeyShown = !!cashSession && showsDeliveryKey && hardwareReady;
+  const sideKeysShown = creditKeyShown || deliveryKeyShown;
 
   return (
     <aside className="sales-settlement-dock" aria-labelledby="sales-dock-title">
@@ -144,7 +207,7 @@ export function SalesCheckoutPanel({
       <div className="sales-dock-top">
         <div className="flex items-center gap-3">
           <span className="sales-avatar" aria-hidden="true">
-            <UserRound className="h-5 w-5" />
+            {customerName ? initialsOf(customerName) : <UserRound className="h-5 w-5" />}
           </span>
           <div className="min-w-0 flex-1">
             <p
@@ -196,7 +259,14 @@ export function SalesCheckoutPanel({
             <span className="sales-cap">{t('sell.total.label')}</span>
             <span className="text-[13px] text-fg2">
               {t('sell.total.items', { count: draftSummary.itemCount })} ·{' '}
-              {t('sell.total.lines', { count: lineCount })}
+              {/* Medicines name their prescription lines; the label stays on one line in the dock. */}
+              {prescriptionLineCount > 0 ? (
+                <span data-testid="checkout-prescription-count">
+                  {t('sell.total.prescriptions', { count: prescriptionLineCount })}
+                </span>
+              ) : (
+                t('sell.total.lines', { count: lineCount })
+              )}
             </span>
           </div>
           <div
@@ -216,10 +286,24 @@ export function SalesCheckoutPanel({
                 <dd>−{formatCurrency(discountAmount)}</dd>
               </div>
             )}
-            <div>
-              <dt>{t(priceIncludesTax ? 'sell.total.taxIncluded' : 'checkout.vat')}</dt>
-              <dd>{formatCurrency(draftSummary.taxAmount)}</dd>
-            </div>
+            {(vatAmount > 0 || consumptionTax === 0) && (
+              <div>
+                <dt>{t(priceIncludesTax ? 'sell.total.taxIncluded' : 'checkout.vat')}</dt>
+                <dd>{formatCurrency(vatAmount)}</dd>
+              </div>
+            )}
+            {consumptionTax > 0 && (
+              <div data-testid="checkout-consumption-tax">
+                <dt>{t('sell.total.consumptionTaxIncluded')}</dt>
+                <dd>{formatCurrency(consumptionTax)}</dd>
+              </div>
+            )}
+            {payable.roundingAdjustment !== 0 && (
+              <div data-testid="checkout-rounding">
+                <dt>{t('sell.total.rounding')}</dt>
+                <dd>{formatCurrency(payable.roundingAdjustment, undefined, undefined, 2)}</dd>
+              </div>
+            )}
           </dl>
         </div>
 
@@ -344,6 +428,16 @@ export function SalesCheckoutPanel({
                     {t('printer.kickDrawerCta')}
                   </button>
                 )}
+                {onHandOver && (
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={onHandOver}
+                    data-testid="sales-hand-over"
+                  >
+                    {t('cashSession.handOverAction')}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn-outline"
@@ -364,6 +458,17 @@ export function SalesCheckoutPanel({
                 onChange={onRegisterAssignmentChange}
               />
               <p>{t('cashSession.chargeBlocked')}</p>
+              {receiveHandoff && !receivesSelected && (
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={receiveHandoff.open}
+                  disabled={isHubGated}
+                  data-testid="sales-receive-handoff"
+                >
+                  {t('cashSession.receiveAction', { register: receiveHandoff.registerName })}
+                </button>
+              )}
             </div>
           )}
         </section>
@@ -380,29 +485,64 @@ export function SalesCheckoutPanel({
           />
         )}
 
-        <Button
-          className={cashSession ? 'sales-charge-key' : 'min-h-14 w-full text-base'}
-          onClick={primaryAction}
-          disabled={primaryActionDisabled}
-          data-testid="checkout-primary-action"
-          aria-keyshortcuts={ariaKeyshortcutsFor(
-            cashSession ? 'sales.charge' : 'sales.openCashSession'
+        <div className={sideKeysShown ? 'sales-charge-row' : 'contents'}>
+          <Button
+            className={cashSession ? 'sales-charge-key' : 'min-h-14 w-full text-base'}
+            onClick={primaryAction}
+            disabled={primaryActionDisabled}
+            data-testid="checkout-primary-action"
+            aria-keyshortcuts={ariaKeyshortcutsFor(
+              cashSession ? 'sales.charge' : 'sales.openCashSession'
+            )}
+            aria-describedby={hasVisibleBlocker ? PREFLIGHT_PRIMARY_ELEMENT_ID : undefined}
+            variant={cashSession ? 'charge' : 'primary'}
+            type="button"
+          >
+            {!cashSession && <WalletCards className="h-5 w-5" aria-hidden="true" />}
+            {cashSession
+              ? t('checkout.chargeSale')
+              : receivesSelected
+                ? t('cashSession.receiveAction', { register: receiveHandoff!.registerName })
+                : t('cashSession.openAction')}
+            {cashSession && !primaryActionDisabled && (
+              <kbd className="sales-charge-kbd" aria-hidden="true">
+                {shortcutDisplayFor('sales.charge')}
+              </kbd>
+            )}
+          </Button>
+          {sideKeysShown && (
+            <div className="sales-charge-side">
+              {creditKeyShown && (
+                <SalesCreditKey
+                  className="sales-secondary-key sales-credit-key"
+                  onClick={onCredit}
+                  disabled={!onCredit || isHubGated || preflightHasBlockers}
+                  projectedBalance={creditProjectedBalance}
+                  creditLimit={creditLimit}
+                  active={tender === 'credit'}
+                  testId="checkout-credit"
+                />
+              )}
+              {deliveryKeyShown && (
+                <button
+                  type="button"
+                  className="sales-secondary-key sales-delivery-key"
+                  onClick={onDelivery}
+                  disabled={!onDelivery}
+                  aria-pressed={deliveryActive}
+                  data-active={deliveryActive || undefined}
+                  data-testid="checkout-delivery"
+                >
+                  <Truck className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {th('delivery.key')}
+                </button>
+              )}
+            </div>
           )}
-          aria-describedby={hasVisibleBlocker ? PREFLIGHT_PRIMARY_ELEMENT_ID : undefined}
-          variant={cashSession ? 'charge' : 'primary'}
-          type="button"
-        >
-          {!cashSession && <WalletCards className="h-5 w-5" aria-hidden="true" />}
-          {cashSession ? t('checkout.chargeSale') : t('cashSession.openAction')}
-          {cashSession && !primaryActionDisabled && (
-            <kbd className="sales-charge-kbd" aria-hidden="true">
-              {shortcutDisplayFor('sales.charge')}
-            </kbd>
-          )}
-        </Button>
+        </div>
 
-        {(showSuspendAction || onOpenReturns) && (
-          <div className="flex gap-1.5" data-testid="checkout-park-controls">
+        {(showSuspendAction || onOpenIncident || onOpenReturns) && (
+          <div className="sales-park-row flex gap-1.5" data-testid="checkout-park-controls">
             {showSuspendAction && (
               <button
                 type="button"
@@ -415,6 +555,23 @@ export function SalesCheckoutPanel({
                 {t('sell.actions.suspend')}
                 <kbd className="pv-kbd" aria-hidden="true">
                   {shortcutDisplayFor('sales.suspend')}
+                </kbd>
+              </button>
+            )}
+            {onOpenIncident && (
+              <button
+                type="button"
+                className="sales-secondary-key sales-incident-key"
+                onClick={onOpenIncident}
+                aria-haspopup="dialog"
+                aria-expanded={isIncidentOpen}
+                data-testid="checkout-incident"
+                aria-keyshortcuts={ariaKeyshortcutsFor('sales.incident')}
+              >
+                <TriangleAlert className="h-4 w-4" aria-hidden="true" />
+                {t('sell.actions.incident')}
+                <kbd className="pv-kbd" aria-hidden="true">
+                  {shortcutDisplayFor('sales.incident')}
                 </kbd>
               </button>
             )}

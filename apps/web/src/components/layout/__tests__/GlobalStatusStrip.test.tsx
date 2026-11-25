@@ -97,6 +97,7 @@ describe('GlobalStatusStrip', () => {
       conflicts: 0,
       isSyncing: false,
       error: null,
+      canPush: true,
       triggerSync: vi.fn(),
       refreshStatus: vi.fn(),
     });
@@ -116,6 +117,7 @@ describe('GlobalStatusStrip', () => {
       conflicts: 0,
       isSyncing: false,
       error: null,
+      canPush: true,
       triggerSync: vi.fn(),
       refreshStatus: vi.fn(),
     });
@@ -134,6 +136,7 @@ describe('GlobalStatusStrip', () => {
       conflicts: 0,
       isSyncing: false,
       error: null,
+      canPush: true,
       triggerSync: vi.fn(),
       refreshStatus: vi.fn(),
     });
@@ -162,6 +165,7 @@ describe('GlobalStatusStrip', () => {
       conflicts: 0,
       isSyncing: false,
       error: 'Sync failed',
+      canPush: true,
       triggerSync,
       refreshStatus: vi.fn(),
     });
@@ -177,6 +181,24 @@ describe('GlobalStatusStrip', () => {
     expect(triggerSync).toHaveBeenCalledTimes(1);
   });
 
+  it('hides the retry action from a role that cannot push sync', () => {
+    mockUseOfflineSync.mockReturnValue({
+      isOnline: true,
+      lastSync: null,
+      pendingItems: 3,
+      conflicts: 0,
+      isSyncing: false,
+      error: null,
+      canPush: false,
+      triggerSync: vi.fn(),
+      refreshStatus: vi.fn(),
+    });
+
+    renderStrip();
+
+    expect(screen.queryByRole('button', { name: /retry sync/i })).not.toBeInTheDocument();
+  });
+
   it('shows readiness blockers again after the clean state clears a prior session dismiss', async () => {
     const user = userEvent.setup();
     authState.user = { id: 'u1', role: 'admin', email: 'a@demo.co', tenantId: 't1' };
@@ -187,6 +209,7 @@ describe('GlobalStatusStrip', () => {
       conflicts: 0,
       isSyncing: false,
       error: null,
+      canPush: true,
       triggerSync: vi.fn(),
       refreshStatus: vi.fn(),
     });

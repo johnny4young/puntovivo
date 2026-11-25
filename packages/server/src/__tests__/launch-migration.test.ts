@@ -98,7 +98,7 @@ describe(' launch migration', () => {
     await appRouter.createCaller(createTestContext()).products.create({
       name: 'Existing product',
       sku: 'EXISTING-123A',
-      barcode: ' 7700000123000 ',
+      barcode: ' 7700000123008 ',
       price: 10,
       cost: 4,
       stock: 0,
@@ -223,7 +223,7 @@ describe(' launch migration', () => {
           row(2, {
             name: 'Café premium',
             sku: 'NEW-123A',
-            barcode: '7700000123999',
+            barcode: '7700000123992',
             price: '12.345,50',
             cost: '7.000,25',
             stock: '2,5',
@@ -233,7 +233,7 @@ describe(' launch migration', () => {
           row(3, { name: 'Repeated', sku: 'new-123a' }),
           row(4, { sku: 'MISSING-NAME' }),
           row(5, { name: 'Exists', sku: ' existing-123a ' }),
-          row(6, { name: 'Existing barcode', sku: 'BARCODE-CLASH', barcode: '7700000123000' }),
+          row(6, { name: 'Existing barcode', sku: 'BARCODE-CLASH', barcode: '7700000123008' }),
           row(7, { name: 'Cross tenant safe', sku: 'FOREIGN-SAFE-123A' }),
         ],
       });
@@ -530,12 +530,12 @@ describe(' launch migration', () => {
           row(2, {
             name: 'First barcode',
             sku: 'PROFILE-BARCODE-FIRST-123A',
-            barcode: '7709999000001',
+            barcode: '7709999000000',
           }),
           row(3, {
             name: 'Repeated barcode',
             sku: 'PROFILE-BARCODE-SECOND-123A',
-            barcode: '7709999000001',
+            barcode: '7709999000000',
           }),
         ],
       });
@@ -766,7 +766,7 @@ describe(' launch migration', () => {
           name: 'Imported cacao',
           sku: 'IMPORT-123A-CACAO',
           description: 'Launch catalog',
-          barcode: '7700000123111',
+          barcode: '7700000123114',
           unit: 'KG',
           price: '15.50',
           cost: '8.25',

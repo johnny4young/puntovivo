@@ -617,8 +617,67 @@ describe('AuditLogsTable', () => {
         onRetry={() => {}}
       />
     );
-    expect(screen.getByText('newcashier@example.com (cashier)')).toBeInTheDocument();
+    expect(screen.getByText('newcashier@example.com (Cashier)')).toBeInTheDocument();
     expect(screen.getByText('User created')).toBeInTheDocument();
+  });
+
+  it('shows the translated role label in Spanish instead of the raw role', async () => {
+    await i18next.changeLanguage('es');
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'user.create',
+            resourceType: 'user',
+            resourceId: 'user-13',
+            before: null,
+            after: { email: 'observer@example.com', role: 'viewer', isActive: true },
+            metadata: null,
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+    expect(screen.getByText('observer@example.com (Observador)')).toBeInTheDocument();
+    expect(screen.queryByText(/\(viewer\)/)).not.toBeInTheDocument();
+  });
+
+  it('names the resource instead of showing its internal id', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            id: 'log-named',
+            action: 'product.update',
+            resourceType: 'product',
+            resourceId: 'prod-internal-1',
+            resourceName: 'Arabica Coffee 500 g',
+            before: { price: 100 },
+            after: { price: 120 },
+            metadata: null,
+          }),
+          build({
+            id: 'log-deleted',
+            action: 'category.delete',
+            resourceType: 'category',
+            resourceId: 'cat-internal-1',
+            resourceName: null,
+            before: { name: 'Seasonal' },
+            after: null,
+            metadata: null,
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+    expect(screen.getByText('Arabica Coffee 500 g')).toHaveAttribute('title', 'prod-internal-1');
+    expect(screen.getByText('Seasonal')).toBeInTheDocument();
+    expect(screen.queryByText('prod-internal-1')).not.toBeInTheDocument();
+    expect(screen.queryByText('cat-internal-1')).not.toBeInTheDocument();
   });
 
   it('renders user.update role change as a from/to transition', () => {
@@ -639,7 +698,7 @@ describe('AuditLogsTable', () => {
         onRetry={() => {}}
       />
     );
-    expect(screen.getByText('Role cashier → manager')).toBeInTheDocument();
+    expect(screen.getByText('Role Cashier → Manager')).toBeInTheDocument();
   });
 
   it('renders user.update deactivation with the deactivation badge', () => {
@@ -686,7 +745,7 @@ describe('AuditLogsTable', () => {
       />
     );
     // Both facets separated by a middle dot — keeps the summary scannable.
-    expect(screen.getByText('Role manager → cashier · Deactivated')).toBeInTheDocument();
+    expect(screen.getByText('Role Manager → Cashier · Deactivated')).toBeInTheDocument();
   });
 
   it('renders sale.price_override with the overridden line count', () => {
@@ -801,7 +860,7 @@ describe('AuditLogsTable', () => {
     );
 
     expect(screen.getByText('Module toggled')).toBeInTheDocument();
-    expect(screen.getByText('Tenant module')).toBeInTheDocument();
+    expect(screen.getByText('Business module')).toBeInTheDocument();
   });
 
   it('renders the vertical module preset action label', () => {
@@ -820,8 +879,8 @@ describe('AuditLogsTable', () => {
       />
     );
 
-    expect(screen.getByText('Module preset applied')).toBeInTheDocument();
-    expect(screen.getByText('Tenant module')).toBeInTheDocument();
+    expect(screen.getByText('Module setup applied')).toBeInTheDocument();
+    expect(screen.getByText('Business module')).toBeInTheDocument();
   });
 
   it('falls back to actorEmail when actorName is null, and to actorId when both are null', () => {

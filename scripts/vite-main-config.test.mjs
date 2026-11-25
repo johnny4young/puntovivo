@@ -33,6 +33,7 @@ for (const mode of ['production', 'development', 'test']) {
       'argon2',
       'electron',
       'electron-updater',
+      '@serialport/bindings-cpp',
     ]);
   });
 }

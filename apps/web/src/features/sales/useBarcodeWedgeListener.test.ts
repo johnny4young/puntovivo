@@ -109,6 +109,24 @@ describe('useBarcodeWedgeListener', () => {
     expect(onScan).not.toHaveBeenCalled();
   });
 
+  it('suppresses every emission while any modal dialog is over the register', () => {
+    const onScan = vi.fn();
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    document.body.appendChild(dialog);
+    renderHook(() => useBarcodeWedgeListener(buildOptions({ onScan })));
+
+    for (const char of '7702049000031') {
+      advance(5);
+      fireKey(char);
+    }
+    fireKey('Enter');
+    dialog.remove();
+
+    expect(onScan).not.toHaveBeenCalled();
+  });
+
   it('honors the tab end-of-scan mode', () => {
     const onScan = vi.fn();
     const config: WedgeConfig = { ...DEFAULT_WEDGE_CONFIG, endOfScan: 'tab' };

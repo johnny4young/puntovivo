@@ -25,6 +25,11 @@
  */
 
 import type { VerticalPresetId } from '@puntovivo/shared/vertical-presets';
+import {
+  sanitizeRegisterZoneOverrides,
+  type RegisterZoneOverrides,
+} from '@puntovivo/shared/register-zones';
+import { isValidCashRoundingStep } from '../lib/money.js';
 
 /**
  * The shape `auth.me` is allowed to publish. Mirrors the client contract.
@@ -39,8 +44,9 @@ export interface ClientTenantSettings {
   logo?: string;
   theme?: 'light' | 'dark' | 'system';
   restaurant?: { serviceChargeRate: number };
-  cashClose?: { blindClose: boolean };
+  cashClose?: { blindClose: boolean; cashRoundingStep?: number | null };
   discount?: { expiryTiers: Array<{ maxDays: number; pct: number }> };
+  registerZones?: RegisterZoneOverrides;
 }
 
 /** Every top-level key this projection will publish. Exported for the test. */
@@ -52,6 +58,7 @@ export const CLIENT_TENANT_SETTING_KEYS = [
   'restaurant',
   'cashClose',
   'discount',
+  'registerZones',
 ] as const;
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -118,7 +125,15 @@ export function projectTenantSettingsForClient(settings: unknown): ClientTenantS
   pick(projected, source, 'logo');
   pick(projected, source, 'theme');
   pickNested(projected, source, 'restaurant', 'serviceChargeRate');
-  pickNested(projected, source, 'cashClose', 'blindClose');
+  const cashClose = asRecord(source.cashClose);
+  if (cashClose && typeof cashClose.blindClose === 'boolean') {
+    projected.cashClose = {
+      blindClose: cashClose.blindClose,
+      ...(isValidCashRoundingStep(cashClose.cashRoundingStep) || cashClose.cashRoundingStep === null
+        ? { cashRoundingStep: cashClose.cashRoundingStep }
+        : {}),
+    };
+  }
 
   // The only setting whose shape the client narrows beyond a primitive. The
   // stored blob is untyped, so casting it to the declared array would be the
@@ -127,6 +142,9 @@ export function projectTenantSettingsForClient(settings: unknown): ClientTenantS
   // panel falls back to its own defaults, which it already does.
   const tiers = asRecord(source.discount)?.expiryTiers;
   if (isExpiryTierList(tiers)) projected.discount = { expiryTiers: tiers };
+
+  const zones = sanitizeRegisterZoneOverrides(source.registerZones);
+  if (Object.keys(zones).length > 0) projected.registerZones = zones;
 
   return projected as ClientTenantSettings;
 }

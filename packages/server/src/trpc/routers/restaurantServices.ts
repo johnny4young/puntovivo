@@ -20,26 +20,78 @@ import { completeSale } from '../../application/sales/completeSale.js';
 import {
   RESTAURANT_SERVICE_LIMITS,
   assertNoUnnormalizedRestaurantDrafts,
+  findOpenService,
+  writePendingRound,
   restaurantModifierAmount,
 } from '../../application/restaurant/service-lifecycle.js';
 import { router } from '../init.js';
 import { createModuleGuard } from '../middleware/modules.js';
 import { cashierManagerOrAdminProcedure } from '../middleware/roles.js';
-import { criticalCommandCashierManagerOrAdminProcedureWithModule } from '../middleware/criticalCommand.js';
+import {
+  criticalCommandCashierManagerOrAdminProcedureWithModule,
+  criticalCommandManagerOrAdminProcedureWithModule,
+} from '../middleware/criticalCommand.js';
 import { buildLifecycleContext } from './sales/helpers.js';
+import { regroupRestaurantChecksInTransaction } from '../../application/restaurant/regroup-checks.js';
 import {
   getRestaurantTableStateInput,
   openRestaurantCheckInput,
+  regroupRestaurantChecksInput,
+  setRestaurantBillRequestedInput,
+  setRestaurantPendingRoundInput,
 } from '../schemas/restaurantServices.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
+import type { Context } from '../context.js';
 
-const restaurantReadProcedure = cashierManagerOrAdminProcedure.use(createModuleGuard('dine-in'));
+const restaurantStaffProcedure = cashierManagerOrAdminProcedure.use(createModuleGuard('dine-in'));
 // The entitlement guard is layered in BEFORE the envelope, not chained onto a
 // finished critical-command procedure: the envelope short-circuits on a cache
 // hit, so a downstream guard never runs on a replay and a module disabled
 // after the original request would still serve its cached result.
 const restaurantCommandProcedure =
   criticalCommandCashierManagerOrAdminProcedureWithModule('dine-in');
+const restaurantManagerCommandProcedure =
+  criticalCommandManagerOrAdminProcedureWithModule('dine-in');
+
+type RestaurantDb = Context['db'];
+
+/** Active table in the caller's tenant (and site, when bound) plus its open service. */
+function findTableWithOpenService(
+  tx: RestaurantDb,
+  tenantId: string,
+  siteId: string | null | undefined,
+  tableId: string
+) {
+  const table = tx
+    .select({ id: restaurantTables.id, siteId: restaurantTables.siteId })
+    .from(restaurantTables)
+    .where(
+      and(
+        eq(restaurantTables.id, tableId),
+        eq(restaurantTables.tenantId, tenantId),
+        eq(restaurantTables.isActive, true),
+        ...(siteId ? [eq(restaurantTables.siteId, siteId)] : [])
+      )
+    )
+    .get();
+  if (!table) {
+    throwServerError({
+      trpcCode: 'NOT_FOUND',
+      errorCode: 'RESTAURANT_TABLE_NOT_FOUND',
+      message: 'Restaurant table was not found for this tenant',
+    });
+  }
+  const service = findOpenService(tx, tenantId, table.id);
+  if (service && service.siteId !== table.siteId) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+      message: 'Restaurant service site does not match its physical table',
+    });
+  }
+  return { table, service };
+}
 
 export const restaurantServicesRouter = router({
   /**
@@ -87,6 +139,7 @@ export const restaurantServicesRouter = router({
             itemIndex,
             dinerClientId: item.dinerClientId,
             courseKey: item.courseKey,
+            modifierGroups: item.modifierGroups,
             modifiers: item.modifiers,
           })),
         },
@@ -98,8 +151,135 @@ export const restaurantServicesRouter = router({
       };
     }),
 
+  /**
+   * Move lines between the open checks of one table: an explicit layout, or
+   * one check per diner. New accounts open a suspended draft and a check left
+   * without lines is cancelled, all in one immediate transaction. The caller
+   * sends the check versions it saw, so a layout built on an older table fails
+   * as stale. A plan that already matches the table writes nothing.
+   */
+  regroupChecks: restaurantManagerCommandProcedure
+    .input(regroupRestaurantChecksInput)
+    .mutation(({ ctx, input }) => {
+      const lifecycle = buildLifecycleContext(ctx);
+      return ctx.db.transaction(
+        tx => {
+          const result = regroupRestaurantChecksInTransaction(
+            tx,
+            {
+              tenantId: ctx.tenantId,
+              callerSiteId: ctx.siteId,
+              actorId: ctx.user!.id,
+              now: new Date().toISOString(),
+              envelope: lifecycle.envelope,
+              deviceId: lifecycle.deviceId,
+            },
+            input
+          );
+          lifecycle.completeInTransaction?.(tx as unknown as RestaurantDb, result);
+          return result;
+        },
+        { behavior: 'immediate' }
+      );
+    }),
+
+  /**
+   * Staff mark that the table asked for the bill. Idempotent; the marker
+   * belongs to the visit, so it ends when the service closes.
+   */
+  setBillRequested: restaurantStaffProcedure
+    .input(setRestaurantBillRequestedInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.transaction(
+        tx => {
+          const db = tx as unknown as RestaurantDb;
+          const { table, service } = findTableWithOpenService(
+            db,
+            ctx.tenantId,
+            ctx.siteId,
+            input.tableId
+          );
+          if (!service) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'RESTAURANT_SERVICE_NOT_OPEN',
+              message: 'The table has no open service to mark',
+            });
+          }
+          if ((service.billRequestedAt !== null) === input.requested) {
+            return { serviceId: service.id, billRequestedAt: service.billRequestedAt };
+          }
+          const now = new Date().toISOString();
+          const actorId = ctx.user!.id;
+          const next = {
+            billRequestedAt: input.requested ? now : null,
+            billRequestedBy: input.requested ? actorId : null,
+          };
+          const changed = tx
+            .update(restaurantServices)
+            .set({ ...next, version: service.version + 1, updatedAt: now })
+            .where(
+              and(
+                eq(restaurantServices.id, service.id),
+                eq(restaurantServices.tenantId, ctx.tenantId),
+                eq(restaurantServices.status, 'open'),
+                eq(restaurantServices.version, service.version)
+              )
+            )
+            .run();
+          if (changed.changes !== 1) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+              message: 'Restaurant service changed while its bill request was being saved',
+            });
+          }
+          writeAuditLog({
+            tx: db,
+            tenantId: ctx.tenantId,
+            actorId,
+            action: input.requested
+              ? 'restaurant_service.bill_requested'
+              : 'restaurant_service.bill_request_cleared',
+            resourceType: 'restaurant_service',
+            resourceId: service.id,
+            before: {
+              billRequestedAt: service.billRequestedAt,
+              billRequestedBy: service.billRequestedBy,
+            },
+            after: next,
+            metadata: { siteId: table.siteId, tableId: table.id },
+          });
+          return { serviceId: service.id, billRequestedAt: next.billRequestedAt };
+        },
+        { behavior: 'immediate' }
+      )
+    ),
+
+  /**
+   * An ordering device reports how many plates it holds unsent, and repeats
+   * the report while it holds any. Each waiter has their own entry, so one
+   * waiter never hides another's round; entries from a device that stopped
+   * reporting expire. A table without an open service has nothing to mark.
+   */
+  setPendingRound: restaurantStaffProcedure
+    .input(setRestaurantPendingRoundInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.transaction(
+        tx => {
+          const db = tx as unknown as RestaurantDb;
+          const { service } = findTableWithOpenService(db, ctx.tenantId, ctx.siteId, input.tableId);
+          if (!service) return { pending: false };
+          return {
+            pending: writePendingRound(db, service, ctx.user!.id, input.itemCount, new Date()),
+          };
+        },
+        { behavior: 'immediate' }
+      )
+    ),
+
   /** Tenant-scoped complete open state for one table, including every check. */
-  getTableState: restaurantReadProcedure
+  getTableState: restaurantStaffProcedure
     .input(getRestaurantTableStateInput)
     .query(({ ctx, input }) =>
       ctx.db.transaction(tx => {
@@ -197,6 +377,7 @@ export const restaurantServicesRouter = router({
             saleId: restaurantChecks.saleId,
             label: restaurantChecks.label,
             status: restaurantChecks.status,
+            version: restaurantChecks.version,
             openedAt: restaurantChecks.openedAt,
             saleNumber: sales.saleNumber,
             saleStatus: sales.status,
@@ -386,6 +567,7 @@ export const restaurantServicesRouter = router({
             currentProductName: products.name,
             quantity: saleItems.quantity,
             total: saleItems.total,
+            notes: saleItems.notes,
             restaurantModifierAmount: saleItems.restaurantModifierAmount,
           })
           .from(restaurantCheckLines)
@@ -538,6 +720,7 @@ export const restaurantServicesRouter = router({
             saleId: check.saleId,
             label: check.label,
             status: check.status,
+            version: check.version,
             openedAt: check.openedAt,
             saleNumber: check.saleNumber,
             total: check.total,

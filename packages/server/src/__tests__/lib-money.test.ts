@@ -13,7 +13,13 @@ import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { real, sqliteTable } from 'drizzle-orm/sqlite-core';
 import { closeDatabase, getDatabase, initDatabase } from '../db/index.js';
-import { roundMoney, sumMoneySql, tryRoundMoneyToSafeCents } from '../lib/money.js';
+import {
+  allocateCentsByWeights,
+  roundMoney,
+  sumMoneySql,
+  tryMoneyToSafeCents,
+  tryRoundMoneyToSafeCents,
+} from '../lib/money.js';
 
 describe('roundMoney', () => {
   it('rounds the 0.005 half-cent boundary UP (defeats IEEE-754 representation drift)', () => {
@@ -122,5 +128,34 @@ describe('sumMoneySql', () => {
     expect(viaHelper?.total).toBe(0.3);
 
     await closeDatabase();
+  });
+});
+
+describe('allocateCentsByWeights', () => {
+  it('splits to whole cents that sum exactly to the total', () => {
+    expect(allocateCentsByWeights(100, [1000, 1000, 1000])).toEqual([34, 33, 33]);
+    expect(allocateCentsByWeights(10, [1, 1, 1])).toEqual([4, 3, 3]);
+    expect(allocateCentsByWeights(-100, [1000, 3000])).toEqual([-25, -75]);
+    expect(allocateCentsByWeights(0, [10, 20])).toEqual([0, 0]);
+    expect(allocateCentsByWeights(7, [])).toEqual([]);
+  });
+
+  it('splits evenly when every weight is zero', () => {
+    expect(allocateCentsByWeights(5, [0, 0])).toEqual([3, 2]);
+  });
+
+  it('fails closed on unsafe totals and invalid weights', () => {
+    expect(allocateCentsByWeights(1.5, [1])).toBeNull();
+    expect(allocateCentsByWeights(10, [1, -1])).toBeNull();
+    expect(allocateCentsByWeights(10, [Number.NaN])).toBeNull();
+  });
+});
+
+describe('tryMoneyToSafeCents', () => {
+  it('returns integer cents or null when they are not exact', () => {
+    expect(tryMoneyToSafeCents(1.005)).toBe(101);
+    expect(tryMoneyToSafeCents(-0.1)).toBe(-10);
+    expect(tryMoneyToSafeCents(100_000_000_000_000)).toBeNull();
+    expect(tryMoneyToSafeCents(Number.NaN)).toBeNull();
   });
 });

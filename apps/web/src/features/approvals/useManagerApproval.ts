@@ -23,9 +23,24 @@ export function useManagerApproval<Action extends ManagerApprovalAction>(
   const toast = useToast();
   const utils = trpc.useUtils();
   const enabled = input.enabled && input.resourceId !== null;
+  const isOwnRequest = (row: { action: string; resourceType: string; resourceId: string | null }) =>
+    row.action === input.action &&
+    row.resourceType === input.resourceType &&
+    row.resourceId === input.resourceId;
   const ownQuery = trpc.managerApprovals.mine.useQuery(
     { limit: 20 },
-    { enabled, refetchInterval: enabled ? 2_000 : false }
+    {
+      enabled,
+      // A pending request can be decided and an approved grant can expire on their own;
+      // asking refetches through invalidation.
+      refetchInterval: query =>
+        enabled &&
+        (query.state.data ?? []).some(
+          row => isOwnRequest(row) && (row.status === 'pending' || row.status === 'approved')
+        )
+          ? 2_000
+          : false,
+    }
   );
   const requestMutation = useCriticalMutation('managerApprovals.request', {
     onSuccess: async () => {

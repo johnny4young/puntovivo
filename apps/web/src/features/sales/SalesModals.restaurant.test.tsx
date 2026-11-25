@@ -78,8 +78,9 @@ vi.mock('@/features/auth/AuthProvider', () => ({
 vi.mock('@/features/tenant/TenantProvider', () => ({
   useTenant: () => ({ currentSite: { id: 'site-1' } }),
 }));
-vi.mock('@/features/modules/ModulesContext', () => ({
-  useIsModuleActive: () => true,
+const zoneMock = vi.hoisted(() => ({ tables: true }));
+vi.mock('@/features/modules/useRegisterZone', () => ({
+  useRegisterZone: (zone: string) => zone === 'tables' && zoneMock.tables,
 }));
 vi.mock('@/features/sales/useQuickCreateStore', () => {
   const useQuickCreateStore = (selector: (state: Record<string, unknown>) => unknown) =>
@@ -154,6 +155,7 @@ function baseProps(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  zoneMock.tables = true;
   tablesQueryMock.mockReturnValue({
     data: {
       items: [
@@ -178,6 +180,16 @@ describe('SalesModals restaurant suspend path', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'park.labelPromptConfirm' }));
 
+    expect(onConfirmSuspend).toHaveBeenCalledWith(undefined);
+  });
+
+  it('parks without a table picker when the tables zone is off', () => {
+    zoneMock.tables = false;
+    const onConfirmSuspend = vi.fn();
+    render(<SalesModals {...baseProps({ onConfirmSuspend })} />);
+
+    expect(screen.queryByTestId('suspend-table-select')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'park.labelPromptConfirm' }));
     expect(onConfirmSuspend).toHaveBeenCalledWith(undefined);
   });
 

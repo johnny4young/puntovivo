@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { attachClientIssueTracker, expectNoClientIssues, loginAs } from './support/app';
+import { attachClientIssueTracker, expectNoClientIssues, login, loginAs } from './support/app';
+import { seedWeighedProductScenario } from './support/db';
 
 test.describe('POS Touch layout', () => {
   test('keeps the cart as a right rail with the charge action in view', async ({ page }) => {
@@ -56,6 +57,44 @@ test.describe('POS Touch layout', () => {
     const focused = await removeButtons.nth(hiddenIndex).boundingBox();
     expect(focused!.y + focused!.height).toBeLessThanOrEqual((await footer.boundingBox())!.y);
 
+    await expectNoClientIssues(tracker);
+  });
+});
+
+test.describe('POS Touch weighing', () => {
+  test('asks the weight of a by-kilogram product and corrects the same line', async ({
+    page,
+  }, info) => {
+    const scenario = seedWeighedProductScenario(`weigh-${info.parallelIndex}-${Date.now()}`);
+    const tracker = attachClientIssueTracker(page);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await login(page, { ...scenario.admin, defaultPath: '/dashboard' });
+    await page.goto('/touch');
+
+    await page.getByTestId('pos-touch-category-all').click();
+    await page.getByTestId(`pos-touch-tile-${scenario.product.id}`).click();
+
+    const panel = page.getByTestId('weighed-item-panel');
+    await expect(panel).toBeVisible();
+    const lines = page
+      .getByTestId('pos-touch-cart')
+      .locator('li[data-testid^="pos-touch-cart-line-"]');
+    await expect(lines).toHaveCount(0);
+
+    await page.getByTestId('weighed-item-preset-0.25').click();
+    await expect(page.getByTestId('weighed-item-readout')).toContainText(/0[.,]250 kg/);
+    await page.getByTestId('weighed-item-preset-0.5').click();
+    await expect(lines).toHaveCount(1);
+    await expect(lines.first()).toContainText(/0[.,]5 Kilogram/);
+
+    await page.getByTestId('weighed-item-weight').click();
+    await page.getByTestId('weighed-item-weight-input').fill('0.75');
+    await page.getByTestId('weighed-item-submit').click();
+    await expect(lines.first()).toContainText(/0[.,]75 Kilogram/);
+
+    await page.keyboard.press('Escape');
+    await expect(panel).toBeHidden();
+    await expect(lines).toHaveCount(1);
     await expectNoClientIssues(tracker);
   });
 });

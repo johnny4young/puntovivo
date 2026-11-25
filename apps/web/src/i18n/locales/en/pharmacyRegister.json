@@ -1,0 +1,33 @@
+{
+  "lot": {
+    "next": "Lot {{lot}} · expires {{month}}",
+    "nextNoExpiry": "Lot {{lot}}",
+    "leaveFirst_one": "Expires in {{count}} day · sell this lot first",
+    "leaveFirst_other": "Expires in {{count}} days · sell this lot first",
+    "leaveFirstToday": "Expires today · sell this lot first"
+  },
+  "classification": {
+    "otc": "Over the counter",
+    "prescription": "Prescription",
+    "controlled": "Controlled"
+  },
+  "generic": {
+    "sameIngredient": "Generic · same active ingredient and strength",
+    "savings": "Saves the customer {{amount}}",
+    "panelTitle": "Same active ingredient, lower price",
+    "choose": "Choose {{name}}"
+  },
+  "line": {
+    "ready": "Prescription on file · approved by {{name}}",
+    "missing": "Prescription missing",
+    "blocked": "Cannot be sold"
+  },
+  "customer": {
+    "required": "Required because the ticket has a prescription medicine",
+    "validUntil": "prescription valid until {{date}}",
+    "validUntilQuantity": "prescription valid until {{date}}, {{remaining}} of {{authorized}} authorized",
+    "missing": "Assign the customer: the ticket has a prescription medicine",
+    "assign": "Assign customer"
+  },
+  "controlled": "Controlled medicines cannot be sold in Puntovivo yet: remove them from the ticket to charge."
+}

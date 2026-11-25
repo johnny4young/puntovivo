@@ -275,6 +275,8 @@ export interface AccountingPucAccounts {
   loyalty: string;
   /** Refunds already returned to the customer (sales returns). */
   refunds: string;
+  /** Currency rounding adjustment account (e.g. COP ajuste al peso). */
+  rounding?: string;
 }
 
 export interface JournalEntryRow {
@@ -354,7 +356,10 @@ export function buildJournalEntries(
       const ivaReversal = round2(voucher.ivaAmount);
       const incReversal = round2(voucher.incAmount);
       const tipReversal = round2(voucher.tipAmount);
-      const incomeReversal = round2(refundAmount - ivaReversal - incReversal - tipReversal);
+      const roundingReversal = round2(voucher.roundingAdjustment ?? 0);
+      const incomeReversal = round2(
+        refundAmount - ivaReversal - incReversal - tipReversal - roundingReversal
+      );
 
       if (incomeReversal !== 0) {
         rows.push({
@@ -363,6 +368,15 @@ export function buildJournalEntries(
           description: `Devolución venta ${voucher.saleNumber}`,
           debit: incomeReversal > 0 ? incomeReversal : 0,
           credit: incomeReversal < 0 ? round2(-incomeReversal) : 0,
+        });
+      }
+      if (roundingReversal !== 0) {
+        rows.push({
+          ...base,
+          account: accounts.rounding ?? '429581',
+          description: `Reversión ajuste al peso venta ${voucher.saleNumber}`,
+          debit: roundingReversal > 0 ? roundingReversal : 0,
+          credit: roundingReversal < 0 ? round2(-roundingReversal) : 0,
         });
       }
       if (ivaReversal > 0) {
@@ -475,7 +489,19 @@ export function buildJournalEntries(
         credit: round2(voucher.tipAmount),
       });
     }
-    const income = round2(debited - voucher.ivaAmount - voucher.incAmount - voucher.tipAmount);
+    const rounding = round2(voucher.roundingAdjustment ?? 0);
+    if (rounding !== 0) {
+      rows.push({
+        ...base,
+        account: accounts.rounding ?? '429581',
+        description: `Ajuste al peso venta ${voucher.saleNumber}`,
+        debit: rounding < 0 ? round2(-rounding) : 0,
+        credit: rounding > 0 ? rounding : 0,
+      });
+    }
+    const income = round2(
+      debited - voucher.ivaAmount - voucher.incAmount - voucher.tipAmount - rounding
+    );
     if (income !== 0) {
       rows.push({
         ...base,
@@ -512,6 +538,7 @@ export interface GenericVoucherRow {
   saleInc: number;
   saleTip: number;
   saleServiceCharge: number;
+  saleRoundingAdjustment: number;
   saleTotal: number;
   paymentMethods: string;
   currency: string;
@@ -574,6 +601,7 @@ export function buildGenericVoucherRows(vouchers: AccountingVoucher[]): GenericV
         saleInc: round2(voucher.incAmount * sign),
         saleTip: round2(voucher.tipAmount * sign),
         saleServiceCharge: round2(voucher.serviceChargeAmount * sign),
+        saleRoundingAdjustment: round2((voucher.roundingAdjustment ?? 0) * sign),
         saleTotal: voucher.kind === 'refund' ? round2(-voucher.refundAmount) : voucher.total,
         paymentMethods,
         currency: voucher.currencyCode,

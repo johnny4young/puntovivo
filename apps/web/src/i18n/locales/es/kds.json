@@ -25,7 +25,8 @@
     "destination": "{{table}} · Cuenta {{check}}",
     "unknownCheck": "No disponible",
     "cancelled": "Anulado — no preparar",
-    "resend": "Reenviar aviso (mismo pedido)"
+    "resend": "Reenviar aviso (mismo pedido)",
+    "without": "Sin {{name}}"
   },
   "empty": {
     "title": "Sin órdenes pendientes",

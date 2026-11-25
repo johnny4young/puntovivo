@@ -208,7 +208,7 @@ async function openSaleDetails(page: Page, saleNumber: string) {
   await page.getByTestId('sales-open-history').click();
   const historyDrawer = page.getByTestId('sales-history-drawer');
   await expect(historyDrawer).toBeVisible();
-  await historyDrawer.getByPlaceholder('Search by invoice...').fill(saleNumber);
+  await historyDrawer.getByPlaceholder('Search by sale number...').fill(saleNumber);
   const viewButton = historyDrawer.getByRole('button', { name: `View ${saleNumber}` });
   await expect(viewButton).toBeVisible();
   await viewButton.click();
@@ -596,7 +596,8 @@ test.describe('web business flows', () => {
       await expect(freshReceiptDialog).toBeVisible();
       await freshReceiptDialog.getByRole('button', { name: 'Share receipt' }).click();
       const sharePanel = freshReceiptDialog.getByTestId('receipt-share-panel');
-      await expect(sharePanel).toContainText('does not choose the contact or send the message');
+      await expect(sharePanel).toContainText('You send it from your WhatsApp');
+      await expect(sharePanel.getByTestId('receipt-share-preview')).toContainText(sale.saleNumber);
       const whatsappLink = sharePanel.getByRole('link', { name: 'Open WhatsApp' });
       await expect(whatsappLink).toHaveAttribute('href', /^https:\/\/wa\.me\/\?text=/);
       const shareHref = await whatsappLink.getAttribute('href');

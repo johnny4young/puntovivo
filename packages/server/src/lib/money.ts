@@ -36,10 +36,10 @@
  * iteration (not only at the end) so a long line list does not stack
  * drift across iterations.
  *
- * Out of scope: per-currency exponent (JPY = 0, BHD = 3). Today every
- * LATAM currency we ship uses 2 decimals;  will add
- * `currency_code` per-row and a future iteration can refine to
- * `roundMoney(value, currency_code)` using `currency_catalog.decimals`.
+ * Storage stays 2-decimal for every currency. The one exception is the
+ * PAYABLE total: `resolvePayableTotal` rounds it to the currency's payable
+ * unit (whole pesos for COP / CLP / PYG) and records the difference as the
+ * sale's rounding adjustment; tenders, change and cash follow that total.
  *
  * Negative values round half-away-from-zero too (auditoría 2026-06):
  * `Math.round` alone rounds negative halves toward +infinity
@@ -59,9 +59,29 @@
 import { sql, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 
-import { roundMoney } from '@puntovivo/shared/money';
+import {
+  ALLOWED_CASH_ROUNDING_STEPS,
+  defaultCashRoundingStep,
+  isCashOnlyTender,
+  isValidCashRoundingStep,
+  payableDecimals,
+  resolvePayableTotal,
+  roundMoney,
+  roundPayable,
+  type AllowedCashRoundingStep,
+} from '@puntovivo/shared/money';
 
-export { roundMoney };
+export {
+  ALLOWED_CASH_ROUNDING_STEPS,
+  defaultCashRoundingStep,
+  isCashOnlyTender,
+  isValidCashRoundingStep,
+  payableDecimals,
+  resolvePayableTotal,
+  roundMoney,
+  roundPayable,
+  type AllowedCashRoundingStep,
+};
 
 /**
  * Round a value and return it only when its integer-cent representation is
@@ -91,4 +111,49 @@ export function tryRoundMoneyToSafeCents(value: number): number | null {
  */
 export function sumMoneySql(column: SQLiteColumn): SQL<number> {
   return sql<number>`round(coalesce(sum(${column}), 0), 2)`;
+}
+
+/** Integer cents of a money value, or `null` when they are not exact in JavaScript. */
+export function tryMoneyToSafeCents(value: number): number | null {
+  const rounded = tryRoundMoneyToSafeCents(value);
+  return rounded === null ? null : Math.round(rounded * 100);
+}
+
+/**
+ * Largest-remainder split of whole cents by weight: shares are floored, then
+ * the largest fractions take the leftover cents in stable order, so they sum
+ * exactly to `totalCents`. Weights that are all zero split evenly. Returns
+ * `null` for an unsafe total or a negative or non-finite weight.
+ */
+export function allocateCentsByWeights(
+  totalCents: number,
+  weights: readonly number[]
+): number[] | null {
+  if (
+    !Number.isSafeInteger(totalCents) ||
+    weights.some(weight => !Number.isFinite(weight) || weight < 0)
+  ) {
+    return null;
+  }
+  if (weights.length === 0) return [];
+  const sign = totalCents < 0 ? -1 : 1;
+  const amount = Math.abs(totalCents);
+  const maxWeight = Math.max(...weights);
+  const normalized = weights.map(weight => (maxWeight > 0 ? weight / maxWeight : 1));
+  const normalizedTotal = normalized.reduce((sum, weight) => sum + weight, 0);
+  const shares = normalized.map((weight, index) => {
+    const exact = (amount * weight) / normalizedTotal;
+    const cents = Math.floor(exact);
+    return { index, cents, remainder: exact - cents };
+  });
+  const leftover = amount - shares.reduce((sum, share) => sum + share.cents, 0);
+  // Float drift near the safe-integer edge must fail closed, never overshoot the total.
+  if (leftover < 0 || leftover > shares.length) return null;
+  const byRemainder = [...shares].sort(
+    (left, right) => right.remainder - left.remainder || left.index - right.index
+  );
+  for (let index = 0; index < leftover; index += 1) {
+    byRemainder[index % byRemainder.length]!.cents += 1;
+  }
+  return shares.map(share => sign * share.cents);
 }

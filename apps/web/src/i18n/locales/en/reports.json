@@ -46,6 +46,8 @@
       "generated": "{{date}} · {{timeZone}}",
       "codes": {
         "open_sessions": "Open cash sessions",
+        "unexplained_differences": "Cash differences without a reason",
+        "unresolved_drafts": "Suspended sales to resolve",
         "cash_discrepancies": "Cash discrepancies",
         "fiscal_pending": "Fiscal documents in progress",
         "fiscal_rejected": "Rejected fiscal documents",
@@ -173,6 +175,8 @@
       "details": {
         "open_sessions_one": "{{count}} register still open",
         "open_sessions_other": "{{count}} registers still open",
+        "unexplained_differences": "Give each one a reason in the guided close",
+        "unresolved_drafts": "Discard them or leave them for tomorrow in the guided close",
         "cash_discrepancies_one": "{{count}} closed session with a difference · net {{amount}}",
         "cash_discrepancies_other": "{{count}} closed sessions with a difference · net {{amount}}",
         "fiscal_pending_one": "{{count}} document waiting for a response",
@@ -252,7 +256,8 @@
         "receivable": "Accounts receivable",
         "storeCredit": "Customer store credit liability",
         "loyalty": "Loyalty points liability",
-        "refunds": "Sales returns"
+        "refunds": "Sales returns",
+        "rounding": "Rounding adjustment"
       }
     },
     "generic": {
@@ -281,6 +286,7 @@
       "saleInc": "Sale INC",
       "saleTip": "Tip",
       "saleServiceCharge": "Service charge",
+      "saleRoundingAdjustment": "Rounding adjustment",
       "saleTotal": "Sale total",
       "paymentMethods": "Payments",
       "currency": "Currency",

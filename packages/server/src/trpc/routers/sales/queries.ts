@@ -7,7 +7,9 @@
  *
  * @module trpc/routers/sales/queries
  */
-import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
+import { parkedDraftOwnedBy } from '../../../application/sales/draft-ownership.js';
+import { isCarriedOverSql } from '../../../application/sales/carryDraftOver.js';
 
 import { tenantProcedure } from '../../middleware/tenant.js';
 import { cashierManagerOrAdminProcedure } from '../../middleware/roles.js';
@@ -35,6 +37,14 @@ import {
 import { getRevenueEligibleSaleConditions } from './helpers.js';
 import { getElectronicInvoiceAvailability } from '../../../application/sales/electronicInvoice.js';
 import { ensureTenantSite } from '../../middleware/tenantSite.js';
+import { resolveTenantBusinessClock } from '../../../services/pharmacy/business-clock.js';
+import { resolveUtcDayWindow } from '../../../services/reports/day-window.js';
+
+/** The drawer a sale was rung on; its site is where the sale can be returned. */
+const saleDrawer = (tenantId: string) =>
+  and(eq(cashSessions.id, sales.cashSessionId), eq(cashSessions.tenantId, tenantId));
+
+const completedInstant = sql<string>`strftime('%Y-%m-%dT%H:%M:%fZ', coalesce(${sales.checkoutCompletedAt}, ${sales.createdAt}))`;
 
 export const salesQueryProcedures = {
   /** Whether checkout may offer the buyer an electronic invoice at the active site. */
@@ -200,9 +210,6 @@ export const salesQueryProcedures = {
     };
   }),
 
-  /**
-   * Get a single sale with its line items
-   */
   /** Resolve a scanned receipt (sale number, or a URL ending in it) to a completed sale. */
   findByReceipt: cashierManagerOrAdminProcedure
     .input(findSaleByReceiptInput)
@@ -213,9 +220,11 @@ export const salesQueryProcedures = {
           id: sales.id,
           saleNumber: sales.saleNumber,
           total: sales.total,
-          completedAt: sales.checkoutCompletedAt,
+          completedAt: completedInstant,
+          registerName: cashSessions.registerName,
         })
         .from(sales)
+        .leftJoin(cashSessions, saleDrawer(ctx.tenantId))
         .where(
           and(
             eq(sales.tenantId, ctx.tenantId),
@@ -227,6 +236,53 @@ export const salesQueryProcedures = {
         .get();
       return row ?? null;
     }),
+  /** Today's completed sales at the active site that still have something to return. */
+  returnableToday: cashierManagerOrAdminProcedure.query(async ({ ctx }) => {
+    if (!ctx.siteId) return [];
+    const { businessDate, timezone } = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
+    const day = resolveUtcDayWindow(businessDate, timezone);
+    return (
+      ctx.db
+        .select({
+          id: sales.id,
+          saleNumber: sales.saleNumber,
+          total: sales.total,
+          currencyCode: sales.currencyCode,
+          completedAt: completedInstant,
+          customerName: sql<
+            string | null
+          >`coalesce(${sales.customerNameSnapshot}, ${customers.name})`,
+          registerName: cashSessions.registerName,
+        })
+        .from(sales)
+        // Returns run at the sale's own site, which its drawer records.
+        .innerJoin(cashSessions, saleDrawer(ctx.tenantId))
+        .leftJoin(
+          customers,
+          and(eq(sales.customerId, customers.id), eq(customers.tenantId, ctx.tenantId))
+        )
+        .where(
+          and(
+            eq(sales.tenantId, ctx.tenantId),
+            eq(sales.status, 'completed'),
+            eq(cashSessions.siteId, ctx.siteId),
+            // A drawer closed before today cannot hold a sale completed today; the
+            // date prefix also admits legacy space-separated timestamps.
+            or(
+              isNull(cashSessions.closedAt),
+              gte(cashSessions.closedAt, day.startIso.slice(0, 10))
+            ),
+            or(isNull(sales.returnState), ne(sales.returnState, 'refunded')),
+            gte(completedInstant, day.startIso),
+            lt(completedInstant, day.endExclusiveIso)
+          )
+        )
+        .orderBy(desc(completedInstant), desc(sales.id))
+        .limit(30)
+        .all()
+    );
+  }),
+  /** Get a single sale with its line items. */
   getById: tenantProcedure.input(getSaleInput).query(async ({ ctx, input }) => {
     return getSaleRecord(ctx.db, ctx.tenantId, input.id);
   }),
@@ -269,8 +325,7 @@ export const salesQueryProcedures = {
             ? sql`(
                 (${sales.suspendedAt} IS NULL AND ${sales.resumedBy} = ${ctx.user!.id})
                 OR (${sales.suspendedAt} IS NOT NULL AND (
-                  ${sales.suspendedBy} = ${ctx.user!.id}
-                  OR (${sales.suspendedBy} IS NULL AND ${sales.createdBy} = ${ctx.user!.id})
+                  ${parkedDraftOwnedBy(ctx.user!.id)}
                   OR EXISTS (
                     SELECT 1
                     FROM ${restaurantChecks}
@@ -289,8 +344,7 @@ export const salesQueryProcedures = {
             : sql`(
                 (${sales.suspendedAt} IS NULL AND ${sales.resumedBy} = ${ctx.user!.id})
                 OR (${sales.suspendedAt} IS NOT NULL AND (
-                  ${sales.suspendedBy} = ${ctx.user!.id}
-                  OR (${sales.suspendedBy} IS NULL AND ${sales.createdBy} = ${ctx.user!.id})
+                  ${parkedDraftOwnedBy(ctx.user!.id)}
                 ))
               )`
         );
@@ -334,6 +388,7 @@ export const salesQueryProcedures = {
             resumedBy: sales.resumedBy,
             resumedDeviceId: sales.resumedDeviceId,
             suspendedLabel: sales.suspendedLabel,
+            carriedOver: isCarriedOverSql().mapWith(Boolean),
             restaurantCheckLabel: sql<
               string | null
             >`(SELECT ${restaurantChecks.label} FROM ${restaurantChecks} WHERE ${restaurantChecks.tenantId} = ${ctx.tenantId} AND ${restaurantChecks.saleId} = ${sales.id} LIMIT 1)`,

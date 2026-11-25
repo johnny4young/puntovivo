@@ -79,14 +79,14 @@ let sqlite: DatabaseType.Database;
 /** The newest snapshot: what drizzle will generate the next migration from. */
 function latestSnapshot(): Record<string, SnapshotTable> {
   const journal = JSON.parse(readFileSync(join(MIGRATIONS, 'meta/_journal.json'), 'utf8')) as {
-    entries: Array<{ idx: number }>;
+    entries: Array<{ idx: number; tag: string }>;
   };
-  const newest = Math.max(...journal.entries.map(entry => entry.idx));
+  // The number comes from the newest tag, not from Math.max(idx): the chain
+  // legitimately reserves numbers for branches that have not merged yet, and
+  // an idx-derived filename then names a snapshot that does not exist.
+  const newest = journal.entries.at(-1)?.tag.slice(0, 4) ?? '';
   const snapshot = JSON.parse(
-    readFileSync(
-      join(MIGRATIONS, 'meta', `${String(newest).padStart(4, '0')}_snapshot.json`),
-      'utf8'
-    )
+    readFileSync(join(MIGRATIONS, 'meta', `${newest}_snapshot.json`), 'utf8')
   ) as { tables: Record<string, SnapshotTable> };
   return snapshot.tables;
 }

@@ -29,7 +29,6 @@ export type {
   SalePaymentStatus,
 } from './types.js';
 export {
-  buildReturnedSaleNotes,
   buildVoidedSaleNotes,
   getCashCollectedAmount,
   getNormalizedSaleQuantity,

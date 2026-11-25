@@ -25,6 +25,7 @@ export {
 } from './exact.js';
 export {
   listLotsForProduct,
+  listSellableLots,
   listExpiringLots,
   type LotRow,
   type ListedLotRow,

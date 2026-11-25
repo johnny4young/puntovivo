@@ -163,7 +163,9 @@ async function openSaleDetails(page: Page, saleNumber: string, language: 'en' | 
   const history = page.getByTestId('sales-history-drawer');
   await expect(history).toBeVisible();
   await history
-    .getByPlaceholder(language === 'es' ? 'Buscar por factura...' : 'Search by invoice...')
+    .getByPlaceholder(
+      language === 'es' ? 'Buscar por número de venta...' : 'Search by sale number...'
+    )
     .fill(saleNumber);
   await history
     .getByRole('button', {

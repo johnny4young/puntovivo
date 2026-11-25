@@ -271,6 +271,11 @@ export const auditLogActionEnum = [
   // mutations routed through `application/cash-sessions/recordCashMovement`.
   'cash_session.open',
   'cash_session.movement',
+  // Mid-day register handoff: the outgoing count and the incoming receipt.
+  'cash_session.handoff',
+  'cash_session.handoff_receive',
+  'cash_session.handoff_superseded',
+  'cash_session.explain_difference',
   'inventory.adjust_stock',
   'inventory.revalue',
   'inventory.count.create',
@@ -355,6 +360,8 @@ export const auditLogActionEnum = [
   // tenants that consider park churn noise can suppress the rows.
   'sale.park',
   'sale.resume',
+  // A parked draft left for the next business day at the close.
+  'sale.carry_over',
   // receipt reprint. One row per reprint invocation, metadata
   // carries the reason dropdown value + reprint ordinal count.
   'sale.reprint',
@@ -374,6 +381,8 @@ export const auditLogActionEnum = [
   // sets several surface modules at once. Metadata carries the preset id
   // plus the before/after of every module the patch touched.
   'module.preset_applied',
+  // Admin switches one register zone away from, or back to, the profile default.
+  'register_zone.toggle',
   // Authority Node operability. Admin revokes a hub-client
   // terminal from the Operations Center Authority tab.
   'device.revoke',
@@ -437,6 +446,11 @@ export const auditLogActionEnum = [
   'kds.order.voided',
   'kds.station.saved',
   'restaurant_modifier.save',
+  'restaurant_modifier_group.save',
+  'restaurant_service.bill_requested',
+  'restaurant_service.bill_request_cleared',
+  // Lines moved between the open checks of one table service.
+  'restaurant.checks.regrouped',
   'kds.routing.saved',
   'kds.routing.removed',
   // closure — credit-policy mutations. `customer.credit_limit.update`
@@ -541,6 +555,28 @@ export const auditLogActionEnum = [
   'transfer_destination.update',
   'transfer_destination.delete',
   'transfer_destination.reorder',
+  // Catalog and document numbering changes.
+  'sequential.create',
+  'sequential.adjust',
+  'sequential.delete',
+  'product.create',
+  'product.update',
+  'category.create',
+  'category.update',
+  'category.delete',
+  'unit.create',
+  'unit.update',
+  'unit.delete',
+  'vat_rate.create',
+  'vat_rate.update',
+  'vat_rate.delete',
+  'customer.ledger.adjust',
+  'fiscal.settings.update',
+  'cash_close.settings.update',
+  'product.delete',
+  'product.variant_matrix.create',
+  'inventory.serial.receive',
+  'sync.conflict.resolve',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -570,6 +606,7 @@ export const auditLogResourceTypeEnum = [
   // manual cash movements emit cash_session.movement audit rows
   // keyed to the inserted cash_movements row id.
   'cash_movement',
+  'cash_session_handoff',
   'product',
   'inventory_count_session',
   // second wave resources.
@@ -596,6 +633,7 @@ export const auditLogResourceTypeEnum = [
   // module activation kernel. `module.toggle` audit rows
   // key on the module id (one row per module per tenant per toggle).
   'tenant_module',
+  'tenant_register_zone',
   // hub-client terminal registry lifecycle.
   'device',
   // payment_outbox rows targeted by admin retry / mark_settled.
@@ -611,6 +649,8 @@ export const auditLogResourceTypeEnum = [
   // kitchen display rows.
   'kds_order',
   'restaurant_modifier',
+  'restaurant_modifier_group',
+  'restaurant_service',
   'kds_configuration',
   // closure — customer rows targeted by credit-limit audits.
   // shipped the credit-sales feature without ever emitting
@@ -648,6 +688,10 @@ export const auditLogResourceTypeEnum = [
   'day_close_signoff',
   'fiscal_numbering_range',
   'transfer_destination',
+  'sequential',
+  'category',
+  'unit',
+  'vat_rate',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 
@@ -672,5 +716,6 @@ export interface CashSessionDenomination {
   count: number;
 }
 
+// Drizzle prefers `.default(sqliteNow)` over `$defaultFn(nowIso)`: set createdAt explicitly on insert.
 export const nowIso = () => new Date().toISOString();
 export const sqliteNow = sql`(datetime('now'))`;

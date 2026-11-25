@@ -49,9 +49,12 @@ preferSymlinkedExecutables: false
 # integrity-checked binaries from the npm tarball.
 # Electron 42+ no longer has an install/postinstall build script; its runtime is
 # installed lazily by scripts/ensure-electron-binary.mjs before desktop use.
+# @serialport/bindings-cpp (scale reader) also ships Node-API prebuilds for every
+# target; its install hook would only fall back to a node-gyp build, so deny it.
 # Denied: core-js (postinstall only prints a funding banner).
 allowBuilds:
   better-sqlite3-multiple-ciphers: false
+  '@serialport/bindings-cpp': false
   argon2: true
   esbuild: true
   core-js: false
