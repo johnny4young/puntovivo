@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   providerPayableInvoicePurchases,
@@ -17,7 +17,10 @@ export function readAvailableProviderPurchases(
   const conditions = and(
     eq(purchases.tenantId, tenantId),
     eq(purchases.providerId, input.providerId),
-    eq(purchases.status, 'completed'),
+    // A delivery that lost part of its goods to a return still holds invoiceable
+    // stock; only a fully returned one has nothing left to invoice. The invoice
+    // command reconciles against what was actually kept.
+    inArray(purchases.status, ['completed', 'partial_returned']),
     eq(sites.tenantId, tenantId),
     isNull(providerPayableInvoices.id),
     isNull(providerPayableInvoicePurchases.id),

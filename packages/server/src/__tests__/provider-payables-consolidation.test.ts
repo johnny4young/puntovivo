@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -13,7 +13,9 @@ import {
   purchaseItems,
   purchases,
   sites,
+  syncOutbox,
   units,
+  unitXProduct,
   users,
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
@@ -134,6 +136,43 @@ async function createRemissionPurchase(
     total: lineTotal,
   });
   return purchaseId;
+}
+
+/**
+ * A purchase created through the real purchase command, so its receipt carries
+ * the frozen value evidence that a return must reverse. A directly inserted
+ * fixture row would let the return path pass for the wrong reason.
+ */
+async function createPurchasedStock(
+  caller: ReturnType<typeof appRouter.createCaller>,
+  providerId: string,
+  productId: string,
+  quantity: number,
+  costPerUnit: number
+): Promise<{ purchaseId: string; purchaseItemId: string }> {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  await db.insert(unitXProduct).values({
+    id: nanoid(),
+    productId,
+    unitId: baseUnitId,
+    equivalence: 1,
+    price: costPerUnit,
+    isBase: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  const created = await caller.purchases.create({
+    providerId,
+    items: [{ productId, unitId: baseUnitId, quantity, costPerUnit }],
+  });
+  const line = await db
+    .select()
+    .from(purchaseItems)
+    .where(eq(purchaseItems.purchaseId, created.id))
+    .get();
+  if (!line) throw new Error('Expected the purchase line');
+  return { purchaseId: created.id, purchaseItemId: line.id };
 }
 
 describe('provider payable consolidation', () => {
@@ -464,5 +503,198 @@ describe('provider payable consolidation', () => {
         amount: 10,
       })
     ).resolves.toMatchObject({ providerId });
+  });
+
+  it('reconciles a partially returned purchase against what the store kept', async () => {
+    const db = getDatabase();
+    const providerId = await createProvider(`Returns ${nanoid(5)}`);
+    const productId = await createProduct('Bulto de arroz');
+    const caller = appRouter.createCaller(context());
+    const { purchaseId, purchaseItemId } = await createPurchasedStock(
+      caller,
+      providerId,
+      productId,
+      100,
+      10
+    );
+
+    const returned = await caller.purchases.returnPurchase({
+      id: purchaseId,
+      items: [{ purchaseItemId, quantity: 30 }],
+      reason: 'Sacos rotos',
+    });
+    expect(returned.status).toBe('partial_returned');
+
+    // The overstatement this finding is about: invoicing everything that once
+    // arrived, as if 30 had never gone back.
+    await expect(
+      caller.providerPayables.createInvoice({
+        providerId,
+        purchaseIds: [purchaseId],
+        lines: [{ productId, quantity: 100, unitCost: 10 }],
+        documentNumber: `FAC-${nanoid(6)}`,
+        issuedAt: businessDayFromNow(-2),
+        dueAt: businessDayFromNow(28),
+        amount: 1000,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PROVIDER_PAYABLE_INVOICE_LINES_MISMATCH' },
+    });
+
+    // 70 units are still on the shelf, so the delivery remains invoiceable and
+    // the picker must still offer it.
+    const available = await caller.providerPayables.availablePurchases({ providerId });
+    expect(available.items.map(item => item.id)).toEqual([purchaseId]);
+
+    // What the store actually kept: 70 units, 700.
+    await expect(
+      caller.providerPayables.createInvoice({
+        providerId,
+        purchaseIds: [purchaseId],
+        lines: [{ productId, quantity: 70, unitCost: 10 }],
+        documentNumber: `FAC-${nanoid(6)}`,
+        issuedAt: businessDayFromNow(-2),
+        dueAt: businessDayFromNow(28),
+        amount: 700,
+      })
+    ).resolves.toMatchObject({ providerId });
+
+    const links = db
+      .select({ purchaseId: providerPayableInvoicePurchases.purchaseId })
+      .from(providerPayableInvoicePurchases)
+      .where(eq(providerPayableInvoicePurchases.purchaseId, purchaseId))
+      .all();
+    expect(links).toEqual([{ purchaseId }]);
+  });
+
+  it('still refuses to invoice a fully returned purchase', async () => {
+    const providerId = await createProvider(`Full return ${nanoid(5)}`);
+    const productId = await createProduct('Caja devuelta');
+    const caller = appRouter.createCaller(context());
+    const { purchaseId, purchaseItemId } = await createPurchasedStock(
+      caller,
+      providerId,
+      productId,
+      4,
+      10
+    );
+
+    const returned = await caller.purchases.returnPurchase({
+      id: purchaseId,
+      items: [{ purchaseItemId, quantity: 4 }],
+      reason: 'Pedido equivocado',
+    });
+    expect(returned.status).toBe('returned');
+
+    await expect(
+      caller.providerPayables.createInvoice({
+        providerId,
+        purchaseIds: [purchaseId],
+        documentNumber: `FAC-${nanoid(6)}`,
+        issuedAt: businessDayFromNow(-2),
+        dueAt: businessDayFromNow(28),
+        amount: 40,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PROVIDER_PAYABLE_PURCHASE_NOT_COMPLETED' },
+    });
+    const available = await caller.providerPayables.availablePurchases({ providerId });
+    expect(available.items).toEqual([]);
+  });
+
+  it('rejects a purchaseId that contradicts purchaseIds', async () => {
+    const db = getDatabase();
+    const providerId = await createProvider(`Ambiguous ${nanoid(5)}`);
+    const productId = await createProduct('Bolsa de regalo');
+    const first = await createRemissionPurchase(providerId, productId, 2, 10);
+    const second = await createRemissionPurchase(providerId, productId, 2, 10);
+
+    const caller = appRouter.createCaller(context());
+    // Two keys pointing at different purchases: silently honouring one of them
+    // is how a buró invoice ends up covering the wrong remisión.
+    await expect(
+      caller.providerPayables.createInvoice({
+        providerId,
+        purchaseId: first,
+        purchaseIds: [second],
+        documentNumber: `FAC-${nanoid(6)}`,
+        issuedAt: businessDayFromNow(-2),
+        dueAt: businessDayFromNow(28),
+        amount: 20,
+      })
+    ).rejects.toThrow(/purchaseId and purchaseIds/i);
+
+    // Nothing is persisted by the refused command.
+    expect(
+      db
+        .select({ id: providerPayableInvoices.id })
+        .from(providerPayableInvoices)
+        .where(eq(providerPayableInvoices.providerId, providerId))
+        .all()
+    ).toEqual([]);
+    expect(
+      db
+        .select({ id: providerPayableInvoicePurchases.id })
+        .from(providerPayableInvoicePurchases)
+        .where(inArray(providerPayableInvoicePurchases.purchaseId, [first, second]))
+        .all()
+    ).toEqual([]);
+  });
+
+  it('enqueues the invoice ahead of the purchase links it carries', async () => {
+    const db = getDatabase();
+    const providerId = await createProvider(`Sync order ${nanoid(5)}`);
+    const productId = await createProduct('Servilletas');
+    const first = await createRemissionPurchase(providerId, productId, 2, 10);
+    const second = await createRemissionPurchase(providerId, productId, 2, 10);
+
+    const caller = appRouter.createCaller(context());
+    const invoice = await caller.providerPayables.createInvoice({
+      providerId,
+      purchaseIds: [first, second],
+      lines: [{ productId, quantity: 4, unitCost: 10 }],
+      documentNumber: `FAC-${nanoid(6)}`,
+      issuedAt: businessDayFromNow(-2),
+      dueAt: businessDayFromNow(28),
+      amount: 40,
+    });
+
+    const linkIds = db
+      .select({ id: providerPayableInvoicePurchases.id })
+      .from(providerPayableInvoicePurchases)
+      .where(eq(providerPayableInvoicePurchases.invoiceId, invoice.id))
+      .all()
+      .map(row => row.id);
+    expect(linkIds).toHaveLength(2);
+
+    // The drain order a remote uses (`trpc/routers/sync/push.ts`).
+    const drained = db
+      .select({
+        entityType: syncOutbox.entityType,
+        entityId: syncOutbox.entityId,
+        priority: syncOutbox.priority,
+      })
+      .from(syncOutbox)
+      .where(
+        and(
+          eq(syncOutbox.tenantId, tenantId),
+          inArray(syncOutbox.entityId, [invoice.id, ...linkIds])
+        )
+      )
+      .orderBy(desc(syncOutbox.priority), asc(syncOutbox.createdAt))
+      .all();
+
+    expect(drained).toHaveLength(3);
+    expect(drained[0]).toMatchObject({
+      entityType: 'provider_payable_invoices',
+      entityId: invoice.id,
+    });
+    // Both rows are written by one transaction from one clock, so their
+    // created_at values can tie. Only a strictly higher priority keeps the
+    // parent first when they do.
+    for (const child of drained.slice(1)) {
+      expect(child.entityType).toBe('provider_payable_invoice_purchases');
+      expect(child.priority).toBeLessThan(drained[0]!.priority);
+    }
   });
 });

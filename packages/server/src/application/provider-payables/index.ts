@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import {
@@ -10,6 +11,8 @@ import {
   providerPayablePayments,
   providers,
   purchaseItems,
+  purchaseReturnItems,
+  purchaseReturns,
   purchases,
   sites,
 } from '../../db/schema.js';
@@ -52,11 +55,13 @@ export interface CriticalProviderPayableContext {
 
 type AllocationInput = { invoiceId: string; amount: number };
 
-// Allocation rows reference their payment/credit source. Give the source a
-// narrowly higher priority than the ordinary manual-conflict default (5) so a
-// remote drain cannot apply a child before its same-command parent when their
-// created_at values land in the same millisecond.
-const PROVIDER_PAYABLE_SOURCE_SYNC_PRIORITY = 5.1;
+// Rows that are the parent of another row written by the same command — the
+// invoice of its purchase links, a supplier payment or credit of its
+// allocations — are enqueued narrowly above the ordinary manual-conflict
+// default (5) so a remote drain cannot apply a child before its same-command
+// parent when their created_at values land in the same millisecond. The
+// children keep that default, which is what makes the pair ordered.
+const PROVIDER_PAYABLE_PARENT_SYNC_PRIORITY = 5.1;
 
 function requireSiteId(ctx: Pick<CriticalProviderPayableContext, 'siteId'>): string {
   if (!ctx.siteId) {
@@ -174,11 +179,12 @@ export function createProviderInvoice(
               message: 'Purchase does not belong to the selected provider',
             });
           }
-          if (purchase.status !== 'completed') {
+          if (purchase.status !== 'completed' && purchase.status !== 'partial_returned') {
             throwServerError({
               trpcCode: 'CONFLICT',
               errorCode: 'PROVIDER_PAYABLE_PURCHASE_NOT_COMPLETED',
-              message: 'Only a completed purchase can be linked to a supplier invoice',
+              message:
+                'Only a completed or partially returned purchase can be linked to a supplier invoice',
             });
           }
           // Invoiced twice is impossible: legacy column, bridge, either.
@@ -244,6 +250,28 @@ export function createProviderInvoice(
           .all();
         const receivedByProduct = new Map(received.map(row => [row.productId, row]));
 
+        // Goods sent back to the provider leave the store, so they cannot be
+        // invoiced: what reconciles is received minus returned, in base units
+        // and in value. Without this netting, a partially returned delivery
+        // reconciled as if nothing had come back.
+        const returned = tx
+          .select({
+            productId: purchaseReturnItems.productId,
+            baseQuantity: sql<number>`sum(${purchaseReturnItems.quantity} * ${purchaseReturnItems.unitEquivalence})`,
+            lineTotal: sql<number>`sum(${purchaseReturnItems.total})`,
+          })
+          .from(purchaseReturnItems)
+          .innerJoin(purchaseReturns, eq(purchaseReturnItems.purchaseReturnId, purchaseReturns.id))
+          .where(
+            and(
+              eq(purchaseReturns.tenantId, ctx.tenantId),
+              inArray(purchaseReturns.purchaseId, linkedPurchaseIds)
+            )
+          )
+          .groupBy(purchaseReturnItems.productId)
+          .all();
+        const returnedByProduct = new Map(returned.map(row => [row.productId, row]));
+
         const lineTotalsByProduct = new Map<string, { quantity: number; lineTotal: number }>();
         for (const line of input.lines) {
           const current = lineTotalsByProduct.get(line.productId) ?? { quantity: 0, lineTotal: 0 };
@@ -256,18 +284,23 @@ export function createProviderInvoice(
         const productIds = new Set([...receivedByProduct.keys(), ...lineTotalsByProduct.keys()]);
         for (const productId of productIds) {
           const receivedRow = receivedByProduct.get(productId);
+          const returnedRow = returnedByProduct.get(productId);
           const invoiceRow = lineTotalsByProduct.get(productId);
           const receivedQuantity = receivedRow ? Number(receivedRow.baseQuantity) : 0;
-          const invoiceQuantity = invoiceRow?.quantity ?? 0;
+          const returnedQuantity = returnedRow ? Number(returnedRow.baseQuantity) : 0;
+          const netQuantity = roundQuantity(receivedQuantity - returnedQuantity, 12);
           const receivedTotal = receivedRow ? roundMoney(Number(receivedRow.lineTotal)) : 0;
+          const returnedTotal = returnedRow ? roundMoney(Number(returnedRow.lineTotal)) : 0;
+          const netTotal = roundMoney(receivedTotal - returnedTotal);
+          const invoiceQuantity = invoiceRow?.quantity ?? 0;
           const invoiceTotal = invoiceRow ? roundMoney(invoiceRow.lineTotal) : 0;
-          if (Math.abs(receivedQuantity - invoiceQuantity) > 1e-9) {
+          if (Math.abs(netQuantity - invoiceQuantity) > 1e-9) {
             discrepancies.push(
-              `product ${productId}: invoiced ${invoiceQuantity} but received ${receivedQuantity} base units`
+              `product ${productId}: invoiced ${invoiceQuantity} but received ${netQuantity} base units after ${returnedQuantity} returned`
             );
-          } else if (Math.abs(receivedTotal - invoiceTotal) > 0.005) {
+          } else if (Math.abs(netTotal - invoiceTotal) > 0.005) {
             discrepancies.push(
-              `product ${productId}: invoiced ${invoiceTotal.toFixed(2)} but received ${receivedTotal.toFixed(2)}`
+              `product ${productId}: invoiced ${invoiceTotal.toFixed(2)} but received ${netTotal.toFixed(2)} after ${returnedTotal.toFixed(2)} returned`
             );
           }
         }
@@ -353,10 +386,12 @@ export function createProviderInvoice(
         entityId: invoiceId,
         operation: 'create',
         data: { id: invoiceId, providerId: input.providerId, siteId, amount, purchaseIds: linkedPurchaseIds },
+        priority: PROVIDER_PAYABLE_PARENT_SYNC_PRIORITY,
       });
       // Parent-before-child: each covered purchase link follows its invoice so
       // a synced copy can reconstruct what the consolidating factura covers —
-      // the legacy column alone cannot carry several purchases.
+      // the legacy column alone cannot carry several purchases. The links keep
+      // the manual default priority, below the invoice above them.
       for (const purchaseId of linkedPurchaseIds) {
         enqueueSyncInTransaction(syncContext(ctx, tx), {
           entityType: 'provider_payable_invoice_purchases',
@@ -595,7 +630,7 @@ export async function recordProviderPayment(
         entityId: paymentId,
         operation: 'create',
         data: { id: paymentId, providerId: input.providerId, siteId, amount },
-        priority: PROVIDER_PAYABLE_SOURCE_SYNC_PRIORITY,
+        priority: PROVIDER_PAYABLE_PARENT_SYNC_PRIORITY,
       });
       const allocationIds = insertAllocations(tx, {
         tenantId: ctx.tenantId,
@@ -692,7 +727,7 @@ export function recordProviderCredit(
         entityId: creditId,
         operation: 'create',
         data: { id: creditId, providerId: input.providerId, siteId, amount },
-        priority: PROVIDER_PAYABLE_SOURCE_SYNC_PRIORITY,
+        priority: PROVIDER_PAYABLE_PARENT_SYNC_PRIORITY,
       });
       const allocationIds = insertAllocations(tx, {
         tenantId: ctx.tenantId,

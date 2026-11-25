@@ -60,6 +60,23 @@ export const createProviderInvoiceInput = z
       message: 'Invoice lines are required when consolidating several purchases',
       path: ['lines'],
     }
+  )
+  // Two keys that disagree about what the invoice covers is not a preference
+  // to resolve silently: honouring one of them invoices the wrong deliveries.
+  // Declaring the same purchase through both keys is not ambiguous, so it
+  // stays accepted; contradicting itself is refused.
+  .refine(
+    value =>
+      !(
+        value.purchaseId &&
+        value.purchaseIds?.length &&
+        !value.purchaseIds.includes(value.purchaseId)
+      ),
+    {
+      message:
+        'purchaseId and purchaseIds disagree: include purchaseId in purchaseIds or drop one of them',
+      path: ['purchaseIds'],
+    }
   );
 
 export type ProviderInvoiceLineInput = z.infer<typeof providerInvoiceLineInput>;
