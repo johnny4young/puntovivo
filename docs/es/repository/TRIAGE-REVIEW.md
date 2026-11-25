@@ -42,7 +42,7 @@ El workflow se ejecuta desde `main` y lee la pull request solo mediante la API d
 
 ## Solicitudes de mantenedores
 
-Un mantenedor puede pedirle más a Centinela con una etiqueta. Centinela quita la etiqueta al terminar, así que aplicarla de nuevo pide una nueva ejecución.
+Un mantenedor puede pedirle más a Centinela con una etiqueta. Centinela quita la etiqueta en cuanto toma la solicitud, así que aplicarla de nuevo pide una nueva ejecución.
 
 | Etiqueta               | Se aplica a  | Qué hace                                                                                                                             |
 | ---------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -51,7 +51,9 @@ Un mantenedor puede pedirle más a Centinela con una etiqueta. Centinela quita l
 | `centinela: learn`     | Cualquiera   | Recopila las revisiones recientes de los mantenedores y abre o actualiza una pull request con las reglas aprendidas                  |
 | `centinela: draft-pr`  | Issue        | Ejecuta el workflow aparte `Centinela Execute`, que implementa el issue en una rama nueva y abre una Draft PR                        |
 
-La Draft PR creada con `centinela: draft-pr` la revisa Centinela como cualquier otra pull request y igualmente necesita que un mantenedor la revise y la fusione.
+La Draft PR creada con `centinela: draft-pr` se omite mientras sea un borrador; cuando se marca como lista para revisión, Centinela la revisa como cualquier otra pull request y igualmente necesita que un mantenedor la revise y la fusione.
+
+También puede comentar `/centinela review` en una pull request para pedir de nuevo la revisión con IA, o `/centinela draft-pr` en un issue. `Centinela Execute` solo acepta ese comentario del propietario, los miembros y los colaboradores del repositorio.
 
 Si usted responde a un hilo de revisión de Centinela, o menciona a `@centinela` en un comentario, recibe una respuesta basada en estas reglas. Cuando la respuesta muestra que un hallazgo es un falso positivo y Centinela lo confirma, el hilo se resuelve automáticamente y el descarte queda registrado para revisiones futuras.
 
