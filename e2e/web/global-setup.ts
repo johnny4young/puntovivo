@@ -25,7 +25,13 @@ import {
   prepareFirstSaleBaseline,
 } from '../shared/baseline.js';
 
-const DB_PATH = resolve('packages/server/data/local.db');
+// Never let the suite touch the developer's real database: it runs with
+// runMigrations + seedData, so pointing it at packages/server/data/local.db
+// rewrites whatever is there. Default stays the same; PUNTOVIVO_E2E_DB_PATH
+// lets a run use an isolated path.
+const DB_PATH = process.env.PUNTOVIVO_E2E_DB_PATH
+  ? resolve(process.env.PUNTOVIVO_E2E_DB_PATH)
+  : resolve('packages/server/data/local.db');
 
 export default async function globalSetup(_config: FullConfig) {
   // This is the same migration + catalog/default-seed lifecycle the server
