@@ -52,7 +52,16 @@ jobs:
           anthropic_federation_rule_id: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
           anthropic_organization_id: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
           anthropic_service_account_id: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          anthropic_workspace_id: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
           prompt: |
             Implement issue #${{ github.event.issue.number }} on a new branch and open a Draft PR referencing it.
             Follow AGENTS.md / CLAUDE.md strictly, add regression tests, and run the project test suite before opening the Draft PR.
             Never merge or approve your own PR.
+      - name: Report failure on issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue comment "$ISSUE_NUMBER" --body "Centinela Tier 2 (\`centinela: draft-pr\`) failed before opening a Draft PR. Inspect the workflow run: ${RUN_URL}"
