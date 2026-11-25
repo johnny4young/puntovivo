@@ -120,15 +120,15 @@
     "actions": {
       "receiveItems": "Recibir artículos",
       "submitDraft": "Enviar borrador",
-      "print": "Imprimir pedido",
+      "print": "Imprimir orden",
       "printPending": "Imprimiendo…"
     },
-    "printError": "No se pudo imprimir el pedido",
+    "printError": "No se pudo imprimir la orden",
     "printErrors": {
-      "notPrintable": "Solo se puede imprimir un pedido enviado o parcialmente recibido.",
+      "notPrintable": "Solo se puede imprimir una orden enviada o parcialmente recibida.",
       "popupBlocked": "Permita las ventanas emergentes para Puntovivo e intente de nuevo.",
-      "desktopBridgeFailed": "La impresora del escritorio no pudo procesar el pedido.",
-      "unknown": "El pedido no se pudo imprimir en este momento."
+      "desktopBridgeFailed": "La impresora del escritorio no pudo procesar la orden.",
+      "unknown": "La orden no se pudo imprimir en este momento."
     },
     "toast": {
       "receiveSuccessTitle": "Recibo de la orden creado",
@@ -156,7 +156,7 @@
   "print": {
     "kicker": "Orden de compra",
     "title": "Orden de compra {{orderNumber}}",
-    "info": "Datos del pedido",
+    "info": "Datos de la orden",
     "provider": "Proveedor",
     "site": "Sede",
     "status": "Estado",

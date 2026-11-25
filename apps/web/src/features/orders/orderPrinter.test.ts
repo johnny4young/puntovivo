@@ -9,6 +9,23 @@ import {
   printOrderDocument,
 } from './orderPrinter';
 
+function parseDocument(html: string): Document {
+  return new DOMParser().parseFromString(html, 'text/html');
+}
+
+/**
+ * Text of every matching cell, read from the parsed document.
+ *
+ * Quantities must be asserted this way: the inlined stylesheet also contains
+ * bare digits (`#0f172a`, `width: 34%`), so a substring match against the whole
+ * document would pass even with the quantity cells wrong or missing.
+ */
+function readCells(parsed: Document, selector: string): string[] {
+  return Array.from(parsed.querySelectorAll(selector), cell =>
+    (cell.textContent ?? '').trim()
+  );
+}
+
 function makeOrder(overrides: Partial<Order> = {}): Order {
   return {
     id: 'order-1',
@@ -68,9 +85,12 @@ describe('orderPrinter', () => {
     expect(html).toContain('Deliver to &lt;front desk&gt;');
     expect(html).toContain(formatDateTime(order.createdAt));
     expect(html).toContain(formatDateTime(order.updatedAt));
-    // Ordered quantity, SKU and money all come from the shared formatters.
+    // Ordered quantity, SKU and money all come from the shared formatters and
+    // are read from their own cells, never from a document-wide substring.
+    const parsed = parseDocument(html);
     expect(html).toContain('RICE-1');
-    expect(html).toContain(formatNumber(7));
+    expect(readCells(parsed, 'tbody td.item-qty')).toEqual([`${formatNumber(7)}Unit`]);
+    expect(readCells(parsed, 'tbody td.item-code')).toEqual(['RICE-1']);
     expect(html).toContain(formatCurrency(4));
     expect(html).toContain(formatCurrency(28));
     // Status line reuses the existing orders status copy.
@@ -118,9 +138,17 @@ describe('orderPrinter', () => {
 
     expect(partiallyReceived).toContain('>Received<');
     expect(partiallyReceived).toContain('>Pending<');
-    expect(partiallyReceived).toContain(formatNumber(3));
-    expect(partiallyReceived).toContain(formatNumber(4));
     expect(partiallyReceived).toContain('Partial received');
+
+    // The cells themselves carry the numbers: requested 7, received 3, pending 4.
+    const submittedDocument = parseDocument(submitted);
+    expect(submittedDocument.querySelector('td.item-received')).toBeNull();
+    expect(submittedDocument.querySelector('td.item-pending')).toBeNull();
+
+    const partialDocument = parseDocument(partiallyReceived);
+    expect(readCells(partialDocument, 'tbody td.item-qty')).toEqual([`${formatNumber(7)}Unit`]);
+    expect(readCells(partialDocument, 'tbody td.item-received')).toEqual([formatNumber(3)]);
+    expect(readCells(partialDocument, 'tbody td.item-pending')).toEqual([formatNumber(4)]);
   });
 
   it('counts the requested items and states the document is not fiscal', async () => {
@@ -144,6 +172,10 @@ describe('orderPrinter', () => {
     const html = await buildOrderDocumentHtml(makeOrder({ status: 'partial_received' }));
 
     expect(html).toContain('Orden de compra PED-000010');
+    // The module calls this document an "orden" everywhere; "pedido" would be
+    // a second name for the same thing on a single printed page.
+    expect(html).toContain('Datos de la orden');
+    expect(html.toLowerCase()).not.toContain('pedido');
     expect(html).toContain('Proveedor');
     expect(html).toContain('Cant.');
     expect(html).toContain('Recibido');

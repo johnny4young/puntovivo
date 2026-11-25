@@ -1,14 +1,21 @@
 import i18next from 'i18next';
 import { formatCurrency, formatDateTime, formatNumber } from '@/lib/utils';
-import { openHtmlInPrintWindow } from '@/lib/printWindow';
+import {
+  AUTO_PRINT_SCRIPT,
+  buildReceiptStyleTag,
+  escapeHtml,
+  printHtmlDocument,
+} from '@/lib/printWindow';
 import type { Order } from '@/types';
 
 /**
  * printable purchase order.
  *
- * Mirrors `features/quotations/quotationPrinter.ts` (same HTML shell, escape
- * helper, Electron bridge fallback and Blob-URL print window) so the operator
- * can hand or send the supplier the requested list. Differences:
+ * The escaping, the receipt stylesheet shell, the auto-print snippet and the
+ * Electron/browser print bridge are shared with
+ * `features/quotations/quotationPrinter.ts` through `@/lib/printWindow`, so a
+ * fix there lands in both documents. This file owns what is specific to a
+ * supplier request:
  *   - No prices-first framing: the document is a supplier request, so the
  *     provider, the requesting site and the receipt progress lead.
  *   - Received / pending columns appear only once something has arrived
@@ -62,25 +69,6 @@ const PRINTABLE_ORDER_STATUSES: readonly OrderStatusForPrint[] = ['submitted', '
 
 export function canPrintOrder(order: Pick<Order, 'status'> | null | undefined): boolean {
   return !!order && PRINTABLE_ORDER_STATUSES.includes(order.status);
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, char => {
-    switch (char) {
-      case '&':
-        return '&amp;';
-      case '<':
-        return '&lt;';
-      case '>':
-        return '&gt;';
-      case '"':
-        return '&quot;';
-      case "'":
-        return '&#39;';
-      default:
-        return char;
-    }
-  });
 }
 
 function buildOrderRows(order: PrintableOrder, showReceiptProgress: boolean): string {
@@ -140,82 +128,8 @@ export async function buildOrderDocumentHtml(
     `
     : '';
 
-  return `
-    <!DOCTYPE html>
-    <html lang="${escapeHtml(language)}">
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>${escapeHtml(t('orders:print.title', { orderNumber: order.orderNumber }))}</title>
-        <style>
-          :root { color-scheme: light; }
-          * { box-sizing: border-box; }
-          body {
-            margin: 0;
-            padding: 24px 18px;
-            background: #ffffff;
-            color: #0f172a;
-            font-family: "SF Mono", "Roboto Mono", "Menlo", monospace;
-            font-size: 12px;
-            line-height: 1.45;
-          }
-          .receipt { width: 100%; max-width: 420px; margin: 0 auto; }
-          .header, .summary, .notes, .meta {
-            border-bottom: 1px dashed #cbd5e1;
-            padding-bottom: 12px;
-            margin-bottom: 12px;
-          }
-          .brand {
-            font-size: 20px;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-          }
-          .kicker {
-            color: #475569;
-            font-size: 10px;
-            letter-spacing: 0.16em;
-            text-transform: uppercase;
-            margin-bottom: 2px;
-          }
-          .receipt-number {
-            margin-top: 4px;
-            font-size: 14px;
-            font-weight: 700;
-          }
-          .muted, .section-label { color: #475569; }
-          .section-label {
-            display: block;
-            margin-bottom: 4px;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-          }
-          .meta-grid, .summary-grid { display: grid; gap: 6px; }
-          .meta-row, .summary-row {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 12px;
-          }
-          th, td {
-            padding: 6px 0;
-            vertical-align: top;
-            border-bottom: 1px dotted #e2e8f0;
-          }
-          th {
-            text-align: left;
-            color: #475569;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-          }
+  // Only the item columns differ from the quotation receipt.
+  const styleTag = buildReceiptStyleTag(`
           .item-name { width: 34%; padding-right: 8px; }
           .item-code { color: #475569; padding-right: 6px; }
           .item-unit { color: #64748b; font-size: 10px; }
@@ -223,14 +137,15 @@ export async function buildOrderDocumentHtml(
             text-align: right;
             white-space: nowrap;
           }
-          .total-row { font-size: 14px; font-weight: 700; }
-          .footer {
-            text-align: center;
-            color: #475569;
-            font-size: 11px;
-          }
-          @media print { body { padding: 10px; } }
-        </style>
+`);
+
+  return `
+    <!DOCTYPE html>
+    <html lang="${escapeHtml(language)}">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>${escapeHtml(t('orders:print.title', { orderNumber: order.orderNumber }))}</title>${styleTag}
       </head>
       <body>
         <main class="receipt">
@@ -309,33 +224,10 @@ export async function buildOrderDocumentHtml(
             <p>${escapeHtml(t('orders:print.footer'))}</p>
           </footer>
         </main>
-        ${
-          autoPrint
-            ? `
-              <script>
-                window.addEventListener('load', () => {
-                  window.print();
-                });
-              </script>
-            `
-            : ''
-        }
+${autoPrint ? AUTO_PRINT_SCRIPT : ''}
       </body>
     </html>
   `;
-}
-
-async function openBrowserPrintWindow(documentHtml: string): Promise<void> {
-  const printWindow = openHtmlInPrintWindow(documentHtml, {
-    features: 'noopener,noreferrer,width=480,height=720',
-  });
-
-  if (!printWindow) {
-    throw new OrderPrintError(
-      'popupBlocked',
-      'Unable to open the print window. Check the browser popup settings.'
-    );
-  }
 }
 
 export async function printOrderDocument(order: PrintableOrder): Promise<void> {
@@ -346,30 +238,13 @@ export async function printOrderDocument(order: PrintableOrder): Promise<void> {
     );
   }
 
-  if (window.electron?.printReceipt) {
-    const result = await window.electron.printReceipt(
-      await buildOrderDocumentHtml(order, { autoPrint: false })
-    );
-
-    if (!result.success) {
-      // Closing the native print dialog is an operator choice, not a printer
-      // failure — mirror the sale receipt printer, which returns quietly.
-      if (result.errorCode === 'PRINT_CANCELLED') return;
-      throw new OrderPrintError(
-        'desktopBridgeFailed',
-        result.error || 'Unable to print the purchase order'
-      );
-    }
-
-    return;
-  }
-
-  try {
-    await openBrowserPrintWindow(await buildOrderDocumentHtml(order, { autoPrint: true }));
-  } catch (error) {
-    if (error instanceof OrderPrintError) {
-      throw error;
-    }
-    throw new OrderPrintError('unknown', 'Unable to print the purchase order');
-  }
+  await printHtmlDocument({
+    buildHtml: options => buildOrderDocumentHtml(order, options),
+    createError: (code, message) => new OrderPrintError(code, message),
+    desktopBridgeFailedMessage: 'Unable to print the purchase order',
+    unknownErrorMessage: 'Unable to print the purchase order',
+    // Closing the native print dialog is an operator choice, not a printer
+    // failure — mirror the sale receipt printer, which returns quietly.
+    cancelledDialogIsSuccess: true,
+  });
 }
