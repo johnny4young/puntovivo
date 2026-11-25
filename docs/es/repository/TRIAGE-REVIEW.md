@@ -53,7 +53,7 @@ Un mantenedor puede pedirle más a Centinela con una etiqueta. Centinela quita l
 
 La Draft PR creada con `centinela: draft-pr` se omite mientras sea un borrador; cuando se marca como lista para revisión, Centinela la revisa como cualquier otra pull request y igualmente necesita que un mantenedor la revise y la fusione.
 
-También puede comentar `/centinela review` en una pull request para pedir de nuevo la revisión con IA, o `/centinela draft-pr` en un issue. `Centinela Execute` solo acepta ese comentario del propietario, los miembros y los colaboradores del repositorio.
+También puede comentar `/centinela review` en una pull request para pedir de nuevo la revisión con IA, o `/centinela draft-pr` en un issue. `Centinela Execute` solo acepta `/centinela draft-pr` del propietario, los miembros y los colaboradores del repositorio.
 
 Si usted responde a un hilo de revisión de Centinela, o menciona a `@centinela` en un comentario, recibe una respuesta basada en estas reglas. Cuando la respuesta muestra que un hallazgo es un falso positivo y Centinela lo confirma, el hilo se resuelve automáticamente y el descarte queda registrado para revisiones futuras.
 
@@ -102,7 +102,7 @@ Un mantenedor puede pedir a Centinela una revisión con IA con la etiqueta `cent
 Las reglas de Puntovivo viven en `.github/centinela.json`; los chequeos viven en el [repositorio de Centinela](https://github.com/johnny4young/centinela).
 Cualquier cambio en uno u otro cambia la versión de las reglas, así que cada contribución abierta se revisa una vez más con las reglas nuevas.
 
-Para previsualizar una ejecución desde GitHub sin publicar nada, abra **Actions → Centinela → Run workflow**, elija un `mode` (`review`, `triage` o `learn`), escriba el `number` de la pull request o del issue y mantenga `dry_run: true`. El resultado aparece en el resumen del job (Job Summary) de la ejecución en lugar de un comentario en la pull request o el issue.
+Para previsualizar una ejecución desde GitHub sin publicar nada, abra **Actions → Centinela → Run workflow**, elija un `mode` (`review`, `triage` o `learn`), escriba el `number` de la pull request o del issue para `review` y `triage`, y mantenga `dry_run: true`. El resultado aparece en el resumen del job (Job Summary) de la ejecución en lugar de un comentario en la pull request o el issue.
 
 Para probar un cambio contra una pull request real sin publicar nada, desde una copia de Centinela:
 

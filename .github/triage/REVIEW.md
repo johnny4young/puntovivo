@@ -53,7 +53,7 @@ A maintainer can ask Centinela for more with a label. Centinela removes the labe
 
 The Draft PR from `centinela: draft-pr` is skipped while it is a draft; once it is marked ready for review, Centinela reviews it like any other pull request, and it still needs a maintainer to review and merge it.
 
-A maintainer can also comment `/centinela review` on a pull request to ask for the AI review again, or `/centinela draft-pr` on an issue. `Centinela Execute` accepts that comment only from the repository owner, members and collaborators.
+A maintainer can also comment `/centinela review` on a pull request to ask for the AI review again, or `/centinela draft-pr` on an issue. `Centinela Execute` accepts `/centinela draft-pr` only from the repository owner, members and collaborators.
 
 Replying to a Centinela review thread, or mentioning `@centinela` in a comment, gets an answer grounded in these rules. When the reply shows a finding is a false positive and Centinela confirms it, the thread is resolved automatically and the dismissal is recorded for future reviews.
 
@@ -102,7 +102,7 @@ A maintainer can ask Centinela for an AI review with the `centinela: ai-review` 
 The Puntovivo rules live in `.github/centinela.json`; the checks themselves live in the [Centinela repository](https://github.com/johnny4young/centinela).
 Any change to either changes the rules version, so each open contribution is reviewed once more with the new rules.
 
-To preview a run from GitHub without posting anything, open **Actions → Centinela → Run workflow**, choose a `mode` (`review`, `triage` or `learn`), enter the pull request or issue `number` and keep `dry_run: true`. The output appears in the Job Summary of the run instead of as a comment on the pull request or issue.
+To preview a run from GitHub without posting anything, open **Actions → Centinela → Run workflow**, choose a `mode` (`review`, `triage` or `learn`), enter the pull request or issue `number` for `review` and `triage`, and keep `dry_run: true`. The output appears in the Job Summary of the run instead of as a comment on the pull request or issue.
 
 To try a change against a real pull request without posting anything, from a Centinela checkout:
 
