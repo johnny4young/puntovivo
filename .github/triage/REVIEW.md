@@ -51,7 +51,7 @@ A maintainer can ask Centinela for more with a label. Centinela removes the labe
 | `centinela: learn`     | Any          | Collects recent maintainer reviews and opens or updates a pull request with the learned rules                   |
 | `centinela: draft-pr`  | Issue        | Runs the separate `Centinela Execute` workflow, which implements the issue on a new branch and opens a Draft PR |
 
-The Draft PR from `centinela: draft-pr` is reviewed by Centinela like any other pull request and still needs a maintainer to review and merge it.
+The Draft PR from `centinela: draft-pr` is skipped while it is a draft; once it is marked ready for review, Centinela reviews it like any other pull request, and it still needs a maintainer to review and merge it.
 
 Replying to a Centinela review thread, or mentioning `@centinela` in a comment, gets an answer grounded in these rules. When the reply shows a finding is a false positive and Centinela confirms it, the thread is resolved automatically and the dismissal is recorded for future reviews.
 
