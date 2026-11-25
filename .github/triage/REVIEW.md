@@ -42,7 +42,7 @@ The workflow runs from `main` and reads the pull request only through the GitHub
 
 ## Maintainer requests
 
-A maintainer can ask Centinela for more with a label. Centinela removes the label when it finishes, so applying it again asks for a new run.
+A maintainer can ask Centinela for more with a label. Centinela removes the label once it picks up the request, so applying it again asks for a new run.
 
 | Label                  | Applies to   | What it does                                                                                                    |
 | ---------------------- | ------------ | --------------------------------------------------------------------------------------------------------------- |
