@@ -8,6 +8,7 @@
  * @module services/fiscal/packs/co/dian-adapter
  */
 
+import { createPrivateKey, X509Certificate } from 'node:crypto';
 import type { FiscalDocumentStatus } from '../../../../db/schema.js';
 import type {
   FiscalAdapter,
@@ -23,7 +24,6 @@ import { computeCude } from '../../cude.js';
 import { computeCufe, type DianDocumentHashFields, type FiscalEnvironment } from '../../cufe.js';
 import { FiscalProviderError } from '../../errors.js';
 import { resolveFiscalIssuerTaxId } from '../../issuer-context.js';
-import { splitIssueTimestamp } from '../../orchestrator/helpers.js';
 import {
   DianSoapClient,
   type DianSoapCredentials,
@@ -32,6 +32,16 @@ import {
 import { readCoFiscalSettings, validateCoEmissionConfig } from './settings.js';
 import { buildColombiaUbl21DraftXml } from './ubl21-xml.js';
 import { inspectX509Certificate, signDianUblXml } from './xades-signer.js';
+
+function certificateMatchesKey(credentials: DianSoapCredentials): boolean {
+  try {
+    return new X509Certificate(credentials.certificatePem).checkPrivateKey(
+      createPrivateKey(credentials.privateKeyPem)
+    );
+  } catch {
+    return false;
+  }
+}
 
 export const COLOMBIA_DIAN_DIRECT_PROVIDER_ID = 'dian-co-direct';
 const CONTINGENCY_WINDOW_MS = 48 * 60 * 60 * 1000;
@@ -59,7 +69,7 @@ export interface ColombiaDianAdapterOptions {
 }
 
 const CAPABILITIES: FiscalAdapterCapabilities = {
-  supportsVoid: true,
+  supportsVoid: false,
   supportsDebitNote: true,
   supportsFetchStatus: true,
 };
@@ -119,6 +129,13 @@ export class ColombiaDianAdapter implements FiscalAdapter {
         issues.push({
           code: 'MISSING_CERTIFICATE',
           message: 'DIAN X.509 signing certificate is malformed',
+          field: 'fiscal.co.certificate',
+        });
+      }
+      if (!certificateMatchesKey(this.options.credentials)) {
+        issues.push({
+          code: 'MISSING_CERTIFICATE',
+          message: 'DIAN private key does not match the signing certificate',
           field: 'fiscal.co.certificate',
         });
       }
@@ -266,27 +283,12 @@ export class ColombiaDianAdapter implements FiscalAdapter {
     });
   }
 
-  async voidDocument(input: FiscalAdapterVoidInput): Promise<FiscalAdapterIssueResult> {
-    const voidCufe = computeCude({
-      documentNumber: `VOID-${input.cufe}`,
-      ...splitIssueTimestamp(this.now(), 'America/Bogota'),
-      subtotal: 0,
-      ivaAmount: 0,
-      incAmount: 0,
-      icaAmount: 0,
-      totalAmount: 0,
-      issuerNit: input.tenantId,
-      buyerIdNumber: '222222222222',
-      softwarePin: input.reasonCode,
-      environment: '2',
+  async voidDocument(_input: FiscalAdapterVoidInput): Promise<FiscalAdapterIssueResult> {
+    // Voiding goes through a signed nota credito, not a transmitted cancellation.
+    throw new FiscalProviderError('MALFORMED_REQUEST', {
+      message: 'DIAN direct adapter cannot void; issue a credit note instead',
+      providerCode: 'VOID_NOT_SUPPORTED',
     });
-    return {
-      cufe: voidCufe,
-      status: 'sent',
-      providerId: this.providerId,
-      providerResponse: { transport: 'dian-soap-1.2', signed: false, certified: false },
-      xmlRef: null,
-    };
   }
 
   async fetchStatus(

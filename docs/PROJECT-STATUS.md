@@ -394,9 +394,10 @@ The current validated candidate includes:
   pending live `vpfe-hab` certification). No pack is certified for production
   transmission yet;
 - Electron 45 (running the embedded Fastify + tRPC + SQLCipher server on a
-  dedicated `worker_threads` worker, with fail-closed update install policy and
-  detached `Ed25519` Linux artifact verification) and browser targets sharing the
-  same React, Fastify, tRPC, and SQLite application core;
+  dedicated `worker_threads` worker, with a fail-closed update install policy;
+  the detached `Ed25519` Linux verifier exists but is not wired into the updater
+  yet) and browser targets sharing the same React, Fastify, tRPC, and SQLite
+  application core;
 - configurable COP cash rounding (`$ 50`) with balanced rounding-adjustment
   accounting export, simplified `/sales` dock with header shift menu, complete
   `/touch` checkout, and dark-mode WCAG AA contrast parity.

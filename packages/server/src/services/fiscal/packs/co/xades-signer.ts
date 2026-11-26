@@ -102,11 +102,9 @@ export function canonicalizeXml(xml: string): string {
   );
 }
 
-function stripPemHeaders(pem: string): string {
-  return pem
-    .replace(/-----BEGIN CERTIFICATE-----/g, '')
-    .replace(/-----END CERTIFICATE-----/g, '')
-    .replace(/\s+/g, '');
+/** DER base64 of the first (leaf) certificate, ignoring chain members and bag attributes. */
+export function certificateDerBase64(certificatePem: string): string {
+  return new X509Certificate(certificatePem).raw.toString('base64');
 }
 
 function hexSerialToDecimal(hex: string): string {
@@ -144,8 +142,8 @@ export function inspectX509Certificate(
  */
 export function signDianUblXml(input: SignDianUblXmlInput): SignDianUblXmlResult {
   const cert = new X509Certificate(input.certificatePem);
-  const certBase64 = stripPemHeaders(input.certificatePem);
-  const certDer = Buffer.from(certBase64, 'base64');
+  const certDer = cert.raw;
+  const certBase64 = certDer.toString('base64');
   const certDigestBase64 = sha256Base64(certDer);
 
   const signatureId = input.signatureId ?? `xmldsig-${randomUUID()}`;
@@ -225,7 +223,7 @@ export function signDianUblXml(input: SignDianUblXmlInput): SignDianUblXmlResult
   }
   const signedXml = input.xml.replace(
     slotPattern,
-    `<ext:ExtensionContent>${signatureBlock}</ext:ExtensionContent>`
+    () => `<ext:ExtensionContent>${signatureBlock}</ext:ExtensionContent>`
   );
 
   return {

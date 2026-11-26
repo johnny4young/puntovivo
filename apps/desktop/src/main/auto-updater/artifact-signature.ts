@@ -34,7 +34,8 @@ export function computeBufferSha512Base64(data: Buffer): string {
 }
 
 export function isValidEd25519PublicKeyPem(pem: string | null | undefined): boolean {
-  if (!pem || !pem.trim()) return false;
+  // createPublicKey also derives a key from a private PEM; never accept signing material.
+  if (!pem || !pem.trim() || /PRIVATE KEY/.test(pem)) return false;
   try {
     const key = createPublicKey(pem);
     return key.asymmetricKeyType === 'ed25519';

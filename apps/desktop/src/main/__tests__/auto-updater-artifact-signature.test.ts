@@ -137,5 +137,12 @@ describe('detached Ed25519 artifact signature verification', () => {
     assert.equal(malformed.signatureTrust, 'unverified');
     assert.equal(malformed.allowSilentInstall, false);
     assert.equal(malformed.reason, 'no-signature-support');
+
+    const privateKeyPinned = resolveUpdateInstallPolicy({
+      platform: 'linux',
+      linuxPublicKeyPem: releaseKey.privateKeyPem,
+    });
+    assert.equal(privateKeyPinned.signatureTrust, 'unverified');
+    assert.equal(privateKeyPinned.allowSilentInstall, false);
   });
 });

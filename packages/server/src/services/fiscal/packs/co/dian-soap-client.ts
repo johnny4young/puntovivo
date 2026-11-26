@@ -8,7 +8,7 @@
 import { createHash, createSign, randomUUID } from 'node:crypto';
 import { deflateRawSync } from 'node:zlib';
 import type { FiscalEnvironment } from '../../cufe.js';
-import { canonicalizeXml } from './xades-signer.js';
+import { canonicalizeXml, certificateDerBase64 } from './xades-signer.js';
 
 export const DIAN_SOAP_ENDPOINTS: Record<FiscalEnvironment, string> = {
   '1': 'https://vpfe.dian.gov.co/WcfDianCustomerServices.svc',
@@ -135,13 +135,6 @@ function escapeXml(value: string): string {
     .replaceAll("'", '&apos;');
 }
 
-function stripCertPem(pem: string): string {
-  return pem
-    .replace(/-----BEGIN CERTIFICATE-----/g, '')
-    .replace(/-----END CERTIFICATE-----/g, '')
-    .replace(/\s+/g, '');
-}
-
 function sha256Base64(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('base64');
 }
@@ -159,7 +152,7 @@ export function buildDianSoapEnvelope(args: {
   const tokenId = `X509-${randomUUID()}`;
   const timestampId = `TS-${randomUUID()}`;
   const toId = `TO-${randomUUID()}`;
-  const certBase64 = stripCertPem(args.credentials.certificatePem);
+  const certBase64 = certificateDerBase64(args.credentials.certificatePem);
 
   const timestampXml =
     `<wsu:Timestamp xmlns:wsu="${WSU_NS}" wsu:Id="${timestampId}">` +

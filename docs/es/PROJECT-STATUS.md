@@ -441,9 +441,9 @@ El candidato validado actual incluye:
   en `vpfe-hab`). Ningún paquete está certificado todavía para transmisión en
   producción;
 - destinos Electron 45 (con el servidor Fastify + tRPC + SQLCipher aislado en
-  `worker_threads`, política de instalación segura y verificación `Ed25519`
-  para artefactos Linux) y navegador que comparten el mismo núcleo React,
-  Fastify, tRPC y SQLite;
+  `worker_threads`, política de instalación segura; el verificador `Ed25519` para
+  artefactos Linux existe pero aún no está conectado al actualizador) y navegador
+  que comparten el mismo núcleo React, Fastify, tRPC y SQLite;
 - redondeo configurable de efectivo COP (`$ 50`) con cuadre de ajuste por
   redondeo en exportación contable, barra de cobro simplificada en `/sales` con
   menú de turno en cabecera, cobro completo en `/touch` y contraste WCAG AA en

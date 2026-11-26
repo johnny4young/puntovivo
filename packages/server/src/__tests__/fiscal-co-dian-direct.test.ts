@@ -1,8 +1,9 @@
-import { createSign, generateKeyPairSync } from 'node:crypto';
+import { createSign, generateKeyPairSync, X509Certificate } from 'node:crypto';
 import { inflateRawSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import type { FiscalAdapterIssueInput } from '../services/fiscal/adapter.js';
 import {
+  buildDianSoapEnvelope,
   buildSingleFileZip,
   COLOMBIA_DIAN_DIRECT_PROVIDER_ID,
   ColombiaDianAdapter,
@@ -291,6 +292,24 @@ describe('Colombia XAdES-EPES signer and verifier', () => {
     });
   });
 
+  it('keeps replacement patterns in the certificate issuer literal', () => {
+    const creds = createTestSelfSignedCert({
+      notBefore: new Date('2025-01-01T00:00:00Z'),
+      notAfter: new Date('2030-01-01T00:00:00Z'),
+      cn: 'Andina $& Cia $1',
+    });
+    const xml = buildColombiaUbl21DraftXml(buildSampleInput(), 'e'.repeat(96), { mode: 'dian' });
+    const { signedXml } = signDianUblXml({
+      xml,
+      certificatePem: creds.certificatePem,
+      privateKeyPem: creds.privateKeyPem,
+      signingTimeIso: '2026-11-26T14:30:00.000Z',
+    });
+
+    expect(signedXml).toContain('Andina $&amp; Cia $1');
+    expect(verifyDianXadesSignature(signedXml).valid).toBe(true);
+  });
+
   it('detects any payload or signing-time tampering', () => {
     const xml = buildColombiaUbl21DraftXml(buildSampleInput(), 'd'.repeat(96), { mode: 'dian' });
     const { signedXml } = signDianUblXml({
@@ -450,6 +469,69 @@ describe('ColombiaDianAdapter + WS-Security SOAP 1.2 against mock DIAN transport
 
     mockMode = 'status-accepted';
     expect(await adapter.fetchStatus(result.cufe)).toBe('accepted');
+  });
+
+  it('rejects a private key that does not belong to the signing certificate', async () => {
+    const other = createTestSelfSignedCert({
+      notBefore: new Date('2025-01-01T00:00:00Z'),
+      notAfter: new Date('2030-01-01T00:00:00Z'),
+    });
+    const adapter = new ColombiaDianAdapter({
+      credentials: {
+        certificatePem: validCreds.certificatePem,
+        privateKeyPem: other.privateKeyPem,
+      },
+      now: () => new Date('2026-11-26T14:30:00Z'),
+    });
+
+    const result = await adapter.validateConfig({
+      tenantId: 't1',
+      countryCode: 'CO',
+      settings: CO_SETTINGS,
+    });
+    expect(result.issues.map(issue => issue.message)).toContain(
+      'DIAN private key does not match the signing certificate'
+    );
+  });
+
+  it('embeds only the leaf certificate when the PEM carries a chain', () => {
+    const issuer = createTestSelfSignedCert({
+      notBefore: new Date('2025-01-01T00:00:00Z'),
+      notAfter: new Date('2030-01-01T00:00:00Z'),
+      cn: 'Puntovivo Test CA',
+    });
+    const chainPem = `Bag Attributes\n    friendlyName: dian\n${validCreds.certificatePem}\n${issuer.certificatePem}`;
+    const leafBase64 = new X509Certificate(validCreds.certificatePem).raw.toString('base64');
+    const xml = buildColombiaUbl21DraftXml(buildSampleInput(), 'f'.repeat(96), { mode: 'dian' });
+    const { signedXml } = signDianUblXml({
+      xml,
+      certificatePem: chainPem,
+      privateKeyPem: validCreds.privateKeyPem,
+      signingTimeIso: '2026-11-26T14:30:00.000Z',
+    });
+    const envelope = buildDianSoapEnvelope({
+      action: 'GetStatus',
+      endpoint,
+      bodyXml: '<wcf:GetStatus/>',
+      credentials: { certificatePem: chainPem, privateKeyPem: validCreds.privateKeyPem },
+    });
+
+    expect(signedXml).toContain(`<ds:X509Certificate>${leafBase64}</ds:X509Certificate>`);
+    expect(envelope).toContain(`>${leafBase64}</wsse:BinarySecurityToken>`);
+    expect(verifyDianXadesSignature(signedXml).valid).toBe(true);
+  });
+
+  it('refuses to void instead of reporting an untransmitted cancellation as sent', async () => {
+    const adapter = new ColombiaDianAdapter({
+      credentials: validCreds,
+      endpointOverride: endpoint,
+      fetchImpl: mockFetch,
+    });
+
+    expect(adapter.capabilities.supportsVoid).toBe(false);
+    await expect(
+      adapter.voidDocument({ tenantId: 'tenant-co-1', cufe: 'a'.repeat(96), reasonCode: '2' })
+    ).rejects.toMatchObject({ name: 'FiscalProviderError', providerCode: 'VOID_NOT_SUPPORTED' });
   });
 
   it('maps DIAN business rejection to non-recoverable PROVIDER_REJECTED', async () => {
