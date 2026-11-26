@@ -85,11 +85,9 @@ interface AggregatedTaxBucket {
   taxAmount: number;
 }
 
-/**
- * Group document-level TaxTotal blocks by DIAN tax scheme (01 IVA, 04 INC, 03 ICA)
- * and TaxSubtotal rows by (scheme, rate), matching DIAN Anexo Técnico 1.9 / DEE POS 1.0.
- */
-function buildHeaderTaxTotals(currency: string, input: FiscalAdapterIssueInput): string {
+function aggregateTaxBuckets(
+  input: FiscalAdapterIssueInput
+): Map<string, Map<string, AggregatedTaxBucket>> {
   const byScheme = new Map<string, Map<string, AggregatedTaxBucket>>();
 
   for (const line of input.lines) {
@@ -116,6 +114,27 @@ function buildHeaderTaxTotals(currency: string, input: FiscalAdapterIssueInput):
     }
   }
 
+  return byScheme;
+}
+
+/** Header tax amount per DIAN scheme code as the XML reports it (01 IVA, 04 INC, 03 ICA). */
+export function colombiaTaxSchemeTotals(input: FiscalAdapterIssueInput): Map<string, number> {
+  const totals = new Map<string, number>();
+  for (const [schemeCode, buckets] of aggregateTaxBuckets(input)) {
+    totals.set(
+      schemeCode,
+      roundMoney([...buckets.values()].reduce((sum, bucket) => sum + bucket.taxAmount, 0))
+    );
+  }
+  return totals;
+}
+
+/**
+ * Group document-level TaxTotal blocks by DIAN tax scheme (01 IVA, 04 INC, 03 ICA)
+ * and TaxSubtotal rows by (scheme, rate), matching DIAN Anexo Técnico 1.9 / DEE POS 1.0.
+ */
+function buildHeaderTaxTotals(currency: string, input: FiscalAdapterIssueInput): string {
+  const byScheme = aggregateTaxBuckets(input);
   if (byScheme.size === 0) {
     return `<cac:TaxTotal><cbc:TaxAmount currencyID="${currency}">0.00</cbc:TaxAmount><cac:TaxSubtotal><cbc:TaxableAmount currencyID="${currency}">${amount(input.subtotal)}</cbc:TaxableAmount><cbc:TaxAmount currencyID="${currency}">0.00</cbc:TaxAmount><cac:TaxCategory><cbc:Percent>0.00</cbc:Percent>${taxScheme('01')}</cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>`;
   }
@@ -269,8 +288,10 @@ export function buildColombiaUbl21DraftXml(
     : '';
 
   const billingReferenceXml =
-    (input.kind === 'NC' || input.kind === 'ND') && input.originalCufe
-      ? `<cac:BillingReference><cac:InvoiceDocumentReference><cbc:ID>${escapeXml(input.resolution.documentNumber)}</cbc:ID><cbc:UUID schemeName="${input.originalKind === 'FEV' ? 'CUFE-SHA384' : 'CUDE-SHA384'}">${escapeXml(input.originalCufe)}</cbc:UUID></cac:InvoiceDocumentReference></cac:BillingReference>`
+    (input.kind === 'NC' || input.kind === 'ND') &&
+    input.originalCufe &&
+    input.originalDocumentNumber
+      ? `<cac:BillingReference><cac:InvoiceDocumentReference><cbc:ID>${escapeXml(input.originalDocumentNumber)}</cbc:ID><cbc:UUID schemeName="${input.originalKind === 'FEV' ? 'CUFE-SHA384' : 'CUDE-SHA384'}">${escapeXml(input.originalCufe)}</cbc:UUID></cac:InvoiceDocumentReference></cac:BillingReference>`
       : '';
 
   const issuerAttrs = companyIdAttributes(DIAN_NIT_TYPE_CODE, input.issuerNit);

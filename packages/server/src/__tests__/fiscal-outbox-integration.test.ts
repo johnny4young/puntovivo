@@ -855,6 +855,24 @@ describe('fiscal outbox — happy path', () => {
       )
       .all();
     expect(noteItems).toEqual([checkoutIdentity]);
+    const noteOutbox = await db
+      .select({ payload: fiscalOutbox.payload })
+      .from(fiscalOutbox)
+      .innerJoin(fiscalDocuments, eq(fiscalDocuments.id, fiscalOutbox.fiscalDocumentId))
+      .where(
+        and(
+          eq(fiscalDocuments.tenantId, tenantId),
+          eq(fiscalDocuments.kind, 'NC'),
+          eq(fiscalDocuments.sourceId, returnIntent?.sourceId ?? '')
+        )
+      )
+      .get();
+    expect(
+      (noteOutbox?.payload as { adapterInput: FiscalAdapterIssueInput }).adapterInput
+    ).toMatchObject({
+      originalCufe: materialized.doc!.cufe,
+      originalDocumentNumber: materialized.doc!.documentNumber,
+    });
     expect(
       await db
         .select({

@@ -10,6 +10,7 @@
 
 import { createPrivateKey, X509Certificate } from 'node:crypto';
 import type { FiscalDocumentStatus } from '../../../../db/schema.js';
+import { roundMoney } from '../../../../lib/money.js';
 import type {
   FiscalAdapter,
   FiscalAdapterCapabilities,
@@ -19,6 +20,7 @@ import type {
   FiscalAdapterValidationIssue,
   FiscalAdapterValidationResult,
   FiscalAdapterVoidInput,
+  FiscalStatusContext,
 } from '../../adapter.js';
 import { computeCude } from '../../cude.js';
 import { computeCufe, type DianDocumentHashFields, type FiscalEnvironment } from '../../cufe.js';
@@ -30,7 +32,7 @@ import {
   type DianSoapResponse,
 } from './dian-soap-client.js';
 import { readCoFiscalSettings, validateCoEmissionConfig } from './settings.js';
-import { buildColombiaUbl21DraftXml } from './ubl21-xml.js';
+import { buildColombiaUbl21DraftXml, colombiaTaxSchemeTotals } from './ubl21-xml.js';
 import { inspectX509Certificate, signDianUblXml } from './xades-signer.js';
 
 function certificateMatchesKey(credentials: DianSoapCredentials): boolean {
@@ -88,6 +90,105 @@ function xmlFileNameFor(input: FiscalAdapterIssueInput, issuerNit: string): stri
 
 function isTransientHttpStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
+}
+
+type TransportOutcome =
+  | { kind: 'ok' }
+  | { kind: 'outage'; reasonCode: string; detail: string }
+  | { kind: 'error'; error: FiscalProviderError };
+
+/** Separate a DIAN outage from a request DIAN refused at the transport or SOAP layer. */
+function classifyTransport(response: DianSoapResponse): TransportOutcome {
+  const fault = response.fault;
+  if (fault) {
+    const code = fault.code.split(':').pop() ?? fault.code;
+    const detail = `${fault.code}${fault.subcode ? `/${fault.subcode}` : ''}: ${fault.reason}`;
+    if (code === 'Receiver' || code === 'Server') {
+      return { kind: 'outage', reasonCode: 'DIAN_SOAP_RECEIVER_FAULT', detail };
+    }
+    const securityFault = /security|authenticat|token|signature/i.test(
+      `${fault.subcode ?? ''} ${fault.reason}`
+    );
+    return {
+      kind: 'error',
+      error: new FiscalProviderError(securityFault ? 'AUTH_FAILED' : 'MALFORMED_REQUEST', {
+        message: `DIAN SOAP fault ${detail}`,
+        providerCode: fault.subcode ?? code,
+        details: { httpStatus: response.httpStatus, faultCode: fault.code },
+      }),
+    };
+  }
+  if (response.httpStatus === 401 || response.httpStatus === 403) {
+    return {
+      kind: 'error',
+      error: new FiscalProviderError('AUTH_FAILED', {
+        message: `DIAN refused the client credentials (HTTP ${response.httpStatus})`,
+        providerCode: `HTTP_${response.httpStatus}`,
+        details: { httpStatus: response.httpStatus },
+      }),
+    };
+  }
+  if (isTransientHttpStatus(response.httpStatus)) {
+    return {
+      kind: 'outage',
+      reasonCode: `DIAN_HTTP_${response.httpStatus}`,
+      detail: `DIAN HTTP ${response.httpStatus}`,
+    };
+  }
+  if (response.httpStatus >= 400) {
+    return {
+      kind: 'error',
+      error: new FiscalProviderError('PROVIDER_4XX', {
+        message: `DIAN HTTP ${response.httpStatus}`,
+        providerCode: `HTTP_${response.httpStatus}`,
+        details: { httpStatus: response.httpStatus },
+      }),
+    };
+  }
+  return { kind: 'ok' };
+}
+
+function statusFromResponse(response: DianSoapResponse): FiscalDocumentStatus {
+  if (response.isValid) return 'accepted';
+  if (response.statusCode === '99' || response.errorMessages.length > 0) return 'rejected';
+  return 'sent';
+}
+
+function rejectionError(response: DianSoapResponse): FiscalProviderError {
+  return new FiscalProviderError('PROVIDER_REJECTED', {
+    message:
+      response.errorMessages.join('; ') ||
+      response.statusMessage ||
+      response.statusDescription ||
+      'DIAN rejected document',
+    providerCode: response.statusCode ?? 'DIAN_REJECTED',
+    details: { httpStatus: response.httpStatus, errorMessages: response.errorMessages },
+  });
+}
+
+function readEnvironment(value: unknown): FiscalEnvironment | null {
+  return value === '1' || value === '2' ? value : null;
+}
+
+const TAX_SCHEME_HEADER: ReadonlyArray<[string, 'ivaAmount' | 'incAmount' | 'icaAmount']> = [
+  ['01', 'ivaAmount'],
+  ['04', 'incAmount'],
+  ['03', 'icaAmount'],
+];
+
+/** The XML TaxTotal per scheme must equal the header amounts hashed into the CUFE. */
+function assertTaxSchemesMatchHashedTotals(input: FiscalAdapterIssueInput): void {
+  const xmlTotals = colombiaTaxSchemeTotals(input);
+  for (const [schemeCode, field] of TAX_SCHEME_HEADER) {
+    const xmlTotal = xmlTotals.get(schemeCode) ?? 0;
+    if (xmlTotal !== roundMoney(input[field])) {
+      throw new FiscalProviderError('MALFORMED_REQUEST', {
+        message: `DIAN tax scheme ${schemeCode} totals ${xmlTotal} but the CUFE hashes ${input[field]}`,
+        providerCode: 'TAX_TOTAL_MISMATCH',
+        details: { schemeCode, xmlTotal, hashedTotal: input[field] },
+      });
+    }
+  }
 }
 
 export class ColombiaDianAdapter implements FiscalAdapter {
@@ -171,6 +272,22 @@ export class ColombiaDianAdapter implements FiscalAdapter {
       environment,
     };
 
+    if (!settings.softwareId || !settings.softwarePin) {
+      throw new FiscalProviderError('MALFORMED_REQUEST', {
+        message: 'DIAN software ID or PIN is missing',
+        providerCode: 'MISSING_SOFTWARE',
+      });
+    }
+    if (
+      (input.kind === 'NC' || input.kind === 'ND') &&
+      (!input.originalCufe || !input.originalDocumentNumber)
+    ) {
+      throw new FiscalProviderError('MALFORMED_REQUEST', {
+        message: 'DIAN note is missing the CUFE or number of the document it corrects',
+        providerCode: 'MISSING_BILLING_REFERENCE',
+      });
+    }
+
     let cufe: string;
     if (input.kind === 'FEV') {
       if (!input.resolution.technicalKey) {
@@ -180,13 +297,8 @@ export class ColombiaDianAdapter implements FiscalAdapter {
         });
       }
       cufe = computeCufe({ ...fields, technicalKey: input.resolution.technicalKey });
-    } else if (settings.softwarePin) {
-      cufe = computeCude({ ...fields, softwarePin: settings.softwarePin });
     } else {
-      throw new FiscalProviderError('MALFORMED_REQUEST', {
-        message: 'DIAN software PIN is missing',
-        providerCode: 'MISSING_SOFTWARE',
-      });
+      cufe = computeCude({ ...fields, softwarePin: settings.softwarePin });
     }
 
     const normalizedInput: FiscalAdapterIssueInput = {
@@ -196,6 +308,7 @@ export class ColombiaDianAdapter implements FiscalAdapter {
       buyer: { ...input.buyer, taxId: buyerIdNumber },
     };
 
+    assertTaxSchemesMatchHashedTotals(normalizedInput);
     const unsignedXml = buildColombiaUbl21DraftXml(normalizedInput, cufe, { mode: 'dian' });
     const signed = signDianUblXml({
       xml: unsignedXml,
@@ -214,39 +327,41 @@ export class ColombiaDianAdapter implements FiscalAdapter {
         ? await client.sendTestSetAsync(fileName, signed.signedXml, this.options.testSetId!)
         : await client.sendBillSync(fileName, signed.signedXml);
     } catch (error) {
-      return this.handleTransientOutage(
-        normalizedInput,
-        cufe,
-        credentials,
-        error instanceof Error ? error.message : 'DIAN SOAP network error'
-      );
+      const detail = error instanceof Error ? error.message : 'DIAN SOAP network error';
+      // A timeout can land after DIAN processed the document: ask before re-signing it as contingency.
+      if (!useTestSet) {
+        const settled = await this.settleUnconfirmedSubmission(client, cufe, environment, signed);
+        if (settled) return settled;
+      }
+      return this.handleTransientOutage(normalizedInput, cufe, credentials, {
+        reasonCode: 'DIAN_UNREACHABLE',
+        detail,
+      });
     }
 
-    if (isTransientHttpStatus(response.httpStatus)) {
-      return this.handleTransientOutage(
-        normalizedInput,
-        cufe,
-        credentials,
-        `DIAN HTTP ${response.httpStatus}`
-      );
+    const transport = classifyTransport(response);
+    if (transport.kind === 'outage') {
+      return this.handleTransientOutage(normalizedInput, cufe, credentials, transport);
     }
+    if (transport.kind === 'error') throw transport.error;
 
-    if (useTestSet && response.zipKey && response.httpStatus < 400) {
+    const baseResponse = {
+      transport: 'dian-soap-1.2',
+      environment,
+      signed: true,
+      transmitted: true,
+      certified: false,
+      statusCode: response.statusCode,
+      statusDescription: response.statusDescription,
+      certificateFingerprintSha256: signed.certificateFingerprintSha256,
+    };
+
+    if (useTestSet && response.zipKey) {
       return {
         cufe,
         status: 'sent',
         providerId: this.providerId,
-        providerResponse: {
-          transport: 'dian-soap-1.2',
-          action: 'SendTestSetAsync',
-          signed: true,
-          transmitted: true,
-          certified: false,
-          zipKey: response.zipKey,
-          statusCode: response.statusCode,
-          statusDescription: response.statusDescription,
-          certificateFingerprintSha256: signed.certificateFingerprintSha256,
-        },
+        providerResponse: { ...baseResponse, action: 'SendTestSetAsync', zipKey: response.zipKey },
         xmlRef: signed.signedXml,
       };
     }
@@ -257,30 +372,15 @@ export class ColombiaDianAdapter implements FiscalAdapter {
         status: 'accepted',
         providerId: this.providerId,
         providerResponse: {
-          transport: 'dian-soap-1.2',
+          ...baseResponse,
           action: 'SendBillSync',
-          signed: true,
-          transmitted: true,
-          certified: false,
-          statusCode: response.statusCode,
-          statusDescription: response.statusDescription,
           statusMessage: response.statusMessage,
-          certificateFingerprintSha256: signed.certificateFingerprintSha256,
         },
         xmlRef: signed.signedXml,
       };
     }
 
-    const rejectionReason =
-      response.errorMessages.join('; ') ||
-      response.statusMessage ||
-      response.statusDescription ||
-      'DIAN rejected document';
-    throw new FiscalProviderError('PROVIDER_REJECTED', {
-      message: rejectionReason,
-      providerCode: response.statusCode ?? 'DIAN_REJECTED',
-      details: { httpStatus: response.httpStatus, errorMessages: response.errorMessages },
-    });
+    throw rejectionError(response);
   }
 
   async voidDocument(_input: FiscalAdapterVoidInput): Promise<FiscalAdapterIssueResult> {
@@ -293,7 +393,7 @@ export class ColombiaDianAdapter implements FiscalAdapter {
 
   async fetchStatus(
     cufe: string,
-    environment: FiscalEnvironment = '2'
+    context: FiscalStatusContext = {}
   ): Promise<FiscalDocumentStatus> {
     const credentials = this.options.credentials;
     if (!credentials?.certificatePem || !credentials?.privateKeyPem) {
@@ -302,17 +402,67 @@ export class ColombiaDianAdapter implements FiscalAdapter {
         providerCode: 'MISSING_CERTIFICATE',
       });
     }
+    const environment =
+      readEnvironment(context.environment) ??
+      readEnvironment(context.providerResponse?.environment);
+    if (!environment) {
+      throw new FiscalProviderError('MALFORMED_REQUEST', {
+        message: 'DIAN environment of the document is unknown',
+        providerCode: 'MISSING_ENVIRONMENT',
+      });
+    }
+    const zipKey = context.providerResponse?.zipKey;
     const client = this.createClient(environment, credentials);
-    const response = await client.getStatus(cufe);
-    if (isTransientHttpStatus(response.httpStatus)) {
+    const response =
+      typeof zipKey === 'string' && zipKey
+        ? await client.getStatusZip(zipKey)
+        : await client.getStatus(cufe);
+    const transport = classifyTransport(response);
+    if (transport.kind === 'outage') {
       throw new FiscalProviderError('PROVIDER_5XX', {
-        message: `DIAN GetStatus HTTP ${response.httpStatus}`,
+        message: `DIAN status lookup unavailable: ${transport.detail}`,
         details: { httpStatus: response.httpStatus },
       });
     }
-    if (response.isValid || response.statusCode === '00') return 'accepted';
-    if (response.statusCode === '99' || response.errorMessages.length > 0) return 'rejected';
-    return 'sent';
+    if (transport.kind === 'error') throw transport.error;
+    return statusFromResponse(response);
+  }
+
+  /** Resolve a submission whose response never arrived; null means DIAN does not hold it. */
+  private async settleUnconfirmedSubmission(
+    client: DianSoapClient,
+    cufe: string,
+    environment: FiscalEnvironment,
+    signed: { signedXml: string; certificateFingerprintSha256: string }
+  ): Promise<FiscalAdapterIssueResult | null> {
+    let response: DianSoapResponse;
+    try {
+      response = await client.getStatus(cufe);
+    } catch {
+      return null;
+    }
+    if (classifyTransport(response).kind !== 'ok') return null;
+    const status = statusFromResponse(response);
+    if (status === 'rejected') throw rejectionError(response);
+    if (status !== 'accepted') return null;
+    return {
+      cufe,
+      status: 'accepted',
+      providerId: this.providerId,
+      providerResponse: {
+        transport: 'dian-soap-1.2',
+        environment,
+        action: 'GetStatus',
+        signed: true,
+        transmitted: true,
+        certified: false,
+        confirmedAfterTimeout: true,
+        statusCode: response.statusCode,
+        statusDescription: response.statusDescription,
+        certificateFingerprintSha256: signed.certificateFingerprintSha256,
+      },
+      xmlRef: signed.signedXml,
+    };
   }
 
   private createClient(
@@ -332,7 +482,7 @@ export class ColombiaDianAdapter implements FiscalAdapter {
     input: FiscalAdapterIssueInput,
     cufe: string,
     credentials: DianSoapCredentials,
-    reason: string
+    outage: { reasonCode: string; detail: string }
   ): FiscalAdapterIssueResult {
     const startedAt = this.now();
     const deadlineAt = new Date(startedAt.getTime() + CONTINGENCY_WINDOW_MS);
@@ -341,7 +491,7 @@ export class ColombiaDianAdapter implements FiscalAdapter {
 
     if (this.options.outageBehavior === 'throw') {
       throw new FiscalProviderError('PROVIDER_5XX', {
-        message: `DIAN unreachable (Contingencia tipo 08): ${reason}`,
+        message: `DIAN unreachable (Contingencia tipo 08): ${outage.detail}`,
         providerCode: 'CONTINGENCY_08',
         details: {
           contingencyType: '08',
@@ -355,7 +505,8 @@ export class ColombiaDianAdapter implements FiscalAdapter {
       mode: 'dian',
       contingency: {
         typeCode: '08',
-        reason,
+        // The signed legal document carries a stable code, never raw transport text.
+        reason: outage.reasonCode,
         startedAtIso,
         deadlineAtIso,
       },
@@ -376,8 +527,10 @@ export class ColombiaDianAdapter implements FiscalAdapter {
         signed: true,
         transmitted: false,
         certified: false,
+        environment: input.environment,
         contingencyType: '08',
-        contingencyReason: reason,
+        contingencyReason: outage.reasonCode,
+        contingencyDetail: outage.detail,
         contingencyStartedAt: startedAtIso,
         contingencyDeadlineAt: deadlineAtIso,
         certificateFingerprintSha256: signedContingency.certificateFingerprintSha256,

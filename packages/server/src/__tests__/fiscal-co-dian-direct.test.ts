@@ -568,7 +568,11 @@ describe('ColombiaDianAdapter + WS-Security SOAP 1.2 against mock DIAN transport
     });
 
     mockMode = 'status-accepted';
-    expect(await adapter.fetchStatus(result.cufe)).toBe('accepted');
+    expect(
+      await adapter.fetchStatus(result.cufe, { providerResponse: result.providerResponse })
+    ).toBe('accepted');
+    expect(lastReceivedBody).toContain('IWcfDianCustomerServices/GetStatusZip');
+    expect(lastReceivedBody).toContain('<wcf:trackId>zip-key-test-001</wcf:trackId>');
   });
 
   it('rejects a private key that does not belong to the signing certificate', async () => {
@@ -686,5 +690,172 @@ describe('ColombiaDianAdapter + WS-Security SOAP 1.2 against mock DIAN transport
     const zip = buildSingleFileZip('sample.xml', '<root/>');
     expect(zip.readUInt32LE(0)).toBe(0x04034b50);
     expect(zip.includes(Buffer.from('sample.xml', 'utf8'))).toBe(true);
+  });
+});
+
+describe('ColombiaDianAdapter transport classification and DIAN content rules', () => {
+  const creds = createTestSelfSignedCert({
+    notBefore: new Date('2025-01-01T00:00:00Z'),
+    notAfter: new Date('2030-01-01T00:00:00Z'),
+  });
+  const soapHeaders = { 'Content-Type': 'application/soap+xml; charset=utf-8' };
+  const acceptedStatus = `<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body><GetStatusResponse><GetStatusResult><b:IsValid>true</b:IsValid><b:StatusCode>00</b:StatusCode></GetStatusResult></GetStatusResponse></s:Body></s:Envelope>`;
+  const soapFault = (code: string, subcode: string, reason: string) =>
+    `<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body><s:Fault><s:Code><s:Value>${code}</s:Value><s:Subcode><s:Value>${subcode}</s:Value></s:Subcode></s:Code><s:Reason><s:Text xml:lang="en-US">${reason}</s:Text></s:Reason></s:Fault></s:Body></s:Envelope>`;
+
+  function scriptedFetch(steps: Array<() => Response>) {
+    const calls: Array<{ url: string; body: string }> = [];
+    const impl: typeof fetch = async (input, init) => {
+      calls.push({ url: String(input), body: typeof init?.body === 'string' ? init.body : '' });
+      const step = steps.shift();
+      if (!step) throw new Error('unexpected DIAN call');
+      return step();
+    };
+    return { impl, calls };
+  }
+
+  function adapterWith(fetchImpl: typeof fetch, endpointOverride?: string) {
+    return new ColombiaDianAdapter({
+      credentials: creds,
+      ...(endpointOverride ? { endpointOverride } : {}),
+      fetchImpl,
+      now: () => new Date('2026-11-26T14:30:00Z'),
+    });
+  }
+
+  const endpoint = 'https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc';
+
+  it('treats a Sender security fault on HTTP 500 as a credential error, not an outage', async () => {
+    const { impl } = scriptedFetch([
+      () =>
+        new Response(soapFault('s:Sender', 'a:InvalidSecurity', 'Error verifying security'), {
+          status: 500,
+          headers: soapHeaders,
+        }),
+    ]);
+    await expect(adapterWith(impl, endpoint).issue(buildSampleInput())).rejects.toMatchObject({
+      normalizedKind: 'AUTH_FAILED',
+      providerCode: 'a:InvalidSecurity',
+    });
+  });
+
+  it('falls back to contingency on a Receiver fault and keeps raw text out of the signed note', async () => {
+    const { impl } = scriptedFetch([
+      () =>
+        new Response(soapFault('s:Receiver', 'a:InternalServiceFault', 'Stack trace at Dian.Wcf'), {
+          status: 500,
+          headers: soapHeaders,
+        }),
+    ]);
+    const result = await adapterWith(impl, endpoint).issue(buildSampleInput());
+
+    expect(result.status).toBe('contingency');
+    expect(result.providerResponse).toMatchObject({
+      contingencyReason: 'DIAN_SOAP_RECEIVER_FAULT',
+      environment: '2',
+    });
+    expect(result.xmlRef).toContain('DIAN_SOAP_RECEIVER_FAULT');
+    expect(result.xmlRef).not.toContain('Stack trace');
+  });
+
+  it('maps HTTP 403 to AUTH_FAILED and other 4xx to PROVIDER_4XX', async () => {
+    const forbidden = scriptedFetch([() => new Response('', { status: 403 })]);
+    await expect(
+      adapterWith(forbidden.impl, endpoint).issue(buildSampleInput())
+    ).rejects.toMatchObject({ normalizedKind: 'AUTH_FAILED' });
+
+    const missing = scriptedFetch([() => new Response('', { status: 404 })]);
+    await expect(
+      adapterWith(missing.impl, endpoint).issue(buildSampleInput())
+    ).rejects.toMatchObject({ normalizedKind: 'PROVIDER_4XX', providerCode: 'HTTP_404' });
+  });
+
+  it('confirms with GetStatus after a timeout instead of re-signing an accepted document', async () => {
+    const { impl, calls } = scriptedFetch([
+      () => {
+        throw new DOMException('The operation timed out.', 'TimeoutError');
+      },
+      () => new Response(acceptedStatus, { status: 200, headers: soapHeaders }),
+    ]);
+    const result = await adapterWith(impl, endpoint).issue(buildSampleInput());
+
+    expect(result.status).toBe('accepted');
+    expect(result.providerResponse).toMatchObject({ confirmedAfterTimeout: true });
+    expect(result.xmlRef).toContain('<cbc:InvoiceTypeCode>01</cbc:InvoiceTypeCode>');
+    expect(calls[1]!.body).toContain('IWcfDianCustomerServices/GetStatus');
+  });
+
+  it('goes to contingency when DIAN cannot confirm a timed-out submission', async () => {
+    const { impl } = scriptedFetch([
+      () => {
+        throw new DOMException('The operation timed out.', 'TimeoutError');
+      },
+      () => {
+        throw new TypeError('fetch failed');
+      },
+    ]);
+    const result = await adapterWith(impl, endpoint).issue(buildSampleInput());
+
+    expect(result.status).toBe('contingency');
+    expect(result.providerResponse).toMatchObject({ contingencyReason: 'DIAN_UNREACHABLE' });
+  });
+
+  it('polls the environment the document was issued in and refuses to guess it', async () => {
+    const adapter = adapterWith(
+      scriptedFetch([() => new Response(acceptedStatus, { status: 200, headers: soapHeaders })])
+        .impl
+    );
+    await expect(adapter.fetchStatus('a'.repeat(96))).rejects.toMatchObject({
+      providerCode: 'MISSING_ENVIRONMENT',
+    });
+
+    const production = scriptedFetch([
+      () => new Response(acceptedStatus, { status: 200, headers: soapHeaders }),
+    ]);
+    const status = await adapterWith(production.impl).fetchStatus('a'.repeat(96), {
+      providerResponse: { environment: '1' },
+    });
+    expect(status).toBe('accepted');
+    expect(production.calls[0]!.url).toBe('https://vpfe.dian.gov.co/WcfDianCustomerServices.svc');
+  });
+
+  it('requires the DIAN software ID and PIN for every document kind', async () => {
+    const { impl, calls } = scriptedFetch([]);
+    await expect(
+      adapterWith(impl, endpoint).issue(
+        buildSampleInput({
+          tenantSettings: { fiscal: { co: { nit: '900.373.115-3', softwareId: 'sw-co-123' } } },
+        })
+      )
+    ).rejects.toMatchObject({ providerCode: 'MISSING_SOFTWARE' });
+    expect(calls).toHaveLength(0);
+  });
+
+  it('references the corrected document by its own number in a credit note', async () => {
+    const { impl } = scriptedFetch([
+      () => new Response(acceptedStatus, { status: 200, headers: soapHeaders }),
+    ]);
+    const note = {
+      kind: 'NC' as const,
+      source: 'return' as const,
+      originalCufe: 'b'.repeat(96),
+      originalKind: 'FEV' as const,
+    };
+    await expect(adapterWith(impl, endpoint).issue(buildSampleInput(note))).rejects.toMatchObject({
+      providerCode: 'MISSING_BILLING_REFERENCE',
+    });
+
+    const result = await adapterWith(impl, endpoint).issue(
+      buildSampleInput({ ...note, originalDocumentNumber: 'SETP990000007' })
+    );
+    expect(result.xmlRef).toContain('<cac:InvoiceDocumentReference><cbc:ID>SETP990000007</cbc:ID>');
+  });
+
+  it('refuses to sign when an XML tax scheme disagrees with the totals hashed into the CUFE', async () => {
+    const { impl, calls } = scriptedFetch([]);
+    await expect(
+      adapterWith(impl, endpoint).issue(buildSampleInput({ ivaAmount: 23.99 }))
+    ).rejects.toMatchObject({ providerCode: 'TAX_TOTAL_MISMATCH' });
+    expect(calls).toHaveLength(0);
   });
 });

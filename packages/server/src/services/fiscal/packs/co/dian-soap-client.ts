@@ -36,8 +36,15 @@ export interface DianSoapCredentials {
   privateKeyPem: string;
 }
 
+export interface DianSoapFault {
+  code: string;
+  subcode: string | null;
+  reason: string;
+}
+
 export interface DianSoapResponse {
   httpStatus: number;
+  fault: DianSoapFault | null;
   isValid: boolean;
   statusCode: string | null;
   statusDescription: string | null;
@@ -217,6 +224,19 @@ function extractErrorMessages(xml: string): string[] {
   return plain ? [plain] : [];
 }
 
+function extractFault(xml: string): DianSoapFault | null {
+  const fault = extractTag(xml, 'Fault');
+  if (fault === null) return null;
+  const values = [
+    ...fault.matchAll(/<(?:[\w-]+:)?Value\b[^>]*>([^<]*)<\/(?:[\w-]+:)?Value>/gi),
+  ].map(m => m[1]!.trim());
+  return {
+    code: values[0] ?? extractTag(fault, 'faultcode') ?? 'Unknown',
+    subcode: values[1] ?? null,
+    reason: extractTag(fault, 'Text') ?? extractTag(fault, 'faultstring') ?? '',
+  };
+}
+
 /** Parse a DIAN WCF SOAP response XML into structured status fields. */
 export function parseDianSoapResponse(httpStatus: number, rawXml: string): DianSoapResponse {
   const isValidRaw = extractTag(rawXml, 'IsValid');
@@ -228,6 +248,7 @@ export function parseDianSoapResponse(httpStatus: number, rawXml: string): DianS
   const isValid = isValidRaw?.toLowerCase() === 'true' || statusCode === '00';
   return {
     httpStatus,
+    fault: extractFault(rawXml),
     isValid,
     statusCode,
     statusDescription,
