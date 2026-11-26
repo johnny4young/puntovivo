@@ -227,7 +227,9 @@ export function PurchasesPage() {
               <button
                 type="button"
                 role="tab"
+                id="purchases-tab-history"
                 aria-selected={activeTab === 'history'}
+                aria-controls="purchases-tabpanel"
                 data-testid="purchases-tab-history"
                 className={`segmented-tab ${activeTab === 'history' ? 'segmented-tab-active' : ''}`}
                 onClick={() => setActiveTab('history')}
@@ -237,7 +239,9 @@ export function PurchasesPage() {
               <button
                 type="button"
                 role="tab"
+                id="purchases-tab-new"
                 aria-selected={activeTab === 'new'}
+                aria-controls="purchases-tabpanel"
                 data-testid="purchases-tab-new"
                 className={`segmented-tab flex items-center gap-1.5 ${activeTab === 'new' ? 'segmented-tab-active' : ''}`}
                 onClick={() => setActiveTab('new')}
@@ -305,65 +309,67 @@ export function PurchasesPage() {
           </div>
         )}
 
-        {activeTab === 'new' ? (
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_340px]">
-            <div className="card p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-secondary-900">
-                    {t('checkout.kicker')}
-                  </h2>
-                  <p className="text-sm text-secondary-500">{t('checkout.description')}</p>
+        <div id="purchases-tabpanel" role="tabpanel" aria-labelledby={`purchases-tab-${activeTab}`}>
+          {activeTab === 'new' ? (
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_340px]">
+              <div className="card p-6">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-secondary-900">
+                      {t('checkout.kicker')}
+                    </h2>
+                    <p className="text-sm text-secondary-500">{t('checkout.description')}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={handleClearCart}
+                    disabled={cartItems.length === 0}
+                  >
+                    {t('checkout.clear')}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="btn-ghost"
-                  onClick={handleClearCart}
-                  disabled={cartItems.length === 0}
-                >
-                  {t('checkout.clear')}
-                </button>
+
+                <PurchaseCartTable
+                  items={cartItems}
+                  onQuantityChange={handleQuantityChange}
+                  onCostChange={handleCostChange}
+                  onSerialNumbersChange={handleSerialNumbersChange}
+                  onRemove={handleRemoveItem}
+                />
+                {purchaseError && (
+                  <p role="alert" className="mt-4 text-sm text-danger-500">
+                    {purchaseError}
+                  </p>
+                )}
               </div>
 
-              <PurchaseCartTable
-                items={cartItems}
-                onQuantityChange={handleQuantityChange}
-                onCostChange={handleCostChange}
-                onSerialNumbersChange={handleSerialNumbersChange}
-                onRemove={handleRemoveItem}
+              <PurchasesCheckoutPanel
+                currentSite={currentSite}
+                draftSummary={draftSummary}
+                canFinalize={!!currentSite && cartItems.length > 0 && serialsComplete}
+                onOpenSearch={handleOpenProductSearch}
+                onFinalize={handleOpenFinalizeModal}
               />
-              {purchaseError && (
-                <p role="alert" className="mt-4 text-sm text-danger-500">
-                  {purchaseError}
-                </p>
-              )}
             </div>
-
-            <PurchasesCheckoutPanel
-              currentSite={currentSite}
-              draftSummary={draftSummary}
-              canFinalize={!!currentSite && cartItems.length > 0 && serialsComplete}
-              onOpenSearch={handleOpenProductSearch}
-              onFinalize={handleOpenFinalizeModal}
+          ) : (
+            <PurchasesHistoryTable
+              purchases={purchases}
+              isLoading={purchasesQuery.isLoading}
+              error={
+                purchasesQuery.error
+                  ? translateServerError(purchasesQuery.error, t, t('errors:server.unknown'))
+                  : null
+              }
+              onRetry={() => {
+                void purchasesQuery.refetch();
+              }}
+              canManageReturns={canManageReturns}
+              onView={handleOpenPurchaseDetails}
+              onReturn={handleOpenPurchaseReturn}
             />
-          </div>
-        ) : (
-          <PurchasesHistoryTable
-            purchases={purchases}
-            isLoading={purchasesQuery.isLoading}
-            error={
-              purchasesQuery.error
-                ? translateServerError(purchasesQuery.error, t, t('errors:server.unknown'))
-                : null
-            }
-            onRetry={() => {
-              void purchasesQuery.refetch();
-            }}
-            canManageReturns={canManageReturns}
-            onView={handleOpenPurchaseDetails}
-            onReturn={handleOpenPurchaseReturn}
-          />
-        )}
+          )}
+        </div>
       </div>
 
       <ProductSearchDialog

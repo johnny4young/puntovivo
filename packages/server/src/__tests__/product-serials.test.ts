@@ -157,6 +157,19 @@ afterAll(async () => {
   await server.close();
 });
 
+describe('serialized catalog presence', () => {
+  it('reports whether the tenant has any serialized product, for every role', async () => {
+    const cashier = appRouter.createCaller(fresh({ role: 'cashier' }));
+    expect(await cashier.productSerials.hasTrackedProducts()).toEqual({
+      hasTrackedProducts: false,
+    });
+    await createTrackedProduct('presence');
+    expect(await cashier.productSerials.hasTrackedProducts()).toEqual({
+      hasTrackedProducts: true,
+    });
+  });
+});
+
 describe('serialized product policy', () => {
   it('requires zero stock, exclusive tracking and one-base-unit equivalences', async () => {
     await expect(

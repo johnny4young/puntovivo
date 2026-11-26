@@ -2124,6 +2124,12 @@
     "output": "inferred"
   },
   {
+    "path": "productSerials.hasTrackedProducts",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
     "path": "productSerials.list",
     "kind": "query",
     "input": "object{productId:string[minLength=1],sellableOnly?:boolean=false,siteId:string[minLength=1]}",

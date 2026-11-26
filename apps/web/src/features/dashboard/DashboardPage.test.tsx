@@ -141,6 +141,9 @@ describe('DashboardPage audience', () => {
       'true'
     );
     expect(screen.getByTestId('low-stock-card')).toBeInTheDocument();
+    expect(screen.getByRole('tabpanel', { name: 'Trends' })).toContainElement(
+      screen.getByTestId('low-stock-card')
+    );
   });
 
   it('keeps the latest-day figure while Hoy has no day to show', async () => {

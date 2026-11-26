@@ -241,7 +241,10 @@ export function useSalePaymentModal({
     () => pharmacyCheckoutInput(approvalItems, watchedCustomerId || null),
     [approvalItems, watchedCustomerId]
   );
-  const pharmacyCheckoutEnabled = pharmacyZoneOn && isOpen && approvalItems.length > 0;
+  // Completion enforces evidence for medicine lines even when the zone is off.
+  const hasPharmacyLine = approvalItems.some(item => item.pharmacyClassification !== null);
+  const pharmacyCheckoutEnabled =
+    (pharmacyZoneOn || hasPharmacyLine) && isOpen && approvalItems.length > 0;
   const pharmacyCheckoutQuery = trpc.pharmacy.checkoutRequirements.useQuery(
     checkoutRequirementsInput,
     {

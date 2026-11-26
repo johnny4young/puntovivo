@@ -48,7 +48,6 @@ import {
   ReservationsPage,
   FinanceLandingRoute,
   FiscalDocumentListPage,
-  FiscalReportsPage,
   AccountingExportPage,
   ProfitMarginReportPage,
   GeographyPage,
@@ -421,11 +420,7 @@ function App() {
               />
               <Route
                 path="fiscal-reports"
-                element={
-                  <ShellRoute allowedRoles={adminOnlyRoles}>
-                    <FiscalReportsPage />
-                  </ShellRoute>
-                }
+                element={<Navigate to="/company?tab=fiscal" replace />}
               />
               <Route
                 path="profitability"

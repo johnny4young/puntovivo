@@ -154,6 +154,44 @@ export function DashboardPage() {
   const headlineMetric = metrics[0];
   const supportingMetrics = metrics.slice(1);
 
+  const trendsContent = (
+    <>
+      <div className="dashboard-primary-grid pv-reveal pv-reveal-delay-1">
+        <RevenueTrendCard
+          points={revenueChart}
+          formatCurrency={formatCurrency}
+          hideLatestDay={isManager && hoyShowsToday}
+        />
+        <LowStockAlertsCard items={lowStockItems} />
+      </div>
+
+      <section className="dashboard-analysis pv-reveal pv-reveal-delay-2">
+        <header className="dashboard-section-heading">
+          <div>
+            <p className="dashboard-eyebrow dashboard-eyebrow-light">{t('analysis.kicker')}</p>
+            <h2 className="dashboard-section-title">{t('analysis.title')}</h2>
+          </div>
+          <p className="dashboard-section-description">{t('analysis.description')}</p>
+        </header>
+
+        <div className="dashboard-secondary-grid">
+          <RecentSalesCard
+            sales={recentSales}
+            formatCurrency={formatCurrency}
+            formatDateTime={formatDateTime}
+          />
+          <TopProductsCard products={topProducts} formatCurrency={formatCurrency} />
+        </div>
+      </section>
+
+      {showAnomalyCard && (
+        <div className="pv-reveal pv-reveal-delay-3">
+          <AnomalyDetectionCard />
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="dashboard-command-space">
       <NumberingAlertBanner />
@@ -168,7 +206,9 @@ export function DashboardPage() {
             <button
               type="button"
               role="tab"
+              id="dashboard-tab-today"
               aria-selected={activeTab === 'today'}
+              aria-controls="dashboard-tabpanel"
               data-testid="dashboard-tab-today"
               className={`segmented-tab ${activeTab === 'today' ? 'segmented-tab-active' : ''}`}
               onClick={() => setActiveTab('today')}
@@ -178,7 +218,9 @@ export function DashboardPage() {
             <button
               type="button"
               role="tab"
+              id="dashboard-tab-trends"
               aria-selected={activeTab === 'trends'}
+              aria-controls="dashboard-tabpanel"
               data-testid="dashboard-tab-trends"
               className={`segmented-tab ${activeTab === 'trends' ? 'segmented-tab-active' : ''}`}
               onClick={() => setActiveTab('trends')}
@@ -189,111 +231,85 @@ export function DashboardPage() {
         </div>
       )}
       {isManager ? (
-        activeTab === 'today' ? (
-          <Suspense
-            fallback={
-              <div
-                className="min-h-64 animate-pulse rounded-[22px] bg-surface-2"
-                aria-hidden="true"
-              />
-            }
-          >
-            <TodayOverview formatCurrency={formatCurrency} />
-          </Suspense>
-        ) : null
+        <div
+          id="dashboard-tabpanel"
+          role="tabpanel"
+          aria-labelledby={`dashboard-tab-${activeTab}`}
+          className="space-y-6"
+        >
+          {activeTab === 'today' ? (
+            <Suspense
+              fallback={
+                <div
+                  className="min-h-64 animate-pulse rounded-[22px] bg-surface-2"
+                  aria-hidden="true"
+                />
+              }
+            >
+              <TodayOverview formatCurrency={formatCurrency} />
+            </Suspense>
+          ) : (
+            trendsContent
+          )}
+        </div>
       ) : (
-        <section className="pv-frame pv-reveal" data-testid="dashboard-briefing">
-          <div className="pv-frame-core dashboard-briefing">
-            <div className="dashboard-briefing-copy">
-              <div className="dashboard-live-pill">
-                <span className="dashboard-live-dot" aria-hidden="true" />
-                <span>{t('page.liveStatus')}</span>
-              </div>
-
-              <div className="max-w-2xl">
-                <p className="dashboard-eyebrow">{t('page.kicker')}</p>
-                <h1 className="dashboard-display-title">{t('page.title')}</h1>
-                <p className="dashboard-lede">{t('page.description')}</p>
-              </div>
-
-              {headlineMetric && (
-                <div className="dashboard-headline-metric">
-                  <div>
-                    <p className="dashboard-headline-label">{headlineMetric.title}</p>
-                    <p className="dashboard-headline-value">{headlineMetric.value}</p>
-                  </div>
-                  <div className="dashboard-headline-context">
-                    <CircleCheck className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
-                    <span>{headlineMetric.label}</span>
-                  </div>
-                </div>
-              )}
-
-              {canSell && (
-                <Link className="pv-action-pill group" to="/sales">
-                  <span>{t('page.primaryAction')}</span>
-                  <span className="pv-action-island" aria-hidden="true">
-                    <ArrowUpRight className="h-4 w-4" strokeWidth={1.7} />
-                  </span>
-                </Link>
-              )}
-            </div>
-
-            <div className="dashboard-briefing-signals">
-              <DashboardStatsGrid metrics={supportingMetrics} />
-              <div className="dashboard-sync-card">
-                <div>
-                  <p className="dashboard-sync-label">{t('page.freshness.title')}</p>
-                  <p className="dashboard-sync-time">
-                    {t('page.freshness.description', { time: formatDateTime(generatedAt) })}
-                  </p>
-                </div>
-                <div className="dashboard-sync-meta">
-                  <span>{t('page.revenueWindow.value')}</span>
-                  <span aria-hidden="true">·</span>
-                  <span>{t('page.focus.value')}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {(!isManager || activeTab === 'trends') && (
         <>
-          <div className="dashboard-primary-grid pv-reveal pv-reveal-delay-1">
-            <RevenueTrendCard
-              points={revenueChart}
-              formatCurrency={formatCurrency}
-              hideLatestDay={isManager && hoyShowsToday}
-            />
-            <LowStockAlertsCard items={lowStockItems} />
-          </div>
+          <section className="pv-frame pv-reveal" data-testid="dashboard-briefing">
+            <div className="pv-frame-core dashboard-briefing">
+              <div className="dashboard-briefing-copy">
+                <div className="dashboard-live-pill">
+                  <span className="dashboard-live-dot" aria-hidden="true" />
+                  <span>{t('page.liveStatus')}</span>
+                </div>
 
-          <section className="dashboard-analysis pv-reveal pv-reveal-delay-2">
-            <header className="dashboard-section-heading">
-              <div>
-                <p className="dashboard-eyebrow dashboard-eyebrow-light">{t('analysis.kicker')}</p>
-                <h2 className="dashboard-section-title">{t('analysis.title')}</h2>
+                <div className="max-w-2xl">
+                  <p className="dashboard-eyebrow">{t('page.kicker')}</p>
+                  <h1 className="dashboard-display-title">{t('page.title')}</h1>
+                  <p className="dashboard-lede">{t('page.description')}</p>
+                </div>
+
+                {headlineMetric && (
+                  <div className="dashboard-headline-metric">
+                    <div>
+                      <p className="dashboard-headline-label">{headlineMetric.title}</p>
+                      <p className="dashboard-headline-value">{headlineMetric.value}</p>
+                    </div>
+                    <div className="dashboard-headline-context">
+                      <CircleCheck className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
+                      <span>{headlineMetric.label}</span>
+                    </div>
+                  </div>
+                )}
+
+                {canSell && (
+                  <Link className="pv-action-pill group" to="/sales">
+                    <span>{t('page.primaryAction')}</span>
+                    <span className="pv-action-island" aria-hidden="true">
+                      <ArrowUpRight className="h-4 w-4" strokeWidth={1.7} />
+                    </span>
+                  </Link>
+                )}
               </div>
-              <p className="dashboard-section-description">{t('analysis.description')}</p>
-            </header>
 
-            <div className="dashboard-secondary-grid">
-              <RecentSalesCard
-                sales={recentSales}
-                formatCurrency={formatCurrency}
-                formatDateTime={formatDateTime}
-              />
-              <TopProductsCard products={topProducts} formatCurrency={formatCurrency} />
+              <div className="dashboard-briefing-signals">
+                <DashboardStatsGrid metrics={supportingMetrics} />
+                <div className="dashboard-sync-card">
+                  <div>
+                    <p className="dashboard-sync-label">{t('page.freshness.title')}</p>
+                    <p className="dashboard-sync-time">
+                      {t('page.freshness.description', { time: formatDateTime(generatedAt) })}
+                    </p>
+                  </div>
+                  <div className="dashboard-sync-meta">
+                    <span>{t('page.revenueWindow.value')}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{t('page.focus.value')}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
-
-          {showAnomalyCard && (
-            <div className="pv-reveal pv-reveal-delay-3">
-              <AnomalyDetectionCard />
-            </div>
-          )}
+          {trendsContent}
         </>
       )}
     </div>

@@ -158,6 +158,16 @@ export const productSerialsRouter = router({
     };
   }),
 
+  hasTrackedProducts: tenantProcedure.query(({ ctx }) => ({
+    hasTrackedProducts:
+      ctx.db
+        .select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.tenantId, ctx.tenantId), eq(products.tracksSerials, true)))
+        .limit(1)
+        .get() !== undefined,
+  })),
+
   lookup: tenantProcedure.input(lookupProductSerialInput).query(({ ctx, input }) => ({
     items: lookupProductSerialWarranty(ctx.db, {
       tenantId: ctx.tenantId,

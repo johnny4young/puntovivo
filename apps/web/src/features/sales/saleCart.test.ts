@@ -120,6 +120,15 @@ describe('saleCart fraction policy helpers', () => {
     expect(added[0]?.quantity).toBe(1);
   });
 
+  it('records the pharmacy classification, or null when the product has no profile', () => {
+    expect(buildCartItem(createSelection()).pharmacyClassification).toBeNull();
+    const medicine = createSelection();
+    medicine.product.pharmacy = { classification: 'prescription' } as NonNullable<
+      typeof medicine.product.pharmacy
+    >;
+    expect(buildCartItem(medicine).pharmacyClassification).toBe('prescription');
+  });
+
   it('uses configured step and minimum for fractional products', () => {
     const selection = createSelection({
       sellByFraction: true,

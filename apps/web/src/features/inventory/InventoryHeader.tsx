@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { ClipboardList, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
+  INVENTORY_TABPANEL_ID,
+  inventoryViewTabId,
   viewKeys,
   visibleInventoryViews,
   type InventoryView,
@@ -72,16 +74,19 @@ export function InventoryHeader({
             {groups.map(group => {
               const isSelected = activeGroup?.id === group.id;
               const defaultView = group.views[0]!;
+              const singleView = group.views.length === 1;
               return (
                 <button
                   key={group.id}
                   type="button"
                   role="tab"
+                  id={
+                    singleView ? inventoryViewTabId(defaultView) : `inventory-group-tab-${group.id}`
+                  }
                   aria-selected={isSelected}
+                  aria-controls={INVENTORY_TABPANEL_ID}
                   data-testid={
-                    group.id === 'pharmacy'
-                      ? 'inventory-tab-pharmacy'
-                      : `inventory-group-${group.id}`
+                    singleView ? `inventory-tab-${defaultView}` : `inventory-group-${group.id}`
                   }
                   className={cn(
                     'segmented-tab shrink-0 whitespace-nowrap',
@@ -91,7 +96,7 @@ export function InventoryHeader({
                     if (!isSelected) onViewChange(defaultView);
                   }}
                 >
-                  {t(group.labelKey)}
+                  {t(singleView ? viewKeys[defaultView] : group.labelKey)}
                 </button>
               );
             })}
@@ -132,7 +137,9 @@ export function InventoryHeader({
                 key={view}
                 type="button"
                 role="tab"
+                id={inventoryViewTabId(view)}
                 aria-selected={isSelected}
+                aria-controls={INVENTORY_TABPANEL_ID}
                 data-testid={`inventory-tab-${view}`}
                 className={cn(
                   'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
