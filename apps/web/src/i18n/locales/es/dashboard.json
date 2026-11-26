@@ -10,6 +10,10 @@
     "description": "Una lectura clara de ventas, demanda y reposición para decidir con confianza antes del cierre.",
     "liveStatus": "Operación en vivo",
     "primaryAction": "Ir a ventas",
+    "tabs": {
+      "today": "Hoy",
+      "trends": "Tendencias"
+    },
     "freshness": {
       "title": "Última sincronización",
       "description": "{{time}}"

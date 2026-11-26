@@ -232,14 +232,6 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     group: 'navigate',
     perform: ({ navigate }) => navigate('/fiscal-documents'),
   },
-  {
-    id: 'navigate.fiscalReports',
-    labelKey: 'actions.navigate.fiscalReports',
-    descriptionKey: 'descriptions.navigate.fiscalReports',
-    roles: adminOnlyRoles,
-    group: 'navigate',
-    perform: ({ navigate }) => navigate('/fiscal-reports'),
-  },
 
   // Command actions — affect state, not navigation.
   {

@@ -361,7 +361,7 @@ export function SaleCartTable({
 
                   {/* The figure is the reading; the input keeps the ref for the
                    * quantity shortcut and direct edits. */}
-                  <span className="relative inline-flex min-w-12 items-center justify-center">
+                  <span className="relative inline-flex min-w-12 items-center justify-center rounded-md px-1 transition-colors hover:bg-surface-2 hover:ring-1 hover:ring-line">
                     <span className="font-numeric text-xl font-bold text-fg1" aria-hidden="true">
                       {item.quantity}
                     </span>
@@ -370,7 +370,7 @@ export function SaleCartTable({
                       type="number"
                       min={minimumQuantity}
                       step={String(quantityStep)}
-                      className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent text-center text-base font-semibold text-fg1 opacity-0 focus:opacity-100 focus:[appearance:textfield] focus-visible:opacity-100 focus-visible:rounded-md focus-visible:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
+                      className="absolute inset-0 h-full w-full cursor-text border-0 bg-transparent text-center text-base font-semibold text-fg1 opacity-0 focus:opacity-100 focus:[appearance:textfield] focus-visible:opacity-100 focus-visible:rounded-md focus-visible:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
                       aria-label={t('cart.qtyFor', {
                         name: lineName,
                       })}

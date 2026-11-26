@@ -170,7 +170,7 @@
         "serviceCharge": "Servicio — cargo que se aplica de forma automática con la tarifa configurada para el negocio.",
         "grandTotal": "Total — subtotal menos descuentos más impuestos, propina y servicio."
       },
-      "appFooterHelp": "Agrega tres líneas al final del recibo con el nombre del producto Puntovivo, la URL y el contacto de soporte. Déjelo activado para dar crédito al software o desactívelo si desea un recibo sin branding.",
+      "appFooterHelp": "Agrega tres líneas al final del recibo con el nombre del producto Puntovivo, la URL y el contacto de soporte. Déjelo activado para dar crédito al software o desactívelo si desea un recibo sin marca de Puntovivo.",
       "appFooterShow": "Mostrar el pie de Puntovivo",
       "wordmarkHelp": "Imprime la marca Puntovivo en la parte superior del recibo. La marca no se puede modificar para mantener una presentación consistente.",
       "wordmarkShow": "Mostrar la marca",
@@ -195,7 +195,7 @@
       "intro": "Escriba los campos entre dobles llaves para reemplazarlos con datos del recibo. También puede usar las funciones siguientes con campos como sale.grandTotal, números o textos entre comillas.",
       "entries": {
         "currency": "Formatea un número como moneda según la configuración del país. El segundo argumento opcional fuerza la cantidad de decimales.",
-        "date": "Formatea una fecha o cadena ISO. Tokens de patrón: yyyy MM dd HH mm ss. Por defecto usa el formato corto del país.",
+        "date": "Formatea una fecha o cadena ISO. Códigos de formato: yyyy MM dd HH mm ss. Por defecto usa el formato corto del país.",
         "upper": "Convierte el texto a mayúsculas.",
         "lower": "Convierte el texto a minúsculas.",
         "round": "Redondea un número a N decimales (0 por defecto).",

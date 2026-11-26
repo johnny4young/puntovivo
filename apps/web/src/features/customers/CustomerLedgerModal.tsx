@@ -150,6 +150,7 @@ export function CustomerLedgerModal({ isOpen, customer, onClose }: CustomerLedge
           customerId,
           amount: values.amount,
           note: values.note || undefined,
+          paymentMethod: values.paymentMethod,
         });
       } else if (abonoMode === 'adjustment') {
         await addAdjustment.mutateAsync({
@@ -380,7 +381,7 @@ function MetricCell({ label, value, tone = 'default', testId }: MetricCellProps)
       ? 'border-danger-300 bg-danger-50 text-danger-700'
       : tone === 'warning'
         ? 'border-warning-300 bg-warning-50 text-warning-700'
-        : 'border-line bg-white text-secondary-900';
+        : 'border-line bg-surface-2 text-secondary-900';
   return (
     <div className={`rounded border p-3 ${toneClass}`} data-testid={testId}>
       <p className="text-xs uppercase tracking-wide text-secondary-500">{label}</p>

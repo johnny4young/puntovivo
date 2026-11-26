@@ -10,6 +10,10 @@
     "description": "A clear reading of sales, demand and replenishment so you can decide with confidence before close.",
     "liveStatus": "Live operation",
     "primaryAction": "Go to sales",
+    "tabs": {
+      "today": "Today",
+      "trends": "Trends"
+    },
     "freshness": {
       "title": "Last sync",
       "description": "{{time}}"

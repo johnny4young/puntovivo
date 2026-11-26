@@ -242,7 +242,7 @@
     "enabledHelp": "Los medicamentos siempre usan stock y trazabilidad por lote. La política de prescripción se vuelve a evaluar al cobrar.",
     "profileLocked": "El historial regulado o las operaciones activas protegen el perfil de este medicamento. Los campos que desvincularían ese historial permanecen bloqueados.",
     "coldChainLocked": "Deje el stock activo y los borradores en cero antes de cambiar el manejo de cadena de frío. Las unidades existentes no pueden adquirir ni perder esa condición de custodia de forma silenciosa.",
-    "disabled": "Este es un producto de retail ordinario",
+    "disabled": "Este es un producto comercial ordinario",
     "disabledHelp": "Active la gestión de medicamentos solo en productos que necesiten política farmacéutica y custodia por lote.",
     "classifications": {
       "otc": "Venta libre (OTC)",

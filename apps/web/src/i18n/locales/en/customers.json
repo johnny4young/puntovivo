@@ -168,6 +168,12 @@
       "description": "Record a payment against the customer balance. The amount is stored as a credit so the running balance drops.",
       "amountLabel": "Amount",
       "amountRequired": "Enter a payment amount greater than zero",
+      "paymentMethodLabel": "Payment method",
+      "paymentMethods": {
+        "cash": "Cash",
+        "card": "Card",
+        "transfer": "Transfer"
+      },
       "noteLabel": "Note",
       "confirm": "Confirm payment",
       "success": "Payment recorded",

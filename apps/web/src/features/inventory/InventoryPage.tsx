@@ -22,6 +22,8 @@ import { InventoryHeader } from '@/features/inventory/InventoryHeader';
 import { InventorySummaryCards } from '@/features/inventory/InventorySummaryCards';
 import { InventoryDataPanel } from '@/features/inventory/InventoryDataPanel';
 import {
+  INVENTORY_TABPANEL_ID,
+  inventoryViewTabId,
   resolveAllowedInventoryView,
   viewKeys,
   type InventoryView,
@@ -234,6 +236,10 @@ export function InventoryPage() {
     { placeholderData: keepPreviousData }
   );
   const stockRefreshing = stockQuery.isPlaceholderData || stockSearchPending;
+  const serialCatalogQuery = trpc.productSerials.hasTrackedProducts.useQuery(undefined, {
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
   const entriesQuery = trpc.inventory.listEntries.useQuery({
     page: 1,
     perPage: 50,
@@ -484,103 +490,111 @@ export function InventoryPage() {
         recentOutbound={recentOutbound}
       />
 
-      <Suspense fallback={null}>
-        <SerialWarrantyLookup />
-      </Suspense>
-
-      {activeView === 'balances' && (
-        <InventoryBalancesPanel
-          sites={sitesQuery.data?.items ?? []}
-          sitesLoading={sitesQuery.isLoading}
-        />
-      )}
-
-      {/* expiry radar; self-contained queries fire on mount. */}
-      {activeView === 'expiry' && (
-        <Suspense
-          fallback={
-            <div className="card p-6 text-sm text-secondary-600" role="status">
-              {t('expiry.loading')}
-            </div>
-          }
-        >
-          <ExpiryRadarPanel />
+      {serialCatalogQuery.data?.hasTrackedProducts === true && (
+        <Suspense fallback={null}>
+          <SerialWarrantyLookup />
         </Suspense>
       )}
 
-      {activeView === 'controls' && (
-        <Suspense
-          fallback={
-            <div className="card p-6 text-sm text-secondary-600" role="status">
-              {t('controls.loading')}
-            </div>
-          }
-        >
-          <InventoryControlPanel currentSite={currentSite} />
-        </Suspense>
-      )}
-
-      {activeView === 'transformations' && (
-        <Suspense
-          fallback={
-            <div className="card p-6 text-sm text-secondary-600" role="status">
-              {t('transformations.loading')}
-            </div>
-          }
-        >
-          <InventoryTransformationsPanel siteId={currentSite?.id ?? null} />
-        </Suspense>
-      )}
-
-      {activeView === 'pharmacy' && showPharmacy && (
-        <Suspense
-          fallback={
-            <div className="card p-6 text-sm text-secondary-600" role="status">
-              {t('pharmacy.loading')}
-            </div>
-          }
-        >
-          <PharmacyOperationsPanel />
-        </Suspense>
-      )}
-
-      {activeView !== 'balances' &&
-        activeView !== 'controls' &&
-        activeView !== 'expiry' &&
-        activeView !== 'transformations' &&
-        activeView !== 'pharmacy' && (
-          <InventoryDataPanel
-            activeView={activeView}
-            entriesLoading={entriesQuery.isLoading}
-            movementsLoading={movementsQuery.isLoading}
-            movementsError={movementsQuery.error?.message ?? null}
-            onRetryMovements={() => {
-              void movementsQuery.refetch();
-            }}
-            stockLoading={stockQuery.isLoading}
-            stockError={stockQuery.error?.message ?? null}
-            onRetryStock={() => {
-              void stockQuery.refetch();
-            }}
-            entriesError={entriesQuery.error?.message ?? null}
-            onRetryEntries={() => {
-              void entriesQuery.refetch();
-            }}
-            movements={movements}
-            stockItems={stockItems}
-            stockSearch={stockSearch}
-            onStockSearchChange={setStockSearch}
-            stockBusy={stockRefreshing}
-            entries={entries}
-            canManage={canManage}
-            onAdjust={product => openAdjustmentModal(mapStockItemToAdjustmentProduct(product))}
-            onViewStockDetails={setDetailsStockItem}
-            onViewMovementDetails={setDetailsMovement}
-            onViewEntryDetails={setDetailsEntry}
-            movementFilters={movementFilters}
-            stockFilters={stockFilters}
+      <div
+        id={INVENTORY_TABPANEL_ID}
+        role="tabpanel"
+        aria-labelledby={inventoryViewTabId(activeView)}
+      >
+        {activeView === 'balances' && (
+          <InventoryBalancesPanel
+            sites={sitesQuery.data?.items ?? []}
+            sitesLoading={sitesQuery.isLoading}
           />
         )}
+
+        {/* expiry radar; self-contained queries fire on mount. */}
+        {activeView === 'expiry' && (
+          <Suspense
+            fallback={
+              <div className="card p-6 text-sm text-secondary-600" role="status">
+                {t('expiry.loading')}
+              </div>
+            }
+          >
+            <ExpiryRadarPanel />
+          </Suspense>
+        )}
+
+        {activeView === 'controls' && (
+          <Suspense
+            fallback={
+              <div className="card p-6 text-sm text-secondary-600" role="status">
+                {t('controls.loading')}
+              </div>
+            }
+          >
+            <InventoryControlPanel currentSite={currentSite} />
+          </Suspense>
+        )}
+
+        {activeView === 'transformations' && (
+          <Suspense
+            fallback={
+              <div className="card p-6 text-sm text-secondary-600" role="status">
+                {t('transformations.loading')}
+              </div>
+            }
+          >
+            <InventoryTransformationsPanel siteId={currentSite?.id ?? null} />
+          </Suspense>
+        )}
+
+        {activeView === 'pharmacy' && showPharmacy && (
+          <Suspense
+            fallback={
+              <div className="card p-6 text-sm text-secondary-600" role="status">
+                {t('pharmacy.loading')}
+              </div>
+            }
+          >
+            <PharmacyOperationsPanel />
+          </Suspense>
+        )}
+
+        {activeView !== 'balances' &&
+          activeView !== 'controls' &&
+          activeView !== 'expiry' &&
+          activeView !== 'transformations' &&
+          activeView !== 'pharmacy' && (
+            <InventoryDataPanel
+              activeView={activeView}
+              entriesLoading={entriesQuery.isLoading}
+              movementsLoading={movementsQuery.isLoading}
+              movementsError={movementsQuery.error?.message ?? null}
+              onRetryMovements={() => {
+                void movementsQuery.refetch();
+              }}
+              stockLoading={stockQuery.isLoading}
+              stockError={stockQuery.error?.message ?? null}
+              onRetryStock={() => {
+                void stockQuery.refetch();
+              }}
+              entriesError={entriesQuery.error?.message ?? null}
+              onRetryEntries={() => {
+                void entriesQuery.refetch();
+              }}
+              movements={movements}
+              stockItems={stockItems}
+              stockSearch={stockSearch}
+              onStockSearchChange={setStockSearch}
+              stockBusy={stockRefreshing}
+              entries={entries}
+              canManage={canManage}
+              onAdjust={product => openAdjustmentModal(mapStockItemToAdjustmentProduct(product))}
+              onViewStockDetails={setDetailsStockItem}
+              onViewMovementDetails={setDetailsMovement}
+              onViewEntryDetails={setDetailsEntry}
+              movementFilters={movementFilters}
+              stockFilters={stockFilters}
+            />
+          )}
+      </div>
 
       <ProductSearchDialog
         isOpen={isSearchOpen}

@@ -962,6 +962,7 @@ test('cashier consumes exact refund and drawer grants without an elevated sessio
     await historyDialog.getByRole('button', { name: 'Close modal' }).click();
     await expect(historyDialog).toBeHidden();
 
+    await cashierPage.getByTestId('sales-shift-menu').click();
     await cashierPage.getByTestId('sales-kick-drawer').click();
     const drawerDialog = cashierPage.getByRole('dialog', { name: 'Drawer approval' });
     const drawerPanel = drawerDialog.getByTestId('checkout-approval-panel');

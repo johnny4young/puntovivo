@@ -21,7 +21,7 @@ vi.mock('@/features/sales/useCashierPace', () => ({
 }));
 import { PREFLIGHT_PRIMARY_ELEMENT_ID } from './CheckoutPreflightPanel';
 import type { PreflightItem } from './useCheckoutPreflight';
-import type { CashSession, RegisterAssignment, Site, UserRole } from '@/types';
+import type { CashSession, RegisterAssignment, Site } from '@/types';
 
 const SITE: Site = {
   id: 'site-1',
@@ -66,9 +66,6 @@ function renderPanel(
     preflightItems?: readonly PreflightItem[];
     canSuspend?: boolean;
     onSuspend?: () => void;
-    suspendedDraftsCount?: number;
-    onToggleSuspendedPanel?: () => void;
-    userRole?: UserRole;
     cashSession?: CashSession | null;
     onFastCash?: (tendered?: number | null) => void;
   } = {}
@@ -83,17 +80,11 @@ function renderPanel(
       draftSummary={DRAFT_SUMMARY}
       canCharge={true}
       canOpenCashSession={true}
-      canCloseCashSession={true}
-      userRole={overrides.userRole}
       onCharge={vi.fn()}
       onOpenCashSession={vi.fn()}
-      onCloseCashSession={vi.fn()}
-      onOpenMovement={vi.fn()}
       onRegisterAssignmentChange={vi.fn()}
       canSuspend={overrides.canSuspend}
       onSuspend={overrides.onSuspend}
-      suspendedDraftsCount={overrides.suspendedDraftsCount}
-      onToggleSuspendedPanel={overrides.onToggleSuspendedPanel}
       hubReachable={overrides.hubReachable}
       preflightItems={overrides.preflightItems}
       onFastCash={overrides.onFastCash}
@@ -102,26 +93,6 @@ function renderPanel(
 }
 
 describe('SalesCheckoutPanel hub gate', () => {
-  it(' — keeps cashier guidance blind and labels privileged closes as supervised', () => {
-    const cashier = renderPanel({ userRole: 'cashier' });
-    expect(screen.getByText(/blind close keeps/i)).toBeInTheDocument();
-    expect(screen.queryByText(/supervised close shows/i)).not.toBeInTheDocument();
-    cashier.unmount();
-
-    renderPanel({ userRole: 'manager' });
-    expect(screen.getByText(/supervised close shows/i)).toBeInTheDocument();
-    expect(screen.queryByText(/blind close keeps/i)).not.toBeInTheDocument();
-  });
-
-  it('disables closing the cash session only while the hub is unreachable', () => {
-    const { unmount } = renderPanel({ hubReachable: false });
-    expect(screen.getByRole('button', { name: 'Close cash session' })).toBeDisabled();
-    unmount();
-
-    renderPanel({ hubReachable: undefined });
-    expect(screen.getByRole('button', { name: 'Close cash session' })).toBeEnabled();
-  });
-
   it('enables the primary action when hubReachable is undefined (device_local default)', () => {
     renderPanel({ hubReachable: undefined });
     const button = screen.getByTestId('checkout-primary-action');
@@ -260,24 +231,5 @@ describe('SalesCheckoutPanel hub gate', () => {
     const button = screen.getByTestId('checkout-suspend');
     expect(button).toBeEnabled();
     expect(button).toHaveAttribute('aria-keyshortcuts');
-  });
-
-  it('advertises the suspended-sales shortcut only when a draft can be opened', () => {
-    const empty = renderPanel({
-      suspendedDraftsCount: 0,
-      onToggleSuspendedPanel: vi.fn(),
-    });
-    expect(screen.getByTestId('checkout-open-suspended-panel')).not.toHaveAttribute(
-      'aria-keyshortcuts'
-    );
-    empty.unmount();
-
-    renderPanel({
-      suspendedDraftsCount: 2,
-      onToggleSuspendedPanel: vi.fn(),
-    });
-    expect(screen.getByTestId('checkout-open-suspended-panel')).toHaveAttribute(
-      'aria-keyshortcuts'
-    );
   });
 });

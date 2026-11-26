@@ -44,6 +44,8 @@ const RULES: ReadonlyArray<readonly [RegExp, Render]> = [
   ],
   [/^Launch import (\S+)$/, (m, t) => t('common:systemNotes.launchImport', { id: m[1] })],
   [/^Opening stock from product creation$/, (_m, t) => t('common:systemNotes.openingStock')],
+  [/^Initial inventory entry$/, (_m, t) => t('common:systemNotes.openingStock')],
+  [/^Physical count entry$/, (_m, t) => t('common:systemNotes.physicalCount')],
   [/^Stock changed from product edit$/, (_m, t) => t('common:systemNotes.productEditStock')],
   [
     /^Refunded: (.+)$/,

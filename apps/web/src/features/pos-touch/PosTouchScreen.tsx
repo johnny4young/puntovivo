@@ -34,9 +34,9 @@
  * `loyaltyProfile` is `undefined`.
  */
 import {
+  lazy,
   Suspense,
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -44,7 +44,6 @@ import {
   type MouseEvent,
   type SetStateAction,
 } from 'react';
-import { useForm } from 'react-hook-form';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { useBarcodeProductScanner } from '@/features/sales/useBarcodeProductScanner';
 import { deriveScannerConfig } from '@/features/sales/useBarcodeWedgeListener';
@@ -63,6 +62,7 @@ import {
   applyPriceTier,
   mergeBarcodeCartItem,
   mergeCartItem,
+  replaceCartItemUnit,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
 import { getCartSummary, getPayableCartTotal } from '@/features/sales/saleCartTotals';
@@ -75,14 +75,8 @@ import {
   useSiteQuickKeys,
   type QuickTile,
 } from '@/features/sales/siteQuickKeys';
-import {
-  buildElectronicInvoiceRequest,
-  EMPTY_INVOICE_BUYER,
-} from '@/features/sales/electronicInvoiceRequest';
-import type { ElectronicInvoiceFormValues } from '@/features/sales/salePaymentModal.types';
-import { useElectronicInvoiceAvailability } from '@/features/sales/useElectronicInvoiceAvailability';
-import { SaleElectronicInvoiceSection } from '@/features/sales/LazySaleElectronicInvoiceSection';
-import type { Product, ProductSearchSelection } from '@/types';
+import type { TouchSaleCreateInput } from './PosTouchModals';
+import type { Customer, Product, ProductSearchSelection } from '@/types';
 import { translateServerError } from '@/lib/translateServerError';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { useIsModuleActive } from '@/features/modules';
@@ -91,6 +85,12 @@ import { PosTouchProductGrid } from './PosTouchProductGrid';
 import { PosTouchQuickKeyGrid } from './PosTouchQuickKeyGrid';
 import { PosTouchCartSidebar, type PosTouchCustomer } from './PosTouchCartSidebar';
 import { useEmbeddedServerState } from '@/hooks/useEmbeddedServerState';
+
+const LazyPosTouchModals = lazy(() =>
+  import('./PosTouchModals').then(module => ({
+    default: module.PosTouchModals,
+  }))
+);
 
 const CATALOG_PAGE_SIZE = 24;
 const CATALOG_SEARCH_DEBOUNCE_MS = 250;
@@ -116,6 +116,10 @@ export function PosTouchScreen() {
   const activePriceTierRef = useRef<1 | 2 | 3>(1);
   const [isCheckoutLocked, setIsCheckoutLocked] = useState(false);
   const checkoutLockedRef = useRef(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentModalKey, setPaymentModalKey] = useState(0);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [isCashSessionModalOpen, setIsCashSessionModalOpen] = useState(false);
   const ticketEpochRef = useRef(0);
   const valueTicketEpochRef = useRef(0);
   const { query: quickKeysQuery, tiles: quickTiles } = useSiteQuickKeys(siteId);
@@ -166,18 +170,6 @@ export function PosTouchScreen() {
   const customersQuery = trpc.customers.list.useQuery(
     { page: 1, perPage: 100, isActive: true },
     { enabled: siteId.length > 0, staleTime: 30_000 }
-  );
-  const invoiceForm = useForm<ElectronicInvoiceFormValues>({
-    defaultValues: { invoiceRequested: false, invoiceBuyer: { ...EMPTY_INVOICE_BUYER } },
-  });
-  const invoiceAvailability = useElectronicInvoiceAvailability(invoiceForm, siteId.length > 0);
-  // A buyer typed at one site never rides along to a ticket at another.
-  useEffect(() => {
-    invoiceForm.reset();
-  }, [invoiceForm, siteId]);
-  const invoiceCustomer = useMemo(
-    () => customersQuery.data?.items.find(customer => customer.id === selectedCustomer?.id) ?? null,
-    [customersQuery.data, selectedCustomer]
   );
   const customerOptions = useMemo<PosTouchCustomer[]>(
     () =>
@@ -247,11 +239,9 @@ export function PosTouchScreen() {
       // Clear the durable ticket locally before refreshing projections so an
       // invalidation failure cannot leave a chargeable duplicate cart.
       setCartItems([]);
-      // A completed ticket ends the customer/pricing context too. Keeping
-      // either selection would silently attach the next walk-in sale to the
-      // previous customer or carry wholesale pricing into a new transaction.
       setSelectedCustomer(null);
-      invoiceForm.reset();
+      setIsPaymentModalOpen(false);
+      setPaymentError(null);
       activePriceTierRef.current = 1;
       setActivePriceTier(1);
       const refreshed = await invalidateCommittedGroups(utils, SALE_COMPLETION_INVALIDATIONS);
@@ -271,6 +261,7 @@ export function PosTouchScreen() {
     onError: onErrorToast(toast, t, {
       titleKey: 'toast.chargeError',
       fallbackKey: 'toast.chargeError',
+      extra: description => setPaymentError(description),
     }),
   });
   const isServerRestarting = useEmbeddedServerState() === 'restarting';
@@ -395,8 +386,8 @@ export function PosTouchScreen() {
     // While sales.create is in flight the charge owns the cart: a scan
     // landing mid-mutation would beep success and then be wiped by the
     // onSuccess setCartItems([]) - silent un-charged merchandise.
-    isPaymentModalOpen: checkoutLocked,
-    isCashSessionModalOpen: false,
+    isPaymentModalOpen: checkoutLocked || isPaymentModalOpen,
+    isCashSessionModalOpen,
     isCashSessionCloseModalOpen: false,
     isCashSessionMovementModalOpen: false,
     // The search field stays focused between scans; a scan must not land in it as text.
@@ -407,6 +398,18 @@ export function PosTouchScreen() {
     setSaleError: ignoreSaleError,
   });
 
+  function handleUpdateQuantity(key: string, quantity: number) {
+    if (checkoutLockedRef.current) return;
+    setCartItems(current => current.map(item => (item.key === key ? { ...item, quantity } : item)));
+  }
+
+  function handleUnitChange(key: string, unitId: string) {
+    if (checkoutLockedRef.current) return;
+    setCartItems(current =>
+      applyPriceTier(replaceCartItemUnit(current, key, unitId), activePriceTierRef.current)
+    );
+  }
+
   function handleRemoveLine(key: string) {
     if (checkoutLockedRef.current) return;
     setCartItems(current => current.filter(item => item.key !== key));
@@ -416,8 +419,6 @@ export function PosTouchScreen() {
     if (checkoutLockedRef.current) return;
     setCartItems([]);
     closeWeighing();
-    // An abandoned ticket must not hand its buyer to the next customer.
-    invoiceForm.reset();
   }
 
   function handleCustomerChange(customerId: string) {
@@ -459,42 +460,24 @@ export function PosTouchScreen() {
   // A restarting server pauses charging only; the ticket stays editable.
   const canCharge = chargeDisabledReason === null && !isServerRestarting;
 
-  // Buyer fields validate first; with the request off they always pass.
   function handleCharge() {
-    void invoiceForm.handleSubmit(chargeTicket)();
+    if (!canCharge || checkoutLockedRef.current) return;
+    setPaymentError(null);
+    setPaymentModalKey(current => current + 1);
+    setIsPaymentModalOpen(true);
   }
 
-  async function chargeTicket(invoiceValues: ElectronicInvoiceFormValues) {
+  async function handleSubmitSale(payload: TouchSaleCreateInput) {
     if (!canCharge || checkoutLockedRef.current) return;
     checkoutLockedRef.current = true;
     ticketEpochRef.current += 1;
     setValueTile(null);
     setIsCheckoutLocked(true);
+    setPaymentError(null);
     try {
-      const electronicInvoice = buildElectronicInvoiceRequest(
-        invoiceAvailability.available,
-        invoiceValues
-      );
-      await createMutation.mutateAsync({
-        customerId: selectedCustomer?.id || undefined,
-        priceTier: activePriceTier,
-        items: cartItems.map(item => ({
-          productId: item.productId,
-          unitId: item.unitId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          discount: item.discount,
-          taxRate: item.taxRate,
-        })),
-        paymentMethod: 'cash',
-        paymentStatus: 'paid',
-        status: 'completed',
-        amountReceived: summary.total,
-        discountAmount: 0,
-        ...(electronicInvoice ? { electronicInvoice } : {}),
-      });
+      await createMutation.mutateAsync(payload);
     } catch {
-      // onError already surfaces a toast; no rethrow.
+      // onError already surfaces a toast and inline error; no rethrow.
     } finally {
       checkoutLockedRef.current = false;
       setIsCheckoutLocked(false);
@@ -542,16 +525,10 @@ export function PosTouchScreen() {
   }
 
   return (
-    <section data-testid="pos-touch-page" className="flex flex-col gap-4 lg:h-[calc(100dvh-4rem)]">
-      <header className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-secondary-500">
-            {t('page.kicker')}
-          </p>
-          <h2 className="font-display text-3xl tracking-[-0.02em]">{t('page.title')}</h2>
-          <p className="max-w-2xl text-sm text-secondary-600">{t('page.subtitle')}</p>
-        </div>
-        <div className="flex flex-wrap gap-2 self-start">
+    <section data-testid="pos-touch-page" className="flex flex-col gap-3 lg:h-[calc(100dvh-4rem)]">
+      <header className="flex items-center justify-between gap-2">
+        <h2 className="font-display text-xl tracking-[-0.02em] sm:text-2xl">{t('page.title')}</h2>
+        <div className="flex flex-wrap items-center gap-2">
           {dineInActive && (
             <Link to="/touch/voice" data-testid="pos-touch-voice-link" {...headerLinkProps}>
               {t('page.voiceLink')}
@@ -683,28 +660,45 @@ export function PosTouchScreen() {
           canCharge={canCharge}
           chargeDisabledReason={chargeDisabledReason}
           isCharging={checkoutLocked}
-          electronicInvoice={
-            invoiceAvailability.available ? (
-              <Suspense fallback={null}>
-                <fieldset disabled={checkoutLocked} className="min-w-0">
-                  <SaleElectronicInvoiceSection
-                    form={invoiceForm}
-                    identificationTypes={invoiceAvailability.identificationTypes}
-                    selectedCustomer={invoiceCustomer}
-                    savedCustomers={customersQuery.data?.items}
-                    touch
-                  />
-                </fieldset>
-              </Suspense>
-            ) : undefined
-          }
           onClearCart={handleClearCart}
           onCustomerChange={handleCustomerChange}
           onPriceTierChange={handlePriceTierChange}
+          onUpdateQuantity={handleUpdateQuantity}
+          onUnitChange={handleUnitChange}
           onRemoveLine={handleRemoveLine}
           onCharge={handleCharge}
+          onOpenCashSession={
+            !cashSessionQuery.data && !isServerRestarting
+              ? () => setIsCashSessionModalOpen(true)
+              : undefined
+          }
         />
       </div>
+
+      {(isPaymentModalOpen || isCashSessionModalOpen) && (
+        <Suspense fallback={null}>
+          <LazyPosTouchModals
+            isPaymentModalOpen={isPaymentModalOpen}
+            paymentModalKey={paymentModalKey}
+            isCashSessionModalOpen={isCashSessionModalOpen}
+            cartItems={cartItems}
+            summary={summary}
+            customers={(customersQuery.data?.items ?? []) as unknown as Customer[]}
+            selectedCustomerId={selectedCustomer?.id ?? null}
+            currency={currency}
+            activePriceTier={activePriceTier}
+            isCheckoutLocked={checkoutLocked}
+            paymentError={paymentError}
+            onCustomerPriceTierChange={handlePriceTierChange}
+            onClosePayment={() => {
+              if (checkoutLockedRef.current) return;
+              setIsPaymentModalOpen(false);
+            }}
+            onCloseCashSession={() => setIsCashSessionModalOpen(false)}
+            onSubmitSale={handleSubmitSale}
+          />
+        </Suspense>
+      )}
     </section>
   );
 }

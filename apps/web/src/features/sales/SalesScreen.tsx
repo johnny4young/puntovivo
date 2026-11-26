@@ -14,6 +14,7 @@ import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
 import { SalesCheckoutPanel } from '@/features/sales/SalesCheckoutPanel';
 import type { CashSessionModals } from '@/features/sales/CashSessionModals';
 import { SalesHeaderSection } from '@/features/sales/SalesHeaderSection';
+import { SalesShiftMenu } from '@/features/sales/SalesShiftMenu';
 import { SalesFlowRail } from '@/features/sales/SalesFlowRail';
 import type { SalesModals } from '@/features/sales/SalesModals';
 import { WorkspaceTabsSection } from '@/features/sales/WorkspaceTabsSection';
@@ -33,7 +34,7 @@ import type { PaymentFocusTarget } from '@/features/sales/useSalesModals';
 import { roundMoney } from '@/lib/money';
 import { percentOf } from '@/features/sales/cashTender';
 import type { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
-import type { ProductSearchSelection } from '@/types';
+import type { ProductSearchSelection, UserRole } from '@/types';
 import type { SaleCartItem } from '@/features/sales/saleCart';
 import { canAccessRole, managerOrAdminRoles } from '@/features/auth/roleAccess';
 import { useRegisterZone } from '@/features/modules/useRegisterZone';
@@ -159,7 +160,7 @@ export interface SalesScreenProps {
   canCharge: boolean;
   canOpenCashSession: boolean;
   canCloseCashSession: boolean;
-  userRole: CheckoutProps['userRole'];
+  userRole: UserRole | undefined;
   handleOpenPaymentModal: (
     fastCash?: boolean,
     tendered?: number | null,
@@ -173,12 +174,12 @@ export interface SalesScreenProps {
   onTicketTenderChange: CheckoutProps['onTenderChange'] & {};
   lastRead: LastRead | null;
   cashierName: string | null;
-  firstSuspendedDraft: CheckoutProps['firstSuspendedDraft'];
+  firstSuspendedDraft?: { label: string; total: number } | null | undefined;
   canRequestInvoice: boolean;
   handleOpenCashSessionModal: () => void;
   handleOpenCloseCashSessionModal: () => void;
   handleOpenCashSessionMovementModal: () => void;
-  onKickCashDrawer: CheckoutProps['onKickCashDrawer'];
+  onKickCashDrawer?: (() => void | Promise<void>) | undefined;
   isKickingCashDrawer: boolean;
   setSelectedRegisterAssignmentId: CheckoutProps['onRegisterAssignmentChange'];
   handleOpenSuspendPrompt: () => void;
@@ -327,7 +328,6 @@ export function SalesScreen({
   onTicketTenderChange,
   lastRead,
   cashierName,
-  firstSuspendedDraft,
   canRequestInvoice,
   handleOpenCashSessionModal,
   handleOpenCloseCashSessionModal,
@@ -529,6 +529,17 @@ export function SalesScreen({
     return handleResumeFromPanel(draft, options);
   };
 
+  // Only expose the P1/P2/P3 tier bar when tiers are actually in use on this ticket.
+  const hasTierPricing =
+    activePriceTier > 1 ||
+    cartItems.some(
+      item =>
+        (item.tierPrices?.price2 ?? 0) > 0 ||
+        (item.tierPrices?.price3 ?? 0) > 0 ||
+        (item.catalogUnitPrice2 ?? 0) > 0 ||
+        (item.catalogUnitPrice3 ?? 0) > 0
+    );
+
   return (
     <>
       {/* At `pos:` the shell is bounded and only the ticket scrolls; below it the
@@ -568,14 +579,29 @@ export function SalesScreen({
               onNewSale={handleNewSale}
             />
           }
-          priceTier={activePriceTier}
-          onPriceTierChange={itemsLocked ? undefined : handlePriceTierChange}
+          priceTier={hasTierPricing ? activePriceTier : undefined}
+          onPriceTierChange={itemsLocked || !hasTierPricing ? undefined : handlePriceTierChange}
           status={
             <SalesStatusPills
               scannerLocked={itemsLocked}
               hasReceiptPrinter={!printerMissing}
               onConfigurePrinter={printerMissing?.recoveryAction?.onClick}
             />
+          }
+          shiftMenu={
+            activeCashSession ? (
+              <SalesShiftMenu
+                cashSession={activeCashSession}
+                userRole={userRole}
+                canCloseCashSession={canCloseCashSession}
+                hubReachable={hubReachable}
+                onOpenMovement={handleOpenCashSessionMovementModal}
+                onKickCashDrawer={onKickCashDrawer}
+                isKickingCashDrawer={isKickingCashDrawer}
+                onHandOver={hubReachable !== false ? shiftHandoff.handOver : undefined}
+                onCloseCashSession={handleOpenCloseCashSessionModal}
+              />
+            ) : undefined
           }
         />
 
@@ -708,22 +734,12 @@ export function SalesScreen({
             discountAmount={approvalDiscountAmount}
             canCharge={canCharge}
             canOpenCashSession={canOpenCashSession}
-            canCloseCashSession={canCloseCashSession}
-            userRole={userRole}
             onCharge={handleCharge}
             onOpenCashSession={handleOpenCashSessionModal}
-            onCloseCashSession={handleOpenCloseCashSessionModal}
-            onHandOver={hubReachable !== false ? shiftHandoff.handOver : undefined}
             receiveHandoff={shiftHandoff.receive}
-            onOpenMovement={handleOpenCashSessionMovementModal}
-            onKickCashDrawer={onKickCashDrawer}
-            isKickingCashDrawer={isKickingCashDrawer}
             onRegisterAssignmentChange={setSelectedRegisterAssignmentId}
             canSuspend={canSuspendActiveCart}
             onSuspend={handleOpenSuspendPrompt}
-            suspendedDraftsCount={suspendedDraftsCount}
-            firstSuspendedDraft={firstSuspendedDraft}
-            onToggleSuspendedPanel={showsSuspended ? handleToggleSuspendedPanel : undefined}
             hubReachable={hubReachable}
             preflightItems={preflightItems}
             onFastCash={handleFastCash}
@@ -731,6 +747,7 @@ export function SalesScreen({
             onTenderChange={onTicketTenderChange}
             cashDue={cashDue}
             customerName={ticketCustomerName}
+            onPayCustomerAccount={canPayAccount ? () => setIsTillPaymentOpen(true) : undefined}
             onPickCustomer={
               canOpenDrawerFromDock && !customerLocked
                 ? () => handleOpenPaymentModal(false, null, 'customer')
@@ -741,11 +758,6 @@ export function SalesScreen({
                 ? () => handleOpenPaymentModal(false, null, 'invoice')
                 : undefined
             }
-            // While the completion strip shows the sale, the card would repeat it.
-            lastSale={showCompletedSale ? null : lastSale}
-            onOpenLastSale={() => {
-              if (lastSale) openSaleDetails(lastSale.id);
-            }}
             onOpenReturns={openReturnSheet}
             onOpenIncident={openIncidentSheet}
             isIncidentOpen={isIncidentSheetOpen}

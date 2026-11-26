@@ -12,7 +12,6 @@ import {
   CheckoutPreflightPanel,
   PREFLIGHT_PRIMARY_ELEMENT_ID,
 } from '@/features/sales/CheckoutPreflightPanel';
-import { CashierPaceStrip } from '@/features/sales/CashierPaceStrip';
 import { SalesRegisterAssignmentField } from '@/features/sales/SalesRegisterAssignmentField';
 import { SalesTenderPicker } from '@/features/sales/SalesTenderPicker';
 import { SalesCreditKey } from '@/features/sales/SalesCreditKey';
@@ -24,12 +23,11 @@ import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { getPayableCartTotal } from '@/features/sales/saleCartTotals';
 import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
 import { roundMoney } from '@/lib/money';
-import { formatCurrency, formatDateTime } from '@/lib/utils';
-import type { CompletedSaleSummary } from '@/features/sales/SaleCompleteStrip';
+import { formatCurrency } from '@/lib/utils';
 import type { InitialTender } from '@/features/sales/salePaymentModal.types';
 import type { PreflightItem } from '@/features/sales/useCheckoutPreflight';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
-import type { CashSession, RegisterAssignment, Site, UserRole } from '@/types';
+import type { CashSession, RegisterAssignment, Site } from '@/types';
 import type { ReceivableHandoff } from './handoff/useShiftHandoff';
 import { Button, SeverityMark } from '@/components/ui';
 
@@ -48,26 +46,12 @@ interface SalesCheckoutPanelProps {
   discountAmount?: number | undefined;
   canCharge: boolean;
   canOpenCashSession: boolean;
-  canCloseCashSession: boolean;
-  /** selects blind-close versus supervised-close guidance. */
-  userRole?: UserRole | undefined;
   onCharge: () => void;
   onOpenCashSession: () => void;
-  onCloseCashSession: () => void;
-  /** Mid-day hand-over to the next cashier; absent when it cannot run. */
-  onHandOver?: (() => void) | undefined;
   receiveHandoff?: ReceivableHandoff | null | undefined;
-  onOpenMovement: () => void;
-  /** Hidden when undefined: no supported drawer or no sales role. */
-  onKickCashDrawer?: (() => void | Promise<void>) | undefined;
-  isKickingCashDrawer?: boolean | undefined;
   onRegisterAssignmentChange: (assignmentId: string | null) => void;
   canSuspend?: boolean | undefined;
   onSuspend?: (() => void) | undefined;
-  suspendedDraftsCount?: number | undefined;
-  /** The most recent suspended sale, named on the parked card. */
-  firstSuspendedDraft?: { label: string; total: number } | null | undefined;
-  onToggleSuspendedPanel?: (() => void) | undefined;
   /** `false` only in hub-client mode with the hub down: gates charge and open. */
   hubReachable?: boolean | undefined;
   /** Blockers disable Cobrar; warnings leave it enabled. */
@@ -81,12 +65,12 @@ interface SalesCheckoutPanelProps {
   cashDue?: number | undefined;
   /** Customer frozen on a resumed, quoted or exchange ticket. */
   customerName?: string | null | undefined;
+  /** Opens the till abono modal when the attached customer owes a balance. */
+  onPayCustomerAccount?: (() => void) | undefined;
   /** Opens the charge drawer on its customer picker. */
   onPickCustomer?: (() => void) | undefined;
   /** Opens the charge drawer on the invoice request; omitted when the site cannot invoice. */
   onRequestInvoice?: (() => void) | undefined;
-  lastSale?: CompletedSaleSummary | null | undefined;
-  onOpenLastSale?: (() => void) | undefined;
   /** Opens the sales history, where a return starts from its sale. */
   onOpenReturns?: (() => void) | undefined;
   onOpenIncident?: (() => void) | undefined;
@@ -127,22 +111,12 @@ export function SalesCheckoutPanel({
   discountAmount = 0,
   canCharge,
   canOpenCashSession,
-  canCloseCashSession,
-  userRole,
   onCharge,
   onOpenCashSession,
-  onCloseCashSession,
-  onHandOver,
   receiveHandoff = null,
-  onOpenMovement,
-  onKickCashDrawer,
-  isKickingCashDrawer,
   onRegisterAssignmentChange,
   canSuspend,
   onSuspend,
-  suspendedDraftsCount = 0,
-  firstSuspendedDraft = null,
-  onToggleSuspendedPanel,
   hubReachable,
   preflightItems = [],
   onFastCash,
@@ -150,10 +124,9 @@ export function SalesCheckoutPanel({
   onTenderChange = () => {},
   cashDue,
   customerName = null,
+  onPayCustomerAccount,
   onPickCustomer,
   onRequestInvoice,
-  lastSale = null,
-  onOpenLastSale,
   onOpenReturns,
   onOpenIncident,
   isIncidentOpen = false,
@@ -167,7 +140,6 @@ export function SalesCheckoutPanel({
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
   const priceIncludesTax = usePriceIncludesTax();
-  const hasSupervisedClose = userRole === 'admin' || userRole === 'manager';
   const isHubGated = hubReachable === false;
   const preflightHasBlockers = preflightItems.some(item => item.severity === 'blocker');
   const visiblePreflightItems = preflightItems.filter(
@@ -220,8 +192,18 @@ export function SalesCheckoutPanel({
               <p className="truncate text-xs text-fg3">{t('sell.customer.walkInHint')}</p>
             )}
           </div>
-          {(onPickCustomer || onRequestInvoice) && (
+          {(onPickCustomer || onRequestInvoice || onPayCustomerAccount) && (
             <div className="hidden gap-1.5 lg:flex">
+              {onPayCustomerAccount && (
+                <button
+                  type="button"
+                  className="btn-outline min-h-11 px-2.5 text-[13px] font-medium"
+                  onClick={onPayCustomerAccount}
+                  data-testid="checkout-customer-pay"
+                >
+                  {t('sell.account.pay')}
+                </button>
+              )}
               {onPickCustomer && (
                 <button
                   type="button"
@@ -338,118 +320,9 @@ export function SalesCheckoutPanel({
           </p>
         )}
 
-        <div className="hidden gap-2 lg:flex">
-          {lastSale && onOpenLastSale && (
-            <section className="sales-mini-card" data-testid="checkout-last-sale">
-              <h3 className="sales-cap">{t('sell.lastSale.title')}</h3>
-              <p className="mt-1 flex items-baseline justify-between gap-2">
-                <b className="truncate font-mono text-[13px]">{lastSale.saleNumber}</b>
-                <b className="font-numeric text-lg">{formatCurrency(lastSale.total)}</b>
-              </p>
-              <button
-                type="button"
-                className="sales-mini-link"
-                onClick={onOpenLastSale}
-                data-testid="sales-open-last-receipt"
-              >
-                {t('sell.lastSale.open')}
-              </button>
-            </section>
-          )}
-          {onToggleSuspendedPanel && (
-            <section className="sales-mini-card" data-testid="checkout-parked">
-              <h3 className="sales-cap">
-                {t('sell.parked.title')} ·{' '}
-                <span data-testid="suspended-drafts-badge">{suspendedDraftsCount}</span>
-              </h3>
-              {firstSuspendedDraft && (
-                <p className="mt-1 flex items-baseline justify-between gap-2">
-                  <b className="truncate text-[13px]">{firstSuspendedDraft.label}</b>
-                  <b className="font-numeric text-lg">
-                    {formatCurrency(firstSuspendedDraft.total)}
-                  </b>
-                </p>
-              )}
-              <button
-                type="button"
-                className="sales-mini-link"
-                onClick={onToggleSuspendedPanel}
-                data-testid="checkout-open-suspended-panel"
-                aria-keyshortcuts={
-                  suspendedDraftsCount > 0
-                    ? ariaKeyshortcutsFor('sales.toggleSuspended')
-                    : undefined
-                }
-              >
-                {suspendedDraftsCount > 0 ? t('park.resumeAction') : t('park.panelTitle')}
-                {suspendedDraftsCount > 0 && (
-                  <kbd className="pv-kbd" aria-hidden="true">
-                    {shortcutDisplayFor('sales.toggleSuspended')}
-                  </kbd>
-                )}
-              </button>
-            </section>
-          )}
-        </div>
-
-        <section className="sales-mini-card text-sm text-fg2" data-testid="checkout-register">
-          <h3 className="sales-cap">{t('cashSession.title')}</h3>
-          {cashSession ? (
-            <div className="mt-1 space-y-1.5">
-              <p>
-                {t('cashSession.openedAt')}: {formatDateTime(cashSession.openedAt)}
-              </p>
-              {/* opt-in pace HUD; renders nothing while off. */}
-              <CashierPaceStrip hasActiveCashSession />
-              <p className="text-xs text-fg3">
-                {t(
-                  hasSupervisedClose
-                    ? 'cashSession.supervisedCloseHint'
-                    : 'cashSession.blindCloseHint'
-                )}
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  className="btn-outline"
-                  onClick={onOpenMovement}
-                  aria-keyshortcuts={ariaKeyshortcutsFor('sales.cashMovement')}
-                >
-                  {t('cashSession.recordMovementAction')}
-                </button>
-                {onKickCashDrawer && (
-                  <button
-                    type="button"
-                    className="btn-outline"
-                    onClick={onKickCashDrawer}
-                    disabled={isKickingCashDrawer}
-                    data-testid="sales-kick-drawer"
-                  >
-                    {t('printer.kickDrawerCta')}
-                  </button>
-                )}
-                {onHandOver && (
-                  <button
-                    type="button"
-                    className="btn-outline"
-                    onClick={onHandOver}
-                    data-testid="sales-hand-over"
-                  >
-                    {t('cashSession.handOverAction')}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="btn-outline"
-                  onClick={onCloseCashSession}
-                  disabled={isHubGated || !canCloseCashSession}
-                  aria-keyshortcuts={ariaKeyshortcutsFor('sales.closeCashSession')}
-                >
-                  {t('cashSession.closeAction')}
-                </button>
-              </div>
-            </div>
-          ) : (
+        {!cashSession && (
+          <section className="sales-mini-card text-sm text-fg2" data-testid="checkout-register">
+            <h3 className="sales-cap">{t('cashSession.title')}</h3>
             <div className="mt-2 space-y-2">
               <SalesRegisterAssignmentField
                 assignments={registerAssignments}
@@ -470,8 +343,8 @@ export function SalesCheckoutPanel({
                 </button>
               )}
             </div>
-          )}
-        </section>
+          </section>
+        )}
       </div>
 
       {/* Pinned: the keys that charge stay where the hand already is. */}

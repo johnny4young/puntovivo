@@ -32,7 +32,6 @@ const GlobalShortcutsProvider = lazy(() =>
   }))
 );
 import {
-  AiConfigPage,
   AuditLogsPage,
   CatalogLandingRoute,
   CategoriesPage,
@@ -49,7 +48,6 @@ import {
   ReservationsPage,
   FinanceLandingRoute,
   FiscalDocumentListPage,
-  FiscalReportsPage,
   AccountingExportPage,
   ProfitMarginReportPage,
   GeographyPage,
@@ -139,14 +137,7 @@ function App() {
                   </ShellRoute>
                 }
               />
-              <Route
-                path="settings/ai"
-                element={
-                  <ShellRoute allowedRoles={adminOnlyRoles}>
-                    <AiConfigPage />
-                  </ShellRoute>
-                }
-              />
+              <Route path="settings/ai" element={<Navigate to="/company?tab=ai" replace />} />
               <Route
                 path="company"
                 element={
@@ -429,11 +420,7 @@ function App() {
               />
               <Route
                 path="fiscal-reports"
-                element={
-                  <ShellRoute allowedRoles={adminOnlyRoles}>
-                    <FiscalReportsPage />
-                  </ShellRoute>
-                }
+                element={<Navigate to="/company?tab=fiscal" replace />}
               />
               <Route
                 path="profitability"

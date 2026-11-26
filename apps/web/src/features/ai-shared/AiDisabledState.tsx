@@ -29,7 +29,7 @@ export function AiDisabledState({
   if (variant === 'inline') {
     return (
       <Link
-        to="/settings/ai"
+        to="/company?tab=ai"
         className={cn(
           'inline-flex items-center gap-2 rounded-full border border-line/70 bg-surface px-3 py-1.5 text-xs text-secondary-600 hover:border-primary/50 hover:text-primary-700',
           className
@@ -67,7 +67,7 @@ export function AiDisabledState({
         <p className="mt-2 max-w-xl text-sm leading-6 text-secondary-600">
           {t(`disabled.${feature}.subtitle`)}
         </p>
-        <Link to="/settings/ai" className="btn-primary mt-4 inline-flex items-center gap-2">
+        <Link to="/company?tab=ai" className="btn-primary mt-4 inline-flex items-center gap-2">
           <Sparkles className="h-4 w-4" aria-hidden="true" />
           {t('disabled.cta')}
         </Link>

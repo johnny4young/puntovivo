@@ -2,7 +2,8 @@
   "section": {
     "title": "Modules",
     "description": "Activate or deactivate functional modules for your business. Disabled modules hide their pages and reject server calls without deleting any data.",
-    "activeCount": "{{active}} of {{total}} active"
+    "activeCount": "{{active}} of {{total}} active",
+    "fineTuning": "Fine-tune features"
   },
   "toggle": {
     "enable": "Activate",

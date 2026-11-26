@@ -28,11 +28,8 @@ function renderDock(overrides: Partial<ComponentProps<typeof SalesCheckoutPanel>
       lineCount={7}
       canCharge
       canOpenCashSession={false}
-      canCloseCashSession
       onCharge={vi.fn()}
       onOpenCashSession={vi.fn()}
-      onCloseCashSession={vi.fn()}
-      onOpenMovement={vi.fn()}
       onRegisterAssignmentChange={vi.fn()}
       {...overrides}
     />
@@ -172,11 +169,8 @@ describe('SalesCheckoutPanel dock', () => {
         lineCount={0}
         canCharge={false}
         canOpenCashSession
-        canCloseCashSession={false}
         onCharge={vi.fn()}
         onOpenCashSession={onOpenCashSession}
-        onCloseCashSession={vi.fn()}
-        onOpenMovement={vi.fn()}
         onRegisterAssignmentChange={vi.fn()}
         receiveHandoff={{ registerName: 'Caja 2', isSelectedRegister: false, open }}
       />
@@ -186,16 +180,18 @@ describe('SalesCheckoutPanel dock', () => {
     expect(open).toHaveBeenCalledTimes(2);
   });
 
-  it('hands the open register over next to closing it', () => {
-    const onHandOver = vi.fn();
-    renderDock({ onHandOver });
-    fireEvent.click(screen.getByTestId('sales-hand-over'));
-    expect(onHandOver).toHaveBeenCalledOnce();
+  it('keeps shift management out of the checkout dock while the register is open', () => {
+    renderDock();
+    expect(screen.queryByTestId('checkout-register')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('checkout-last-sale')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('checkout-parked')).not.toBeInTheDocument();
   });
 
-  it('offers no hand-over when it cannot run', () => {
-    renderDock();
-    expect(screen.queryByTestId('sales-hand-over')).not.toBeInTheDocument();
+  it('surfaces an inline Abonar action beside the customer when they have a payable balance', () => {
+    const onPayCustomerAccount = vi.fn();
+    renderDock({ customerName: 'María', onPayCustomerAccount });
+    fireEvent.click(screen.getByTestId('checkout-customer-pay'));
+    expect(onPayCustomerAccount).toHaveBeenCalledOnce();
   });
 
   it('remembers the tender and prices one-touch cash against what is due', () => {
@@ -228,36 +224,6 @@ describe('SalesCheckoutPanel dock', () => {
     expect(screen.getByTestId('checkout-customer')).toHaveTextContent('Acme Ltd');
     expect(screen.queryByTestId('checkout-pick-customer')).not.toBeInTheDocument();
     expect(screen.queryByTestId('checkout-request-invoice')).not.toBeInTheDocument();
-  });
-
-  it('keeps the last sale one touch from its receipt', () => {
-    const onOpenLastSale = vi.fn();
-    renderDock({
-      lastSale: { id: 'sale-1', saleNumber: 'V-000912', total: 41_300, change: 0 },
-      onOpenLastSale,
-    });
-
-    const card = within(screen.getByTestId('checkout-last-sale'));
-    expect(card.getByText('V-000912')).toBeInTheDocument();
-    expect(card.getByText(formatCurrency(41_300))).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('sales-open-last-receipt'));
-    expect(onOpenLastSale).toHaveBeenCalledOnce();
-  });
-
-  it('names the newest sale on hold and resumes from the card', () => {
-    const onToggleSuspendedPanel = vi.fn();
-    renderDock({
-      suspendedDraftsCount: 1,
-      firstSuspendedDraft: { label: 'Table 5', total: 23_400 },
-      onToggleSuspendedPanel,
-    });
-
-    const card = within(screen.getByTestId('checkout-parked'));
-    expect(card.getByText('Table 5')).toBeInTheDocument();
-    expect(card.getByText(formatCurrency(23_400))).toBeInTheDocument();
-    expect(screen.getByTestId('suspended-drafts-badge')).toHaveTextContent('1');
-    fireEvent.click(card.getByRole('button', { name: 'Resume' }));
-    expect(onToggleSuspendedPanel).toHaveBeenCalledOnce();
   });
 
   it('starts a return from the sales history', () => {
@@ -327,11 +293,8 @@ describe('SalesCheckoutPanel dock', () => {
         draftSummary={{ itemCount: 0, subtotal: 0, taxAmount: 0, total: 0 }}
         canCharge={false}
         canOpenCashSession={false}
-        canCloseCashSession
         onCharge={vi.fn()}
         onOpenCashSession={vi.fn()}
-        onCloseCashSession={vi.fn()}
-        onOpenMovement={vi.fn()}
         onRegisterAssignmentChange={vi.fn()}
         showsDeliveryKey
         deliveryActive

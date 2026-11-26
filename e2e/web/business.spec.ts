@@ -151,6 +151,7 @@ async function createCompletedPurchase(
   }
 ) {
   await page.goto('/purchases');
+  await page.getByTestId('purchases-tab-new').click();
   const addProduct = async () => {
     await page.getByRole('button', { name: 'Add Product' }).first().click();
 
@@ -262,7 +263,8 @@ async function assertInventoryBalanceInUi(
   }
 ) {
   await page.goto('/inventory');
-  await page.getByRole('button', { name: 'By Site' }).click();
+  await page.getByTestId('inventory-group-stock').click();
+  await page.getByTestId('inventory-tab-balances').click();
   const siteSelect = page.locator('#inventory-balances-site');
   await expect(siteSelect).toBeVisible();
   await siteSelect.selectOption(args.siteId);
@@ -286,7 +288,7 @@ async function assertAggregateStockInUi(
   }
 ) {
   await page.goto('/inventory');
-  await page.getByRole('button', { name: 'Stock Query' }).click();
+  await page.getByTestId('inventory-group-stock').click();
   // The Stock Query DataTable filters by its `name` accessor; searching by
   // SKU alone would hit no rows. Name narrows, SKU pinpoints the row.
   await page.getByPlaceholder('Search stock by product...').fill(args.productName);
@@ -309,7 +311,8 @@ async function createDeferredTransfer(
   }
 ) {
   await page.goto('/inventory');
-  await page.getByRole('button', { name: 'By Site' }).click();
+  await page.getByTestId('inventory-group-stock').click();
+  await page.getByTestId('inventory-tab-balances').click();
   await page.locator('#inventory-balances-site').selectOption(args.fromSiteId);
   await page.getByRole('button', { name: 'Transfer stock' }).click();
 
@@ -1342,7 +1345,8 @@ test.describe('web business flows', () => {
       });
 
       await page.reload();
-      await page.getByRole('button', { name: 'By Site' }).click();
+      await page.getByTestId('inventory-group-stock').click();
+      await page.getByTestId('inventory-tab-balances').click();
       const completedRow = getTransferRow(page, transfer.id);
       await expect(completedRow).toContainText('Completed');
       await expect(completedRow).toContainText('Discrepancy');
@@ -2059,7 +2063,7 @@ test.describe('web business flows', () => {
     expect(stockAfterSuspend).toBe(scenario.product.totalStock - 1);
 
     await page.reload();
-    await expect(page.getByTestId('checkout-open-suspended-panel')).toBeVisible();
+    await expect(page.getByTestId('sales-open-suspended')).toBeVisible();
 
     // --- Cart B: add one unit and charge normally -------------------------
     await page.locator('#sales-product-search-input').fill(scenario.product.sku);
@@ -2087,7 +2091,7 @@ test.describe('web business flows', () => {
     expect(stockAfterChargeB).toBe(scenario.product.totalStock - 2);
 
     // --- Resume cart A from the suspended panel ---------------------------
-    await page.getByTestId('checkout-open-suspended-panel').click();
+    await page.getByTestId('sales-open-suspended').click();
     const draftCard = page.getByTestId('suspended-draft-card').first();
     await expect(draftCard).toBeVisible();
     await expect(draftCard).toContainText('Mesa 5');
@@ -2151,7 +2155,7 @@ test.describe('web business flows', () => {
     });
     await switchToSite(page, mainSite.name);
     await page.goto('/inventory');
-    await page.getByRole('button', { name: 'Counts & Restock' }).click();
+    await page.getByTestId('inventory-group-controlsExpiry').click();
     await page.getByRole('button', { name: 'New count' }).click();
     const createCountDialog = page.getByRole('dialog', { name: 'Start blind count' });
     await createCountDialog.getByLabel('Products').fill(scenario.product.sku);
@@ -2252,7 +2256,7 @@ test.describe('web business flows', () => {
     await page.getByRole('button', { name: 'Suspend', exact: true }).click();
     await expectSuccessToast(page, 'Sale suspended');
     await page.reload();
-    await page.getByTestId('checkout-open-suspended-panel').click();
+    await page.getByTestId('sales-open-suspended').click();
     const suspended = page.getByTestId('suspended-draft-card').filter({
       hasText: 'Retail daily cycle',
     });

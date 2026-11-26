@@ -36,8 +36,10 @@
   },
   "openingStock": {
     "title": "Add opening stock",
-    "description": "Optional — record how many units are available today.",
+    "description": "Optional — record available units today and their unit cost.",
     "field": "Available units",
+    "costField": "Unit purchase cost",
+    "costHelp": "Keeps opening inventory from being valued at $0.",
     "help": "You can also receive or adjust inventory later."
   },
   "advanced": {

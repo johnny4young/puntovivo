@@ -2,7 +2,8 @@
   "section": {
     "title": "Módulos",
     "description": "Active o desactive módulos funcionales para su organización. Los módulos desactivados ocultan sus pantallas y rechazan llamadas al servidor, sin borrar datos.",
-    "activeCount": "{{active}} de {{total}} activos"
+    "activeCount": "{{active}} de {{total}} activos",
+    "fineTuning": "Ajuste fino de funciones"
   },
   "toggle": {
     "enable": "Activar",
