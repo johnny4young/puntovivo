@@ -84,7 +84,7 @@
     "@sentry/node": "^11.10.0",
     "@trpc/server": "^11.22.1",
     "ai": "^7.0.157",
-    "argon2": "^0.45.1",
+    "argon2": "^0.45.2",
     "better-sqlite3": "npm:better-sqlite3-multiple-ciphers@^13.0.3",
     "drizzle-orm": "^0.45.4",
     "fast-xml-parser": "^5.12.0",
