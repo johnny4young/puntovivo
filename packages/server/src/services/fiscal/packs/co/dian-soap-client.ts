@@ -5,10 +5,11 @@
  * @module services/fiscal/packs/co/dian-soap-client
  */
 
-import { createHash, createSign, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { deflateRawSync } from 'node:zlib';
+import { SignedXml } from 'xml-crypto';
 import type { FiscalEnvironment } from '../../cufe.js';
-import { canonicalizeXml, certificateDerBase64 } from './xades-signer.js';
+import { certificateDerBase64 } from './xades-signer.js';
 
 export const DIAN_SOAP_ENDPOINTS: Record<FiscalEnvironment, string> = {
   '1': 'https://vpfe.dian.gov.co/WcfDianCustomerServices.svc',
@@ -20,10 +21,13 @@ const WSA_NS = 'http://www.w3.org/2005/08/addressing';
 const WCF_NS = 'http://wcf.dian.colombia';
 const WSSE_NS = 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd';
 const WSU_NS = 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd';
-const XMLDSIG_NS = 'http://www.w3.org/2000/09/xmldsig#';
 const EXC_C14N_URI = 'http://www.w3.org/2001/10/xml-exc-c14n#';
 const RSA_SHA256_URI = 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
 const SHA256_URI = 'http://www.w3.org/2001/04/xmlenc#sha256';
+const WSS_BASE64_URI =
+  'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary';
+const X509V3_TOKEN_URI =
+  'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3';
 
 export type DianSoapAction = 'SendBillSync' | 'SendTestSetAsync' | 'GetStatus' | 'GetStatusZip';
 
@@ -135,10 +139,6 @@ function escapeXml(value: string): string {
     .replaceAll("'", '&apos;');
 }
 
-function sha256Base64(value: string): string {
-  return createHash('sha256').update(value, 'utf8').digest('base64');
-}
-
 /** Build a WS-Security signed SOAP 1.2 envelope for a DIAN WCF operation. */
 export function buildDianSoapEnvelope(args: {
   action: DianSoapAction;
@@ -153,51 +153,46 @@ export function buildDianSoapEnvelope(args: {
   const timestampId = `TS-${randomUUID()}`;
   const toId = `TO-${randomUUID()}`;
   const certBase64 = certificateDerBase64(args.credentials.certificatePem);
-
-  const timestampXml =
-    `<wsu:Timestamp xmlns:wsu="${WSU_NS}" wsu:Id="${timestampId}">` +
-    `<wsu:Created>${now.toISOString()}</wsu:Created>` +
-    `<wsu:Expires>${expires.toISOString()}</wsu:Expires>` +
-    `</wsu:Timestamp>`;
-
-  const toXml = `<wsa:To xmlns:wsa="${WSA_NS}" xmlns:wsu="${WSU_NS}" wsu:Id="${toId}">${escapeXml(args.endpoint)}</wsa:To>`;
-  const tsDigest = sha256Base64(canonicalizeXml(timestampXml));
-  const toDigest = sha256Base64(canonicalizeXml(toXml));
-
-  const signedInfoXml =
-    `<ds:SignedInfo xmlns:ds="${XMLDSIG_NS}">` +
-    `<ds:CanonicalizationMethod Algorithm="${EXC_C14N_URI}"/>` +
-    `<ds:SignatureMethod Algorithm="${RSA_SHA256_URI}"/>` +
-    `<ds:Reference URI="#${timestampId}"><ds:Transforms><ds:Transform Algorithm="${EXC_C14N_URI}"/></ds:Transforms><ds:DigestMethod Algorithm="${SHA256_URI}"/><ds:DigestValue>${tsDigest}</ds:DigestValue></ds:Reference>` +
-    `<ds:Reference URI="#${toId}"><ds:Transforms><ds:Transform Algorithm="${EXC_C14N_URI}"/></ds:Transforms><ds:DigestMethod Algorithm="${SHA256_URI}"/><ds:DigestValue>${toDigest}</ds:DigestValue></ds:Reference>` +
-    `</ds:SignedInfo>`;
-
-  const signer = createSign('RSA-SHA256');
-  signer.update(canonicalizeXml(signedInfoXml));
-  signer.end();
-  const sigValue = signer.sign(args.credentials.privateKeyPem, 'base64');
-
   const actionUri = `http://wcf.dian.colombia/IWcfDianCustomerServices/${args.action}`;
 
-  return (
-    `<?xml version="1.0" encoding="UTF-8"?>` +
+  const unsignedEnvelope =
     `<soap:Envelope xmlns:soap="${SOAP12_NS}" xmlns:wcf="${WCF_NS}">` +
     `<soap:Header xmlns:wsa="${WSA_NS}">` +
     `<wsse:Security xmlns:wsse="${WSSE_NS}" xmlns:wsu="${WSU_NS}" soap:mustUnderstand="true">` +
-    timestampXml +
-    `<wsse:BinarySecurityToken EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary" ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3" wsu:Id="${tokenId}">${certBase64}</wsse:BinarySecurityToken>` +
-    `<ds:Signature xmlns:ds="${XMLDSIG_NS}">` +
-    signedInfoXml +
-    `<ds:SignatureValue>${sigValue}</ds:SignatureValue>` +
-    `<ds:KeyInfo><wsse:SecurityTokenReference><wsse:Reference URI="#${tokenId}" ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3"/></wsse:SecurityTokenReference></ds:KeyInfo>` +
-    `</ds:Signature>` +
+    `<wsu:Timestamp wsu:Id="${timestampId}">` +
+    `<wsu:Created>${now.toISOString()}</wsu:Created>` +
+    `<wsu:Expires>${expires.toISOString()}</wsu:Expires>` +
+    `</wsu:Timestamp>` +
+    `<wsse:BinarySecurityToken EncodingType="${WSS_BASE64_URI}" ValueType="${X509V3_TOKEN_URI}" wsu:Id="${tokenId}">${certBase64}</wsse:BinarySecurityToken>` +
     `</wsse:Security>` +
     `<wsa:Action>${actionUri}</wsa:Action>` +
-    toXml +
+    `<wsa:To xmlns:wsu="${WSU_NS}" wsu:Id="${toId}">${escapeXml(args.endpoint)}</wsa:To>` +
     `</soap:Header>` +
     `<soap:Body>${args.bodyXml}</soap:Body>` +
-    `</soap:Envelope>`
-  );
+    `</soap:Envelope>`;
+
+  const sig = new SignedXml({
+    idMode: 'wssecurity',
+    privateKey: args.credentials.privateKeyPem,
+    canonicalizationAlgorithm: EXC_C14N_URI,
+    signatureAlgorithm: RSA_SHA256_URI,
+    getKeyInfoContent: () =>
+      `<wsse:SecurityTokenReference><wsse:Reference URI="#${tokenId}" ValueType="${X509V3_TOKEN_URI}"/></wsse:SecurityTokenReference>`,
+  });
+  for (const id of [timestampId, toId]) {
+    sig.addReference({
+      xpath: `//*[@*[local-name(.)='Id' and namespace-uri(.)='${WSU_NS}']='${id}']`,
+      transforms: [EXC_C14N_URI],
+      digestAlgorithm: SHA256_URI,
+    });
+  }
+  sig.computeSignature(unsignedEnvelope, {
+    prefix: 'ds',
+    existingPrefixes: { wsse: WSSE_NS, wsu: WSU_NS },
+    location: { reference: `//*[local-name(.)='Security']`, action: 'append' },
+  });
+
+  return `<?xml version="1.0" encoding="UTF-8"?>${sig.getSignedXml()}`;
 }
 
 function extractTag(xml: string, localName: string): string | null {

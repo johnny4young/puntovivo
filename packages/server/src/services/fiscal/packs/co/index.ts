@@ -20,7 +20,7 @@ export {
   type DianSoapResponse,
 } from './dian-soap-client.js';
 export {
-  canonicalizeXml,
+  certificateDerBase64,
   DIAN_SIGNATURE_POLICY_HASH_SHA256_B64,
   DIAN_SIGNATURE_POLICY_ID,
   inspectX509Certificate,

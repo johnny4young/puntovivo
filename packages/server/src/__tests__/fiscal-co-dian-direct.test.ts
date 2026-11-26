@@ -1,6 +1,8 @@
 import { createSign, generateKeyPairSync, X509Certificate } from 'node:crypto';
 import { inflateRawSync } from 'node:zlib';
+import { DOMParser } from '@xmldom/xmldom';
 import { describe, expect, it } from 'vitest';
+import { SignedXml } from 'xml-crypto';
 import type { FiscalAdapterIssueInput } from '../services/fiscal/adapter.js';
 import {
   buildDianSoapEnvelope,
@@ -325,14 +327,91 @@ describe('Colombia XAdES-EPES signer and verifier', () => {
     );
     expect(verifyDianXadesSignature(tamperedAmount)).toMatchObject({
       valid: false,
-      reason: 'document_digest_mismatch',
+      reason: 'reference_digest_mismatch',
     });
 
     const tamperedTime = signedXml.replace('2026-11-26T14:30:00.000Z', '2026-11-26T14:31:00.000Z');
     expect(verifyDianXadesSignature(tamperedTime)).toMatchObject({
       valid: false,
-      reason: 'signed_properties_digest_mismatch',
+      reason: 'reference_digest_mismatch',
     });
+
+    const injectedAttribute = signedXml.replace(
+      '<cbc:PayableAmount ',
+      "<cbc:PayableAmount schemeID='EVIL' "
+    );
+    expect(verifyDianXadesSignature(injectedAttribute).valid).toBe(false);
+
+    const withoutDocumentReference = signedXml.replace(
+      /<ds:Reference [^>]*URI=""[\s\S]*?<\/ds:Reference>/,
+      ''
+    );
+    expect(verifyDianXadesSignature(withoutDocumentReference)).toMatchObject({ valid: false });
+  });
+
+  it('signs text with quotes and apostrophes so the canonical document digest still verifies', () => {
+    const input = buildSampleInput({ issuerName: `D'Luca "Monitor 24" S.A.S.` });
+    const xml = buildColombiaUbl21DraftXml(input, 'a'.repeat(96), { mode: 'dian' });
+    const { signedXml } = signDianUblXml({
+      xml,
+      certificatePem: validCreds.certificatePem,
+      privateKeyPem: validCreds.privateKeyPem,
+    });
+
+    expect(verifyDianXadesSignature(signedXml).valid).toBe(true);
+  });
+
+  it('digests the document exactly as libxml2 C14N 1.0 does', () => {
+    // Expected digest is sha256 of `xmllint --c14n` over this document.
+    const xml =
+      '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2">' +
+      '<ext:UBLExtensions><ext:UBLExtension><ext:ExtensionContent/></ext:UBLExtension></ext:UBLExtensions>' +
+      '<cbc:Note>D&apos;Luca &quot;Monitor 24&quot; &amp; Cia</cbc:Note>' +
+      '<cac:Party><cbc:Name b="2" a="1">X</cbc:Name></cac:Party></Invoice>';
+    const { signedXml } = signDianUblXml({
+      xml,
+      certificatePem: validCreds.certificatePem,
+      privateKeyPem: validCreds.privateKeyPem,
+    });
+
+    expect(signedXml.match(/URI=""[\s\S]*?<ds:DigestValue>([^<]+)</)?.[1]).toBe(
+      'YkUtTveSAZDyODE7NjnkkvWWZ7N7c031g6i2KAvKjr0='
+    );
+  });
+
+  it('produces a signature an independent XMLDSig verifier accepts in document context', () => {
+    const xml = buildColombiaUbl21DraftXml(buildSampleInput(), 'c'.repeat(96), { mode: 'dian' });
+    const { signedXml } = signDianUblXml({
+      xml,
+      certificatePem: validCreds.certificatePem,
+      privateKeyPem: validCreds.privateKeyPem,
+    });
+    const signature = new DOMParser()
+      .parseFromString(signedXml, 'text/xml')
+      .getElementsByTagNameNS('http://www.w3.org/2000/09/xmldsig#', 'Signature')
+      .item(0)!;
+    const verifier = new SignedXml({ publicCert: validCreds.certificatePem });
+    verifier.loadSignature(signature);
+
+    expect(verifier.checkSignature(signedXml)).toBe(true);
+    expect(verifier.getSignedReferences()).toHaveLength(3);
+  });
+
+  it('rejects a certificate other than the trusted one', () => {
+    const other = createTestSelfSignedCert({
+      notBefore: new Date('2025-01-01T00:00:00Z'),
+      notAfter: new Date('2030-01-01T00:00:00Z'),
+    });
+    const xml = buildColombiaUbl21DraftXml(buildSampleInput(), 'b'.repeat(96), { mode: 'dian' });
+    const { signedXml } = signDianUblXml({
+      xml,
+      certificatePem: validCreds.certificatePem,
+      privateKeyPem: validCreds.privateKeyPem,
+    });
+
+    expect(
+      verifyDianXadesSignature(signedXml, { trustedCertificatePem: other.certificatePem })
+    ).toMatchObject({ valid: false, reason: 'untrusted_certificate' });
   });
 
   it('inspects certificate validity windows accurately', () => {
@@ -448,6 +527,27 @@ describe('ColombiaDianAdapter + WS-Security SOAP 1.2 against mock DIAN transport
     const compressedData = zipBuf.subarray(30 + nameLen, 30 + nameLen + compSize);
     const unzippedXml = inflateRawSync(compressedData).toString('utf8');
     expect(verifyDianXadesSignature(unzippedXml).valid).toBe(true);
+  });
+
+  it('signs the WS-Security Timestamp and To headers with exclusive C14N in envelope context', () => {
+    const envelope = buildDianSoapEnvelope({
+      action: 'GetStatus',
+      endpoint,
+      bodyXml: '<wcf:GetStatus><wcf:trackId>abc</wcf:trackId></wcf:GetStatus>',
+      credentials: validCreds,
+    });
+    const doc = new DOMParser().parseFromString(envelope, 'text/xml');
+    const signature = doc
+      .getElementsByTagNameNS('http://www.w3.org/2000/09/xmldsig#', 'Signature')
+      .item(0)!;
+    const verifier = new SignedXml({ idMode: 'wssecurity', publicCert: validCreds.certificatePem });
+    verifier.loadSignature(signature);
+
+    expect(verifier.checkSignature(envelope)).toBe(true);
+    const signedIds = verifier
+      .getSignedReferences()
+      .map(ref => ref.match(/wsu:Id="([^"]+)"/)?.[1]?.split('-')[0]);
+    expect(signedIds.sort()).toEqual(['TO', 'TS']);
   });
 
   it('routes habilitacion testSetId through SendTestSetAsync and polls GetStatus', async () => {
