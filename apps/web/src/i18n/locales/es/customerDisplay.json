@@ -48,6 +48,7 @@
   "privacy": "Esta pantalla muestra productos, totales y el QR de transferencia de la tienda. Nunca refleja datos del cliente, del empleado, del pago ni notas.",
   "transfer": {
     "title": "Pague por transferencia",
-    "qrLabel": "QR para transferir a {{name}}"
+    "qrLabel": "QR para transferir a {{name}}",
+    "staticNote": "El valor no viene incluido en el QR: verifique el importe con su cajero."
   }
 }

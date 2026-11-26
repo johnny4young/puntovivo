@@ -896,7 +896,9 @@
       "bankName": "Enter the bank name.",
       "accountType": "Choose the account type.",
       "qrPayload": "That is not a complete bank QR. Scan it again."
-    }
+    },
+    "qrPreviewLabel": "QR preview",
+    "qrPreviewNote": "Preview of the QR exactly as the customer scans it. The payload is kept unmodified."
   },
   "server": {
     "TRANSFER_DESTINATION_ACCOUNT_INVALID": "That account does not fit this destination. Bre-B takes an @ key, an email or a number; Nequi and Daviplata take a 10-digit mobile number; a bank account takes digits only.",

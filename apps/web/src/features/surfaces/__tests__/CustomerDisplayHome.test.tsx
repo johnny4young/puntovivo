@@ -68,6 +68,7 @@ const COPY = {
     'summary.checkoutHint': 'El cajero confirmará el valor final.',
     'transfer.title': 'Pague por transferencia',
     'transfer.qrLabel': 'QR para transferir a {{name}}',
+    'transfer.staticNote': 'El valor no viene incluido en el QR: verifique el importe con su cajero.',
     privacy: 'Esta pantalla solo muestra productos y totales.',
   },
 } as const;
@@ -182,7 +183,7 @@ describe('CustomerDisplayHome', () => {
   it('shows the store transfer QR and the amount to transfer while the cashier charges by transfer', async () => {
     mocks.projection = {
       ...displayProjection(),
-      transfer: { label: 'Nequi', account: '310 555 0142', qrPayload: '000201abc', amount: 24_000 },
+      transfer: { label: 'Nequi', account: '310 555 0142', qrPayload: '000201abc', amount: 24_000, amountIncluded: false },
     };
     mocks.connection = 'live';
     renderHome();
@@ -194,12 +195,15 @@ describe('CustomerDisplayHome', () => {
     );
     expect(screen.getByTestId('customer-display-total')).toHaveTextContent('24.000');
     expect(screen.queryByText('El cajero confirmará el valor final.')).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId('customer-display-transfer-static-note')
+    ).toHaveTextContent(/valor no viene incluido/i);
   });
 
   it('shows only the provider name beside a per-charge provider QR', async () => {
     mocks.projection = {
       ...displayProjection(),
-      transfer: { label: 'Nequi', account: '', qrPayload: 'NEQUI-QR', amount: 24_000 },
+      transfer: { label: 'Nequi', account: '', qrPayload: 'NEQUI-QR', amount: 24_000, amountIncluded: true },
     };
     mocks.connection = 'live';
     renderHome();
@@ -207,6 +211,9 @@ describe('CustomerDisplayHome', () => {
     expect(await screen.findByTestId('customer-display-transfer-account')).toHaveTextContent(
       /^Nequi$/
     );
+    expect(
+      screen.queryByTestId('customer-display-transfer-static-note')
+    ).not.toBeInTheDocument();
   });
 
   it('renders the same live workflow in English', async () => {

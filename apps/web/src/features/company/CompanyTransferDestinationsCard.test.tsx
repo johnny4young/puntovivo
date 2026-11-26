@@ -58,6 +58,16 @@ const listUseQuery = vi.fn((_input: { siteId: string }, _options: { enabled: boo
   error: null,
 }));
 
+vi.mock('@/features/sales/TransferQrCode', () => ({
+  TransferQrCode: (props: { testId?: string; payload: string; label: string }) => (
+    <div
+      data-testid={props.testId}
+      data-payload={props.payload}
+      data-label={props.label}
+    />
+  ),
+}));
+
 vi.mock('@/components/feedback/ToastProvider', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
 }));
@@ -173,6 +183,16 @@ describe('CompanyTransferDestinationsCard', () => {
     expect(screen.getByTestId('transfer-destinations-qrPayload-error')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('transfer-destinations-save'));
     expect(setMutate).not.toHaveBeenCalled();
+  });
+
+  it('previews the stored QR while its payload is being typed', () => {
+    render(<CompanyTransferDestinationsCard />);
+    fireEvent.click(screen.getByTestId('transfer-destinations-add'));
+    expect(screen.queryByTestId('transfer-destinations-qr-preview')).not.toBeInTheDocument();
+
+    change('transfer-destinations-qr-payload', '00020101BR..63XY');
+    const preview = screen.getByTestId('transfer-destinations-qr-preview');
+    expect(preview).toHaveAttribute('data-payload', '00020101BR..63XY');
   });
 
   it('creates a destination with the normalized account, stores the list and refreshes the register read', () => {

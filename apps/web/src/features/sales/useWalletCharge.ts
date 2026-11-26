@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AppRouter } from '@puntovivo/server';
 import type { inferRouterOutputs } from '@trpc/server';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,15 @@ export type WalletChargeState =
   { mode: 'idle' } | inferRouterOutputs<AppRouter>['payments']['startWalletCharge'];
 
 const POLL_MS = 2_000;
+
+export interface WalletCharge {
+  state: WalletChargeState;
+  /** Operator-driven cancellation of the open Puntovivo attempt: stops the
+   * UI, the polling and the provider charge when the rail supports it. It
+   * never reverts a transfer the customer already sent — money that arrived
+   * must still be reconciled against the store account. */
+  cancelAttempt: () => void;
+}
 
 /**
  * Opens a provider charge for the settled transfer amount when a live wallet
@@ -27,7 +36,7 @@ export function useWalletCharge({
   amount: number;
   enabled: boolean;
   keepOnLeave: boolean;
-}): WalletChargeState {
+}): WalletCharge {
   const key = enabled && siteId.length > 0 && amount > 0 ? `${siteId}:${amount}` : null;
   const [result, setResult] = useState<{ key: string; state: WalletChargeState } | null>(null);
   const start = trpc.payments.startWalletCharge.useMutation();
@@ -35,6 +44,7 @@ export function useWalletCharge({
   const startRef = useRef(start.mutateAsync);
   const cancelRef = useRef(cancel.mutate);
   const keepRef = useRef(keepOnLeave);
+  const chargeRef = useRef<{ chargeId: string; railLabel: string } | null>(null);
   const { t } = useTranslation('sales');
   const toast = useToast();
   const warnPaidRef = useRef((_rail: string) => {});
@@ -46,22 +56,25 @@ export function useWalletCharge({
       toast.warning({ title: t('payment.wallet.leftApproved', { rail }) });
   });
 
+  // One shared guard for both leaving paths: the sheet closes (amount, method
+  // or unmount) and the explicit operator cancellation.
+  const leave = useCallback(() => {
+    const charge = chargeRef.current;
+    if (!charge || keepRef.current) return;
+    chargeRef.current = null;
+    cancelRef.current(
+      { chargeId: charge.chargeId },
+      { onSuccess: left => left.status === 'approved' && warnPaidRef.current(charge.railLabel) }
+    );
+  }, []);
+
   useEffect(() => {
     if (key === null) return;
     let active = true;
-    let charge: { chargeId: string; railLabel: string } | null = null;
-    const leave = () => {
-      if (!charge || keepRef.current) return;
-      const { chargeId, railLabel } = charge;
-      cancelRef.current(
-        { chargeId },
-        { onSuccess: left => left.status === 'approved' && warnPaidRef.current(railLabel) }
-      );
-    };
     startRef
       .current({ siteId, amount })
       .then(state => {
-        if (state.mode === 'live') charge = state;
+        if (state.mode === 'live') chargeRef.current = { chargeId: state.chargeId, railLabel: state.railLabel };
         if (active) setResult({ key, state });
         else leave();
       })
@@ -72,7 +85,12 @@ export function useWalletCharge({
       active = false;
       leave();
     };
-  }, [amount, key, siteId]);
+  }, [amount, key, leave, siteId]);
+
+  const cancelAttempt = useCallback(() => {
+    leave();
+    setResult(null);
+  }, [leave]);
 
   const started: WalletChargeState = result && result.key === key ? result.state : { mode: 'idle' };
   const live = started.mode === 'live' ? started : null;
@@ -86,7 +104,7 @@ export function useWalletCharge({
     }
   );
 
-  if (!live) return started;
+  if (!live) return { state: started, cancelAttempt };
   const polled = status.data?.chargeId === live.chargeId ? status.data.status : null;
-  return { ...live, status: polled ?? live.status };
+  return { state: { ...live, status: polled ?? live.status }, cancelAttempt };
 }

@@ -194,6 +194,14 @@ export function CustomerDisplayHome() {
                     ? `${projection.transfer.label} · ${projection.transfer.account}`
                     : projection.transfer.label}
                 </p>
+                {!projection.transfer.amountIncluded && (
+                  <p
+                    className="text-xs text-secondary-300"
+                    data-testid="customer-display-transfer-static-note"
+                  >
+                    {t('transfer.staticNote')}
+                  </p>
+                )}
               </div>
             ) : (
               <p className="text-sm text-secondary-300">{t('summary.checkoutHint')}</p>

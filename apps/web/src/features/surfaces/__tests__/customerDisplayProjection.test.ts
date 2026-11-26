@@ -254,6 +254,7 @@ describe('Customer Display transfer QR', () => {
     account: '310 555 0142',
     qrPayload: '000201abc',
     amount: 87420,
+    amountIncluded: false,
   };
 
   it('carries the store transfer QR and round-trips it through the parser', () => {
@@ -270,7 +271,24 @@ describe('Customer Display transfer QR', () => {
     expect(projection({ transfer: { ...transfer, qrPayload: 'x'.repeat(513) } }).transfer).toBe(
       undefined
     );
-    const malformed = { ...projection(), transfer: { ...transfer, amount: -1 } };
+    const malformed = { ...projection(), transfer: { ...transfer, amount: -1, amountIncluded: false } };
     expect(parseCustomerDisplayProjection(malformed)).toBeNull();
+  });
+
+  it('parses a legacy transfer without the flag as amount-included', () => {
+    const base = projection({ transfer });
+    const legacy = {
+      ...base,
+      transfer: {
+        label: transfer.label,
+        account: transfer.account,
+        qrPayload: transfer.qrPayload,
+        amount: transfer.amount,
+      },
+    };
+    const parsed = parseCustomerDisplayProjection(legacy);
+    // A payload written before the flag existed keeps its historical
+    // presentation instead of warning on an old text QR.
+    expect(parsed?.transfer?.amountIncluded).toBe(true);
   });
 });
