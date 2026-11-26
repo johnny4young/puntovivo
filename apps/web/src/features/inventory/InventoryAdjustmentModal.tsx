@@ -131,7 +131,7 @@ export function InventoryAdjustmentModal({
                 })}
               />
               {form.formState.errors.newStock && (
-                <p className="mt-1 text-sm text-danger-500">
+                <p role="alert" className="mt-1 text-sm text-danger-500">
                   {form.formState.errors.newStock.message}
                 </p>
               )}
@@ -178,7 +178,7 @@ export function InventoryAdjustmentModal({
                 })}
               />
               {form.formState.errors.notes && (
-                <p className="mt-1 text-sm text-danger-500">
+                <p role="alert" className="mt-1 text-sm text-danger-500">
                   {form.formState.errors.notes.message}
                 </p>
               )}
@@ -186,7 +186,11 @@ export function InventoryAdjustmentModal({
           </>
         )}
 
-        {error && <p className="text-sm text-danger-500">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-danger-500">
+            {error}
+          </p>
+        )}
       </form>
     </Modal>
   );

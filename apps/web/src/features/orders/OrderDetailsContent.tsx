@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { formatSystemNote } from '@/lib/systemNotes';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { Order } from '@/types';
 
@@ -120,7 +121,7 @@ export function OrderDetailsContent({
             {order.linkedPurchases?.map(purchase => (
               <div
                 key={purchase.id}
-                className="flex flex-col gap-1 rounded-lg border border-success-200 bg-white px-3 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-1 rounded-lg border border-success-200 bg-surface px-3 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
               >
                 <div>
                   <p className="font-medium text-secondary-900">{purchase.purchaseNumber}</p>
@@ -152,7 +153,7 @@ export function OrderDetailsContent({
                 <th className="px-4 py-3">{t('details.total')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-secondary-200 bg-white">
+            <tbody className="divide-y divide-line bg-surface">
               {order.items?.map(item => (
                 <tr key={item.id}>
                   <td className="px-4 py-3">
@@ -191,9 +192,9 @@ export function OrderDetailsContent({
       </div>
 
       {order.notes && (
-        <div className="rounded-xl border border-secondary-200 px-4 py-4">
+        <div className="rounded-xl border border-line px-4 py-4">
           <p className="text-sm text-secondary-500">{t('details.notes')}</p>
-          <p className="mt-2 text-sm text-secondary-700">{order.notes}</p>
+          <p className="mt-2 text-sm text-secondary-700">{formatSystemNote(order.notes, t)}</p>
         </div>
       )}
 

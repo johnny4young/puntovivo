@@ -34,7 +34,16 @@ export function ProductQuickCreatePanel({
 }: ProductQuickCreatePanelProps) {
   const { t } = useTranslation('productQuickCreate');
   const [showOpeningStock, setShowOpeningStock] = useState(false);
-  const { form, errors, selectedVatRateId, stockField, vatRateField, syncTier } = formBundle;
+  const {
+    form,
+    errors,
+    selectedVatRateId,
+    stockField,
+    costField,
+    vatRateField,
+    syncTier,
+    syncAllTiersFromCost,
+  } = formBundle;
   const selectedTaxKind = vatRates.find(vatRate => vatRate.id === selectedVatRateId)?.kind ?? 'iva';
   const skuField = form.register('sku', {
     required: t('fields.codeRequired'),
@@ -270,7 +279,7 @@ export function ProductQuickCreatePanel({
         {showOpeningStock && (
           <div
             id="product-quick-opening-stock"
-            className="border-t border-line bg-surface px-4 py-4"
+            className="grid gap-4 border-t border-line bg-surface px-4 py-4 sm:grid-cols-2"
           >
             <SimpleFormField
               label={t('openingStock.field')}
@@ -284,8 +293,28 @@ export function ProductQuickCreatePanel({
                 inputMode="decimal"
                 min="0"
                 step="any"
-                className={cn('pv-input max-w-[18rem]', errors.stock && 'error')}
+                className={cn('pv-input', errors.stock && 'error')}
                 {...stockField}
+              />
+            </SimpleFormField>
+            <SimpleFormField
+              label={t('openingStock.costField')}
+              htmlFor="product-quick-cost"
+              helperText={t('openingStock.costHelp')}
+              {...errorProp(errors.cost?.message)}
+            >
+              <input
+                id="product-quick-cost"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                className={cn('pv-input', errors.cost && 'error')}
+                {...costField}
+                onChange={event => {
+                  costField.onChange(event);
+                  syncAllTiersFromCost(parseNumber(event.target.value));
+                }}
               />
             </SimpleFormField>
           </div>

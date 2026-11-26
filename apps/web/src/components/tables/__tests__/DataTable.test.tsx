@@ -433,12 +433,8 @@ describe('DataTable', () => {
 
       render(<DataTable columns={columns} data={products} pageSize={10} />);
 
-      // Find and click next page button (single chevron right)
-      // `noUncheckedIndexedAccess`: `getAllByRole` returns `HTMLElement[]`;
-      // pagination renders 4 buttons (first / prev / next / last) so [2]
-      // is guaranteed. reason: known pagination button order.
-      const nextButton = screen.getAllByRole('button')[2]!;
-      await user.click(nextButton);
+      const paginationButtons = screen.getAllByRole('button').slice(-4);
+      await user.click(paginationButtons[2]!);
 
       expect(screen.getByText(/Page 2 of 2/)).toBeInTheDocument();
     });
@@ -449,13 +445,9 @@ describe('DataTable', () => {
 
       render(<DataTable columns={columns} data={products} pageSize={10} />);
 
-      // Go to page 2 first
-      const nextButton = screen.getAllByRole('button')[2]!;
-      await user.click(nextButton);
-
-      // Go back to page 1
-      const prevButton = screen.getAllByRole('button')[1]!;
-      await user.click(prevButton);
+      const paginationButtons = screen.getAllByRole('button').slice(-4);
+      await user.click(paginationButtons[2]!);
+      await user.click(paginationButtons[1]!);
 
       expect(screen.getByText(/Page 1 of 2/)).toBeInTheDocument();
     });
@@ -466,15 +458,12 @@ describe('DataTable', () => {
 
       render(<DataTable columns={columns} data={products} pageSize={10} />);
 
-      // Go to last page
-      const lastButton = screen.getAllByRole('button')[3]!;
-      await user.click(lastButton);
+      const paginationButtons = screen.getAllByRole('button').slice(-4);
+      await user.click(paginationButtons[3]!);
 
       expect(screen.getByText(/Page 3 of 3/)).toBeInTheDocument();
 
-      // Jump to first page
-      const firstButton = screen.getAllByRole('button')[0]!;
-      await user.click(firstButton);
+      await user.click(paginationButtons[0]!);
 
       expect(screen.getByText(/Page 1 of 3/)).toBeInTheDocument();
     });
@@ -484,9 +473,9 @@ describe('DataTable', () => {
 
       render(<DataTable columns={columns} data={products} pageSize={10} />);
 
-      const buttons = screen.getAllByRole('button');
-      expect(buttons[0]).toBeDisabled(); // First page button
-      expect(buttons[1]).toBeDisabled(); // Previous button
+      const paginationButtons = screen.getAllByRole('button').slice(-4);
+      expect(paginationButtons[0]).toBeDisabled(); // First page button
+      expect(paginationButtons[1]).toBeDisabled(); // Previous button
     });
 
     it('should disable next buttons on last page', async () => {
@@ -495,13 +484,12 @@ describe('DataTable', () => {
 
       render(<DataTable columns={columns} data={products} pageSize={10} />);
 
-      // Go to last page
-      const lastButton = screen.getAllByRole('button')[3]!;
-      await user.click(lastButton);
+      const paginationButtons = screen.getAllByRole('button').slice(-4);
+      await user.click(paginationButtons[3]!);
 
-      const buttons = screen.getAllByRole('button');
-      expect(buttons[2]).toBeDisabled(); // Next button
-      expect(buttons[3]).toBeDisabled(); // Last page button
+      const updatedButtons = screen.getAllByRole('button').slice(-4);
+      expect(updatedButtons[2]).toBeDisabled(); // Next button
+      expect(updatedButtons[3]).toBeDisabled(); // Last page button
     });
 
     it('should show correct entry count', () => {
@@ -653,19 +641,29 @@ describe('DataTable', () => {
   });
 
   describe('Keyboard Navigation', () => {
+    it('exposes sortable headers as keyboard-focusable buttons with aria-sort', async () => {
+      const user = userEvent.setup();
+      const products = createTestProducts(3);
+
+      render(<DataTable columns={columns} data={products} />);
+
+      const nameSortBtn = screen.getByRole('button', { name: 'Name' });
+      const headerCell = nameSortBtn.closest('th');
+      expect(headerCell).toHaveAttribute('aria-sort', 'none');
+
+      nameSortBtn.focus();
+      await user.keyboard('{Enter}');
+      expect(headerCell).toHaveAttribute('aria-sort', 'ascending');
+    });
+
     it('moves focus between rows with arrow keys', async () => {
       const user = userEvent.setup();
       const products = createTestProducts(3);
 
       render(<DataTable columns={columns} data={products} />);
 
-      // : the scroll wrapper is now the first focusable
-      // stop (axe `scrollable-region-focusable`). Tab once to land
-      // on the wrapper, again to enter the row's roving tabindex.
-      await user.tab();
-      await user.tab();
-
       const rows = getBodyRows();
+      rows[0]!.focus();
       expect(rows[0]).toHaveFocus();
 
       await user.keyboard('{ArrowDown}');
@@ -681,12 +679,8 @@ describe('DataTable', () => {
 
       render(<DataTable columns={columns} data={products} />);
 
-      // : tab twice — once to the scroll wrapper, once into
-      // the first row.
-      await user.tab();
-      await user.tab();
-
       const rows = getBodyRows();
+      rows[0]!.focus();
       expect(rows[0]).toHaveFocus();
 
       await user.keyboard('{End}');

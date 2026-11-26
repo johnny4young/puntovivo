@@ -32,8 +32,7 @@ const adminRoutes = [
   {
     label: 'Review stock',
     path: '/inventory',
-    assertion: async page =>
-      page.getByRole('button', { name: /Movements|By Site|Por sede/i }).first(),
+    assertion: async page => page.getByRole('tab', { name: /Movements|Stock|Existencias/i }).first(),
   },
   {
     label: 'Orders',
@@ -45,7 +44,7 @@ const adminRoutes = [
     label: 'Purchases',
     path: '/purchases',
     assertion: async page =>
-      page.getByRole('button', { name: /Record purchase|Nueva compra|Add product/i }).first(),
+      page.getByRole('tab', { name: /New purchase|Nueva compra|History|Historial/i }).first(),
   },
   {
     label: 'Quotations',

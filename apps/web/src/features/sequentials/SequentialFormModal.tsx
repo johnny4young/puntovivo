@@ -181,7 +181,11 @@ export function SequentialFormModal({
           <SequentialCounterFields form={form} nextPreview={nextPreview} isLowering={isLowering} />
         </AdvancedDisclosure>
 
-        {error ? <p className="text-sm text-danger-500">{error}</p> : null}
+        {error ? (
+          <p role="alert" className="text-sm text-danger-500">
+            {error}
+          </p>
+        ) : null}
       </form>
     </Modal>
   );

@@ -25,7 +25,7 @@
     "RESTAURANT_MODIFIER_GROUP_PRODUCT_UNAVAILABLE": "Un plato de este grupo ya no está disponible. Quítelo y guarde de nuevo."
   },
   "surface": {
-    "touchHeading": "POS Touch",
+    "touchHeading": "POS Táctil",
     "mobileHeading": "Mesero Móvil",
     "subheading": "Capture la orden por voz o búsqueda manual."
   },

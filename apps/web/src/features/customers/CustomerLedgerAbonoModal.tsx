@@ -27,9 +27,12 @@ import { formatCurrency } from '@/lib/utils';
 
 export type CustomerLedgerAbonoMode = 'payment' | 'adjustment' | 'till';
 
+export type CustomerLedgerPaymentMethod = 'cash' | 'card' | 'transfer';
+
 export interface CustomerLedgerAbonoValues {
   amount: number;
   note: string;
+  paymentMethod?: CustomerLedgerPaymentMethod | undefined;
 }
 
 interface CustomerLedgerAbonoModalProps {
@@ -67,7 +70,7 @@ export function CustomerLedgerAbonoModal({
   const isPayment = mode !== 'adjustment';
   const copyValues = { name: customerName, balance: formatCurrency(balance) };
   const form = useForm<CustomerLedgerAbonoValues>({
-    defaultValues: { amount: 0, note: '' },
+    defaultValues: { amount: 0, note: '', paymentMethod: 'cash' },
   });
 
   // Reset on `mode` / `isOpen` change so a future keep-mounted
@@ -76,7 +79,7 @@ export function CustomerLedgerAbonoModal({
   // reset removes the fragility.
   useEffect(() => {
     if (isOpen) {
-      form.reset({ amount: 0, note: '' });
+      form.reset({ amount: 0, note: '', paymentMethod: 'cash' });
     }
   }, [isOpen, mode, form]);
 
@@ -88,6 +91,7 @@ export function CustomerLedgerAbonoModal({
       await onSubmit({
         amount: values.amount,
         note: values.note?.trim() ?? '',
+        ...(mode === 'payment' ? { paymentMethod: values.paymentMethod ?? 'cash' } : {}),
       });
     })
   );
@@ -158,11 +162,33 @@ export function CustomerLedgerAbonoModal({
             </button>
           )}
           {form.formState.errors.amount && (
-            <p className="mt-1 text-sm text-danger-500" data-testid="customer-ledger-amount-error">
+            <p
+              role="alert"
+              className="mt-1 text-sm text-danger-500"
+              data-testid="customer-ledger-amount-error"
+            >
               {form.formState.errors.amount.message}
             </p>
           )}
         </div>
+
+        {mode === 'payment' && (
+          <div>
+            <label htmlFor="customer-ledger-payment-method" className="label">
+              {t('ledger.abonoModal.paymentMethodLabel')}
+            </label>
+            <select
+              id="customer-ledger-payment-method"
+              className="input mt-1"
+              data-testid="customer-ledger-payment-method"
+              {...form.register('paymentMethod', { required: true })}
+            >
+              <option value="cash">{t('ledger.abonoModal.paymentMethods.cash')}</option>
+              <option value="card">{t('ledger.abonoModal.paymentMethods.card')}</option>
+              <option value="transfer">{t('ledger.abonoModal.paymentMethods.transfer')}</option>
+            </select>
+          </div>
+        )}
 
         <div>
           <label htmlFor="customer-ledger-note" className="label">
@@ -189,14 +215,22 @@ export function CustomerLedgerAbonoModal({
             })}
           />
           {form.formState.errors.note && (
-            <p className="mt-1 text-sm text-danger-500" data-testid="customer-ledger-note-error">
+            <p
+              role="alert"
+              className="mt-1 text-sm text-danger-500"
+              data-testid="customer-ledger-note-error"
+            >
               {form.formState.errors.note.message}
             </p>
           )}
         </div>
 
         {error && (
-          <p className="text-sm text-danger-500" data-testid="customer-ledger-abono-error">
+          <p
+            role="alert"
+            className="text-sm text-danger-500"
+            data-testid="customer-ledger-abono-error"
+          >
             {error}
           </p>
         )}

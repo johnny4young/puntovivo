@@ -206,7 +206,7 @@ test('reservation arrival, explicit traditional check, settlement and reload rec
   expect(evidence(scenario.tenantId).sales).toHaveLength(1);
   expect(getProductStock(scenario.product.id)).toBe(7);
   await page.reload();
-  await page.getByTestId('checkout-open-suspended-panel').click();
+  await page.getByTestId('sales-open-suspended').click();
   const draft = page.getByTestId('suspended-draft-card').filter({ hasText: tableName });
   await draft.getByTestId('suspended-draft-resume').click();
   await page.getByRole('button', { name: 'Charge sale', exact: true }).first().click();

@@ -533,7 +533,7 @@
         "retryConfirmMessage": "El pago vuelve a la cola con todos sus reintentos disponibles y se procesa en unos segundos.",
         "retrySuccess": "Pago encolado para reintento",
         "retryError": "No se pudo reintentar el pago",
-        "retryUnavailable": "Solo los pagos rechazados, vencidos, en reintento o marcados como dead letter se pueden reintentar.",
+        "retryUnavailable": "Solo los pagos rechazados, vencidos, en reintento o en cola de fallos se pueden reintentar.",
         "markSettled": "Marcar liquidado",
         "markSettledConfirmTitle": "Marcar este pago como liquidado",
         "markSettledConfirmMessage": "Use este override solo cuando el proveedor ya confirmó la liquidación por fuera. El estado pasa a liquidado y abajo puede pegar la referencia del proveedor.",
@@ -642,7 +642,7 @@
     },
     "pairing": {
       "title": "Código de emparejamiento",
-      "description": "Genere un código de un solo uso para un terminal hub-client.",
+      "description": "Genere un código de un solo uso para un terminal conectado.",
       "site": "Sede emparejada",
       "deviceName": "Nombre del dispositivo",
       "ttl": "Minutos",
@@ -657,7 +657,7 @@
     },
     "devices": {
       "title": "Dispositivos registrados",
-      "description": "Nodos de autoridad, clientes web y terminales hub-client registrados para este negocio.",
+      "description": "Nodos de autoridad, clientes web y terminales conectados registrados para este negocio.",
       "refresh": "Actualizar",
       "empty": "Aún no hay dispositivos registrados.",
       "revoke": "Revocar",
@@ -725,14 +725,14 @@
   },
   "sync": {
     "kicker": "Operación",
-    "title": "Salud de sync",
+    "title": "Salud de sincronización",
     "description": "Monitoree la cola de sync y resuelva los conflictos que necesitan una decisión.",
     "summary": {
       "pending": "Pendientes",
       "retrying": "Reintentando",
       "failures": "Fallos",
       "conflicts": "Conflictos",
-      "lastSync": "Última sync",
+      "lastSync": "Última sincronización",
       "never": "Aún no"
     },
     "empty": {

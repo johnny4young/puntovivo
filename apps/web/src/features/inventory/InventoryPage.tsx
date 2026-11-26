@@ -484,9 +484,11 @@ export function InventoryPage() {
         recentOutbound={recentOutbound}
       />
 
-      <Suspense fallback={null}>
-        <SerialWarrantyLookup />
-      </Suspense>
+      {stockItems.some(item => item.tracksSerials) && (
+        <Suspense fallback={null}>
+          <SerialWarrantyLookup />
+        </Suspense>
+      )}
 
       {activeView === 'balances' && (
         <InventoryBalancesPanel

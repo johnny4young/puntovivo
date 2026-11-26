@@ -4,6 +4,7 @@ import {
   ensureLanguage,
   expectNoClientIssues,
   loginAs,
+  openUserMenu,
 } from './support/app.js';
 
 test('language selection does not scroll the page when opening the header dropdown', async ({
@@ -14,7 +15,10 @@ test('language selection does not scroll the page when opening the header dropdo
   await page.goto('/inventory');
   await expect(page.getByRole('heading', { name: 'Inventory', exact: true })).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
-  const trigger = page.locator('header button[aria-haspopup="listbox"]').filter({
+  await openUserMenu(page);
+  const userMenu = page.locator('#header-user-menu');
+  await expect(userMenu).toBeVisible();
+  const trigger = userMenu.locator('button[aria-haspopup="listbox"]').filter({
     hasText: /^(?:English|Español|System|Sistema)$/,
   });
   const triggerBox = await trigger.boundingBox();
@@ -23,14 +27,16 @@ test('language selection does not scroll the page when opening the header dropdo
     triggerBox!.x + triggerBox!.width / 2,
     triggerBox!.y + triggerBox!.height / 2
   );
-  await page.getByRole('listbox').evaluate(async list => {
+  await userMenu.getByRole('listbox').evaluate(async list => {
     await Promise.all(list.parentElement!.getAnimations().map(animation => animation.finished));
     await new Promise<void>(resolve =>
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
     );
   });
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
-  const optionBox = await page.getByRole('option', { name: 'Español', exact: true }).boundingBox();
+  const optionBox = await userMenu
+    .getByRole('option', { name: 'Español', exact: true })
+    .boundingBox();
   expect(optionBox).not.toBeNull();
   await page.mouse.click(optionBox!.x + optionBox!.width / 2, optionBox!.y + optionBox!.height / 2);
   await expect(trigger).toHaveText('Español');
@@ -48,12 +54,13 @@ test('language selection does not scroll the page when opening the header dropdo
   // The helper must handle a control left open by a previous interaction.
   await trigger.press('Enter');
   await ensureLanguage(page, 'es');
-  await expect(trigger).toHaveText('Español');
-  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  await expect(userMenu).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Inventario', exact: true })).toBeVisible();
   // No-op locale calls must also close a previously opened preference menu.
+  await openUserMenu(page);
   await trigger.press('Enter');
   await ensureLanguage(page, 'es');
-  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  await expect(userMenu).toBeHidden();
   // Mobile callers temporarily expose the real preference control and must
   // restore their viewport; visible page copy verifies the actual locale.
   for (const width of [320, 375, 768]) {

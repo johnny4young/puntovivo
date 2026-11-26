@@ -224,7 +224,11 @@ export function OrdersPage() {
               onCostChange={handleCostChange}
               onRemove={handleRemoveItem}
             />
-            {orderError && <p className="mt-4 text-sm text-danger-500">{orderError}</p>}
+            {orderError && (
+              <p role="alert" className="mt-4 text-sm text-danger-500">
+                {orderError}
+              </p>
+            )}
           </div>
 
           <OrdersCheckoutPanel

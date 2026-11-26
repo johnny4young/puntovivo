@@ -206,8 +206,8 @@ export function SidebarWorkspaces({
 }) {
   const { t: tWorkspaces } = useTranslation('workspaces');
   const routeHasPrimaryTask = primaryTasks.some(task => taskOwnsPath(task, currentPath));
-  const [toolsExpanded, setToolsExpanded] = useState(false);
-  const toolsOpen = !routeHasPrimaryTask || toolsExpanded;
+  const [toolsOverride, setToolsOverride] = useState<{ path: string; open: boolean } | null>(null);
+  const toolsOpen = toolsOverride?.path === currentPath ? toolsOverride.open : !routeHasPrimaryTask;
 
   if (collapsed) {
     return (
@@ -265,10 +265,9 @@ export function SidebarWorkspaces({
         <button
           type="button"
           onClick={() => {
-            if (routeHasPrimaryTask) setToolsExpanded(previous => !previous);
+            setToolsOverride({ path: currentPath, open: !toolsOpen });
           }}
           aria-expanded={toolsOpen}
-          aria-disabled={!routeHasPrimaryTask || undefined}
           aria-controls="sidebar-more-tools"
           className="flex min-h-11 w-full items-center gap-3 rounded-[11px] px-2.5 text-left text-sm font-semibold text-secondary-900 transition-colors hover:bg-secondary-100/80 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
           data-testid="sidebar-more-tools-toggle"

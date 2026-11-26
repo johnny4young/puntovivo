@@ -68,7 +68,7 @@ describe('CustomerLedgerAbonoModal', () => {
     await user.click(screen.getByText('Confirm payment'));
 
     expect(props.onSubmit).toHaveBeenCalledOnce();
-    expect(props.onSubmit).toHaveBeenCalledWith({ amount: 250, note: '' });
+    expect(props.onSubmit).toHaveBeenCalledWith({ amount: 250, note: '', paymentMethod: 'cash' });
   });
 
   it('blocks adjustment submission when note is empty', async () => {
@@ -167,7 +167,7 @@ describe('CustomerLedgerAbonoModal', () => {
     // Non-vacuous in both directions: the first dispatch DID reach the
     // handler, and the repeats did not.
     expect(props.onSubmit).toHaveBeenCalledOnce();
-    expect(props.onSubmit).toHaveBeenCalledWith({ amount: 250, note: '' });
+    expect(props.onSubmit).toHaveBeenCalledWith({ amount: 250, note: '', paymentMethod: 'cash' });
 
     await act(async () => {
       releaseWrite();

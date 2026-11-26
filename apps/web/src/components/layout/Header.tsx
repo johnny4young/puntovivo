@@ -136,7 +136,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
 
         <div
           data-testid="header-page-heading"
-          className="flex min-w-0 flex-col gap-0.5 border-r border-line/70 pr-3 md:flex-1 xl:w-44 xl:flex-none 2xl:w-52"
+          className="flex min-w-0 flex-col gap-0.5 border-r border-line/70 pr-3 md:flex-1 xl:w-64 xl:flex-none 2xl:w-72"
         >
           {/*  slice B: bumped the header page-kicker from
               text-primary-600 (oklch L=0.61, axe 3.65:1) to
@@ -181,11 +181,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
           </button>
         </div>
 
-        <div className="col-span-4 row-start-2 flex min-w-0 items-center gap-2 md:w-64 md:flex-none xl:w-72">
-          <div className="w-28 min-w-0 flex-none">
-            <LanguageSelector compact />
-          </div>
-
+        <div className="col-span-4 row-start-2 flex min-w-0 items-center gap-2 md:w-44 md:flex-none xl:w-48">
           <div className="min-w-0 flex-1">
             <Select
               // Names the trigger button so automation can pin the active site
@@ -289,6 +285,9 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
                     {user?.name}
                   </p>
                   <p className="mt-1 break-all text-xs text-fg2">{user?.email}</p>
+                </div>
+                <div className="mt-3 px-1">
+                  <LanguageSelector compact />
                 </div>
                 <Button
                   variant="ghost"

@@ -221,10 +221,12 @@ export function RevenueTrendCard({
             <span>{t('revenue.periodOrders')}</span>
             <strong>{formatNumber(totalOrders)}</strong>
           </div>
-          <div>
-            <span>{t('revenue.bestDay')}</span>
-            <strong>{bestPoint ? formatCalendarDay(bestPoint.date) : '—'}</strong>
-          </div>
+          {bestPoint && bestPoint.revenue > 0 && (
+            <div>
+              <span>{t('revenue.bestDay')}</span>
+              <strong>{formatCalendarDay(bestPoint.date)}</strong>
+            </div>
+          )}
         </div>
       </div>
     </section>

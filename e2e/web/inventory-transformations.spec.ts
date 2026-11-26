@@ -86,6 +86,7 @@ async function receiveExactLot(
   }
 ) {
   await page.goto('/purchases');
+  await page.getByTestId('purchases-tab-new').click();
   await page.getByRole('button', { name: 'Add Product' }).first().click();
   const addDialog = page
     .locator('[role="dialog"]')
@@ -195,7 +196,7 @@ test('manager procures an exact lot and freezes it through a transformation', as
 
   await page.keyboard.press('Alt+3');
   await expect(page).toHaveURL(/\/inventory$/);
-  await page.getByRole('button', { name: 'Transformations' }).click();
+  await page.getByRole('tab', { name: 'Transformations' }).click();
   await expect(page.getByTestId('inventory-transformations-panel')).toBeVisible();
   await page.getByRole('button', { name: 'New recipe' }).click();
   const recipeDialog = page.getByRole('dialog', { name: 'Create transformation recipe' });
@@ -308,7 +309,7 @@ test('manager procures an exact lot and freezes it through a transformation', as
   await page.keyboard.press('Alt+3');
   await expect(page).toHaveURL(/\/inventory$/);
   await page.reload();
-  await page.getByRole('button', { name: 'Transformations' }).click();
+  await page.getByRole('tab', { name: 'Transformations' }).click();
   const persistedHistory = page.locator('article').filter({ hasText: recipeName }).last();
   await expect(persistedHistory).toContainText('Completed');
   await captureEvidence(page, 'pr8-lot-transformation-reload');

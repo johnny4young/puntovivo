@@ -142,6 +142,7 @@ async function readBlobUrlAudit(page: Page): Promise<BlobUrlAudit> {
 
 async function exerciseInvoiceOcrPreviewLifecycle(page: Page) {
   await navigateInApp(page, '/purchases');
+  await page.getByTestId('purchases-tab-new').click();
   const openOcr = page.getByTestId('purchases-open-ocr');
   await expect(openOcr).toBeVisible();
   await installBlobUrlAudit(page);

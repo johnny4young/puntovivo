@@ -236,11 +236,12 @@ export function useSalePaymentModal({
   const tipAmount = Math.max(0, Number(tipAmountWatch) || 0);
   const selectedCustomer = customers.find(c => c.id === watchedCustomerId) ?? null;
 
+  const pharmacyZoneOn = useRegisterZone('pharmacy-lot');
   const checkoutRequirementsInput = useMemo(
     () => pharmacyCheckoutInput(approvalItems, watchedCustomerId || null),
     [approvalItems, watchedCustomerId]
   );
-  const pharmacyCheckoutEnabled = isOpen && approvalItems.length > 0;
+  const pharmacyCheckoutEnabled = pharmacyZoneOn && isOpen && approvalItems.length > 0;
   const pharmacyCheckoutQuery = trpc.pharmacy.checkoutRequirements.useQuery(
     checkoutRequirementsInput,
     {
@@ -347,10 +348,12 @@ export function useSalePaymentModal({
   const promotionQuoteLoading =
     promotionQuoteEnabled && (promotionQuote.isLoading || promotionQuote.isFetching);
   const promotionQuoteUnavailable = promotionQuoteEnabled && promotionQuote.isError;
-  // A stock shortfall is fixed in the cart, so name it instead of blaming promotions.
+  // Cart validation failures (stock, fractional quantities, steps) are fixed in the cart, not promotions.
+  const promotionQuoteErrorCode = promotionQuoteUnavailable
+    ? extractServerErrorCode(promotionQuote.error)
+    : null;
   const promotionQuoteStockError =
-    promotionQuoteUnavailable &&
-    extractServerErrorCode(promotionQuote.error) === 'SALE_INSUFFICIENT_STOCK'
+    promotionQuoteUnavailable && promotionQuoteErrorCode?.startsWith('SALE_')
       ? translateServerError(promotionQuote.error, t, t('promotions:checkout.unavailable'))
       : null;
   const checkoutBaseTotal =

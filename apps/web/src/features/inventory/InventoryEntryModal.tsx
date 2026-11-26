@@ -186,7 +186,7 @@ export function InventoryEntryModal({
                     {t('entry.serialCount', { count: serialCount })}
                   </p>
                   {form.formState.errors.serialNumbers && (
-                    <p className="mt-1 text-sm text-danger-500">
+                    <p role="alert" className="mt-1 text-sm text-danger-500">
                       {form.formState.errors.serialNumbers.message}
                     </p>
                   )}
@@ -220,7 +220,7 @@ export function InventoryEntryModal({
                     })}
                   />
                   {form.formState.errors.lotNumber && (
-                    <p className="mt-1 text-sm text-danger-500">
+                    <p role="alert" className="mt-1 text-sm text-danger-500">
                       {form.formState.errors.lotNumber.message}
                     </p>
                   )}
@@ -262,7 +262,7 @@ export function InventoryEntryModal({
                   })}
                 />
                 {form.formState.errors.quantity && (
-                  <p className="mt-1 text-sm text-danger-500">
+                  <p role="alert" className="mt-1 text-sm text-danger-500">
                     {form.formState.errors.quantity.message}
                   </p>
                 )}
@@ -284,7 +284,7 @@ export function InventoryEntryModal({
                   })}
                 />
                 {form.formState.errors.cost && (
-                  <p className="mt-1 text-sm text-danger-500">
+                  <p role="alert" className="mt-1 text-sm text-danger-500">
                     {form.formState.errors.cost.message}
                   </p>
                 )}
@@ -334,7 +334,11 @@ export function InventoryEntryModal({
           </>
         )}
 
-        {error && <p className="text-sm text-danger-500">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-danger-500">
+            {error}
+          </p>
+        )}
       </form>
     </Modal>
   );

@@ -578,7 +578,7 @@
   {
     "path": "customerLedger.addPayment",
     "kind": "mutation",
-    "input": "object{amount:number[min>0],customerId:string[minLength=1],note?:string}",
+    "input": "object{amount:number[min>0],customerId:string[minLength=1],note?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\")}",
     "output": "inferred"
   },
   {

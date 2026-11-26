@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { PackagePlus, ScanLine, Search } from 'lucide-react';
+import { ScanLine, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -46,6 +46,7 @@ export function PurchasesPage() {
   const { user } = useAuth();
   const { currentSite } = useTenant();
   const stockReceiptMeasurement = useTaskMeasurementController();
+  const [activeTab, setActiveTab] = useState<'history' | 'new'>('history');
   const [cartItems, setCartItems] = useState<PurchaseCartItem[]>([]);
   const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
   const [isInvoiceOcrV2Open, setIsInvoiceOcrV2Open] = useState(false);
@@ -116,6 +117,7 @@ export function PurchasesPage() {
 
   const handleProductSelect = (selection: Parameters<typeof mergePurchaseCartItem>[1]) => {
     setCartItems(currentItems => mergePurchaseCartItem(currentItems, selection));
+    setActiveTab('new');
     stockReceiptMeasurement.markFirstProgress();
     setPurchaseError(null);
   };
@@ -216,17 +218,44 @@ export function PurchasesPage() {
           </h1>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-lg border border-secondary-200 px-3 py-2 text-sm">
-              <p className="text-secondary-500">{t('page.activeSite')}</p>
-              <p className="font-medium text-secondary-900">
-                {currentSite?.name ?? t('page.noSite')}
-              </p>
+            <div
+              role="tablist"
+              aria-label={t('page.title')}
+              className="segmented-control"
+              data-testid="purchases-tabs"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'history'}
+                data-testid="purchases-tab-history"
+                className={`segmented-tab ${activeTab === 'history' ? 'segmented-tab-active' : ''}`}
+                onClick={() => setActiveTab('history')}
+              >
+                {t('page.tabs.history')}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'new'}
+                data-testid="purchases-tab-new"
+                className={`segmented-tab flex items-center gap-1.5 ${activeTab === 'new' ? 'segmented-tab-active' : ''}`}
+                onClick={() => setActiveTab('new')}
+              >
+                <span>{t('page.tabs.newPurchase')}</span>
+                {cartItems.length > 0 && (
+                  <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-primary-600 px-1.5 text-[11px] font-bold text-white">
+                    {cartItems.length}
+                  </span>
+                )}
+              </button>
             </div>
             <button
-              className="btn-outline flex items-center gap-2"
+              type="button"
+              className="btn-primary flex items-center gap-2"
               onClick={handleOpenProductSearch}
             >
-              <Search className="h-4 w-4" />
+              <Search className="h-4 w-4" aria-hidden="true" />
               {t('checkout.addProduct')}
             </button>
             {canManageReturns && invoiceOcrV2.enabled && (
@@ -236,18 +265,10 @@ export function PurchasesPage() {
                 onClick={handleOpenInvoiceOcr}
                 data-testid="purchases-open-ocr"
               >
-                <ScanLine className="h-4 w-4" />
+                <ScanLine className="h-4 w-4" aria-hidden="true" />
                 <span>{t('checkout.openOcr')}</span>
               </button>
             )}
-            <button
-              className="btn-primary flex items-center gap-2"
-              onClick={handleOpenFinalizeModal}
-              disabled={!currentSite || cartItems.length === 0 || !serialsComplete}
-            >
-              <PackagePlus className="h-4 w-4" />
-              {t('checkout.register')}
-            </button>
           </div>
         </div>
 
@@ -284,56 +305,65 @@ export function PurchasesPage() {
           </div>
         )}
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_360px]">
-          <div className="card p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-secondary-900">{t('checkout.kicker')}</h2>
-                <p className="text-sm text-secondary-500">{t('checkout.description')}</p>
+        {activeTab === 'new' ? (
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_340px]">
+            <div className="card p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-secondary-900">
+                    {t('checkout.kicker')}
+                  </h2>
+                  <p className="text-sm text-secondary-500">{t('checkout.description')}</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={handleClearCart}
+                  disabled={cartItems.length === 0}
+                >
+                  {t('checkout.clear')}
+                </button>
               </div>
-              <button
-                className="btn-ghost"
-                onClick={handleClearCart}
-                disabled={cartItems.length === 0}
-              >
-                {t('checkout.clear')}
-              </button>
+
+              <PurchaseCartTable
+                items={cartItems}
+                onQuantityChange={handleQuantityChange}
+                onCostChange={handleCostChange}
+                onSerialNumbersChange={handleSerialNumbersChange}
+                onRemove={handleRemoveItem}
+              />
+              {purchaseError && (
+                <p role="alert" className="mt-4 text-sm text-danger-500">
+                  {purchaseError}
+                </p>
+              )}
             </div>
 
-            <PurchaseCartTable
-              items={cartItems}
-              onQuantityChange={handleQuantityChange}
-              onCostChange={handleCostChange}
-              onSerialNumbersChange={handleSerialNumbersChange}
-              onRemove={handleRemoveItem}
+            <PurchasesCheckoutPanel
+              currentSite={currentSite}
+              draftSummary={draftSummary}
+              canFinalize={!!currentSite && cartItems.length > 0 && serialsComplete}
+              onOpenSearch={handleOpenProductSearch}
+              onFinalize={handleOpenFinalizeModal}
             />
-            {purchaseError && <p className="mt-4 text-sm text-danger-500">{purchaseError}</p>}
           </div>
-
-          <PurchasesCheckoutPanel
-            currentSite={currentSite}
-            draftSummary={draftSummary}
-            canFinalize={!!currentSite && cartItems.length > 0 && serialsComplete}
-            onOpenSearch={handleOpenProductSearch}
-            onFinalize={handleOpenFinalizeModal}
+        ) : (
+          <PurchasesHistoryTable
+            purchases={purchases}
+            isLoading={purchasesQuery.isLoading}
+            error={
+              purchasesQuery.error
+                ? translateServerError(purchasesQuery.error, t, t('errors:server.unknown'))
+                : null
+            }
+            onRetry={() => {
+              void purchasesQuery.refetch();
+            }}
+            canManageReturns={canManageReturns}
+            onView={handleOpenPurchaseDetails}
+            onReturn={handleOpenPurchaseReturn}
           />
-        </div>
-
-        <PurchasesHistoryTable
-          purchases={purchases}
-          isLoading={purchasesQuery.isLoading}
-          error={
-            purchasesQuery.error
-              ? translateServerError(purchasesQuery.error, t, t('errors:server.unknown'))
-              : null
-          }
-          onRetry={() => {
-            void purchasesQuery.refetch();
-          }}
-          canManageReturns={canManageReturns}
-          onView={handleOpenPurchaseDetails}
-          onReturn={handleOpenPurchaseReturn}
-        />
+        )}
       </div>
 
       <ProductSearchDialog

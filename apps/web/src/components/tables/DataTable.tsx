@@ -620,33 +620,47 @@ export function DataTable<TData extends RowData>({
             <thead>
               {table.getHeaderGroups().map(headerGroup => (
                 <tr key={headerGroup.id}>
-                  {headerGroup.headers.map(header => (
-                    <th
-                      key={header.id}
-                      style={{ width: header.getSize() }}
-                      className={cn(
-                        header.column.getCanSort() && 'cursor-pointer select-none',
-                        header.column.columnDef.meta?.headerClassName
-                      )}
-                      onClick={header.column.getToggleSortingHandler()}
-                    >
-                      {header.isPlaceholder ? null : (
-                        <div className="data-table-column-header">
-                          {flexRender(header.column.columnDef.header, header.getContext())}
-                          {header.column.getCanSort() && (
-                            <span className="ml-2">
+                  {headerGroup.headers.map(header => {
+                    const canSort = header.column.getCanSort();
+                    const sortDir = header.column.getIsSorted();
+                    const ariaSort = canSort
+                      ? sortDir === 'asc'
+                        ? 'ascending'
+                        : sortDir === 'desc'
+                          ? 'descending'
+                          : 'none'
+                      : undefined;
+                    return (
+                      <th
+                        key={header.id}
+                        style={{ width: header.getSize() }}
+                        aria-sort={ariaSort}
+                        className={cn(header.column.columnDef.meta?.headerClassName)}
+                      >
+                        {header.isPlaceholder ? null : canSort ? (
+                          <button
+                            type="button"
+                            className="data-table-column-header w-full cursor-pointer select-none text-left"
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                            <span className="ml-2" aria-hidden="true">
                               {{
                                 asc: <ChevronUp className="h-4 w-4" />,
                                 desc: <ChevronDown className="h-4 w-4" />,
-                              }[header.column.getIsSorted() as string] ?? (
+                              }[sortDir as string] ?? (
                                 <ChevronsUpDown className="h-4 w-4 text-secondary-400" />
                               )}
                             </span>
-                          )}
-                        </div>
-                      )}
-                    </th>
-                  ))}
+                          </button>
+                        ) : (
+                          <div className="data-table-column-header">
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                          </div>
+                        )}
+                      </th>
+                    );
+                  })}
                 </tr>
               ))}
             </thead>

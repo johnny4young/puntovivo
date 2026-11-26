@@ -114,21 +114,27 @@ describe('DashboardPage module gates', () => {
   });
 
   it('shows the anomaly card for manager+ when anomaly-detection is active', async () => {
+    const user = userEvent.setup();
     useIsModuleActiveMock.mockReturnValue(true);
 
     render(<DashboardPage />);
     await screen.findByTestId('today-overview');
+    await user.click(screen.getByTestId('dashboard-tab-trends'));
 
     expect(screen.getByTestId('anomaly-card')).toBeInTheDocument();
   });
 });
 
 describe('DashboardPage audience', () => {
-  it('opens on the manager day for managers and keeps the rest of the dashboard below', async () => {
+  it('opens on the manager day for managers and reveals trends in the second tab', async () => {
+    const user = userEvent.setup();
     useIsModuleActiveMock.mockReturnValue(false);
     render(<DashboardPage />);
     expect(await screen.findByTestId('today-overview')).toBeInTheDocument();
     expect(screen.queryByTestId('dashboard-briefing')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('revenue-trend-card')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('dashboard-tab-trends'));
     // Hoy already shows today's sales, so the 30-day card drops its latest-day figure.
     expect(screen.getByTestId('revenue-trend-card')).toHaveAttribute(
       'data-hide-latest-day',
@@ -138,10 +144,12 @@ describe('DashboardPage audience', () => {
   });
 
   it('keeps the latest-day figure while Hoy has no day to show', async () => {
+    const user = userEvent.setup();
     todayData.current = undefined;
     useIsModuleActiveMock.mockReturnValue(false);
     render(<DashboardPage />);
     await screen.findByTestId('today-overview');
+    await user.click(screen.getByTestId('dashboard-tab-trends'));
     expect(screen.getByTestId('revenue-trend-card')).toHaveAttribute(
       'data-hide-latest-day',
       'false'

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   DashboardLoadingState,
@@ -69,6 +69,7 @@ export function DashboardPage() {
   // Do not render a card that would always call a gated procedure and
   // return MODULE_NOT_ACTIVATED/role FORBIDDEN for the current user.
   const isManager = user ? (managerOrAdminRoles as readonly string[]).includes(user.role) : false;
+  const [activeTab, setActiveTab] = useState<'today' | 'trends'>('today');
   const showAnomalyCard = isManager && anomalyModuleActive;
   const canSell = user ? (salesRoles as readonly string[]).includes(user.role) : false;
   const dashboardQuery = trpc.dashboard.summary.useQuery();
@@ -156,17 +157,50 @@ export function DashboardPage() {
   return (
     <div className="dashboard-command-space">
       <NumberingAlertBanner />
+      {isManager && (
+        <div className="flex items-center justify-end">
+          <div
+            role="tablist"
+            aria-label={t('page.kicker')}
+            className="segmented-control"
+            data-testid="dashboard-tabs"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'today'}
+              data-testid="dashboard-tab-today"
+              className={`segmented-tab ${activeTab === 'today' ? 'segmented-tab-active' : ''}`}
+              onClick={() => setActiveTab('today')}
+            >
+              {t('page.tabs.today')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'trends'}
+              data-testid="dashboard-tab-trends"
+              className={`segmented-tab ${activeTab === 'trends' ? 'segmented-tab-active' : ''}`}
+              onClick={() => setActiveTab('trends')}
+            >
+              {t('page.tabs.trends')}
+            </button>
+          </div>
+        </div>
+      )}
       {isManager ? (
-        <Suspense
-          fallback={
-            <div
-              className="min-h-64 animate-pulse rounded-[22px] bg-surface-2"
-              aria-hidden="true"
-            />
-          }
-        >
-          <TodayOverview formatCurrency={formatCurrency} />
-        </Suspense>
+        activeTab === 'today' ? (
+          <Suspense
+            fallback={
+              <div
+                className="min-h-64 animate-pulse rounded-[22px] bg-surface-2"
+                aria-hidden="true"
+              />
+            }
+          >
+            <TodayOverview formatCurrency={formatCurrency} />
+          </Suspense>
+        ) : null
       ) : (
         <section className="pv-frame pv-reveal" data-testid="dashboard-briefing">
           <div className="pv-frame-core dashboard-briefing">
@@ -225,41 +259,42 @@ export function DashboardPage() {
         </section>
       )}
 
-      <div className="dashboard-primary-grid pv-reveal pv-reveal-delay-1">
-        <RevenueTrendCard
-          points={revenueChart}
-          formatCurrency={formatCurrency}
-          hideLatestDay={isManager && hoyShowsToday}
-        />
-        <LowStockAlertsCard items={lowStockItems} />
-      </div>
-
-      {/* Sección secundaria de análisis: las tarjetas de ventas recientes y
-          productos destacados viven al fondo, separadas del core (KPIs +
-          tendencia + reposición) que encabeza la página. */}
-      <section className="dashboard-analysis pv-reveal pv-reveal-delay-2">
-        <header className="dashboard-section-heading">
-          <div>
-            <p className="dashboard-eyebrow dashboard-eyebrow-light">{t('analysis.kicker')}</p>
-            <h2 className="dashboard-section-title">{t('analysis.title')}</h2>
+      {(!isManager || activeTab === 'trends') && (
+        <>
+          <div className="dashboard-primary-grid pv-reveal pv-reveal-delay-1">
+            <RevenueTrendCard
+              points={revenueChart}
+              formatCurrency={formatCurrency}
+              hideLatestDay={isManager && hoyShowsToday}
+            />
+            <LowStockAlertsCard items={lowStockItems} />
           </div>
-          <p className="dashboard-section-description">{t('analysis.description')}</p>
-        </header>
 
-        <div className="dashboard-secondary-grid">
-          <RecentSalesCard
-            sales={recentSales}
-            formatCurrency={formatCurrency}
-            formatDateTime={formatDateTime}
-          />
-          <TopProductsCard products={topProducts} formatCurrency={formatCurrency} />
-        </div>
-      </section>
+          <section className="dashboard-analysis pv-reveal pv-reveal-delay-2">
+            <header className="dashboard-section-heading">
+              <div>
+                <p className="dashboard-eyebrow dashboard-eyebrow-light">{t('analysis.kicker')}</p>
+                <h2 className="dashboard-section-title">{t('analysis.title')}</h2>
+              </div>
+              <p className="dashboard-section-description">{t('analysis.description')}</p>
+            </header>
 
-      {showAnomalyCard && (
-        <div className="pv-reveal pv-reveal-delay-3">
-          <AnomalyDetectionCard />
-        </div>
+            <div className="dashboard-secondary-grid">
+              <RecentSalesCard
+                sales={recentSales}
+                formatCurrency={formatCurrency}
+                formatDateTime={formatDateTime}
+              />
+              <TopProductsCard products={topProducts} formatCurrency={formatCurrency} />
+            </div>
+          </section>
+
+          {showAnomalyCard && (
+            <div className="pv-reveal pv-reveal-delay-3">
+              <AnomalyDetectionCard />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

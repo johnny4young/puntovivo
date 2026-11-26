@@ -312,7 +312,7 @@ export function CashSessionCloseModal({
                   />
                 )}
                 {form.formState.errors.actualCount && (
-                  <p className="mt-1 text-xs text-danger-600">
+                  <p role="alert" className="mt-1 text-xs text-danger-600">
                     {form.formState.errors.actualCount.message}
                   </p>
                 )}
@@ -394,7 +394,11 @@ export function CashSessionCloseModal({
               })}
             </div>
           </section>
-          {error && <p className="text-[12.5px] text-danger-600">{error}</p>}
+          {error && (
+            <p role="alert" className="text-[12.5px] text-danger-600">
+              {error}
+            </p>
+          )}
         </form>
         {canSeeLiveDelta && cashSession && (
           <CashMovementTimeline sessionId={cashSession.id} enabled={isOpen} />
