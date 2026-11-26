@@ -69,6 +69,8 @@ export interface UseProductFormReturn {
   sellByFractionField: UseFormRegisterReturn<'sellByFraction'>;
   tracksLotsField: UseFormRegisterReturn<'tracksLots'>;
   tracksSerialsField: UseFormRegisterReturn<'tracksSerials'>;
+  isReturnableContainerField: UseFormRegisterReturn<'isReturnableContainer'>;
+  returnableDepositAmountField: UseFormRegisterReturn<'returnableDepositAmount'>;
   vatRateField: UseFormRegisterReturn<'vatRateId'>;
   syncTier: (
     priceField: PricingField,
@@ -87,6 +89,7 @@ export interface UseProductFormReturn {
   initialStock: number;
   tracksLots: boolean;
   tracksSerials: boolean;
+  isReturnableContainer: boolean;
   isActive: boolean;
   pharmacyEnabled: boolean;
 }
@@ -287,6 +290,11 @@ export function useProductForm({
   const sellByFractionField = form.register('sellByFraction');
   const tracksLotsField = form.register('tracksLots');
   const tracksSerialsField = form.register('tracksSerials');
+  const isReturnableContainerField = form.register('isReturnableContainer');
+  const returnableDepositAmountField = form.register('returnableDepositAmount', {
+    min: 0,
+    valueAsNumber: true,
+  });
   const vatRateField = form.register('vatRateId');
   const sellByFraction = useWatch({
     control: form.control,
@@ -303,6 +311,10 @@ export function useProductForm({
   const tracksSerials = useWatch({
     control: form.control,
     name: 'tracksSerials',
+  });
+  const isReturnableContainer = useWatch({
+    control: form.control,
+    name: 'isReturnableContainer',
   });
   const isActive = useWatch({
     control: form.control,
@@ -344,6 +356,8 @@ export function useProductForm({
     sellByFractionField,
     tracksLotsField,
     tracksSerialsField,
+    isReturnableContainerField,
+    returnableDepositAmountField,
     vatRateField,
     syncTier,
     syncAllTiersFromCost,
@@ -356,6 +370,7 @@ export function useProductForm({
     initialStock: product?.stock ?? 0,
     tracksLots,
     tracksSerials,
+    isReturnableContainer,
     isActive,
     pharmacyEnabled,
   };

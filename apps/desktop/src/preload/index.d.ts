@@ -230,6 +230,11 @@ interface DesktopElectronAPI {
     error?: string;
     errorCode?: string;
   }>;
+  printDocument: (documentHtml: string) => Promise<{
+    success: boolean;
+    error?: string;
+    errorCode?: string;
+  }>;
   device: DeviceAPI;
 }
 

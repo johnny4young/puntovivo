@@ -487,6 +487,8 @@ export async function commitLaunchProductImport(
         tracksStock: row.normalized.tracksStock,
         tracksLots: row.normalized.tracksLots,
         tracksSerials: false,
+        isReturnableContainer: false,
+        returnableDepositAmount: 0,
         isActive: true,
         barcode: row.normalized.barcode,
         unitAssignments: row.normalized.unitId

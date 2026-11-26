@@ -284,6 +284,10 @@ export const SERVER_ERROR_CODES_A = {
   PRODUCT_VARIANT_SKU_CONFLICT: 'PRODUCT_VARIANT_SKU_CONFLICT',
   /** : a matrix parent is catalog metadata, never a sellable stock item. */
   PRODUCT_VARIANT_PARENT_NOT_SELLABLE: 'PRODUCT_VARIANT_PARENT_NOT_SELLABLE',
+  /** A combo sells only through its components, so it cannot track its own stock. */
+  PRODUCT_BUNDLE_TRACKS_STOCK: 'PRODUCT_BUNDLE_TRACKS_STOCK',
+  /** A combo component must stay a plain stock product without lot or serial custody. */
+  PRODUCT_BUNDLE_COMPONENT_CUSTODY: 'PRODUCT_BUNDLE_COMPONENT_CUSTODY',
 
   // --- pharmacy policy, evidence and lot safety ---
   /** A medicine must use stock + lot tracking and cannot use serial tracking. */

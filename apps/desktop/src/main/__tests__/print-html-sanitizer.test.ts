@@ -21,6 +21,16 @@ describe('sanitisePrintHtml', () => {
     assert.doesNotMatch(out, /onload|<script|foreignObject|<iframe|<use|https:\/\/evil/);
     assert.match(out, /script-src 'none'/);
   });
+  it('keeps a shelf-label sheet: page size, card classes and single-path barcodes', () => {
+    const out = sanitisePrintHtml(
+      '<html><head><style>@page { size: A4 portrait; margin: 8mm; }</style></head><body><div class="sheet"><div class="label-card"><div class="label-barcode"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 50" role="img" aria-label="ARR-001"><rect width="100%" height="100%" fill="#fff"/><path d="M9.00 0h3.00v36h-3.00z" fill="#111"/><text x="75.0" y="47" text-anchor="middle" font-size="10" fill="#111">ARR-001</text></svg></div></div></div></body></html>'
+    );
+    assert.match(out, /@page \{ size: A4 portrait/);
+    assert.match(out, /class="label-card"/);
+    assert.match(out, /<path d="M9.00 0h3.00v36h-3.00z" fill="#111"/);
+    assert.match(out, /<text x="75.0" y="47"/);
+  });
+
   it('strips <script> tags wholesale, not just unwrapping them', () => {
     const out = sanitisePrintHtml('<div>Total: $100</div><script>alert(1)</script>');
     assert.match(out, /<div>Total: \$100<\/div>/);

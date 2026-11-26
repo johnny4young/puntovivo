@@ -44,8 +44,10 @@ const printLog = createModuleLogger('print');
 // the `finally` always runs and the window is closed.
 const RECEIPT_PRINT_TIMEOUT_MS = 60_000;
 
-async function printReceipt(receiptHtml: string, settings: ReceiptPrintSettings): Promise<void> {
-  const tenantId = desktopSession.requireTenantId();
+async function printInEphemeralWindow(
+  html: string,
+  resolveOptions: (printWindow: BrowserWindow) => Promise<Electron.WebContentsPrintOptions>
+): Promise<void> {
   const assertSession = desktopSession.captureSessionGuard();
   const printWindow = new BrowserWindow({
     show: false,
@@ -57,11 +59,9 @@ async function printReceipt(receiptHtml: string, settings: ReceiptPrintSettings)
   });
 
   try {
-    const selected = await printerPreferences().read(tenantId);
-    const printers = await printWindow.webContents.getPrintersAsync();
-    const selection = resolveSystemPrinter(printers, selected, settings.silent);
+    const options = await resolveOptions(printWindow);
     assertSession();
-    await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(receiptHtml)}`);
+    await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
     // Race the print callback against a hard timeout so a
     // native print path that never invokes its callback cannot pin the
@@ -69,26 +69,18 @@ async function printReceipt(receiptHtml: string, settings: ReceiptPrintSettings)
     assertSession();
     let timeoutHandle: NodeJS.Timeout | undefined;
     const printDone = new Promise<void>((resolve, reject) => {
-      printWindow.webContents.print(
-        {
-          ...selection,
-          printBackground: settings.printBackground,
-          usePrinterDefaultPageSize: true,
-          margins: { marginType: 'printableArea' },
-        },
-        (success, failureReason) => {
-          if (!success) {
-            if (isPrintCancellationReason(failureReason)) {
-              reject(new ReceiptPrintCancelledError());
-              return;
-            }
-            reject(new SystemPrinterError('PRINT_JOB_FAILED', 'print.systemJobFailed'));
+      printWindow.webContents.print(options, (success, failureReason) => {
+        if (!success) {
+          if (isPrintCancellationReason(failureReason)) {
+            reject(new ReceiptPrintCancelledError());
             return;
           }
-
-          resolve();
+          reject(new SystemPrinterError('PRINT_JOB_FAILED', 'print.systemJobFailed'));
+          return;
         }
-      );
+
+        resolve();
+      });
     });
     const printTimeout = new Promise<never>((_resolve, reject) => {
       timeoutHandle = setTimeout(() => {
@@ -110,6 +102,31 @@ async function printReceipt(receiptHtml: string, settings: ReceiptPrintSettings)
       printWindow.close();
     }
   }
+}
+
+async function printReceipt(receiptHtml: string, settings: ReceiptPrintSettings): Promise<void> {
+  const tenantId = desktopSession.requireTenantId();
+  await printInEphemeralWindow(receiptHtml, async printWindow => {
+    const selected = await printerPreferences().read(tenantId);
+    const printers = await printWindow.webContents.getPrintersAsync();
+    const selection = resolveSystemPrinter(printers, selected, settings.silent);
+    return {
+      ...selection,
+      printBackground: settings.printBackground,
+      usePrinterDefaultPageSize: true,
+      margins: { marginType: 'printableArea' },
+    };
+  });
+}
+
+// Sheets (A4/Letter) go through the system dialog with their own @page size,
+// never the receipt printer and its roll width.
+async function printDocument(documentHtml: string): Promise<void> {
+  desktopSession.requireTenantId();
+  await printInEphemeralWindow(documentHtml, async () => ({
+    silent: false,
+    printBackground: true,
+  }));
 }
 
 function printerPreferences() {
@@ -158,5 +175,12 @@ export function registerPrintIpc(): void {
   );
   ipcMain.handle('print-receipt', (_event, receiptHtml: unknown) =>
     handlePrintReceiptRequest(receiptHtml, handlerDeps)
+  );
+  ipcMain.handle('print-document', (_event, documentHtml: unknown) =>
+    handlePrintReceiptRequest(documentHtml, {
+      ...handlerDeps,
+      printReceipt: html => printDocument(html),
+      logError: (error: unknown) => printLog.error({ err: error }, 'document printing failed'),
+    })
   );
 }

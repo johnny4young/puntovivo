@@ -18,6 +18,8 @@ import { saleItems } from './salesAux.js';
 
 export const promotionStatusEnum = ['draft', 'active', 'paused', 'archived'] as const;
 export const promotionSourceEnum = ['manual', 'expiry'] as const;
+export const promotionRuleKindEnum = ['percentage', 'fixed_amount', 'nxm'] as const;
+export type PromotionRuleKind = (typeof promotionRuleKindEnum)[number];
 
 /**
  * Nullable targets combine with AND semantics. Product and category are
@@ -34,7 +36,11 @@ export const promotions = sqliteTable(
       .references(() => tenants.id),
     name: text('name').notNull(),
     status: text('status', { enum: promotionStatusEnum }).notNull().default('draft'),
+    ruleKind: text('rule_kind', { enum: promotionRuleKindEnum }).notNull().default('percentage'),
     discountPct: real('discount_pct').notNull(),
+    discountAmount: real('discount_amount'),
+    buyQuantity: integer('buy_quantity'),
+    payQuantity: integer('pay_quantity'),
     siteId: text('site_id').references(() => sites.id, { onDelete: 'restrict' }),
     productId: text('product_id').references(() => products.id, { onDelete: 'restrict' }),
     categoryId: text('category_id').references(() => categories.id, { onDelete: 'restrict' }),
@@ -42,6 +48,9 @@ export const promotions = sqliteTable(
     minQuantity: real('min_quantity').notNull().default(1),
     startsAt: text('starts_at'),
     endsAt: text('ends_at'),
+    scheduleDays: text('schedule_days', { mode: 'json' }).$type<number[] | null>(),
+    scheduleStartTime: text('schedule_start_time'),
+    scheduleEndTime: text('schedule_end_time'),
     priority: integer('priority').notNull().default(0),
     combinable: integer('combinable', { mode: 'boolean' }).notNull().default(false),
     source: text('source', { enum: promotionSourceEnum }).notNull().default('manual'),

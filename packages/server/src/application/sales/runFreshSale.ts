@@ -59,6 +59,7 @@ import {
   enqueueInventoryLotUpdatesForSaleInTransaction,
 } from '../../services/inventory-lots/index.js';
 import { assignProductSerialsToSaleLine } from '../../services/product-serials.js';
+import { deductBundleComponentsInTransaction } from '../../services/product-bundles.js';
 import { inArray } from 'drizzle-orm';
 import {
   assertSaleCustomerStillEligible,
@@ -217,6 +218,7 @@ export async function runFreshSale(
       headerDiscountAmount: input.discountAmount ?? 0,
       nowIso: now,
       businessDate: businessClock.businessDate,
+      timezone: businessClock.timezone,
     });
     assertPromotionQuoteFingerprint(appliedPromotionQuote, input.promotionFingerprint);
     resolvedItems = applyPromotionQuote(manualResolvedItems, appliedPromotionQuote);
@@ -539,6 +541,7 @@ export async function runFreshSale(
           headerDiscountAmount: input.discountAmount ?? 0,
           nowIso: writerNow,
           businessDate: businessClock.businessDate,
+          timezone: businessClock.timezone,
         });
         assertPromotionQuoteFingerprint(transactionalQuote, input.promotionFingerprint);
       }
@@ -1018,6 +1021,20 @@ export async function runFreshSale(
           }
         }
       }
+
+      const bundleMovementIds = deductBundleComponentsInTransaction({
+        tx: tx as unknown as typeof ctx.db,
+        tenantId: ctx.tenantId,
+        siteId: saleSiteId,
+        saleId,
+        saleNumber,
+        siteName: sequentialContext.siteName,
+        userId: ctx.user.id,
+        now,
+        rows: resolvedItems.rows,
+        productStockState,
+      });
+      inventoryMovementIds.push(...bundleMovementIds);
 
       if (input.restaurant) {
         const opened = openRestaurantCheckInTransaction(

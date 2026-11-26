@@ -11,6 +11,7 @@ import { inventoryValueChecks } from './value-checks.js';
  */
 import {
   blob,
+  check,
   index,
   integer,
   real,
@@ -113,6 +114,10 @@ export const products = sqliteTable(
     // writers fail closed for these products; stock enters through the
     // serial receipt workflow and leaves through explicit POS selection.
     tracksSerials: integer('tracks_serials', { mode: 'boolean' }).notNull().default(false),
+    isReturnableContainer: integer('is_returnable_container', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    returnableDepositAmount: real('returnable_deposit_amount').notNull().default(0),
     // matrix parents are catalog-only templates. Every sellable
     // combination remains a normal product row (`catalog_type = variant`) so
     // the existing productId-based sales, inventory and purchase paths keep
@@ -355,5 +360,109 @@ export const categoryXProviderRelations = relations(categoryXProvider, ({ one })
   provider: one(providers, {
     fields: [categoryXProvider.providerId],
     references: [providers.id],
+  }),
+}));
+
+// ============================================================================
+// PRODUCT BUNDLE COMPONENTS (Combos / Kits)
+// ============================================================================
+
+/** Component bill-of-materials for retail combo/kit products. */
+export const productBundleComponents = sqliteTable(
+  'product_bundle_components',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    bundleProductId: text('bundle_product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
+    componentProductId: text('component_product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'restrict' }),
+    quantity: real('quantity').notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    uniqueIndex('idx_product_bundle_components_unique').on(
+      table.tenantId,
+      table.bundleProductId,
+      table.componentProductId
+    ),
+    index('idx_product_bundle_components_bundle').on(table.tenantId, table.bundleProductId),
+    index('idx_product_bundle_components_component').on(table.tenantId, table.componentProductId),
+    check('chk_product_bundle_components_qty', sql`${table.quantity} > 0`),
+    check(
+      'chk_product_bundle_components_no_self',
+      sql`${table.bundleProductId} <> ${table.componentProductId}`
+    ),
+  ]
+);
+
+/** Immutable component deductions frozen on a sold bundle line for exact returns. */
+export const saleItemBundleComponents = sqliteTable(
+  'sale_item_bundle_components',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleItemId: text('sale_item_id')
+      .notNull()
+      .references(() => saleItems.id, { onDelete: 'cascade' }),
+    componentProductId: text('component_product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'restrict' }),
+    componentQuantityPerUnit: real('component_quantity_per_unit').notNull(),
+    totalQuantityDeducted: real('total_quantity_deducted').notNull(),
+    unitCostAtSale: real('unit_cost_at_sale').notNull().default(0),
+    /** Frozen value the sale debited for this component; null when valuation reported none. */
+    inventoryCostCents: integer('inventory_cost_cents'),
+    cogsCostCents: integer('cogs_cost_cents'),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    ...inventoryValueChecks('sale_item_bundle_components', {
+      cents: [table.inventoryCostCents, table.cogsCostCents],
+      together: [[table.inventoryCostCents, table.cogsCostCents]],
+    }),
+    index('idx_sale_item_bundle_components_sale_item').on(table.tenantId, table.saleItemId),
+    index('idx_sale_item_bundle_components_component').on(table.tenantId, table.componentProductId),
+    check(
+      'chk_sale_item_bundle_components_qty',
+      sql`${table.componentQuantityPerUnit} > 0 AND ${table.totalQuantityDeducted} > 0`
+    ),
+  ]
+);
+
+export const productBundleComponentsRelations = relations(productBundleComponents, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [productBundleComponents.tenantId],
+    references: [tenants.id],
+  }),
+  bundleProduct: one(products, {
+    fields: [productBundleComponents.bundleProductId],
+    references: [products.id],
+  }),
+  componentProduct: one(products, {
+    fields: [productBundleComponents.componentProductId],
+    references: [products.id],
+  }),
+}));
+
+export const saleItemBundleComponentsRelations = relations(saleItemBundleComponents, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [saleItemBundleComponents.tenantId],
+    references: [tenants.id],
+  }),
+  saleItem: one(saleItems, {
+    fields: [saleItemBundleComponents.saleItemId],
+    references: [saleItems.id],
+  }),
+  componentProduct: one(products, {
+    fields: [saleItemBundleComponents.componentProductId],
+    references: [products.id],
   }),
 }));

@@ -2042,7 +2042,7 @@
   {
     "path": "products.create",
     "kind": "mutation",
-    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0]=0,description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,imageUrl?:string|null,initialCost?:number[min=0]=0,isActive?:boolean=true,locationId?:string|null,marginAmount1?:number[min=0]=0,marginAmount2?:number[min=0]=0,marginAmount3?:number[min=0]=0,marginPercent1?:number[min=0]=0,marginPercent2?:number[min=0]=0,marginPercent3?:number[min=0]=0,minStock?:number[min=0]=0,name:string[minLength=1,maxLength=255],pharmacy?:object{activeIngredient?:string[minLength=1,maxLength=255]|null,administrationRoute?:string[minLength=1,maxLength=120]|null,authorizationHolder?:string[minLength=1,maxLength=255]|null,classification?:enum(\"otc\"|\"prescription\"|\"controlled\"),concentration?:string[minLength=1,maxLength=120]|null,dosageForm?:string[minLength=1,maxLength=120]|null,genericName?:string[minLength=1,maxLength=255]|null,manufacturer?:string[minLength=1,maxLength=255]|null,presentation?:string[minLength=1,maxLength=255]|null,registrationExpiresAt?:string[format=date]|null,requiresColdChain?:boolean=false,sanitaryRegistration?:string[minLength=1,maxLength=160]|null,storageConditions?:string[minLength=1,maxLength=500]|null}|null,price?:number[min=0]=0,price2?:number[min=0]=0,price3?:number[min=0]=0,providerAssignments?:array<object>,providerId?:string|null,sellByFraction?:boolean=false,siteId?:string[minLength=1],sku:string[minLength=1,maxLength=100],stock?:number[min=0]=0,taxComponents?:array<object>[minItems=1,maxItems=4],taxRate?:number[min=0,max=100]=0,tracksLots?:boolean=false,tracksSerials?:boolean=false,tracksStock?:boolean=true,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null}",
+    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0]=0,description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,imageUrl?:string|null,initialCost?:number[min=0]=0,isActive?:boolean=true,isReturnableContainer?:boolean=false,locationId?:string|null,marginAmount1?:number[min=0]=0,marginAmount2?:number[min=0]=0,marginAmount3?:number[min=0]=0,marginPercent1?:number[min=0]=0,marginPercent2?:number[min=0]=0,marginPercent3?:number[min=0]=0,minStock?:number[min=0]=0,name:string[minLength=1,maxLength=255],pharmacy?:object{activeIngredient?:string[minLength=1,maxLength=255]|null,administrationRoute?:string[minLength=1,maxLength=120]|null,authorizationHolder?:string[minLength=1,maxLength=255]|null,classification?:enum(\"otc\"|\"prescription\"|\"controlled\"),concentration?:string[minLength=1,maxLength=120]|null,dosageForm?:string[minLength=1,maxLength=120]|null,genericName?:string[minLength=1,maxLength=255]|null,manufacturer?:string[minLength=1,maxLength=255]|null,presentation?:string[minLength=1,maxLength=255]|null,registrationExpiresAt?:string[format=date]|null,requiresColdChain?:boolean=false,sanitaryRegistration?:string[minLength=1,maxLength=160]|null,storageConditions?:string[minLength=1,maxLength=500]|null}|null,price?:number[min=0]=0,price2?:number[min=0]=0,price3?:number[min=0]=0,providerAssignments?:array<object>,providerId?:string|null,returnableDepositAmount?:number[min=0]=0,sellByFraction?:boolean=false,siteId?:string[minLength=1],sku:string[minLength=1,maxLength=100],stock?:number[min=0]=0,taxComponents?:array<object>[minItems=1,maxItems=4],taxRate?:number[min=0,max=100]=0,tracksLots?:boolean=false,tracksSerials?:boolean=false,tracksStock?:boolean=true,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null}",
     "output": "inferred"
   },
   {
@@ -2061,6 +2061,12 @@
     "path": "products.embeddingHealth",
     "kind": "query",
     "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "products.getBundleComponents",
+    "kind": "query",
+    "input": "object{productId:string[minLength=1]}",
     "output": "inferred"
   },
   {
@@ -2106,6 +2112,12 @@
     "output": "inferred"
   },
   {
+    "path": "products.setBundleComponents",
+    "kind": "mutation",
+    "input": "object{components:array<object>[maxItems=50],productId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
     "path": "products.suggestCategory",
     "kind": "mutation",
     "input": "object{description?:string[maxLength=2000]|null,name:string[minLength=1,maxLength=200]}",
@@ -2120,7 +2132,7 @@
   {
     "path": "products.update",
     "kind": "mutation",
-    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0],description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,id:string[minLength=1],imageUrl?:string|null,initialCost?:number[min=0],isActive?:boolean,locationId?:string|null,marginAmount1?:number[min=0],marginAmount2?:number[min=0],marginAmount3?:number[min=0],marginPercent1?:number[min=0],marginPercent2?:number[min=0],marginPercent3?:number[min=0],minStock?:number[min=0],name?:string[minLength=1,maxLength=255],pharmacy?:object{activeIngredient?:string[minLength=1,maxLength=255]|null,administrationRoute?:string[minLength=1,maxLength=120]|null,authorizationHolder?:string[minLength=1,maxLength=255]|null,classification?:enum(\"otc\"|\"prescription\"|\"controlled\"),concentration?:string[minLength=1,maxLength=120]|null,dosageForm?:string[minLength=1,maxLength=120]|null,genericName?:string[minLength=1,maxLength=255]|null,manufacturer?:string[minLength=1,maxLength=255]|null,presentation?:string[minLength=1,maxLength=255]|null,registrationExpiresAt?:string[format=date]|null,requiresColdChain?:boolean=false,sanitaryRegistration?:string[minLength=1,maxLength=160]|null,storageConditions?:string[minLength=1,maxLength=500]|null}|null,price?:number[min=0],price2?:number[min=0],price3?:number[min=0],providerAssignments?:array<object>,providerId?:string|null,sellByFraction?:boolean,sku?:string[minLength=1,maxLength=100],stock?:number[min=0],taxComponents?:array<object>[minItems=1,maxItems=4],taxRate?:number[min=0,max=100],tracksLots?:boolean,tracksSerials?:boolean,tracksStock?:boolean,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null,version:integer[min=0,max=9007199254740991]}",
+    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0],description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,id:string[minLength=1],imageUrl?:string|null,initialCost?:number[min=0],isActive?:boolean,isReturnableContainer?:boolean,locationId?:string|null,marginAmount1?:number[min=0],marginAmount2?:number[min=0],marginAmount3?:number[min=0],marginPercent1?:number[min=0],marginPercent2?:number[min=0],marginPercent3?:number[min=0],minStock?:number[min=0],name?:string[minLength=1,maxLength=255],pharmacy?:object{activeIngredient?:string[minLength=1,maxLength=255]|null,administrationRoute?:string[minLength=1,maxLength=120]|null,authorizationHolder?:string[minLength=1,maxLength=255]|null,classification?:enum(\"otc\"|\"prescription\"|\"controlled\"),concentration?:string[minLength=1,maxLength=120]|null,dosageForm?:string[minLength=1,maxLength=120]|null,genericName?:string[minLength=1,maxLength=255]|null,manufacturer?:string[minLength=1,maxLength=255]|null,presentation?:string[minLength=1,maxLength=255]|null,registrationExpiresAt?:string[format=date]|null,requiresColdChain?:boolean=false,sanitaryRegistration?:string[minLength=1,maxLength=160]|null,storageConditions?:string[minLength=1,maxLength=500]|null}|null,price?:number[min=0],price2?:number[min=0],price3?:number[min=0],providerAssignments?:array<object>,providerId?:string|null,returnableDepositAmount?:number[min=0],sellByFraction?:boolean,sku?:string[minLength=1,maxLength=100],stock?:number[min=0],taxComponents?:array<object>[minItems=1,maxItems=4],taxRate?:number[min=0,max=100],tracksLots?:boolean,tracksSerials?:boolean,tracksStock?:boolean,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null,version:integer[min=0,max=9007199254740991]}",
     "output": "inferred"
   },
   {
@@ -2156,7 +2168,7 @@
   {
     "path": "promotions.create",
     "kind": "mutation",
-    "input": "object{categoryId?:string[minLength=1]|null,combinable?:boolean=false,customerId?:string[minLength=1]|null,discountPct:number[max=100,min>0],endsAt?:string[format=date-time]|null,minQuantity?:number[max=1000000,min>0]=1,name:string[minLength=1,maxLength=120],priority?:integer[min=-10000,max=10000]=0,productId?:string[minLength=1]|null,siteId?:string[minLength=1]|null,startsAt?:string[format=date-time]|null}",
+    "input": "object{buyQuantity?:integer[min=2,max=100]|null,categoryId?:string[minLength=1]|null,combinable?:boolean=false,customerId?:string[minLength=1]|null,discountAmount?:number[max=1000000000,min>0]|null,discountPct?:number[max=100,min>0],endsAt?:string[format=date-time]|null,minQuantity?:number[max=1000000,min>0]=1,name:string[minLength=1,maxLength=120],payQuantity?:integer[min=1,max=99]|null,priority?:integer[min=-10000,max=10000]=0,productId?:string[minLength=1]|null,ruleKind?:enum(\"percentage\"|\"fixed_amount\"|\"nxm\"),scheduleDays?:array<integer[min=0,max=6]>[maxItems=7]|null,scheduleEndTime?:string|null,scheduleStartTime?:string|null,siteId?:string[minLength=1]|null,startsAt?:string[format=date-time]|null}",
     "output": "inferred"
   },
   {
@@ -2180,7 +2192,7 @@
   {
     "path": "promotions.update",
     "kind": "mutation",
-    "input": "object{categoryId?:string[minLength=1]|null,combinable?:boolean=false,customerId?:string[minLength=1]|null,discountPct:number[max=100,min>0],endsAt?:string[format=date-time]|null,id:string[minLength=1],minQuantity?:number[max=1000000,min>0]=1,name:string[minLength=1,maxLength=120],priority?:integer[min=-10000,max=10000]=0,productId?:string[minLength=1]|null,siteId?:string[minLength=1]|null,startsAt?:string[format=date-time]|null,version:integer[max=9007199254740991,min>0]}",
+    "input": "object{buyQuantity?:integer[min=2,max=100]|null,categoryId?:string[minLength=1]|null,combinable?:boolean=false,customerId?:string[minLength=1]|null,discountAmount?:number[max=1000000000,min>0]|null,discountPct?:number[max=100,min>0],endsAt?:string[format=date-time]|null,id:string[minLength=1],minQuantity?:number[max=1000000,min>0]=1,name:string[minLength=1,maxLength=120],payQuantity?:integer[min=1,max=99]|null,priority?:integer[min=-10000,max=10000]=0,productId?:string[minLength=1]|null,ruleKind?:enum(\"percentage\"|\"fixed_amount\"|\"nxm\"),scheduleDays?:array<integer[min=0,max=6]>[maxItems=7]|null,scheduleEndTime?:string|null,scheduleStartTime?:string|null,siteId?:string[minLength=1]|null,startsAt?:string[format=date-time]|null,version:integer[max=9007199254740991,min>0]}",
     "output": "inferred"
   },
   {

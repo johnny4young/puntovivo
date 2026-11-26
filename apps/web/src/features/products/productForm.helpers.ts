@@ -36,6 +36,8 @@ export function createDefaultValues(pharmacyEnabled = false): ProductFormValues 
     tracksStock: true,
     tracksLots: false,
     tracksSerials: false,
+    isReturnableContainer: false,
+    returnableDepositAmount: 0,
     isActive: true,
     unitAssignments: [],
     providerAssignments: [],
@@ -106,6 +108,8 @@ export function mapProductToForm(
     tracksStock: product.tracksStock ?? true,
     tracksLots: product.tracksLots,
     tracksSerials: product.tracksSerials ?? false,
+    isReturnableContainer: product.isReturnableContainer ?? false,
+    returnableDepositAmount: product.returnableDepositAmount ?? 0,
     isActive: product.isActive,
     unitAssignments:
       product.unitAssignments?.map(assignment => ({

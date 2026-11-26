@@ -46,6 +46,8 @@ export interface Product {
   siteStock?: number | null;
   tracksLots: boolean;
   tracksSerials?: boolean | undefined;
+  isReturnableContainer?: boolean | undefined;
+  returnableDepositAmount?: number | undefined;
   catalogType?: 'standard' | 'variant_parent' | 'variant' | undefined;
   variantParentId?: string | null | undefined;
   variantAxes?: ProductVariantAxis[] | null | undefined;

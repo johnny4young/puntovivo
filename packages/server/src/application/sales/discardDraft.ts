@@ -30,6 +30,7 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
+import { reverseBundleComponentsInTransaction } from '../../services/product-bundles.js';
 import {
   enqueueInventoryLotUpdatesForSaleInTransaction,
   restoreLotsForSale,
@@ -226,6 +227,20 @@ export async function discardDraft(
           productStockState,
           now,
         });
+        inventoryMovementIds.push(
+          ...reverseBundleComponentsInTransaction({
+            tx,
+            tenantId: ctx.tenantId,
+            siteId: authoritativeSaleSiteId,
+            saleId: input.saleId,
+            saleNumber: current.saleNumber,
+            reversalKind: 'discard',
+            userId: ctx.user.id,
+            now,
+            itemFractions: saleLineItems.map(item => ({ saleItemId: item.id, fraction: 1 })),
+            productStockState,
+          })
+        );
         // Auditoría 2026-07 — restore consumed lots on draft discard.
         restoredLotIds = restoreLotsForSale(tx, {
           tenantId: ctx.tenantId,

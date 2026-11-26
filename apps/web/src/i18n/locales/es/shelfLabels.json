@@ -1,0 +1,42 @@
+{
+  "labels": {
+    "title": "Etiquetas de góndola",
+    "close": "Cerrar",
+    "formatLabel": "Formato de etiquetas",
+    "tabs": {
+      "sheet": "Hoja imprimible",
+      "zpl": "ZPL (Zebra)",
+      "tspl": "TSPL (TSC / Xprinter)"
+    },
+    "paper": "Tamaño de papel",
+    "papers": {
+      "letter": "Carta (Letter)",
+      "a4": "A4"
+    },
+    "grid": "Distribución",
+    "grids": {
+      "3x8": "3×8 (24 por hoja)",
+      "3x10": "3×10 (30 por hoja)",
+      "2x6": "2×6 (12 por hoja)"
+    },
+    "copies": "Copias",
+    "printSheet": "Imprimir hoja ({{count}})",
+    "copyCommands": "Copiar comandos",
+    "downloadCommands": "Descargar .{{format}}",
+    "copied": "Comandos copiados al portapapeles",
+    "copyError": "No se pudo copiar al portapapeles",
+    "popupBlocked": "Permita ventanas emergentes para abrir la hoja de impresión.",
+    "printError": "No se pudo imprimir la hoja de etiquetas."
+  },
+  "bundles": {
+    "title": "Componentes del combo o kit",
+    "searchPlaceholder": "Buscar producto componente por nombre o SKU",
+    "quantity": "Cantidad por combo",
+    "remove": "Quitar componente",
+    "save": "Guardar componentes",
+    "submitting": "Guardando...",
+    "saved": "Componentes del combo guardados",
+    "saveError": "No se pudieron guardar los componentes",
+    "empty": "Sin componentes asociados. Agregue productos físicos para descontar su inventario al vender este combo."
+  }
+}

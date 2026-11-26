@@ -52,6 +52,7 @@ import { resolveFiscalDocumentSnapshot } from '../../services/fiscal/orchestrato
 import { createModuleLogger } from '../../logging/logger.js';
 import { buildVoidedSaleNotes, getPersistedCashContribution } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
+import { reverseBundleComponentsInTransaction } from '../../services/product-bundles.js';
 import { broadcastSaleRetracted, materializeCommittedFiscalIntent } from './fiscalPostHook.js';
 import { restorePointsForVoid, revertPointsForSale } from '../../services/loyalty.js';
 import { restoreStoreCreditForVoid } from '../../services/store-credit.js';
@@ -346,6 +347,20 @@ export async function voidSale(
           productStockState,
           now,
         });
+        inventoryMovementIds.push(
+          ...reverseBundleComponentsInTransaction({
+            tx,
+            tenantId: ctx.tenantId,
+            siteId: originalSaleSiteId,
+            saleId: input.id,
+            saleNumber: existing.saleNumber,
+            reversalKind: 'void',
+            userId: ctx.user.id,
+            now,
+            itemFractions: saleLineItems.map(item => ({ saleItemId: item.id, fraction: 1 })),
+            productStockState,
+          })
+        );
 
         // Auditoría 2026-07 — restore consumed lots on void.
         restoredLotIds = restoreLotsForSale(tx, {

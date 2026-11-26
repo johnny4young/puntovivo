@@ -260,6 +260,9 @@ export interface ElectronAPI {
   printReceipt: (
     receiptHtml: string
   ) => Promise<{ success: boolean; error?: string; errorCode?: string }>;
+  printDocument?: (
+    documentHtml: string
+  ) => Promise<{ success: boolean; error?: string; errorCode?: string }>;
   updateMainLocale?: (locale: string) => Promise<'en' | 'es'>;
   runtime?: RuntimeAPI;
   peripherals?: PeripheralsAPI;

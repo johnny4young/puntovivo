@@ -33,7 +33,11 @@ export const MAX_STACKED_PROMOTIONS = 10;
 
 export interface PromotionRuleInput {
   name: string;
-  discountPct: number;
+  ruleKind?: 'percentage' | 'fixed_amount' | 'nxm' | undefined;
+  discountPct?: number | undefined;
+  discountAmount?: number | null | undefined;
+  buyQuantity?: number | null | undefined;
+  payQuantity?: number | null | undefined;
   siteId?: string | null | undefined;
   productId?: string | null | undefined;
   categoryId?: string | null | undefined;
@@ -41,6 +45,9 @@ export interface PromotionRuleInput {
   minQuantity: number;
   startsAt?: string | null | undefined;
   endsAt?: string | null | undefined;
+  scheduleDays?: number[] | null | undefined;
+  scheduleStartTime?: string | null | undefined;
+  scheduleEndTime?: string | null | undefined;
   priority: number;
   combinable: boolean;
 }
@@ -159,20 +166,143 @@ function normalizeTimestamp(value: string | null | undefined): string | null {
   return new Date(epoch).toISOString();
 }
 
+const WEEKDAY_INDEX: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+const TIME_HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function normalizeScheduleDays(days: number[] | null | undefined): number[] | null {
+  if (!days || days.length === 0) return null;
+  const unique = [...new Set(days)].sort((a, b) => a - b);
+  if (unique.some(day => !Number.isInteger(day) || day < 0 || day > 6)) {
+    promotionError('PROMOTION_TARGET_INVALID', 'Schedule days must be integers between 0 and 6');
+  }
+  return unique;
+}
+
+function normalizeTimeOfDay(value: string | null | undefined): string | null {
+  const trimmed = normalizeNullable(value);
+  if (!trimmed) return null;
+  if (!TIME_HHMM_RE.test(trimmed)) {
+    promotionError('PROMOTION_TARGET_INVALID', 'Schedule time must follow HH:MM 24-hour format');
+  }
+  return trimmed;
+}
+
+/** Evaluate optional recurring weekday + time-of-day window in the business timezone. */
+export function isPromotionScheduledAt(
+  rule: Pick<PromotionRow, 'scheduleDays' | 'scheduleStartTime' | 'scheduleEndTime'>,
+  nowIso: string,
+  timezone = 'UTC'
+): boolean {
+  const days = rule.scheduleDays;
+  const start = rule.scheduleStartTime;
+  const end = rule.scheduleEndTime;
+  if ((!days || days.length === 0) && !start && !end) return true;
+
+  const date = new Date(nowIso);
+  if (!Number.isFinite(date.getTime())) return false;
+
+  let resolvedTz = timezone;
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: resolvedTz,
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(date);
+  } catch {
+    resolvedTz = 'UTC';
+    parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: resolvedTz,
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(date);
+  }
+
+  const weekdayName = parts.find(part => part.type === 'weekday')?.value ?? '';
+  const weekday = WEEKDAY_INDEX[weekdayName];
+  const dayAllowed = (day: number | undefined) =>
+    !days || days.length === 0 || (day !== undefined && days.includes(day));
+
+  if (start && end) {
+    const hour = parts.find(part => part.type === 'hour')?.value ?? '00';
+    const minute = parts.find(part => part.type === 'minute')?.value ?? '00';
+    const hhmm = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+    if (start < end) {
+      return dayAllowed(weekday) && hhmm >= start && hhmm < end;
+    }
+    // Overnight window: the hours after midnight belong to the day it started.
+    if (hhmm >= start) return dayAllowed(weekday);
+    if (hhmm < end) return dayAllowed(weekday === undefined ? undefined : (weekday + 6) % 7);
+    return false;
+  }
+
+  return dayAllowed(weekday);
+}
+
 function normalizedRule(input: PromotionRuleInput) {
+  const ruleKind = input.ruleKind ?? 'percentage';
+  const discountAmount =
+    ruleKind === 'fixed_amount' && typeof input.discountAmount === 'number'
+      ? roundMoney(input.discountAmount)
+      : null;
+  const buyQuantity =
+    ruleKind === 'nxm' && typeof input.buyQuantity === 'number'
+      ? Math.trunc(input.buyQuantity)
+      : null;
+  const payQuantity =
+    ruleKind === 'nxm' && typeof input.payQuantity === 'number'
+      ? Math.trunc(input.payQuantity)
+      : null;
+
+  let discountPct: number;
+  if (ruleKind === 'nxm' && buyQuantity && payQuantity && buyQuantity > payQuantity) {
+    // Store the nominal cycle discount so DB CHECK (0 < discount_pct <= 100) holds.
+    discountPct = Math.min(
+      99.99,
+      Math.max(0.01, roundMoney(((buyQuantity - payQuantity) / buyQuantity) * 100))
+    );
+  } else if (ruleKind === 'fixed_amount') {
+    discountPct = 100;
+  } else {
+    discountPct = roundMoney(input.discountPct ?? 0);
+  }
+
   return {
     name: input.name.trim(),
-    discountPct: roundMoney(input.discountPct),
+    ruleKind,
+    discountPct,
+    discountAmount,
+    buyQuantity,
+    payQuantity,
     siteId: normalizeNullable(input.siteId),
     productId: normalizeNullable(input.productId),
     categoryId: normalizeNullable(input.categoryId),
     customerId: normalizeNullable(input.customerId),
-    minQuantity: input.minQuantity,
+    minQuantity:
+      ruleKind === 'nxm' && buyQuantity
+        ? Math.max(input.minQuantity, buyQuantity)
+        : input.minQuantity,
     // SQLite compares these TEXT values lexicographically. Canonical UTC is
     // therefore part of the persistence contract; retaining arbitrary valid
     // offsets would make chronologically ordered windows compare incorrectly.
     startsAt: normalizeTimestamp(input.startsAt),
     endsAt: normalizeTimestamp(input.endsAt),
+    scheduleDays: normalizeScheduleDays(input.scheduleDays),
+    scheduleStartTime: normalizeTimeOfDay(input.scheduleStartTime),
+    scheduleEndTime: normalizeTimeOfDay(input.scheduleEndTime),
     priority: input.priority,
     combinable: input.combinable,
   };
@@ -187,8 +317,30 @@ function assertRuleShape(input: ReturnType<typeof normalizedRule>): void {
   if (!input.name || input.name.length > 120) {
     promotionError('PROMOTION_TARGET_INVALID', 'Promotion name is required and must be concise');
   }
-  if (!(input.discountPct > 0) || input.discountPct > 100) {
-    promotionError('PROMOTION_TARGET_INVALID', 'Promotion discount must be between 0 and 100');
+  if (input.ruleKind === 'percentage') {
+    if (!(input.discountPct > 0) || input.discountPct > 100) {
+      promotionError('PROMOTION_TARGET_INVALID', 'Promotion discount must be between 0 and 100');
+    }
+  } else if (input.ruleKind === 'fixed_amount') {
+    if (input.discountAmount === null || !(input.discountAmount > 0)) {
+      promotionError(
+        'PROMOTION_TARGET_INVALID',
+        'Fixed-amount promotions require a positive discount amount'
+      );
+    }
+  } else if (input.ruleKind === 'nxm') {
+    if (
+      input.buyQuantity === null ||
+      input.payQuantity === null ||
+      input.buyQuantity < 2 ||
+      input.payQuantity < 1 ||
+      input.payQuantity >= input.buyQuantity
+    ) {
+      promotionError(
+        'PROMOTION_TARGET_INVALID',
+        'NxM promotions require buyQuantity >= 2 and 1 <= payQuantity < buyQuantity'
+      );
+    }
   }
   if (!(input.minQuantity > 0) || !Number.isFinite(input.minQuantity)) {
     promotionError('PROMOTION_TARGET_INVALID', 'Promotion minimum quantity must be positive');
@@ -201,6 +353,14 @@ function assertRuleShape(input: ReturnType<typeof normalizedRule>): void {
   }
   if (input.startsAt && input.endsAt && input.startsAt >= input.endsAt) {
     promotionError('PROMOTION_TARGET_INVALID', 'Promotion end must be after its start');
+  }
+  const hasStart = input.scheduleStartTime !== null;
+  const hasEnd = input.scheduleEndTime !== null;
+  if (hasStart !== hasEnd || (hasStart && input.scheduleStartTime === input.scheduleEndTime)) {
+    promotionError(
+      'PROMOTION_TARGET_INVALID',
+      'Recurring schedule requires distinct start and end times'
+    );
   }
 }
 
@@ -788,6 +948,7 @@ export function quotePromotions(
     headerDiscountAmount?: number;
     nowIso?: string;
     businessDate?: string;
+    timezone?: string;
   }
 ): PromotionCheckoutQuote {
   const nowIso = args.nowIso ?? new Date().toISOString();
@@ -800,6 +961,17 @@ export function quotePromotions(
     ...(productIds.length > 0 ? [inArray(promotions.productId, productIds)] : []),
     ...(categoryIds.length > 0 ? [inArray(promotions.categoryId, categoryIds)] : [])
   );
+  const tenant = db
+    .select({ settings: tenants.settings })
+    .from(tenants)
+    .where(eq(tenants.id, args.tenantId))
+    .get();
+  const tenantSettings = (tenant?.settings ?? {}) as Record<string, unknown>;
+  const timezone =
+    args.timezone ??
+    (typeof tenantSettings.timezone === 'string' && tenantSettings.timezone.trim().length > 0
+      ? tenantSettings.timezone
+      : 'UTC');
   const rules = db
     .select()
     .from(promotions)
@@ -817,13 +989,9 @@ export function quotePromotions(
       )
     )
     .orderBy(desc(promotions.priority), asc(promotions.createdAt), asc(promotions.id))
-    .all();
-  const tenant = db
-    .select({ settings: tenants.settings })
-    .from(tenants)
-    .where(eq(tenants.id, args.tenantId))
-    .get();
-  const businessType = ((tenant?.settings ?? {}) as Record<string, unknown>).businessType;
+    .all()
+    .filter(rule => isPromotionScheduledAt(rule, nowIso, timezone));
+  const businessType = tenantSettings.businessType;
   const pharmacyProductIds =
     businessType === 'pharmacy'
       ? new Set(productIds)
@@ -861,6 +1029,7 @@ export function quotePromotions(
   let taxAmount = 0;
   let promotionDiscountAmount = 0;
   const pricedLines: PromotionPricedLine[] = [];
+  const selections: Array<{ line: (typeof args.lines)[number]; selected: PromotionRow[] }> = [];
   for (const line of args.lines) {
     const frozenLot =
       line.lotAllocations?.length === 1 &&
@@ -879,6 +1048,15 @@ export function quotePromotions(
       if (rule.productId && rule.productId !== line.productId) return false;
       if (rule.categoryId && rule.categoryId !== line.categoryId) return false;
       if (line.quantity + 1e-9 < rule.minQuantity) return false;
+      if (rule.ruleKind === 'nxm') {
+        if (!rule.buyQuantity || !rule.payQuantity || rule.buyQuantity <= rule.payQuantity) {
+          return false;
+        }
+        if (Math.floor(line.quantity + 1e-9) < rule.buyQuantity) return false;
+      }
+      if (rule.ruleKind === 'fixed_amount' && !(rule.discountAmount && rule.discountAmount > 0)) {
+        return false;
+      }
       if (rule.source === 'expiry') {
         if (pharmacyProductIds.has(line.productId)) return false;
         if (!line.tracksLots || !rule.sourceLotId) return false;
@@ -887,6 +1065,63 @@ export function quotePromotions(
       return true;
     });
     const selected = selectCombination(eligible);
+    selections.push({ line, selected });
+
+    // Advance the same virtual FEFO cursor the sale transaction will use so a
+    // second line cannot reuse one lot's promotional stock.
+    if (line.lotAllocations) continue;
+    let remaining = line.normalizedQuantity;
+    for (const lot of fefoLots) {
+      if (remaining <= 1e-9) break;
+      const available = lotRemainders.get(lot.id) ?? 0;
+      if (available <= 1e-9) continue;
+      const take = Math.min(available, remaining);
+      lotRemainders.set(lot.id, available - take);
+      remaining -= take;
+    }
+  }
+
+  // A fixed amount is granted once per sale, split across its lines by their pre-promotion total.
+  const fixedShares = new Map<string, number[]>();
+  for (const rule of rules) {
+    if (rule.ruleKind !== 'fixed_amount' || !rule.discountAmount) continue;
+    const weights = selections.map(({ line, selected }) =>
+      selected.some(candidate => candidate.id === rule.id)
+        ? Math.max(
+            0,
+            calculateTaxComponentSnapshots({
+              components: line.taxComponents,
+              unitPrice: line.unitPrice,
+              quantity: line.quantity,
+              discountPercent: normalizeRate(line.manualDiscountRate),
+              priceIncludesTax: args.priceIncludesTax,
+            }).lineTotal
+          )
+        : 0
+    );
+    const weightTotal = weights.reduce((sum, weight) => sum + weight, 0);
+    if (weightTotal <= 0) continue;
+    const amount = roundMoney(rule.discountAmount);
+    let lastIndex = -1;
+    weights.forEach((weight, index) => {
+      if (weight > 0) lastIndex = index;
+    });
+    let allocated = 0;
+    fixedShares.set(
+      rule.id,
+      weights.map((weight, index) => {
+        if (weight <= 0) return 0;
+        const share =
+          index === lastIndex
+            ? roundMoney(amount - allocated)
+            : roundMoney((amount * weight) / weightTotal);
+        allocated = roundMoney(allocated + share);
+        return share;
+      })
+    );
+  }
+
+  for (const [lineIndex, { line, selected }] of selections.entries()) {
     let effectiveDiscountRate = normalizeRate(line.manualDiscountRate);
     let before = calculateTaxComponentSnapshots({
       components: line.taxComponents,
@@ -897,8 +1132,21 @@ export function quotePromotions(
     });
     const applications: AppliedPromotionSnapshot[] = [];
     for (const [position, rule] of selected.entries()) {
+      let ruleRatePct = rule.discountPct;
+      if (rule.ruleKind === 'nxm' && rule.buyQuantity && rule.payQuantity) {
+        const cycles = Math.floor((line.quantity + 1e-9) / rule.buyQuantity);
+        const freeUnits = cycles * (rule.buyQuantity - rule.payQuantity);
+        if (freeUnits <= 0 || line.quantity <= 0) continue;
+        ruleRatePct = (freeUnits / line.quantity) * 100;
+      } else if (rule.ruleKind === 'fixed_amount' && rule.discountAmount) {
+        if (before.lineTotal <= 0) continue;
+        const share = fixedShares.get(rule.id)?.[lineIndex] ?? 0;
+        const targetOff = Math.min(before.lineTotal, share);
+        if (targetOff <= 0) continue;
+        ruleRatePct = (targetOff / before.lineTotal) * 100;
+      }
       const nextRate = normalizeRate(
-        100 - ((100 - effectiveDiscountRate) * (100 - rule.discountPct)) / 100
+        100 - ((100 - effectiveDiscountRate) * (100 - ruleRatePct)) / 100
       );
       const after = calculateTaxComponentSnapshots({
         components: line.taxComponents,
@@ -909,11 +1157,15 @@ export function quotePromotions(
       });
       const discountAmount = roundMoney(Math.max(0, before.lineTotal - after.lineTotal));
       if (discountAmount > 0) {
+        const snapshotPct =
+          rule.ruleKind === 'percentage'
+            ? rule.discountPct
+            : Math.min(100, Math.max(0.01, roundMoney(ruleRatePct)));
         applications.push({
           promotionId: rule.id,
           promotionVersion: rule.version,
           name: rule.name,
-          discountPct: rule.discountPct,
+          discountPct: snapshotPct,
           discountAmount,
           priority: rule.priority,
           combinable: rule.combinable,
@@ -944,19 +1196,6 @@ export function quotePromotions(
       promotionDiscountAmount: linePromotionDiscount,
       promotions: applications,
     });
-
-    // Advance the same virtual FEFO cursor the sale transaction will use so a
-    // second line cannot reuse one lot's promotional stock.
-    if (line.lotAllocations) continue;
-    let remaining = line.normalizedQuantity;
-    for (const lot of fefoLots) {
-      if (remaining <= 1e-9) break;
-      const available = lotRemainders.get(lot.id) ?? 0;
-      if (available <= 1e-9) continue;
-      const take = Math.min(available, remaining);
-      lotRemainders.set(lot.id, available - take);
-      remaining -= take;
-    }
   }
   const headerDiscount = roundMoney(args.headerDiscountAmount ?? 0);
   const total = roundMoney(subtotal + taxAmount - headerDiscount);

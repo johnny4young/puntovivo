@@ -22,8 +22,10 @@ import {
   createProductInput,
   createProductVariantMatrixInput,
   deleteProductInput,
+  setBundleComponentsInput,
   updateProductInput,
 } from '../../schemas/products.js';
+import { setBundleComponents } from '../../../services/product-bundles.js';
 
 export const productMutationProcedures = {
   create: managerOrAdminProcedure
@@ -37,6 +39,17 @@ export const productMutationProcedures = {
   createVariantMatrix: managerOrAdminProcedure
     .input(createProductVariantMatrixInput)
     .mutation(({ ctx, input }) => createProductVariantMatrix({ ...ctx, user: ctx.user! }, input)),
+
+  setBundleComponents: managerOrAdminProcedure
+    .input(setBundleComponentsInput)
+    .mutation(({ ctx, input }) =>
+      setBundleComponents(ctx.db, {
+        tenantId: ctx.tenantId,
+        actorId: ctx.user!.id,
+        bundleProductId: input.productId,
+        components: input.components,
+      })
+    ),
 
   delete: adminProcedure.input(deleteProductInput).mutation(({ ctx, input }) => {
     // Reserve the writer before reading versions. The business row and its

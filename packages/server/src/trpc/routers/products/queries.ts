@@ -31,10 +31,12 @@ import {
   listProductsInput,
   getProductInput,
   getProductVariantMatrixInput,
+  getBundleComponentsInput,
   searchProductsInput,
   lookupByBarcodeInput,
   topSellingProductsInput,
 } from '../../schemas/products.js';
+import { getBundleComponents } from '../../../services/product-bundles.js';
 import { resolveSiteGs1ParseOptions } from '../../../services/peripherals/barcode/config.js';
 import { parseScan } from '../../../services/peripherals/barcode/parser.js';
 import { assertSaleQuantityAllowed } from '../../../services/fraction-policy.js';
@@ -321,6 +323,11 @@ export const productQueryProcedures = {
 
       return { parent, axes, variants };
     }),
+
+  /** Read the physical stock components attached to a combo/kit product. */
+  getBundleComponents: tenantProcedure
+    .input(getBundleComponentsInput)
+    .query(({ ctx, input }) => getBundleComponents(ctx.db, ctx.tenantId, input.productId)),
 
   /**
    * Search products by name, SKU or barcode
