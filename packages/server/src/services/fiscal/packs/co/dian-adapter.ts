@@ -3,7 +3,7 @@
  *
  * Signs UBL 2.1 XML via XAdES-EPES and submits through WS-Security SOAP 1.2 (`SendBillSync`,
  * `SendTestSetAsync`, `GetStatus`). Keeps `maturity = 'draft'` until live `vpfe-hab`
- * certification evidence (gate X.2) is verified.
+ * certification evidence is verified.
  *
  * @module services/fiscal/packs/co/dian-adapter
  */
@@ -61,7 +61,7 @@ export interface ColombiaDianAdapterOptions {
   /**
    * How to surface a transient DIAN outage:
    * - 'contingency' (default): signs contingency type 08 XML and returns status='contingency'
-   * - 'throw': throws recoverable FiscalProviderError('PROVIDER_UNAVAILABLE') for outbox retry
+   * - 'throw': throws recoverable FiscalProviderError('PROVIDER_5XX') for outbox retry
    */
   outageBehavior?: 'contingency' | 'throw' | undefined;
   /** Clock override for deterministic tests. */
@@ -94,7 +94,7 @@ export class ColombiaDianAdapter implements FiscalAdapter {
   readonly providerId = COLOMBIA_DIAN_DIRECT_PROVIDER_ID;
   readonly countryCode = 'CO';
   readonly capabilities = CAPABILITIES;
-  // Stays 'draft' until live vpfe-hab certification evidence (gate X.2) is verified.
+  // Stays 'draft' until live vpfe-hab certification evidence is verified.
   readonly maturity = 'draft' as const;
 
   private readonly now: () => Date;

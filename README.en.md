@@ -165,8 +165,8 @@ The canonical capability inventory, remaining gaps, and release gates live in
 
 </div>
 
-The desktop app imports `@puntovivo/server` directly from the Electron main
-process — it is not a spawned child server process.
+The desktop app runs `@puntovivo/server` on a `worker_threads` worker inside
+Electron — it is not a spawned child server process.
 
 ## Quick start
 

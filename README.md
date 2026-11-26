@@ -165,8 +165,8 @@ para releases están en [docs/PROJECT-STATUS.md](docs/es/PROJECT-STATUS.md).
 
 </div>
 
-La aplicación de escritorio importa `@puntovivo/server` directamente en el
-proceso principal de Electron; no inicia el servidor como un proceso hijo.
+La aplicación de escritorio ejecuta `@puntovivo/server` en un hilo
+`worker_threads` dentro de Electron; no inicia el servidor como un proceso hijo.
 
 ## Inicio rápido
 
