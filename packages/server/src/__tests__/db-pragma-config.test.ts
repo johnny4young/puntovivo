@@ -67,11 +67,21 @@ describe('SQLite PRAGMA cluster', () => {
     createdDirs.push(dir);
     const dbPath = join(dir, 'wal-close.db');
     await initDatabase({ dbPath, seedData: true });
-    closeDatabase();
+    // A second connection keeps SQLite from deleting the WAL on last close,
+    // so only the explicit TRUNCATE checkpoint can empty it.
+    const { default: SqliteDatabase } = await import('better-sqlite3');
+    const observer = new SqliteDatabase(dbPath);
+    observer.prepare('SELECT count(*) FROM sqlite_master').get();
+    try {
+      closeDatabase();
 
-    const { statSync, existsSync } = await import('node:fs');
-    const walPath = `${dbPath}-wal`;
-    expect(!existsSync(walPath) || statSync(walPath).size === 0).toBe(true);
+      const { statSync, existsSync } = await import('node:fs');
+      const walPath = `${dbPath}-wal`;
+      expect(existsSync(walPath)).toBe(true);
+      expect(statSync(walPath).size).toBe(0);
+    } finally {
+      observer.close();
+    }
   });
 
   it('still applies the connection-level PRAGMAs in `:memory:` mode', async () => {

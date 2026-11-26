@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useContext } from 'react';
+import { useState, useEffect, useCallback, useContext, useRef } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import {
@@ -183,6 +183,8 @@ async function triggerStoreSync(entry: OfflineSyncStoreEntry): Promise<void> {
         lastSync: new Date(),
         error: result.success ? null : result.errors?.[0] || 'Sync failed',
       }));
+      // A refresh that started before the push would report pre-push counts.
+      await entry.inFlightRefresh;
       await refreshStoreStatus(entry);
     } catch (error) {
       updateStoreStatus(entry, prev => ({
@@ -301,7 +303,9 @@ function releaseStoreIfUnused(entry: OfflineSyncStoreEntry): void {
 }
 
 export function useOfflineSync() {
-  const { t } = useTranslation('errors');
+  // Always-mounted chrome: the lazy `errors` dictionary must not suspend the app shell.
+  const { t } = useTranslation('errors', { useSuspense: false });
+  const tRef = useRef(t);
   const hasDesktopSync = typeof window !== 'undefined' && Boolean(window.api?.sync);
   const tenantId = getStoredAuthTenantId();
   // sync.push is limited to sales roles; a viewer only reads the status.
@@ -313,27 +317,34 @@ export function useOfflineSync() {
     () => offlineSyncStores.get(storeKey)?.status ?? createInitialStatus()
   );
 
+  // `t` changes identity when a dictionary loads; re-subscribing would tear the shared store down.
+  useEffect(() => {
+    tRef.current = t;
+    const entry = offlineSyncStores.get(storeKey);
+    if (entry) entry.translate = t;
+  }, [storeKey, t]);
+
   useEffect(() => {
     const token = Symbol('offline-sync-subscriber');
-    const entry = getOrCreateStore(tenantId, hasDesktopSync, t);
+    const entry = getOrCreateStore(tenantId, hasDesktopSync, tRef.current);
     entry.listeners.add(setStatus);
+    setStatus(entry.status);
     if (canPush) {
       entry.canPushSubscribers.add(token);
     }
     scheduleAutoSync(entry);
 
-    let cancelled = false;
     if (!entry.initialFetchScheduled) {
       entry.initialFetchScheduled = true;
+      // Any surviving subscriber owns the first fetch, not only the one that scheduled it.
       queueMicrotask(() => {
-        if (!cancelled && offlineSyncStores.get(entry.key) === entry) {
+        if (offlineSyncStores.get(entry.key) === entry && entry.listeners.size > 0) {
           void refreshStoreStatus(entry);
         }
       });
     }
 
     return () => {
-      cancelled = true;
       entry.listeners.delete(setStatus);
       entry.canPushSubscribers.delete(token);
       if (entry.listeners.size > 0) {
@@ -342,7 +353,7 @@ export function useOfflineSync() {
         releaseStoreIfUnused(entry);
       }
     };
-  }, [canPush, hasDesktopSync, t, tenantId]);
+  }, [canPush, hasDesktopSync, tenantId]);
 
   const refreshStatus = useCallback(async () => {
     const entry = getOrCreateStore(tenantId, hasDesktopSync, t);

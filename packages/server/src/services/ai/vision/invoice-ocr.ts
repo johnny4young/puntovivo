@@ -241,6 +241,9 @@ export async function extractInvoiceFromImage(
   // The client signal is admission-only: it stops work before the budget is
   // reserved, but a dispatched extraction runs to its own deadline and
   // settles its known cost instead of becoming an unknown-cost liability.
+  // Load before reserving: a failed import must not strand a budget hold.
+  const { JSONParseError, NoObjectGeneratedError, TypeValidationError, generateObject } =
+    await import('ai');
   ctx.abortSignal?.throwIfAborted();
   const reservation = reserveAiBudget(ctx.db, ctx.tenantId);
   const startedAt = Date.now();
@@ -288,8 +291,6 @@ export async function extractInvoiceFromImage(
     return Number.isFinite(cost) && cost >= 0 ? cost : null;
   };
 
-  const { JSONParseError, NoObjectGeneratedError, TypeValidationError, generateObject } =
-    await import('ai');
   let result;
   try {
     result = await generateObject({

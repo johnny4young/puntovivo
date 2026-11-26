@@ -9,7 +9,7 @@ export interface KdsStationColumnProps extends KdsActions {
   orders: KdsCardData[];
   disabled: boolean;
   /** Shared board clock (epoch ms) so cards avoid mounting one interval each. */
-  now?: number | undefined;
+  now: number;
 }
 export function KdsStationColumn({
   stationKey,

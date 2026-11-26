@@ -12,8 +12,8 @@ export interface KdsOrderCardProps extends KdsActions {
    * rest. The card then carries its own frozen name.
    */
   showFrozenStation?: boolean;
-  /** Shared clock from KdsBoard; when provided, this card mounts no interval of its own. */
-  now?: number | undefined;
+  /** Shared clock from KdsBoard; cards mount no interval of their own. */
+  now: number;
 }
 
 const quantityFormatters = new Map<string, Intl.NumberFormat>();
@@ -57,13 +57,11 @@ export function KdsOrderCard({
   onLine,
   busy = false,
   showFrozenStation = false,
-  now: sharedNow,
+  now,
 }: KdsOrderCardProps) {
   const { t, i18n } = useTranslation(['kds', 'restaurants']);
   const created = Date.parse(order.createdAt);
-  const minutes = Number.isFinite(created)
-    ? Math.max(0, Math.floor(((sharedNow ?? created) - created) / 60_000))
-    : 0;
+  const minutes = Number.isFinite(created) ? Math.max(0, Math.floor((now - created) / 60_000)) : 0;
   const quantity = getQuantityFormatter(i18n.language);
   const observed = { id: order.id, expectedVersion: order.version };
   const valid = order.integrity === 'valid';
