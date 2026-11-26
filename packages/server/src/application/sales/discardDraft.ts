@@ -31,6 +31,7 @@ import { writeAuditLog } from '../../services/audit-logs.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
 import { reverseBundleComponentsInTransaction } from '../../services/product-bundles.js';
+import { reverseModifierBomInTransaction } from '../../services/restaurant/modifier-bom.js';
 import {
   enqueueInventoryLotUpdatesForSaleInTransaction,
   restoreLotsForSale,
@@ -229,6 +230,18 @@ export async function discardDraft(
         });
         inventoryMovementIds.push(
           ...reverseBundleComponentsInTransaction({
+            tx,
+            tenantId: ctx.tenantId,
+            siteId: authoritativeSaleSiteId,
+            saleId: input.saleId,
+            saleNumber: current.saleNumber,
+            reversalKind: 'discard',
+            userId: ctx.user.id,
+            now,
+            itemFractions: saleLineItems.map(item => ({ saleItemId: item.id, fraction: 1 })),
+            productStockState,
+          }),
+          ...reverseModifierBomInTransaction({
             tx,
             tenantId: ctx.tenantId,
             siteId: authoritativeSaleSiteId,

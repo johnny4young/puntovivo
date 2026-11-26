@@ -49,8 +49,13 @@ import {
 } from '../../lib/outbox/index.js';
 import { createModuleLogger, type PuntovivoLogger } from '../../logging/logger.js';
 import { instantiateAdapter } from './registry.js';
+import {
+  EscPosReceiptPrinterAdapter,
+  escposReceiptPrinterConfigSchema,
+} from './drivers/escpos-receipt-printer.js';
 import type { CashDrawerAdapter, ReceiptPrinterAdapter } from './index.js';
 import type { ReceiptDocument } from './escpos/byte-builder.js';
+import type { KdsStationPrinterConfig } from '../../db/schema.js';
 import type { NormalizedHardwareError } from './types.js';
 import type { NormalizedOutboxError } from '../../lib/outbox/types.js';
 import { WorkerActivityTracker } from '../../lib/worker-activity.js';
@@ -73,6 +78,12 @@ export type HardwareOutboxPayload =
       escposBytes?: number[]; // serialized via JSON.stringify; rebuilt as Uint8Array on read
       saleId?: string;
       siteId: string;
+      stationCode?: string;
+      stationName?: string;
+      orderId?: string;
+      ticketKind?: 'order' | 'void';
+      stationPrinterConfig?: KdsStationPrinterConfig;
+      isPrecheck?: boolean;
     }
   | {
       kind: 'kick-drawer';
@@ -214,6 +225,57 @@ export function createHardwareWorker(opts: CreateHardwareWorkerOptions): Hardwar
   ): Promise<{ ok: true } | { ok: false; error: NormalizedOutboxError }> {
     const payload = row.payload;
     const kind = payload.kind as HardwareOutboxKind;
+
+    // Station-dedicated TCP kitchen printer bypasses the single site receipt printer slot.
+    if (payload.kind === 'print-kitchen-ticket' && payload.stationPrinterConfig?.mode === 'tcp') {
+      const parsed = escposReceiptPrinterConfigSchema.safeParse({
+        channel: 'tcp',
+        host: payload.stationPrinterConfig.host,
+        port: payload.stationPrinterConfig.port ?? 9100,
+        paperWidth: payload.stationPrinterConfig.paperWidth ?? '80mm',
+        characterSet: payload.stationPrinterConfig.characterSet ?? 'cp858',
+        kickDrawerAfterReceipt: false,
+        autoPrintOnComplete: false,
+      });
+      if (!parsed.success) {
+        return {
+          ok: false,
+          error: {
+            errorCode: 'INVALID_CONFIG',
+            providerMessage: parsed.error.issues.map(i => i.message).join('; '),
+            recoverable: false,
+          },
+        };
+      }
+      const stationAdapter = new EscPosReceiptPrinterAdapter(
+        row.tenantId,
+        payload.siteId,
+        `kds-station:${payload.stationCode ?? 'main'}`,
+        parsed.data
+      );
+      try {
+        const result = await withAdapterTimeout(
+          stationAdapter.print({
+            kind: 'kitchen-ticket',
+            escposBytes: payload.escposBytes ? new Uint8Array(payload.escposBytes) : undefined,
+            metadata: { document: payload.document, saleId: payload.saleId },
+          }),
+          ADAPTER_TIMEOUT_MS
+        );
+        return result.status === 'ok'
+          ? { ok: true }
+          : {
+              ok: false,
+              error: toOutboxError(result.error ?? { message: 'kitchen print failed' }),
+            };
+      } catch (err) {
+        return {
+          ok: false,
+          error: toOutboxError({ message: err instanceof Error ? err.message : String(err) }),
+        };
+      }
+    }
+
     const targetPeripheralKind: 'printer' | 'cash_drawer' =
       kind === 'kick-drawer' ? 'cash_drawer' : 'printer';
     const peripheralRow = await loadActivePeripheralForKind(

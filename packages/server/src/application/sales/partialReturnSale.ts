@@ -43,6 +43,7 @@ import type { ResolvedLine } from '../../services/fiscal/orchestrator/types.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
 import { reverseBundleComponentsInTransaction } from '../../services/product-bundles.js';
+import { reverseModifierBomInTransaction } from '../../services/restaurant/modifier-bom.js';
 import { broadcastSaleRetracted, materializeCommittedFiscalIntent } from './fiscalPostHook.js';
 import { restoreExactInventoryLot } from '../../services/inventory-lots/index.js';
 import { getOriginalSaleDocumentCufe } from './fiscal-policy.js';
@@ -1066,6 +1067,21 @@ export async function returnSale(
         });
         inventoryMovementIds.push(
           ...reverseBundleComponentsInTransaction({
+            tx,
+            tenantId: ctx.tenantId,
+            siteId: originalSaleSiteId,
+            saleId: input.id,
+            saleNumber: current.saleNumber,
+            reversalKind: 'return',
+            userId: ctx.user.id,
+            now,
+            itemFractions: committedPlan.lines.map(line => ({
+              saleItemId: line.saleItemId,
+              returnedBaseQuantity: line.baseQuantity,
+            })),
+            productStockState: productStocks,
+          }),
+          ...reverseModifierBomInTransaction({
             tx,
             tenantId: ctx.tenantId,
             siteId: originalSaleSiteId,

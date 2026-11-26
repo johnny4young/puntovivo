@@ -206,3 +206,85 @@ export const regroupRestaurantChecksInput = z
 
 /** Fully validated payload for atomically opening a sale-backed restaurant check. */
 export type OpenRestaurantCheckProcedureInput = z.infer<typeof openRestaurantCheckInput>;
+
+export const addRestaurantRoundInput = z
+  .object({
+    tableId: z.string().min(1),
+    checkId: z.string().min(1),
+    expectedCheckVersion: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+    roundLabel: z.string().trim().min(1).max(80).nullable().optional(),
+    diners: z.array(restaurantDinerInput).max(200).default([]),
+    items: z.array(restaurantOrderItemInput).min(1).max(200),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const clientIds = value.diners.map(diner => diner.clientId);
+    if (new Set(clientIds).size !== clientIds.length) {
+      ctx.addIssue({ code: 'custom', path: ['diners'], message: 'Diner ids must be unique' });
+    }
+    const knownDiners = new Set(clientIds);
+    for (const [index, item] of value.items.entries()) {
+      if (item.dinerClientId && !knownDiners.has(item.dinerClientId)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['items', index, 'dinerClientId'],
+          message: 'Order line references an unknown diner',
+        });
+      }
+    }
+  });
+
+export const getRestaurantPrecheckInput = z
+  .object({
+    tableId: z.string().min(1),
+    checkId: z.string().min(1).optional(),
+    tipPercent: z.number().finite().min(0).max(100).default(10),
+  })
+  .strict();
+
+export const printRestaurantPrecheckInput = z
+  .object({
+    tableId: z.string().min(1),
+    checkId: z.string().min(1).optional(),
+    tipPercent: z.number().finite().min(0).max(100).default(10),
+    markBillRequested: z.boolean().default(true),
+  })
+  .strict();
+
+export const splitRestaurantCheckEqualInput = z
+  .object({
+    tableId: z.string().min(1),
+    checkId: z.string().min(1),
+    expectedCheckVersion: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+    parts: z.number().int().min(2).max(RESTAURANT_REGROUP_MAX_ACCOUNTS),
+  })
+  .strict();
+
+export const splitRestaurantSharedLineInput = z
+  .object({
+    tableId: z.string().min(1),
+    checks: z
+      .array(
+        z
+          .object({
+            checkId: z.string().min(1),
+            version: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+          })
+          .strict()
+      )
+      .min(1)
+      .max(RESTAURANT_REGROUP_MAX_ACCOUNTS),
+    saleItemId: z.string().min(1),
+    targetCheckIds: z.array(z.string().min(1).nullable()).min(2).max(10),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const nonNull = value.targetCheckIds.filter((id): id is string => id !== null);
+    if (new Set(nonNull).size !== nonNull.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['targetCheckIds'],
+        message: 'A check can only receive one share of the same dish',
+      });
+    }
+  });

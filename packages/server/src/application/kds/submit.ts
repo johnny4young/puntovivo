@@ -30,6 +30,7 @@ import { insertKitchenEvent } from './events.js';
 import { adoptLegacyKitchenSale } from './legacy.js';
 import { resolveKitchenRoutes } from './stations.js';
 import { validateKitchenSnapshots } from './snapshot.js';
+import { enqueueStationComandaInTransaction } from '../../services/kds/comanda-printer.js';
 
 /** Bounded current sale-line query; snapshots prefer the already frozen sale name. */
 function loadLines(tx: DatabaseInstance, scope: KdsWriteScope, saleId: string) {
@@ -301,6 +302,30 @@ export function submitKitchenSaleInTransaction(
       kind: 'submitted',
       actorId: scope.actorId,
       facts: { lineCount: snapshots.length, sourceSaleId: saleId },
+    });
+    enqueueStationComandaInTransaction(tx, {
+      tenantId: scope.tenantId,
+      siteId: scope.siteId,
+      actorId: scope.actorId,
+      saleId,
+      saleNumber: sale.saleNumber,
+      tableLabel: sale.tableLabel,
+      orderId: id,
+      stationCode: station.code,
+      stationName: station.name,
+      printerConfig: station.printerConfig,
+      roundLabel: snapshots[0]?.roundLabel ?? null,
+      orderNotes: sale.notes,
+      lines: snapshots.map(snapshot => ({
+        productName: snapshot.productName,
+        quantity: snapshot.quantity,
+        unitLabel: snapshot.unitLabel,
+        courseKey: snapshot.courseKey,
+        dinerLabel: snapshot.dinerLabel,
+        modifiers: snapshot.modifiers,
+        notes: snapshot.notes,
+      })),
+      now,
     });
     createdOrderIds.push(id);
   }

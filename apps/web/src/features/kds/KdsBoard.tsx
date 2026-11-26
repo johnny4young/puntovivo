@@ -1,5 +1,5 @@
 /** Live kitchen board: coherent server projection, explicit stale/offline states and CAS actions. */
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -10,10 +10,13 @@ import { trpc } from '@/lib/trpc';
 import { resolveStationLabel } from './stationLabel';
 import { KdsEmptyState } from './KdsEmptyState';
 import { KdsStationColumn } from './KdsStationColumn';
-import { KdsConfiguration } from './KdsConfiguration';
 import { useKitchenOnline } from './useKitchenOnline';
 import { KdsProductionFooter } from './KdsProductionFooter';
 import type { KdsCardData, KitchenInputs } from './types';
+
+const KdsConfiguration = lazy(() =>
+  import('./KdsConfiguration').then(module => ({ default: module.KdsConfiguration }))
+);
 
 export function KdsBoard() {
   const { currentSite, currentTenant } = useTenant();
@@ -231,7 +234,9 @@ function KitchenBoard({
           ))}
       </div>
       {canManage && configurationOpen && (
-        <KdsConfiguration siteId={siteId} onClose={() => setConfigurationOpen(false)} />
+        <Suspense fallback={null}>
+          <KdsConfiguration siteId={siteId} onClose={() => setConfigurationOpen(false)} />
+        </Suspense>
       )}
       <KdsProductionFooter orders={[...groups.values()].flat()} />
     </div>

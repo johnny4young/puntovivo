@@ -104,3 +104,27 @@ export const saveRestaurantModifierGroupInput = z
 
 /** Fully parsed group command; options and dishes are replaced as a whole. */
 export type SaveRestaurantModifierGroupInput = z.infer<typeof saveRestaurantModifierGroupInput>;
+
+export const getRestaurantModifierBomInput = z
+  .object({
+    siteId,
+    catalogId: rowId,
+  })
+  .strict();
+
+export const setRestaurantModifierBomInput = z
+  .object({
+    siteId,
+    catalogId: rowId,
+    components: z
+      .array(
+        z
+          .object({
+            componentProductId: rowId,
+            quantity: z.number().finite().positive().max(1_000_000),
+          })
+          .strict()
+      )
+      .max(50),
+  })
+  .strict();

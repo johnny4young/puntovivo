@@ -254,13 +254,13 @@ describe('KdsBoard', () => {
     view.unmount();
     expect(remove).toHaveBeenCalledWith('offline', expect.any(Function));
   });
-  it('does not expose configuration to a cashier and resets a manager dialog on site switch', () => {
+  it('does not expose configuration to a cashier and resets a manager dialog on site switch', async () => {
     const view = render(<KdsBoard />);
     expect(screen.queryByRole('button', { name: 'Kitchen settings' })).not.toBeInTheDocument();
     h.role = 'manager';
     view.rerender(<KdsBoard />);
     fireEvent.click(screen.getByRole('button', { name: 'Kitchen settings' }));
-    expect(screen.getByTestId('configuration')).toBeInTheDocument();
+    expect(await screen.findByTestId('configuration')).toBeInTheDocument();
     h.site = 'site-2';
     view.rerender(<KdsBoard />);
     expect(screen.queryByTestId('configuration')).not.toBeInTheDocument();
@@ -304,6 +304,7 @@ it('honors configured station order instead of oldest ticket order, including ma
       name: 'Hot',
       isActive: true,
       position: 0,
+      printerConfig: null,
       version: 1,
       createdAt: '',
       updatedAt: '',
@@ -316,6 +317,7 @@ it('honors configured station order instead of oldest ticket order, including ma
       name: 'main',
       isActive: true,
       position: 10,
+      printerConfig: null,
       version: 1,
       createdAt: '',
       updatedAt: '',

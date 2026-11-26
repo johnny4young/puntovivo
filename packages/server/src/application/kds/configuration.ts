@@ -121,10 +121,28 @@ export function saveKitchenStation(
         .get();
       if (count >= (input.code === 'main' || main ? 64 : 63)) invalidConfiguration();
     }
+    const normalizedPrinterConfig =
+      input.printerConfig === undefined
+        ? (before?.printerConfig ?? null)
+        : input.printerConfig === null || input.printerConfig.mode === 'none'
+          ? null
+          : {
+              mode: input.printerConfig.mode,
+              ...(input.printerConfig.mode === 'tcp'
+                ? {
+                    host: input.printerConfig.host?.trim(),
+                    port: input.printerConfig.port ?? 9100,
+                  }
+                : {}),
+              paperWidth: input.printerConfig.paperWidth ?? '80mm',
+              characterSet: input.printerConfig.characterSet ?? 'cp858',
+              copies: input.printerConfig.copies ?? 1,
+            };
     const patch = {
       name: input.name,
       isActive: input.isActive,
       position: input.position,
+      printerConfig: normalizedPrinterConfig,
       version: (before?.version ?? 0) + 1,
       updatedAt: new Date().toISOString(),
     };

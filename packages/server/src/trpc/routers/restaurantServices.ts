@@ -32,13 +32,27 @@ import {
   criticalCommandManagerOrAdminProcedureWithModule,
 } from '../middleware/criticalCommand.js';
 import { buildLifecycleContext } from './sales/helpers.js';
+import { addRestaurantRound } from '../../application/restaurant/add-round.js';
 import { regroupRestaurantChecksInTransaction } from '../../application/restaurant/regroup-checks.js';
 import {
+  splitRestaurantCheckEqualInTransaction,
+  splitRestaurantSharedLineInTransaction,
+} from '../../application/restaurant/split-equal.js';
+import {
+  buildRestaurantPrecheck,
+  printRestaurantPrecheck,
+} from '../../services/restaurant/precheck.js';
+import {
+  addRestaurantRoundInput,
+  getRestaurantPrecheckInput,
   getRestaurantTableStateInput,
   openRestaurantCheckInput,
+  printRestaurantPrecheckInput,
   regroupRestaurantChecksInput,
   setRestaurantBillRequestedInput,
   setRestaurantPendingRoundInput,
+  splitRestaurantCheckEqualInput,
+  splitRestaurantSharedLineInput,
 } from '../schemas/restaurantServices.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
@@ -149,6 +163,94 @@ export const restaurantServicesRouter = router({
         change: result.change,
         loyaltyPointsEarned: result.loyaltyPointsEarned ?? 0,
       };
+    }),
+
+  /**
+   * Append a new round directly onto an existing open check without creating
+   * fragmented checks. Reserves stock/BOM, updates draft totals, and submits
+   * only the new round to KDS and thermal station printers.
+   */
+  addRound: restaurantCommandProcedure
+    .input(addRestaurantRoundInput)
+    .mutation(async ({ ctx, input }) => addRestaurantRound(buildLifecycleContext(ctx), input)),
+
+  /** Non-fiscal precheck preview with editable suggested voluntary tip (Ley 1935/2018). */
+  getPrecheck: restaurantStaffProcedure.input(getRestaurantPrecheckInput).query(({ ctx, input }) =>
+    buildRestaurantPrecheck(ctx.db, {
+      tenantId: ctx.tenantId,
+      callerSiteId: ctx.siteId,
+      actorId: ctx.user!.id,
+      tableId: input.tableId,
+      checkId: input.checkId,
+      tipPercent: input.tipPercent,
+    })
+  ),
+
+  /** Print non-fiscal precheck without consuming a fiscal sequential or closing the sale. */
+  printPrecheck: restaurantStaffProcedure
+    .input(printRestaurantPrecheckInput)
+    .mutation(({ ctx, input }) =>
+      printRestaurantPrecheck(ctx.db, {
+        tenantId: ctx.tenantId,
+        callerSiteId: ctx.siteId,
+        actorId: ctx.user!.id,
+        tableId: input.tableId,
+        checkId: input.checkId,
+        tipPercent: input.tipPercent,
+        markBillRequested: input.markBillRequested,
+      })
+    ),
+
+  /** Split one open check into N equal payable checks (`Total / N`), available to waiters/cashiers. */
+  splitEqual: restaurantCommandProcedure
+    .input(splitRestaurantCheckEqualInput)
+    .mutation(({ ctx, input }) => {
+      const lifecycle = buildLifecycleContext(ctx);
+      return ctx.db.transaction(
+        tx => {
+          const result = splitRestaurantCheckEqualInTransaction(
+            tx,
+            {
+              tenantId: ctx.tenantId,
+              callerSiteId: ctx.siteId,
+              actorId: ctx.user!.id,
+              now: new Date().toISOString(),
+              envelope: lifecycle.envelope,
+              deviceId: lifecycle.deviceId,
+            },
+            input
+          );
+          lifecycle.completeInTransaction?.(tx as unknown as RestaurantDb, result);
+          return result;
+        },
+        { behavior: 'immediate' }
+      );
+    }),
+
+  /** Split one shared dish across 2..10 checks, available to waiters/cashiers. */
+  splitSharedLine: restaurantCommandProcedure
+    .input(splitRestaurantSharedLineInput)
+    .mutation(({ ctx, input }) => {
+      const lifecycle = buildLifecycleContext(ctx);
+      return ctx.db.transaction(
+        tx => {
+          const result = splitRestaurantSharedLineInTransaction(
+            tx,
+            {
+              tenantId: ctx.tenantId,
+              callerSiteId: ctx.siteId,
+              actorId: ctx.user!.id,
+              now: new Date().toISOString(),
+              envelope: lifecycle.envelope,
+              deviceId: lifecycle.deviceId,
+            },
+            input
+          );
+          lifecycle.completeInTransaction?.(tx as unknown as RestaurantDb, result);
+          return result;
+        },
+        { behavior: 'immediate' }
+      );
     }),
 
   /**

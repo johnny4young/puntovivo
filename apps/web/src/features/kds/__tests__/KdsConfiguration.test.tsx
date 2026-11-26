@@ -76,6 +76,7 @@ beforeEach(async () => {
       name: 'Grill',
       isActive: true,
       position: 2,
+      printerConfig: null,
       version: 8,
       createdAt: '',
       updatedAt: '',
@@ -101,6 +102,7 @@ describe('KdsConfiguration', () => {
       name: 'Hot grill',
       isActive: true,
       position: 2,
+      printerConfig: null,
       expectedVersion: 8,
     });
     expect(h.invalidate).toHaveBeenCalled();

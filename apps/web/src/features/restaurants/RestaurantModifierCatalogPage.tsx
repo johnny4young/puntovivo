@@ -16,6 +16,11 @@ const RestaurantModifierGroupsPanel = lazy(() =>
     default: module.RestaurantModifierGroupsPanel,
   }))
 );
+const ModifierBomSection = lazy(() =>
+  import('./ModifierBomSection').then(module => ({
+    default: module.ModifierBomSection,
+  }))
+);
 const VIEWS = ['options', 'groups'] as const;
 
 /** Public projection has no employee ids or audit metadata. */
@@ -352,6 +357,11 @@ function CatalogForm({
           </label>
           {!draft.isActive && (
             <p className="rounded-lg bg-surface-2 p-3 text-sm">{t('catalog.archiveHelp')}</p>
+          )}
+          {initial.id && (
+            <Suspense fallback={null}>
+              <ModifierBomSection siteId={siteId} catalogId={initial.id} />
+            </Suspense>
           )}
           {error && (
             <div role="alert" className="space-y-2 text-sm text-danger-700">

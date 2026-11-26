@@ -19,6 +19,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
 import { moneyTwoDecimalCheck, nowIso, sqliteNow } from './base.js';
+import { inventoryValueChecks } from './value-checks.js';
 import { sites, tenants, users } from './auth.js';
 import { products } from './products.js';
 import { sales } from './sales.js';
@@ -465,6 +466,70 @@ export const restaurantLineModifiers = sqliteTable(
     check(
       'chk_restaurant_modifiers_catalog_reference',
       sql`(${table.catalogId} IS NULL AND ${table.catalogVersion} IS NULL) OR (${table.catalogId} IS NOT NULL AND ${table.catalogVersion} IS NOT NULL AND ${table.catalogVersion} >= 1)`
+    ),
+  ]
+);
+
+export const restaurantModifierBomComponents = sqliteTable(
+  'restaurant_modifier_bom_components',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    catalogId: text('catalog_id')
+      .notNull()
+      .references(() => restaurantModifierCatalog.id, { onDelete: 'cascade' }),
+    componentProductId: text('component_product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'restrict' }),
+    quantity: real('quantity').notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    uniqueIndex('idx_restaurant_modifier_bom_pair').on(
+      table.tenantId,
+      table.catalogId,
+      table.componentProductId
+    ),
+    index('idx_restaurant_modifier_bom_component').on(table.tenantId, table.componentProductId),
+    check('chk_restaurant_modifier_bom_quantity', sql`${table.quantity} > 0`),
+  ]
+);
+
+export const saleItemModifierBomComponents = sqliteTable(
+  'sale_item_modifier_bom_components',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleItemId: text('sale_item_id')
+      .notNull()
+      .references(() => saleItems.id, { onDelete: 'cascade' }),
+    catalogId: text('catalog_id'),
+    modifierName: text('modifier_name').notNull(),
+    componentProductId: text('component_product_id')
+      .notNull()
+      .references(() => products.id),
+    componentQuantityPerModifier: real('component_quantity_per_modifier').notNull(),
+    totalQuantityDeducted: real('total_quantity_deducted').notNull(),
+    unitCostAtSale: real('unit_cost_at_sale').notNull(),
+    inventoryCostCents: integer('inventory_cost_cents'),
+    cogsCostCents: integer('cogs_cost_cents'),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    ...inventoryValueChecks('sale_item_modifier_bom_components', {
+      cents: [table.inventoryCostCents, table.cogsCostCents],
+      together: [[table.inventoryCostCents, table.cogsCostCents]],
+    }),
+    index('idx_sale_item_modifier_bom_item').on(table.tenantId, table.saleItemId),
+    index('idx_sale_item_modifier_bom_component').on(table.tenantId, table.componentProductId),
+    check(
+      'chk_sale_item_modifier_bom_quantities',
+      sql`${table.componentQuantityPerModifier} > 0 AND ${table.totalQuantityDeducted} > 0`
     ),
   ]
 );

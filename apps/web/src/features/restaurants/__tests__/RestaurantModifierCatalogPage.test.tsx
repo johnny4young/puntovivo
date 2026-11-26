@@ -18,8 +18,20 @@ const h = vi.hoisted(() => ({
 vi.mock('@/features/tenant/TenantProvider', () => ({ useTenant: () => ({ currentSite: h.site }) }));
 vi.mock('@/lib/trpc', () => ({
   trpc: {
-    useUtils: () => ({ restaurantModifiers: { invalidate: h.invalidate } }),
-    restaurantModifiers: { list: { useQuery: h.query } },
+    useUtils: () => ({
+      restaurantModifiers: {
+        invalidate: h.invalidate,
+        getBomComponents: { invalidate: h.invalidate },
+      },
+    }),
+    restaurantModifiers: {
+      list: { useQuery: h.query },
+      getBomComponents: { useQuery: () => ({ data: [], isLoading: false }) },
+      setBomComponents: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+    },
+    products: {
+      list: { useQuery: () => ({ data: { items: [] }, isLoading: false }) },
+    },
   },
 }));
 vi.mock('@/lib/useCriticalMutation', () => ({

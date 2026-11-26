@@ -1077,8 +1077,11 @@ describe('VoiceOrderingScreen', () => {
     });
     const view = renderScreen();
     selectTable();
-    // Regrouping checks is a manager override; a cashier never sees it.
-    expect(screen.queryByTestId('voice-ordering-split')).not.toBeInTheDocument();
+    // Waiters/cashiers can open the split sheet for equal and shared-dish splits, plus precheck.
+    expect(screen.getByTestId('voice-ordering-split')).toBeInTheDocument();
+    expect(screen.getByTestId('voice-ordering-precheck')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('voice-ordering-split'));
+    expect(await screen.findByTestId('split-sheet-stub')).toHaveTextContent('table-1 · Mesa 1');
     view.unmount();
 
     mockAuthRole = 'manager';
