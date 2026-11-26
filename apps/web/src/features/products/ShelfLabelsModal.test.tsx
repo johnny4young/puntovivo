@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { openPrintMock, warningMock } = vi.hoisted(() => ({
@@ -26,6 +26,7 @@ describe('ShelfLabelsModal', () => {
   beforeEach(() => {
     openPrintMock.mockReset();
     warningMock.mockReset();
+    delete (window as { electron?: unknown }).electron;
   });
 
   it('prints the sheet through the shared blob print window with auto-print', () => {
@@ -48,5 +49,35 @@ describe('ShelfLabelsModal', () => {
     fireEvent.click(screen.getByText('labels.printSheet'));
 
     expect(warningMock).toHaveBeenCalledWith({ title: 'labels.popupBlocked' });
+  });
+
+  it('prints through the desktop document bridge without a popup or script', async () => {
+    const printDocument = vi.fn(async () => ({ success: true }));
+    (window as { electron?: unknown }).electron = { printDocument };
+    render(<ShelfLabelsModal isOpen products={PRODUCTS} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByText('labels.printSheet'));
+
+    await waitFor(() => expect(printDocument).toHaveBeenCalledTimes(1));
+    const [html] = printDocument.mock.calls[0] as unknown as [string];
+    expect(html).not.toContain('<script');
+    expect(html).toContain('<path d="M');
+    expect(openPrintMock).not.toHaveBeenCalled();
+  });
+
+  it('stays quiet on a cancelled desktop dialog and warns on a failed job', async () => {
+    const printDocument = vi
+      .fn()
+      .mockResolvedValueOnce({ success: false, errorCode: 'PRINT_CANCELLED' })
+      .mockResolvedValueOnce({ success: false, error: 'Printer offline' });
+    (window as { electron?: unknown }).electron = { printDocument };
+    render(<ShelfLabelsModal isOpen products={PRODUCTS} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByText('labels.printSheet'));
+    await waitFor(() => expect(printDocument).toHaveBeenCalledTimes(1));
+    expect(warningMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('labels.printSheet'));
+    await waitFor(() => expect(warningMock).toHaveBeenCalledWith({ title: 'Printer offline' }));
   });
 });

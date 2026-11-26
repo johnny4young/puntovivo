@@ -4,7 +4,7 @@ import { nanoid } from 'nanoid';
 
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { products, sites, tenants, unitXProduct, units, users } from '../db/schema.js';
+import { categories, products, sites, tenants, unitXProduct, units, users } from '../db/schema.js';
 import { and, eq } from 'drizzle-orm';
 import {
   createPromotion,
@@ -267,6 +267,49 @@ describe('Promotions v2 engine (NxM, fixed_amount, recurring schedule)', () => {
     expect(quoteTwo.lines[0]?.lineTotal).toBe(3000);
   });
 
+  it('grants a fixed_amount promotion once per sale, split across its lines', async () => {
+    const categoryId = nanoid();
+    getDatabase()
+      .insert(categories)
+      .values({ id: categoryId, tenantId, name: `Cat ${nanoid(5)}` })
+      .run();
+    const productIds = [await seedProduct(3000), await seedProduct(1000), await seedProduct(6000)];
+    activate({
+      name: 'Bono categoría $1.000',
+      ruleKind: 'fixed_amount',
+      discountAmount: 1000,
+      categoryId,
+    });
+
+    const line = (productId: string, index: number, unitPrice: number) => ({
+      lineKey: `fresh:${index}`,
+      productId,
+      categoryId,
+      quantity: 1,
+      normalizedQuantity: 1,
+      unitPrice,
+      taxComponents: [legacyComponent({ vatRateId: null, taxKind: 'iva', taxRate: 0 })],
+      manualDiscountRate: 0,
+      tracksLots: false,
+    });
+    const quote = quotePromotions(getDatabase(), {
+      tenantId,
+      siteId,
+      customerId: null,
+      priceIncludesTax: true,
+      nowIso: '2026-11-26T15:00:00.000Z',
+      timezone: 'America/Bogota',
+      lines: [
+        line(productIds[0]!, 0, 3000),
+        line(productIds[1]!, 1, 1000),
+        line(productIds[2]!, 2, 6000),
+      ],
+    });
+
+    expect(quote.lines.map(priced => priced.promotionDiscountAmount)).toEqual([300, 100, 600]);
+    expect(quote.promotionDiscountAmount).toBe(1000);
+  });
+
   it('evaluates recurring weekday and time windows (normal and overnight) in tenant timezone', () => {
     // 2026-11-25 is Wednesday (weekday 3). 19:30Z = 14:30 America/Bogota (UTC-5).
     const wedAfternoon = '2026-11-25T19:30:00.000Z';
@@ -300,14 +343,29 @@ describe('Promotions v2 engine (NxM, fixed_amount, recurring schedule)', () => {
         'America/Bogota'
       )
     ).toBe(true);
-    // 2026-11-26T06:30:00Z = Thu 01:30 Bogota (still inside overnight window if Thu enabled).
+    // 2026-11-26T06:30:00Z = Thu 01:30 Bogota: still Wednesday's overnight window.
+    expect(
+      isPromotionScheduledAt(
+        { scheduleDays: [3], scheduleStartTime: '22:00', scheduleEndTime: '02:00' },
+        '2026-11-26T06:30:00.000Z',
+        'America/Bogota'
+      )
+    ).toBe(true);
     expect(
       isPromotionScheduledAt(
         { scheduleDays: [4], scheduleStartTime: '22:00', scheduleEndTime: '02:00' },
         '2026-11-26T06:30:00.000Z',
         'America/Bogota'
       )
-    ).toBe(true);
+    ).toBe(false);
+    // 2026-11-26T08:30:00Z = Thu 03:30 Bogota: outside the window on any day.
+    expect(
+      isPromotionScheduledAt(
+        { scheduleDays: [3], scheduleStartTime: '22:00', scheduleEndTime: '02:00' },
+        '2026-11-26T08:30:00.000Z',
+        'America/Bogota'
+      )
+    ).toBe(false);
   });
 
   it('completes a sale end-to-end with an active 2x1 promotion', async () => {

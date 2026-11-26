@@ -233,22 +233,23 @@ export function isPromotionScheduledAt(
 
   const weekdayName = parts.find(part => part.type === 'weekday')?.value ?? '';
   const weekday = WEEKDAY_INDEX[weekdayName];
-  if (days && days.length > 0 && (weekday === undefined || !days.includes(weekday))) {
-    return false;
-  }
+  const dayAllowed = (day: number | undefined) =>
+    !days || days.length === 0 || (day !== undefined && days.includes(day));
 
   if (start && end) {
     const hour = parts.find(part => part.type === 'hour')?.value ?? '00';
     const minute = parts.find(part => part.type === 'minute')?.value ?? '00';
     const hhmm = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
     if (start < end) {
-      return hhmm >= start && hhmm < end;
+      return dayAllowed(weekday) && hhmm >= start && hhmm < end;
     }
-    // Overnight window (e.g. 22:00 -> 02:00)
-    return hhmm >= start || hhmm < end;
+    // Overnight window: the hours after midnight belong to the day it started.
+    if (hhmm >= start) return dayAllowed(weekday);
+    if (hhmm < end) return dayAllowed(weekday === undefined ? undefined : (weekday + 6) % 7);
+    return false;
   }
 
-  return true;
+  return dayAllowed(weekday);
 }
 
 function normalizedRule(input: PromotionRuleInput) {
@@ -1028,6 +1029,7 @@ export function quotePromotions(
   let taxAmount = 0;
   let promotionDiscountAmount = 0;
   const pricedLines: PromotionPricedLine[] = [];
+  const selections: Array<{ line: (typeof args.lines)[number]; selected: PromotionRow[] }> = [];
   for (const line of args.lines) {
     const frozenLot =
       line.lotAllocations?.length === 1 &&
@@ -1063,6 +1065,63 @@ export function quotePromotions(
       return true;
     });
     const selected = selectCombination(eligible);
+    selections.push({ line, selected });
+
+    // Advance the same virtual FEFO cursor the sale transaction will use so a
+    // second line cannot reuse one lot's promotional stock.
+    if (line.lotAllocations) continue;
+    let remaining = line.normalizedQuantity;
+    for (const lot of fefoLots) {
+      if (remaining <= 1e-9) break;
+      const available = lotRemainders.get(lot.id) ?? 0;
+      if (available <= 1e-9) continue;
+      const take = Math.min(available, remaining);
+      lotRemainders.set(lot.id, available - take);
+      remaining -= take;
+    }
+  }
+
+  // A fixed amount is granted once per sale, split across its lines by their pre-promotion total.
+  const fixedShares = new Map<string, number[]>();
+  for (const rule of rules) {
+    if (rule.ruleKind !== 'fixed_amount' || !rule.discountAmount) continue;
+    const weights = selections.map(({ line, selected }) =>
+      selected.some(candidate => candidate.id === rule.id)
+        ? Math.max(
+            0,
+            calculateTaxComponentSnapshots({
+              components: line.taxComponents,
+              unitPrice: line.unitPrice,
+              quantity: line.quantity,
+              discountPercent: normalizeRate(line.manualDiscountRate),
+              priceIncludesTax: args.priceIncludesTax,
+            }).lineTotal
+          )
+        : 0
+    );
+    const weightTotal = weights.reduce((sum, weight) => sum + weight, 0);
+    if (weightTotal <= 0) continue;
+    const amount = roundMoney(rule.discountAmount);
+    let lastIndex = -1;
+    weights.forEach((weight, index) => {
+      if (weight > 0) lastIndex = index;
+    });
+    let allocated = 0;
+    fixedShares.set(
+      rule.id,
+      weights.map((weight, index) => {
+        if (weight <= 0) return 0;
+        const share =
+          index === lastIndex
+            ? roundMoney(amount - allocated)
+            : roundMoney((amount * weight) / weightTotal);
+        allocated = roundMoney(allocated + share);
+        return share;
+      })
+    );
+  }
+
+  for (const [lineIndex, { line, selected }] of selections.entries()) {
     let effectiveDiscountRate = normalizeRate(line.manualDiscountRate);
     let before = calculateTaxComponentSnapshots({
       components: line.taxComponents,
@@ -1081,7 +1140,9 @@ export function quotePromotions(
         ruleRatePct = (freeUnits / line.quantity) * 100;
       } else if (rule.ruleKind === 'fixed_amount' && rule.discountAmount) {
         if (before.lineTotal <= 0) continue;
-        const targetOff = Math.min(before.lineTotal, roundMoney(rule.discountAmount));
+        const share = fixedShares.get(rule.id)?.[lineIndex] ?? 0;
+        const targetOff = Math.min(before.lineTotal, share);
+        if (targetOff <= 0) continue;
         ruleRatePct = (targetOff / before.lineTotal) * 100;
       }
       const nextRate = normalizeRate(
@@ -1135,19 +1196,6 @@ export function quotePromotions(
       promotionDiscountAmount: linePromotionDiscount,
       promotions: applications,
     });
-
-    // Advance the same virtual FEFO cursor the sale transaction will use so a
-    // second line cannot reuse one lot's promotional stock.
-    if (line.lotAllocations) continue;
-    let remaining = line.normalizedQuantity;
-    for (const lot of fefoLots) {
-      if (remaining <= 1e-9) break;
-      const available = lotRemainders.get(lot.id) ?? 0;
-      if (available <= 1e-9) continue;
-      const take = Math.min(available, remaining);
-      lotRemainders.set(lot.id, available - take);
-      remaining -= take;
-    }
   }
   const headerDiscount = roundMoney(args.headerDiscountAmount ?? 0);
   const total = roundMoney(subtotal + taxAmount - headerDiscount);

@@ -568,6 +568,18 @@ export const authMutationProcedures = {
           userId: user.id,
         });
         upgradedLegacy = true;
+        const headerDeviceId = readHeader(ctx.req.headers[DEVICE_ID_HEADER]);
+        const device = headerDeviceId
+          ? await findActiveDevice(ctx.db, { tenantId: user.tenantId, deviceId: headerDeviceId })
+          : null;
+        if (device) {
+          bindDeviceSession(ctx.db, {
+            tenantId: user.tenantId,
+            deviceId: device.id,
+            userId: user.id,
+            refreshFamilyId: family.familyId,
+          });
+        }
       }
 
       const sessionClaims = getAuthSessionClaims(refreshPayload);

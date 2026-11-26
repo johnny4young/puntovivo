@@ -151,12 +151,19 @@ describe('device_sessions isolated hub_client revocation', () => {
       db.select().from(deviceSessions).where(eq(deviceSessions.deviceId, desktop.deviceId)).all()
     ).toHaveLength(1);
 
+    // A session no terminal claims cannot be traced to a device, so the revoke ends it.
+    const familyStray = createRefreshFamily(db, { tenantId, userId: adminId });
+    const strayAccessToken = signAccessToken(server.app, adminRow, undefined, familyStray.familyId);
+    expect(await verifyTokenWithServer(server.app, strayAccessToken, 'access')).not.toBeNull();
+
     // Revoke only the hub_client terminal from the desktop authority caller.
     await desktopCaller.authority.revokeDevice({ deviceId: hubClient.deviceId });
 
     // Hub client's access + refresh tokens fail immediately.
     expect(await verifyTokenWithServer(server.app, hubAccessToken, 'access')).toBeNull();
     expect(await verifyTokenWithServer(server.app, hubRefreshToken, 'refresh')).toBeNull();
+
+    expect(await verifyTokenWithServer(server.app, strayAccessToken, 'access')).toBeNull();
 
     // Desktop terminal of the SAME user remains completely unaffected!
     expect(await verifyTokenWithServer(server.app, desktopAccessToken, 'access')).not.toBeNull();
@@ -175,6 +182,7 @@ describe('device_sessions isolated hub_client revocation', () => {
     expect(revokeAudit?.metadata).toMatchObject({
       sessionVersionBumped: false,
       revokedDeviceSessions: 1,
+      expiredUnboundFamilies: 1,
     });
 
     // Even after expired refresh families are pruned, the revoked access token stays invalid.

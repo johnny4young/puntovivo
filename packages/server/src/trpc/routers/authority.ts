@@ -16,7 +16,10 @@ import {
   getAuthorityTopology,
   inferAuthorityRole,
 } from '../../services/devices/authority.js';
-import { revokeDeviceSessionsForDevice } from '../../services/devices/deviceSessions.js';
+import {
+  expireUnboundFamiliesForUsers,
+  revokeDeviceSessionsForDevice,
+} from '../../services/devices/deviceSessions.js';
 import { router } from '../init.js';
 import {
   adminProcedureWithModule,
@@ -68,6 +71,7 @@ export const authorityRouter = router({
           pairedSiteId: devices.pairedSiteId,
           isActive: devices.isActive,
           registeredByUserId: devices.registeredByUserId,
+          activeUserId: devices.activeUserId,
         })
         .from(devices)
         .where(and(eq(devices.tenantId, ctx.tenantId), eq(devices.id, input.deviceId)))
@@ -107,6 +111,21 @@ export const authorityRouter = router({
           revokedByUserId: ctx.user!.id,
           nowIso,
         });
+        const expiredUnboundFamilies = expireUnboundFamiliesForUsers(
+          tx as unknown as typeof ctx.db,
+          {
+            tenantId: ctx.tenantId,
+            userIds: [
+              ...new Set(
+                [existing.registeredByUserId, existing.activeUserId].filter(
+                  (userId): userId is string => Boolean(userId)
+                )
+              ),
+            ],
+            ...(ctx.user!.familyId ? { keepFamilyId: ctx.user!.familyId } : {}),
+            nowIso,
+          }
+        );
         const sessionVersionBumped = sessionRevocation.totalBoundSessions === 0;
         if (sessionVersionBumped) {
           tx.update(users)
@@ -138,6 +157,7 @@ export const authorityRouter = router({
             registeredByUserId: existing.registeredByUserId,
             sessionVersionBumped,
             revokedDeviceSessions: sessionRevocation.revokedCount,
+            expiredUnboundFamilies,
           },
         });
       });

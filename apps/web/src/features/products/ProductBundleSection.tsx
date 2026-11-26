@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Search, Trash2 } from 'lucide-react';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { trpc } from '@/lib/trpc';
+import { translateServerError } from '@/lib/translateServerError';
 
 interface ProductBundleSectionProps {
   productId: string;
@@ -42,8 +43,8 @@ export function ProductBundleSection({ productId }: ProductBundleSectionProps) {
       await utils.products.getBundleComponents.invalidate({ productId });
       setFeedback({ kind: 'ok', text: t('bundles.saved') });
     },
-    onError: () => {
-      setFeedback({ kind: 'err', text: t('bundles.saveError') });
+    onError: error => {
+      setFeedback({ kind: 'err', text: translateServerError(error, t, t('bundles.saveError')) });
     },
   });
 

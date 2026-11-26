@@ -7,7 +7,7 @@
  * `sale_item_bundle_components` so returns and voids reverse what was actually consumed.
  */
 import { TRPCError } from '@trpc/server';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, sum } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
 import type { DatabaseInstance } from '../db/index.js';
@@ -18,11 +18,13 @@ import {
   products,
   saleItemBundleComponents,
   saleItems,
+  saleReturnItems,
 } from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
 import { QUANTITY_EPSILON } from '../lib/quantity.js';
 import { writeAuditLog } from './audit-logs.js';
 import { applyInventoryBalanceDelta, getProductStockTotals } from './inventory-balances.js';
+import { fromInventoryCents, toInventoryCents } from './inventory-valuation.js';
 
 export interface BundleComponentEntry {
   componentProductId: string;
@@ -38,6 +40,59 @@ export interface BundleComponentDetail {
   quantity: number;
   tracksStock: boolean;
   unitCost: number;
+}
+
+/** Keeps a combo stockless and its components free of lot or serial custody. */
+export function assertBundleInventoryPolicy(
+  db: DatabaseInstance,
+  args: {
+    tenantId: string;
+    productId: string;
+    nextTracksStock: boolean;
+    nextTracksLots: boolean;
+    nextTracksSerials: boolean;
+  }
+): void {
+  if (args.nextTracksStock || args.nextTracksLots || args.nextTracksSerials) {
+    const isBundle = db
+      .select({ id: productBundleComponents.id })
+      .from(productBundleComponents)
+      .where(
+        and(
+          eq(productBundleComponents.tenantId, args.tenantId),
+          eq(productBundleComponents.bundleProductId, args.productId)
+        )
+      )
+      .get();
+    if (isBundle) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'PRODUCT_BUNDLE_TRACKS_STOCK',
+        message: 'A combo sells through its components and cannot track its own stock',
+        details: { productId: args.productId },
+      });
+    }
+  }
+  if (args.nextTracksLots || args.nextTracksSerials) {
+    const isComponent = db
+      .select({ id: productBundleComponents.id })
+      .from(productBundleComponents)
+      .where(
+        and(
+          eq(productBundleComponents.tenantId, args.tenantId),
+          eq(productBundleComponents.componentProductId, args.productId)
+        )
+      )
+      .get();
+    if (isComponent) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'PRODUCT_BUNDLE_COMPONENT_CUSTODY',
+        message: 'A combo component cannot track lots or serials',
+        details: { productId: args.productId },
+      });
+    }
+  }
 }
 
 export function getBundleComponents(
@@ -91,6 +146,9 @@ export function setBundleComponents(
           id: products.id,
           name: products.name,
           catalogType: products.catalogType,
+          tracksStock: products.tracksStock,
+          tracksLots: products.tracksLots,
+          tracksSerials: products.tracksSerials,
         })
         .from(products)
         .where(and(eq(products.tenantId, args.tenantId), eq(products.id, args.bundleProductId)))
@@ -99,6 +157,17 @@ export function setBundleComponents(
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Bundle product not found',
+        });
+      }
+      if (
+        args.components.length > 0 &&
+        (bundle.tracksStock || bundle.tracksLots || bundle.tracksSerials)
+      ) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'PRODUCT_BUNDLE_TRACKS_STOCK',
+          message: 'A combo sells through its components and cannot track its own stock',
+          details: { productId: args.bundleProductId },
         });
       }
 
@@ -361,6 +430,7 @@ export function deductBundleComponentsInTransaction(args: {
   }
 
   const movementIds: string[] = [];
+  const lineValue = new Map<string, { inventoryCents: number; cogsCents: number }>();
   for (const row of args.rows) {
     const comps = defsByBundle.get(row.productId);
     if (!comps) continue;
@@ -368,10 +438,11 @@ export function deductBundleComponentsInTransaction(args: {
       // A snapshot row is the proof of a debit; reversal credits exactly these.
       if (!comp.tracksStock) continue;
       const totalDeducted = roundQuantity(comp.quantity * row.normalizedQuantity, 12);
+      const snapshotId = nanoid();
       args.tx
         .insert(saleItemBundleComponents)
         .values({
-          id: nanoid(),
+          id: snapshotId,
           tenantId: args.tenantId,
           saleItemId: row.id,
           componentProductId: comp.componentProductId,
@@ -413,10 +484,46 @@ export function deductBundleComponentsInTransaction(args: {
         siteId: args.siteId,
         productId: comp.componentProductId,
         delta: -totalDeducted,
+        onValueDelta: value => {
+          if (!value) return;
+          const inventoryCents = toInventoryCents(-value.inventoryValue);
+          const cogsCents = toInventoryCents(-value.cogsValue);
+          args.tx
+            .update(saleItemBundleComponents)
+            .set({ inventoryCostCents: inventoryCents, cogsCostCents: cogsCents })
+            .where(eq(saleItemBundleComponents.id, snapshotId))
+            .run();
+          args.tx
+            .update(inventoryMovements)
+            .set({
+              inventoryValueDeltaCents: toInventoryCents(value.inventoryValue),
+              cogsValueDeltaCents: toInventoryCents(value.cogsValue),
+            })
+            .where(
+              and(
+                eq(inventoryMovements.id, movementId),
+                eq(inventoryMovements.tenantId, args.tenantId)
+              )
+            )
+            .run();
+          const line = lineValue.get(row.id) ?? { inventoryCents: 0, cogsCents: 0 };
+          line.inventoryCents += inventoryCents;
+          line.cogsCents += cogsCents;
+          lineValue.set(row.id, line);
+        },
         initialOnHandIfMissing: previousStock,
         now: args.now,
       });
     }
+  }
+
+  // The combo line carries no stock of its own; its COGS is what its components cost.
+  for (const [saleItemId, value] of lineValue) {
+    args.tx
+      .update(saleItems)
+      .set({ inventoryCostCents: value.inventoryCents, cogsCostCents: value.cogsCents })
+      .where(eq(saleItems.id, saleItemId))
+      .run();
   }
 
   return movementIds;
@@ -456,6 +563,8 @@ export function reverseBundleComponentsInTransaction(args: {
       saleItemId: saleItemBundleComponents.saleItemId,
       componentProductId: saleItemBundleComponents.componentProductId,
       totalQuantityDeducted: saleItemBundleComponents.totalQuantityDeducted,
+      inventoryCostCents: saleItemBundleComponents.inventoryCostCents,
+      cogsCostCents: saleItemBundleComponents.cogsCostCents,
       soldQuantity: saleItems.quantity,
       soldEquivalence: saleItems.unitEquivalence,
     })
@@ -486,6 +595,26 @@ export function reverseBundleComponentsInTransaction(args: {
     for (const id of missing) args.productStockState.set(id, totals.get(id) ?? 0);
   }
 
+  // Return lines are persisted before this runs, so the sum includes the current return.
+  const returnedBaseByItem = new Map<string, number>();
+  if (args.itemFractions.some(entry => entry.returnedBaseQuantity !== undefined)) {
+    const rows = args.tx
+      .select({
+        saleItemId: saleReturnItems.saleItemId,
+        returned: sum(saleReturnItems.baseQuantity),
+      })
+      .from(saleReturnItems)
+      .where(
+        and(
+          eq(saleReturnItems.tenantId, args.tenantId),
+          inArray(saleReturnItems.saleItemId, saleItemIds)
+        )
+      )
+      .groupBy(saleReturnItems.saleItemId)
+      .all();
+    for (const row of rows) returnedBaseByItem.set(row.saleItemId, Number(row.returned ?? 0));
+  }
+
   const movementIds: string[] = [];
   const note = `${BUNDLE_REVERSAL_LABEL[args.reversalKind]} ${args.saleNumber}`;
   for (const snap of snapshots) {
@@ -501,6 +630,24 @@ export function reverseBundleComponentsInTransaction(args: {
     if (!(fraction > 0)) continue;
     const restoreQty = roundQuantity(snap.totalQuantityDeducted * fraction, 12);
     if (!(restoreQty > 0)) continue;
+
+    // Credit the frozen sale value; cumulative shares make partial returns sum to it exactly.
+    let valueDelta: { inventoryValue: number; cogsValue: number } | undefined;
+    if (snap.inventoryCostCents !== null && snap.cogsCostCents !== null) {
+      let shareBefore = 0;
+      let shareAfter = fraction;
+      if (entry.returnedBaseQuantity !== undefined && soldBase > 0) {
+        const returnedAfter = Math.min(soldBase, returnedBaseByItem.get(snap.saleItemId) ?? 0);
+        shareAfter = returnedAfter / soldBase;
+        shareBefore = Math.max(0, returnedAfter - entry.returnedBaseQuantity) / soldBase;
+      }
+      const credit = (cents: number) =>
+        Math.round(cents * shareAfter) - Math.round(cents * shareBefore);
+      valueDelta = {
+        inventoryValue: fromInventoryCents(credit(snap.inventoryCostCents)),
+        cogsValue: fromInventoryCents(credit(snap.cogsCostCents)),
+      };
+    }
 
     const previousStock = args.productStockState.get(snap.componentProductId) ?? 0;
     const newStock = roundQuantity(previousStock + restoreQty, 12);
@@ -533,6 +680,23 @@ export function reverseBundleComponentsInTransaction(args: {
       siteId: args.siteId,
       productId: snap.componentProductId,
       delta: restoreQty,
+      ...(valueDelta ? { valueDelta } : {}),
+      onValueDelta: value => {
+        if (!value) return;
+        args.tx
+          .update(inventoryMovements)
+          .set({
+            inventoryValueDeltaCents: toInventoryCents(value.inventoryValue),
+            cogsValueDeltaCents: toInventoryCents(value.cogsValue),
+          })
+          .where(
+            and(
+              eq(inventoryMovements.id, movementId),
+              eq(inventoryMovements.tenantId, args.tenantId)
+            )
+          )
+          .run();
+      },
       initialOnHandIfMissing: previousStock,
       serviceReversal: true,
       now: args.now,

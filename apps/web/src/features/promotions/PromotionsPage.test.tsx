@@ -139,6 +139,25 @@ describe('PromotionsPage', () => {
     );
   });
 
+  it('keeps the shared minimum when an NxM trial is switched back to percentage', async () => {
+    const user = userEvent.setup();
+    render(<PromotionsPage />);
+
+    await user.click(screen.getByRole('button', { name: 'Create promotion' }));
+    await user.type(screen.getByLabelText('Promotion name'), 'Trial offer');
+    await user.selectOptions(screen.getByTestId('promotion-rule-kind'), 'nxm');
+    await user.clear(screen.getByTestId('promotion-buy-qty'));
+    await user.type(screen.getByTestId('promotion-buy-qty'), '3');
+    await user.selectOptions(screen.getByTestId('promotion-rule-kind'), 'percentage');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(createMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ ruleKind: 'percentage', minQuantity: 1 })
+      )
+    );
+  });
+
   it('creates an NxM (2x1) promotion with recurring weekday schedule', async () => {
     const user = userEvent.setup();
     render(<PromotionsPage />);

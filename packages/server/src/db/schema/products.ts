@@ -418,9 +418,16 @@ export const saleItemBundleComponents = sqliteTable(
     componentQuantityPerUnit: real('component_quantity_per_unit').notNull(),
     totalQuantityDeducted: real('total_quantity_deducted').notNull(),
     unitCostAtSale: real('unit_cost_at_sale').notNull().default(0),
+    /** Frozen value the sale debited for this component; null when valuation reported none. */
+    inventoryCostCents: integer('inventory_cost_cents'),
+    cogsCostCents: integer('cogs_cost_cents'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('sale_item_bundle_components', {
+      cents: [table.inventoryCostCents, table.cogsCostCents],
+      together: [[table.inventoryCostCents, table.cogsCostCents]],
+    }),
     index('idx_sale_item_bundle_components_sale_item').on(table.tenantId, table.saleItemId),
     index('idx_sale_item_bundle_components_component').on(table.tenantId, table.componentProductId),
     check(

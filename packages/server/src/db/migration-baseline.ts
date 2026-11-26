@@ -231,7 +231,7 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         // day_close_signoffs and restaurant_line_modifiers, 0105 alters
         // restaurant_services and 0106 manager_approval_requests, which it lacks;
         // 0107 creates push_subscriptions, a child of tenants and users;
-        // 0108 alters sales and sale_returns.
+        // 0108 alters sales and sale_returns; 0111 rebuilds 0110's bundle snapshots.
         '0096_account_recovery_codes',
         '0097_fiscal_numbering_ranges',
         '0098_drop_desktop_sync_config',
@@ -247,6 +247,7 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         '0108_sale_rounding_adjustment',
         '0109_perf_hot_indexes',
         '0110_retail_promotions_bundles_device_sessions',
+        '0111_bundle_component_value',
       ].includes(entry.tag)
     ) {
       // A later marker skips every earlier entry in Drizzle. The exact

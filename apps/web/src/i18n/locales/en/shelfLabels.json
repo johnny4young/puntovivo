@@ -25,7 +25,8 @@
     "downloadCommands": "Download .{{format}}",
     "copied": "Commands copied to clipboard",
     "copyError": "Could not copy to clipboard",
-    "popupBlocked": "Allow pop-ups to open the print sheet."
+    "popupBlocked": "Allow pop-ups to open the print sheet.",
+    "printError": "The label sheet could not be printed."
   },
   "bundles": {
     "title": "Combo / kit components",

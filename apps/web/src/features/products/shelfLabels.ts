@@ -1,10 +1,11 @@
 /**
  * Shelf-label (habladores de góndola) barcode, printable sheet, ZPL and TSPL builders.
  *
- * Pure zero-dependency module: renders scannable EAN-13 (when the barcode is a valid
+ * Pure module: renders scannable EAN-13 (when the barcode is a valid
  * 13-digit EAN-13) or Code 128B fallback SVG, Letter/A4 printable sheets, Zebra ZPL II,
  * and TSC/Xprinter TSPL commands for retail and supermarket shelves.
  */
+import { splitLineTax } from '@puntovivo/shared/tax-split';
 
 export interface ShelfLabelProduct {
   id: string;
@@ -12,6 +13,8 @@ export interface ShelfLabelProduct {
   sku: string;
   barcode?: string | null | undefined;
   price: number;
+  taxRate?: number | null | undefined;
+  taxComponents?: ReadonlyArray<{ taxRate: number }> | undefined;
   unitLabel?: string | null | undefined;
   copies?: number | undefined;
 }
@@ -280,8 +283,8 @@ export function renderBarcodeSvg(
   const totalWidth = Math.round((encoded.bits.length + quietModules * 2) * moduleWidth);
   const totalHeight = barHeight + 14;
 
-  // Coalesce contiguous '1' runs into single SVG rects to keep markup tiny.
-  const rects: string[] = [];
+  // One path of coalesced bars: the desktop print sanitizer keeps path data, not rect x.
+  const bars: string[] = [];
   let runStart = -1;
   for (let i = 0; i <= encoded.bits.length; i += 1) {
     const on = encoded.bits[i] === '1';
@@ -290,12 +293,12 @@ export function renderBarcodeSvg(
     } else if (!on && runStart !== -1) {
       const x = ((runStart + quietModules) * moduleWidth).toFixed(2);
       const w = ((i - runStart) * moduleWidth).toFixed(2);
-      rects.push(`<rect x="${x}" y="0" width="${w}" height="${barHeight}" fill="#111"/>`);
+      bars.push(`M${x} 0h${w}v${barHeight}h-${w}z`);
       runStart = -1;
     }
   }
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalWidth} ${totalHeight}" width="100%" height="${totalHeight}" role="img" aria-label="${escapeXml(encoded.value)}"><rect width="100%" height="100%" fill="#fff"/>${rects.join('')}<text x="${(totalWidth / 2).toFixed(1)}" y="${barHeight + 11}" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" fill="#111">${escapeXml(encoded.value)}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalWidth} ${totalHeight}" width="100%" height="${totalHeight}" role="img" aria-label="${escapeXml(encoded.value)}"><rect width="100%" height="100%" fill="#fff"/><path d="${bars.join('')}" fill="#111"/><text x="${(totalWidth / 2).toFixed(1)}" y="${barHeight + 11}" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" fill="#111">${escapeXml(encoded.value)}</text></svg>`;
   return { symbology, svg, encodedValue: encoded.value };
 }
 
@@ -334,7 +337,7 @@ export function buildShelfLabelsPrintHtml(
       const code = resolveLabelBarcode(item);
       const barcode = renderBarcodeSvg(code, { height: 30, moduleWidth: 1.4 });
       const unitSuffix = item.unitLabel ? ` / ${escapeXml(item.unitLabel)}` : '';
-      return `<article class="label-card"><div class="label-name">${escapeXml(item.name)}</div><div class="label-price">${escapeXml(options.formatPrice(item.price))}<span class="label-unit">${unitSuffix}</span></div><div class="label-barcode">${barcode.svg}</div><div class="label-sku">SKU: ${escapeXml(item.sku)}</div></article>`;
+      return `<div class="label-card"><div class="label-name">${escapeXml(item.name)}</div><div class="label-price">${escapeXml(options.formatPrice(item.price))}<span class="label-unit">${unitSuffix}</span></div><div class="label-barcode">${barcode.svg}</div><div class="label-sku">SKU: ${escapeXml(item.sku)}</div></div>`;
     })
     .join('');
 
@@ -368,7 +371,7 @@ export function buildShelfLabelsPrintHtml(
 </style>
 </head>
 <body>
-<main class="sheet">${cards}</main>
+<div class="sheet">${cards}</div>
 </body>
 </html>`;
 }
@@ -442,4 +445,19 @@ export function buildTsplLabels(
     );
   }
   return lines.join('\n');
+}
+
+/** Shelf price is what the register charges: tax-inclusive even when catalog prices exclude it. */
+export function shelfLabelPrice(product: ShelfLabelProduct, priceIncludesTax: boolean): number {
+  const taxRate =
+    product.taxComponents && product.taxComponents.length > 0
+      ? product.taxComponents.reduce((sum, component) => sum + component.taxRate, 0)
+      : (product.taxRate ?? 0);
+  return splitLineTax({
+    unitPrice: product.price,
+    quantity: 1,
+    discountPercent: 0,
+    taxRate,
+    priceIncludesTax,
+  }).lineTotal;
 }

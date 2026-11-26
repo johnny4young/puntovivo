@@ -551,14 +551,7 @@ export function PromotionsPage() {
               value={draft.ruleKind}
               onChange={event => {
                 const nextKind = event.target.value as PromotionRuleKind;
-                setDraft(current => ({
-                  ...current,
-                  ruleKind: nextKind,
-                  minQuantity:
-                    nextKind === 'nxm'
-                      ? Math.max(current.minQuantity, current.buyQuantity)
-                      : current.minQuantity,
-                }));
+                setDraft(current => ({ ...current, ruleKind: nextKind }));
               }}
             >
               <option value="percentage">{t('promotions:fields.ruleKinds.percentage')}</option>
@@ -612,11 +605,7 @@ export function PromotionsPage() {
                   value={draft.buyQuantity}
                   onChange={event => {
                     const buy = Number(event.target.value);
-                    setDraft(current => ({
-                      ...current,
-                      buyQuantity: buy,
-                      minQuantity: Math.max(current.minQuantity, Number.isFinite(buy) ? buy : 2),
-                    }));
+                    setDraft(current => ({ ...current, buyQuantity: buy }));
                   }}
                 />
               </label>
@@ -644,7 +633,11 @@ export function PromotionsPage() {
               type="number"
               min={draft.ruleKind === 'nxm' ? draft.buyQuantity : 0.001}
               step={draft.ruleKind === 'nxm' ? 1 : 0.001}
-              value={draft.minQuantity}
+              value={
+                draft.ruleKind === 'nxm'
+                  ? Math.max(draft.minQuantity, draft.buyQuantity)
+                  : draft.minQuantity
+              }
               onChange={event =>
                 setDraft(current => ({ ...current, minQuantity: Number(event.target.value) }))
               }

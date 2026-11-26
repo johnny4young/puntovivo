@@ -1,10 +1,15 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mutateMock } = vi.hoisted(() => ({ mutateMock: vi.fn() }));
+const { mutateMock, mutationOptions } = vi.hoisted(() => ({
+  mutateMock: vi.fn(),
+  mutationOptions: { current: null as null | { onError?: (error: unknown) => void } },
+}));
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string) => (key.startsWith('errors:') ? `translated ${key}` : key),
+  }),
 }));
 
 vi.mock('@/lib/trpc', () => ({
@@ -25,7 +30,10 @@ vi.mock('@/lib/trpc', () => ({
       },
       search: { useQuery: () => ({ data: { items: [] } }) },
       setBundleComponents: {
-        useMutation: () => ({ mutate: mutateMock, isPending: false }),
+        useMutation: (options: { onError?: (error: unknown) => void }) => {
+          mutationOptions.current = options;
+          return { mutate: mutateMock, isPending: false };
+        },
       },
     },
   },
@@ -51,5 +59,13 @@ describe('ProductBundleSection', () => {
         components: [expect.objectContaining({ componentProductId: 'c1', quantity: 0.5 })],
       })
     );
+  });
+
+  it('shows the translated server reason when saving fails', () => {
+    render(<ProductBundleSection productId="bundle-1" />);
+    act(() => {
+      mutationOptions.current?.onError?.({ data: { errorCode: 'PRODUCT_BUNDLE_TRACKS_STOCK' } });
+    });
+    expect(screen.getByText(/^translated errors:.*PRODUCT_BUNDLE_TRACKS_STOCK$/)).toBeTruthy();
   });
 });

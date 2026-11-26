@@ -7,7 +7,9 @@ import { getDatabase } from '../db/index.js';
 import {
   companies,
   products,
+  inventoryMovements,
   saleItemBundleComponents,
+  saleItems,
   sites,
   tenants,
   units,
@@ -237,22 +239,55 @@ describe('Product bundles (combos/kits) and returnable containers', () => {
       })
     ).rejects.toThrow(/business/i);
 
-    const saved = await caller.products.setBundleComponents({
-      productId: combo.id,
-      components: [
-        { componentProductId: burger.id, quantity: 1 },
-        { componentProductId: soda.id, quantity: 2 },
-      ],
+    const wrapping = await caller.products.create({
+      name: 'Empaque',
+      sku: `EMP-${nanoid(5)}`,
+      price: 500,
+      cost: 0,
+      tracksStock: false,
+      stock: 0,
     });
-    expect(saved).toHaveLength(2);
 
-    // Nesting rejected both ways: using `combo` inside another bundle, or giving `burger` components.
+    // A combo that tracks its own stock would debit itself and every component.
     await expect(
       caller.products.setBundleComponents({
         productId: burger.id,
         components: [{ componentProductId: soda.id, quantity: 1 }],
       })
+    ).rejects.toThrow(/cannot track its own stock/i);
+
+    const saved = await caller.products.setBundleComponents({
+      productId: combo.id,
+      components: [
+        { componentProductId: burger.id, quantity: 1 },
+        { componentProductId: soda.id, quantity: 2 },
+        { componentProductId: wrapping.id, quantity: 1 },
+      ],
+    });
+    expect(saved).toHaveLength(3);
+
+    // Nesting rejected: a component cannot hold components of its own.
+    await expect(
+      caller.products.setBundleComponents({
+        productId: wrapping.id,
+        components: [{ componentProductId: soda.id, quantity: 1 }],
+      })
     ).rejects.toThrow(/nested/i);
+
+    // Later edits cannot give the combo its own stock or a component lot custody.
+    const versionOf = (id: string) =>
+      getDatabase().select().from(products).where(eq(products.id, id)).get()!.version;
+    await expect(
+      caller.products.update({ id: combo.id, version: versionOf(combo.id), tracksStock: true })
+    ).rejects.toThrow(/cannot track its own stock/i);
+    await expect(
+      caller.products.update({
+        id: soda.id,
+        version: versionOf(soda.id),
+        stock: 0,
+        tracksLots: true,
+      })
+    ).rejects.toThrow(/cannot track lots or serials/i);
   });
 
   it('atomically deducts component stock on sale, blocks insufficient stock, and reverses on return/void/discard', async () => {
@@ -438,5 +473,84 @@ describe('Product bundles (combos/kits) and returnable containers', () => {
     });
     expect(getProductStockTotal(db, tenantId, soda.id)).toBe(10);
     expect(getProductStockTotal(db, tenantId, service.id)).toBe(0);
+  });
+
+  it('freezes component value on the combo line and credits it back exactly across returns', async () => {
+    const db = getDatabase();
+    const caller = appRouter.createCaller(fresh());
+    const juice = await caller.products.create({
+      name: 'Jugo',
+      sku: `JUG-${nanoid(5)}`,
+      price: 3000,
+      cost: 1000,
+      stock: 10,
+    });
+    const cookie = await caller.products.create({
+      name: 'Galleta',
+      sku: `GAL-${nanoid(5)}`,
+      price: 1500,
+      cost: 333.33,
+      stock: 10,
+    });
+    const snack = await caller.products.create({
+      name: 'Combo Merienda',
+      sku: `MER-${nanoid(5)}`,
+      price: 4000,
+      cost: 0,
+      tracksStock: false,
+      stock: 0,
+    });
+    await caller.products.setBundleComponents({
+      productId: snack.id,
+      components: [
+        { componentProductId: juice.id, quantity: 1 },
+        { componentProductId: cookie.id, quantity: 1 },
+      ],
+    });
+
+    const sale = await appRouter.createCaller(fresh()).sales.create({
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 12000,
+      discountAmount: 0,
+      items: [
+        { productId: snack.id, unitId: baseUnitId, quantity: 3, unitPrice: 4000, discount: 0 },
+      ],
+    });
+    const saleItem = db.select().from(saleItems).where(eq(saleItems.saleId, sale.id)).get()!;
+    const snapshots = db
+      .select()
+      .from(saleItemBundleComponents)
+      .where(eq(saleItemBundleComponents.saleItemId, saleItem.id))
+      .all();
+    const frozenTotal = snapshots.reduce((sum, snap) => sum + (snap.cogsCostCents ?? 0), 0);
+    expect(snapshots.every(snap => snap.cogsCostCents !== null)).toBe(true);
+    expect(saleItem.cogsCostCents).toBe(frozenTotal);
+    expect(frozenTotal).toBe(399999);
+
+    // Component cost moves after the sale; returns still credit the sale-time value.
+    db.update(products).set({ cost: 9999 }).where(eq(products.id, cookie.id)).run();
+    const returnCaller = appRouter.createCaller(fresh());
+    await returnCaller.sales.returnSale({
+      id: sale.id,
+      reason: 'Devolución parcial',
+      items: [{ saleItemId: saleItem.id, quantity: 1 }],
+    });
+    await appRouter.createCaller(fresh()).sales.returnSale({
+      id: sale.id,
+      reason: 'Devolución del resto',
+      items: [{ saleItemId: saleItem.id, quantity: 2 }],
+    });
+
+    const credited = db
+      .select()
+      .from(inventoryMovements)
+      .where(and(eq(inventoryMovements.reference, sale.id), eq(inventoryMovements.type, 'return')))
+      .all();
+    expect(credited).toHaveLength(4);
+    expect(credited.reduce((sum, row) => sum + (row.inventoryValueDeltaCents ?? 0), 0)).toBe(
+      frozenTotal
+    );
   });
 });

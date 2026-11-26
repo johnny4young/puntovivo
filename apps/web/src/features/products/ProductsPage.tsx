@@ -833,6 +833,8 @@ export function ProductsPage() {
               sku: item.sku,
               barcode: item.barcode,
               price: item.price,
+              taxRate: item.taxRate,
+              taxComponents: item.taxComponents,
             }))}
             onClose={() => setLabelsProducts(null)}
           />

@@ -7,6 +7,7 @@ import {
   encodeEan13Modules,
   isValidEan13,
   renderBarcodeSvg,
+  shelfLabelPrice,
   type ShelfLabelProduct,
 } from './shelfLabels';
 
@@ -92,5 +93,20 @@ describe('shelfLabels', () => {
     const tspl = buildTsplLabels(unsafe, { formatPrice: p => `$${p}` });
     const barcodeLine = tspl.split('\n').find(line => line.startsWith('BARCODE'));
     expect(barcodeLine).toContain('"ABCDE"');
+  });
+
+  it('prints the register price: tax added when catalog prices exclude it', () => {
+    const product: ShelfLabelProduct = {
+      id: 'p4',
+      name: 'Aceite',
+      sku: 'ACE-1',
+      price: 10000,
+      taxRate: 19,
+    };
+    expect(shelfLabelPrice(product, true)).toBe(10000);
+    expect(shelfLabelPrice(product, false)).toBe(11900);
+    expect(
+      shelfLabelPrice({ ...product, taxComponents: [{ taxRate: 19 }, { taxRate: 8 }] }, false)
+    ).toBe(12700);
   });
 });

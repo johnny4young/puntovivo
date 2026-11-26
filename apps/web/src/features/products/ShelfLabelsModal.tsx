@@ -5,12 +5,14 @@ import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { formatCurrency } from '@/lib/utils';
 import { openHtmlInPrintWindow } from '@/lib/printWindow';
+import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import {
   buildShelfLabelsPrintHtml,
   buildTsplLabels,
   buildZplLabels,
   renderBarcodeSvg,
   resolveLabelBarcode,
+  shelfLabelPrice,
   type ShelfLabelGrid,
   type ShelfLabelPaper,
   type ShelfLabelProduct,
@@ -27,6 +29,7 @@ interface ShelfLabelsModalProps {
 export function ShelfLabelsModal({ isOpen, products, onClose }: ShelfLabelsModalProps) {
   const { t } = useTranslation('shelfLabels');
   const toast = useToast();
+  const priceIncludesTax = usePriceIncludesTax();
   const [paper, setPaper] = useState<ShelfLabelPaper>('letter');
   const [grid, setGrid] = useState<ShelfLabelGrid>('3x8');
   const [tab, setTab] = useState<OutputTab>('sheet');
@@ -36,9 +39,10 @@ export function ShelfLabelsModal({ isOpen, products, onClose }: ShelfLabelsModal
     () =>
       products.map(product => ({
         ...product,
+        price: shelfLabelPrice(product, priceIncludesTax),
         copies: copiesById[product.id] ?? 1,
       })),
-    [products, copiesById]
+    [products, copiesById, priceIncludesTax]
   );
 
   const totalLabels = useMemo(
@@ -50,13 +54,20 @@ export function ShelfLabelsModal({ isOpen, products, onClose }: ShelfLabelsModal
 
   const tsplText = useMemo(() => buildTsplLabels(items, { formatPrice: formatCurrency }), [items]);
 
-  const handlePrintSheet = () => {
+  const handlePrintSheet = async () => {
     const html = buildShelfLabelsPrintHtml(items, {
       paper,
       grid,
       formatPrice: formatCurrency,
       title: t('labels.title'),
     });
+    if (window.electron?.printDocument) {
+      const result = await window.electron.printDocument(html);
+      if (!result.success && result.errorCode !== 'PRINT_CANCELLED') {
+        toast.warning({ title: result.error || t('labels.printError') });
+      }
+      return;
+    }
     const autoPrint =
       "<script>window.addEventListener('load',function(){window.print();});</script>";
     const printWindow = openHtmlInPrintWindow(html.replace('</body>', `${autoPrint}</body>`), {
@@ -101,7 +112,11 @@ export function ShelfLabelsModal({ isOpen, products, onClose }: ShelfLabelsModal
         <>
           <ModalButton onClick={onClose}>{t('labels.close')}</ModalButton>
           {tab === 'sheet' ? (
-            <ModalButton variant="primary" onClick={handlePrintSheet} disabled={items.length === 0}>
+            <ModalButton
+              variant="primary"
+              onClick={() => void handlePrintSheet()}
+              disabled={items.length === 0}
+            >
               <span className="inline-flex items-center gap-2">
                 <Printer className="h-4 w-4" aria-hidden="true" />
                 {t('labels.printSheet', { count: totalLabels })}

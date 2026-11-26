@@ -65,6 +65,7 @@ import {
 } from '../../services/pharmacy/product-profile.js';
 
 import { assertGs1CheckDigit } from '../../services/products/barcode-check-digit.js';
+import { assertBundleInventoryPolicy } from '../../services/product-bundles.js';
 
 export async function updateProduct(ctx: ProductMutationContext, input: UpdateProductInput) {
   const { id, ...updates } = input;
@@ -229,6 +230,13 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     tracksStock: nextTracksStock,
     tracksLots: nextTracksLots,
     tracksSerials: nextTracksSerials,
+  });
+  assertBundleInventoryPolicy(ctx.db, {
+    tenantId: ctx.tenantId,
+    productId: id,
+    nextTracksStock,
+    nextTracksLots,
+    nextTracksSerials,
   });
   assertPharmacyProfileTransitionAllowed({
     existing: existingPharmacyProfile,

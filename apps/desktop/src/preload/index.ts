@@ -266,6 +266,9 @@ export interface ElectronAPI {
   printReceipt: (
     receiptHtml: string
   ) => Promise<{ success: boolean; error?: string; errorCode?: string }>;
+  printDocument: (
+    documentHtml: string
+  ) => Promise<{ success: boolean; error?: string; errorCode?: string }>;
   updateMainLocale: (locale: string) => Promise<'en' | 'es'>;
   device: DeviceAPI;
   runtime: RuntimeAPI;
@@ -460,6 +463,7 @@ const electronAPI: ElectronAPI = {
   disconnectBackupCloudVault: () => ipcRenderer.invoke('disconnect-backup-cloud-vault'),
   testBackupCloudVault: () => ipcRenderer.invoke('test-backup-cloud-vault'),
   printReceipt: (receiptHtml: string) => ipcRenderer.invoke('print-receipt', receiptHtml),
+  printDocument: (documentHtml: string) => ipcRenderer.invoke('print-document', documentHtml),
   updateMainLocale: (locale: string) => ipcRenderer.invoke('update-main-locale', locale),
   device: deviceAPI,
   runtime: runtimeAPI,
