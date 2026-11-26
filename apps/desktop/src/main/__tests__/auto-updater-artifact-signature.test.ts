@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   computeBufferSha512Base64,
+  isValidEd25519PublicKeyPem,
   signReleaseArtifactDigest,
   verifyArtifactDetachedSignature,
   verifyFileDetachedSignature,
@@ -98,7 +99,7 @@ describe('detached Ed25519 artifact signature verification', () => {
     );
   });
 
-  it('verifies files on disk via verifyFileDetachedSignature', () => {
+  it('stream-verifies files on disk and rejects a tampered file', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'pv-sig-'));
     try {
       const filePath = join(dir, 'Puntovivo.AppImage');
@@ -108,41 +109,31 @@ describe('detached Ed25519 artifact signature verification', () => {
         sha512Base64: sha512,
         privateKeyPem: releaseKey.privateKeyPem,
       });
-      const res = verifyFileDetachedSignature({
+      const args = {
         artifactPath: filePath,
         version: '1.19.1',
         expectedSha512Base64: sha512,
         signatureBase64: signature,
         publicKeyPem: releaseKey.publicKeyPem,
-      });
-      assert.equal(res.valid, true);
+      };
+      assert.equal((await verifyFileDetachedSignature(args)).valid, true);
+
+      writeFileSync(filePath, Buffer.concat([artifactBytes, Buffer.from([0])]));
+      assert.equal((await verifyFileDetachedSignature(args)).reason, 'sha512_mismatch');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
   });
 
-  it('unlocks Linux verified policy only when a valid Ed25519 release public key is pinned', () => {
-    const verified = resolveUpdateInstallPolicy({
-      platform: 'linux',
-      linuxPublicKeyPem: releaseKey.publicKeyPem,
-    });
-    assert.equal(verified.signatureTrust, 'verified');
-    assert.equal(verified.allowSilentInstall, true);
-    assert.equal(verified.reason, 'detached-ed25519-verified');
+  it('never accepts a private key PEM as the pinned release public key', () => {
+    assert.equal(isValidEd25519PublicKeyPem(releaseKey.publicKeyPem), true);
+    assert.equal(isValidEd25519PublicKeyPem(releaseKey.privateKeyPem), false);
+  });
 
-    const malformed = resolveUpdateInstallPolicy({
-      platform: 'linux',
-      linuxPublicKeyPem: 'not-a-valid-pem',
-    });
-    assert.equal(malformed.signatureTrust, 'unverified');
-    assert.equal(malformed.allowSilentInstall, false);
-    assert.equal(malformed.reason, 'no-signature-support');
-
-    const privateKeyPinned = resolveUpdateInstallPolicy({
-      platform: 'linux',
-      linuxPublicKeyPem: releaseKey.privateKeyPem,
-    });
-    assert.equal(privateKeyPinned.signatureTrust, 'unverified');
-    assert.equal(privateKeyPinned.allowSilentInstall, false);
+  it('keeps Linux unverified while no downloaded artifact is verified, even with a key at hand', () => {
+    const input = { platform: 'linux' as const, linuxPublicKeyPem: releaseKey.publicKeyPem };
+    const policy = resolveUpdateInstallPolicy(input);
+    assert.equal(policy.signatureTrust, 'unverified');
+    assert.equal(policy.allowSilentInstall, false);
   });
 });
