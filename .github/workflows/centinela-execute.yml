@@ -1,8 +1,7 @@
 name: Centinela Execute (Opt-in Tier 2)
 
-# Strictly separated from pull_request_target: only runs when a maintainer applies the
-# `centinela: draft-pr` label or comments `/centinela draft-pr` on an issue.
-# Opens a Draft PR on a new branch, which is then reviewed independently by Centinela Tier 1.
+# Calls the centralized Tier 2 reusable workflow for `/centinela draft-pr` (`centinela: draft-pr`
+# label) on issues and `/centinela fix-nits` on pull requests. Strictly separate from Tier 1.
 on:
   issues:
     types: [labeled]
@@ -12,56 +11,8 @@ on:
 permissions: {}
 
 jobs:
-  draft-pr:
-    name: Draft PR from issue
-    if: >-
-      (github.event_name == 'issues' &&
-      github.event.label.name == 'centinela: draft-pr' &&
-      github.event.sender.type != 'Bot') ||
-      (github.event_name == 'issue_comment' &&
-      github.event.issue.pull_request == null &&
-      github.event.comment.user.type != 'Bot' &&
-      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
-      startsWith(github.event.comment.body, '/centinela draft-pr'))
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-      id-token: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - name: Acknowledge and remove trigger label
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          COMMENT_ID: ${{ github.event.comment.id }}
-          EVENT_NAME: ${{ github.event_name }}
-        run: |
-          if [ "$EVENT_NAME" = "issue_comment" ]; then
-            gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" -f content=eyes
-          else
-            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/issues/${ISSUE_NUMBER}/labels/centinela%3A%20draft-pr" || true
-          fi
-      - name: Run autonomous implementation agent
-        uses: anthropics/claude-code-action@v1
-        with:
-          anthropic_federation_rule_id: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
-          anthropic_organization_id: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
-          anthropic_service_account_id: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
-          anthropic_workspace_id: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
-          prompt: |
-            Implement issue #${{ github.event.issue.number }} on a new branch and open a Draft PR referencing it.
-            Follow AGENTS.md / CLAUDE.md strictly, add regression tests, and run the project test suite before opening the Draft PR.
-            Never merge or approve your own PR.
-      - name: Report failure on issue
-        if: failure()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          gh issue comment "$ISSUE_NUMBER" --body "Centinela Tier 2 (\`centinela: draft-pr\`) failed before opening a Draft PR. Inspect the workflow run: ${RUN_URL}"
+  execute:
+    uses: johnny4young/centinela/.github/workflows/reusable-centinela-execute.yml@v1
+    with:
+      runs-on: ubuntu-latest
+    secrets: inherit
