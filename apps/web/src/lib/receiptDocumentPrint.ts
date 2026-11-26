@@ -176,7 +176,11 @@ export async function printHtmlDocument({
 
   let printWindow: Window | null;
   try {
-    printWindow = openHtmlInPrintWindow(await buildHtml({ autoPrint: true }), {
+    // Keep synchronous HTML builders on the click handler's user-activation
+    // stack so browsers do not treat window.open as an unsolicited popup.
+    const htmlOrPromise = buildHtml({ autoPrint: true });
+    const html = typeof htmlOrPromise === 'string' ? htmlOrPromise : await htmlOrPromise;
+    printWindow = openHtmlInPrintWindow(html, {
       features: windowFeatures,
     });
   } catch {

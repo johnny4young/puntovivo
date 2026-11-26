@@ -112,8 +112,8 @@ describe('orderPrinter', () => {
       })
     );
 
-    expect(html).toContain('class="item-unit"');
-    expect(html).toContain('Cajas');
+    const parsed = parseDocument(html);
+    expect(readCells(parsed, 'tbody td.item-qty .item-unit')).toEqual(['Cajas']);
   });
 
   it('adds received and pending columns only when the order is partially received', async () => {
