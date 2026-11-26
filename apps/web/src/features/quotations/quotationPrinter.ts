@@ -4,7 +4,7 @@ import {
   buildReceiptStyleTag,
   escapeHtml,
   printHtmlDocument,
-} from '@/lib/printWindow';
+} from '@/lib/receiptDocumentPrint';
 import type { QuotationDetail, QuotationStatus } from '@/types';
 import { formatQuotationTaxLabel } from './quotationTaxLabel';
 
@@ -18,7 +18,7 @@ import { formatQuotationTaxLabel } from './quotationTaxLabel';
  *     unit price decomposed.
  *   - The escaping, the receipt stylesheet shell, the auto-print snippet and
  *     the Electron/browser print bridge are shared with
- *     `features/orders/orderPrinter.ts` through `@/lib/printWindow`; the
+ *     `features/orders/orderPrinter.ts` through `@/lib/receiptDocumentPrint`; the
  *     browser fallback uses the shared Blob URL helper rather than
  *     `document.write`, which sidesteps the XSS-adjacent footgun flagged by
  *     the repo's security hook and cleans up via `URL.revokeObjectURL`.

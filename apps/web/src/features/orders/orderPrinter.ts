@@ -5,7 +5,7 @@ import {
   buildReceiptStyleTag,
   escapeHtml,
   printHtmlDocument,
-} from '@/lib/printWindow';
+} from '@/lib/receiptDocumentPrint';
 import type { Order } from '@/types';
 
 /**
@@ -13,7 +13,7 @@ import type { Order } from '@/types';
  *
  * The escaping, the receipt stylesheet shell, the auto-print snippet and the
  * Electron/browser print bridge are shared with
- * `features/quotations/quotationPrinter.ts` through `@/lib/printWindow`, so a
+ * `features/quotations/quotationPrinter.ts` through `@/lib/receiptDocumentPrint`, so a
  * fix there lands in both documents. This file owns what is specific to a
  * supplier request:
  *   - No prices-first framing: the document is a supplier request, so the
@@ -23,10 +23,13 @@ import type { Order } from '@/types';
  *   - Copy is translated through the `orders` namespace; the sale/quotation
  *     receipts are intentionally English-only today, this document is not.
  *
- * There is no letter/A4 paginated variant: the quotation pattern ships a
- * single narrow receipt layout (max width 420px, no `@page` rule) and the
- * browser print dialog's "Save as PDF" is the established path to a PDF.
+ * There is no letter/A4 paginated variant: the document stays on the shared
+ * receipt shell (no `@page` rule), widened slightly so 5- or 7-column order
+ * tables keep readable column spacing; the browser print dialog's "Save as PDF"
+ * is the established path to a PDF.
  */
+
+const ORDER_PRINT_WINDOW_FEATURES = 'noopener,noreferrer,width=700,height=780';
 
 type PrintableOrder = Pick<
   Order,
@@ -128,14 +131,17 @@ export async function buildOrderDocumentHtml(
     `
     : '';
 
-  // Only the item columns differ from the quotation receipt.
+  // Only the table width and item columns differ from the quotation receipt.
   const styleTag = buildReceiptStyleTag(`
-          .item-name { width: 34%; padding-right: 8px; }
-          .item-code { color: #475569; padding-right: 6px; }
+          .receipt { max-width: ${showReceiptProgress ? '640px' : '540px'}; }
+          th { letter-spacing: 0.06em; }
+          .item-name { width: auto; min-width: 140px; padding-right: 12px; }
+          .item-code { color: #475569; white-space: nowrap; padding-right: 12px; }
           .item-unit { color: #64748b; font-size: 10px; }
           .item-qty, .item-received, .item-pending, .item-cost, .item-total {
             text-align: right;
             white-space: nowrap;
+            padding-left: 10px;
           }
 `);
 
@@ -185,17 +191,17 @@ export async function buildOrderDocumentHtml(
           <table>
             <thead>
               <tr>
-                <th>${escapeHtml(t('orders:print.columns.item'))}</th>
-                <th>${escapeHtml(t('orders:print.columns.code'))}</th>
-                <th>${escapeHtml(t('orders:print.columns.quantity'))}</th>
+                <th class="item-name">${escapeHtml(t('orders:print.columns.item'))}</th>
+                <th class="item-code">${escapeHtml(t('orders:print.columns.code'))}</th>
+                <th class="item-qty">${escapeHtml(t('orders:print.columns.quantity'))}</th>
                 ${
                   showReceiptProgress
-                    ? `<th>${escapeHtml(t('orders:print.columns.received'))}</th>
-                <th>${escapeHtml(t('orders:print.columns.pending'))}</th>`
+                    ? `<th class="item-received">${escapeHtml(t('orders:print.columns.received'))}</th>
+                <th class="item-pending">${escapeHtml(t('orders:print.columns.pending'))}</th>`
                     : ''
                 }
-                <th>${escapeHtml(t('orders:print.columns.unitCost'))}</th>
-                <th>${escapeHtml(t('orders:print.columns.total'))}</th>
+                <th class="item-cost">${escapeHtml(t('orders:print.columns.unitCost'))}</th>
+                <th class="item-total">${escapeHtml(t('orders:print.columns.total'))}</th>
               </tr>
             </thead>
             <tbody>
@@ -246,5 +252,6 @@ export async function printOrderDocument(order: PrintableOrder): Promise<void> {
     // Closing the native print dialog is an operator choice, not a printer
     // failure — mirror the sale receipt printer, which returns quietly.
     cancelledDialogIsSuccess: true,
+    windowFeatures: ORDER_PRINT_WINDOW_FEATURES,
   });
 }
