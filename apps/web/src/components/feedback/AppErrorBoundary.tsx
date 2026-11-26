@@ -15,9 +15,29 @@ interface AppErrorFallbackProps {
   variant?: 'app' | 'route';
 }
 
+const BOUNDARY_FALLBACK = {
+  en: {
+    title: 'Something went wrong',
+    description:
+      'The app hit an unexpected error while rendering this screen. You can retry the current session or reload the application.',
+    retry: 'Retry',
+    reload: 'Reload App',
+  },
+  es: {
+    title: 'Algo salió mal',
+    description:
+      'La aplicación encontró un error inesperado al renderizar esta pantalla. Puede reintentar la sesión actual o recargar la aplicación.',
+    retry: 'Reintentar',
+    reload: 'Recargar la aplicación',
+  },
+} as const;
+
 function AppErrorFallback({ onRetry, variant = 'app' }: AppErrorFallbackProps) {
   // Diagnostics belong to captureRenderError, never the operator-facing fallback.
-  const { t } = useTranslation('errors');
+  // Never suspend an error boundary while the lazy `errors` dictionary loads.
+  const { t, i18n } = useTranslation('errors', { useSuspense: false });
+  const fallback =
+    BOUNDARY_FALLBACK[(i18n.language ?? '').toLowerCase().startsWith('es') ? 'es' : 'en'];
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -47,14 +67,16 @@ function AppErrorFallback({ onRetry, variant = 'app' }: AppErrorFallbackProps) {
             tabIndex={-1}
             className="text-2xl font-semibold text-secondary-900 focus:outline-none"
           >
-            {t('boundary.title')}
+            {t('boundary.title', fallback.title)}
           </h1>
-          <p className="text-sm text-secondary-600">{t('boundary.description')}</p>
+          <p className="text-sm text-secondary-600">
+            {t('boundary.description', fallback.description)}
+          </p>
         </div>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Button onClick={onRetry}>
             <RefreshCw className="h-4 w-4" />
-            {t('boundary.retry')}
+            {t('boundary.retry', fallback.retry)}
           </Button>
           <Button
             variant="outline"
@@ -62,7 +84,7 @@ function AppErrorFallback({ onRetry, variant = 'app' }: AppErrorFallbackProps) {
               window.location.reload();
             }}
           >
-            {t('boundary.reload')}
+            {t('boundary.reload', fallback.reload)}
           </Button>
         </div>
       </div>

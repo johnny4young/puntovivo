@@ -123,7 +123,8 @@ describe('ai/providers/ollama ( slice 1)', () => {
   });
 
   describe('language + vision model factories', () => {
-    it('languageModel returns a non-null model builder', () => {
+    it('languageModel returns a non-null model builder', async () => {
+      await ollamaProvider.ensureReady?.();
       const model = ollamaProvider.languageModel('llama3.2');
       expect(model).toBeDefined();
       expect(model).not.toBeNull();
@@ -137,7 +138,8 @@ describe('ai/providers/ollama ( slice 1)', () => {
       expect(typeof ollamaProvider.visionModel).toBe('function');
     });
 
-    it('visionModel returns a non-null model builder', () => {
+    it('visionModel returns a non-null model builder', async () => {
+      await ollamaProvider.ensureReady?.();
       const model = ollamaProvider.visionModel?.('llava');
       expect(model).toBeDefined();
       expect(model).not.toBeNull();
@@ -155,7 +157,8 @@ describe('ai/providers/ollama ( slice 1)', () => {
     // `ollama-ai-provider-v2.embedding(modelId)`. The factory itself
     // doesn't hit the network until `embedMany({ model, ... })` runs,
     // so the unit assertion is limited to the contract shape.
-    it('is implemented and returns a model factory ( slice 2)', () => {
+    it('is implemented and returns a model factory ( slice 2)', async () => {
+      await ollamaProvider.ensureReady?.();
       expect(ollamaProvider.embeddingModel).toBeDefined();
       expect(typeof ollamaProvider.embeddingModel).toBe('function');
       const model = ollamaProvider.embeddingModel?.('embeddinggemma');

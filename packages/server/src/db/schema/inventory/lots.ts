@@ -73,7 +73,6 @@ export const inventoryLots = sqliteTable(
       together: [[table.carryingValueCents, table.valuationQuantity]],
       emptyPool: { quantity: table.valuationQuantity, values: [table.carryingValueCents] },
     }),
-    index('idx_inventory_lots_tenant').on(table.tenantId),
     index('idx_inventory_lots_site').on(table.siteId),
     index('idx_inventory_lots_product').on(table.productId),
     // FEFO scan: within a (tenant, site, product) pick active lots ordered

@@ -6,7 +6,6 @@
  * is printed on every artifact. The immutable JSON remains the source of truth;
  * this binary is the portable, printable representation stored beside it.
  */
-import { jsPDF } from 'jspdf';
 import type { DayCloseSignatureMethod } from '../../db/schema.js';
 import type { ResolvedLocale } from '../tenant-locale.js';
 import type { ComprehensiveDayCloseReport } from './comprehensive-day-close.js';
@@ -241,7 +240,8 @@ export function buildDayClosePdfFilename(date: string, reportHash: string): stri
 }
 
 /** Render a compact A4 report without accessing browser APIs. */
-export function renderDayClosePdf(input: RenderDayClosePdfInput): Buffer {
+export async function renderDayClosePdf(input: RenderDayClosePdfInput): Promise<Buffer> {
+  const { jsPDF } = await import('jspdf');
   const language = supportedLanguage(input.locale.language);
   const copy = COPY[language];
   const report = input.report;

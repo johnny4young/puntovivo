@@ -13,7 +13,6 @@
  * @module services/ai/voice/transcribe
  */
 import type { TranscriptionModelV4 } from '@ai-sdk/provider';
-import { NoTranscriptGeneratedError, transcribe } from 'ai';
 
 import type { DatabaseInstance } from '../../../db/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
@@ -187,6 +186,7 @@ export async function transcribeAudio(
   // Preparation runs before dispatch: sanitize its failure without reserving.
   let baseModel: TranscriptionModelV4;
   try {
+    await provider.ensureReady?.();
     baseModel = provider.transcriptionModel(modelId);
   } catch {
     throwServerError({
@@ -230,6 +230,8 @@ export async function transcribeAudio(
   // The client signal is admission-only: it stops work before the budget is
   // reserved, but a dispatched transcription runs to this deadline and
   // settles its known cost instead of becoming an unknown-cost liability.
+  // Load before reserving: a failed import must not strand a budget hold.
+  const { NoTranscriptGeneratedError, transcribe } = await import('ai');
   ctx.abortSignal?.throwIfAborted();
   const reservation = reserveAiBudget(ctx.db, ctx.tenantId);
   const startedAt = Date.now();

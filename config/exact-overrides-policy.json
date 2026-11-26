@@ -51,8 +51,8 @@
     },
     {
       "category": "security-floor",
-      "reviewedOn": "2026-10-25",
-      "reviewBy": "2026-11-24",
+      "reviewedOn": "2026-11-25",
+      "reviewBy": "2026-12-25",
       "reason": "Patch the existing undici 6/7/8, fast-uri 3/4, ip-address 10 and DOMPurify 3 lines for current HTTP, URI normalization, subnet-family and sanitization advisories without broad major overrides or audit exclusions.",
       "removalCriteria": "Remove each vulnerable-version or parent selector when every owning package resolves the patched floor without it and the full dependency audit and all applicable workspace gates pass.",
       "pins": {

@@ -7,11 +7,19 @@ import esSettings from '@/i18n/locales/es/settings.json';
 import { shortcutDisplayFor } from '@/lib/shortcuts';
 import { Header } from '../Header';
 
-const { switchSite, openPalette, auth, recoveryCode } = vi.hoisted(() => ({
+const { switchSite, openPalette, auth, recoveryCode, anomalyModule } = vi.hoisted(() => ({
   switchSite: vi.fn(),
   openPalette: vi.fn(),
   auth: { role: 'viewer' },
   recoveryCode: { missing: false },
+  anomalyModule: { active: true },
+}));
+vi.mock('@/features/modules', () => ({
+  useIsModuleActive: (moduleId: string) =>
+    moduleId === 'anomaly-detection' ? anomalyModule.active : true,
+}));
+vi.mock('@/features/loss-prevention/LossPreventionAlertCenter', () => ({
+  LossPreventionAlertCenter: () => <div data-testid="loss-prevention-alert-center" />,
 }));
 vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({
@@ -50,6 +58,7 @@ vi.mock('@/hooks/useOfflineSync', () => ({
 beforeEach(async () => {
   auth.role = 'viewer';
   recoveryCode.missing = false;
+  anomalyModule.active = false;
   await i18next.changeLanguage('en');
 });
 
@@ -168,5 +177,16 @@ describe('Header recovery code', () => {
     expect(screen.queryByTestId('recovery-code-missing-dot')).not.toBeInTheDocument();
     await openAccountMenu();
     expect(screen.queryByRole('button', { name: /Recovery code/ })).not.toBeInTheDocument();
+  });
+
+  it('skips mounting LossPreventionAlertCenter when anomaly-detection module is inactive', async () => {
+    auth.role = 'admin';
+    anomalyModule.active = false;
+    await renderHeader();
+    expect(screen.queryByTestId('loss-prevention-alert-center')).not.toBeInTheDocument();
+
+    anomalyModule.active = true;
+    await renderHeader();
+    expect(await screen.findByTestId('loss-prevention-alert-center')).toBeInTheDocument();
   });
 });

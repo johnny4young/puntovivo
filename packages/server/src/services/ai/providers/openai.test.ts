@@ -118,7 +118,8 @@ describe('ai/providers/openai', () => {
     // OpenAI embeddings endpoint via the AI SDK. Anthropic leaves it
     // undefined;  slice 2 activated Ollama with its own
     // default.
-    it('is implemented and returns a model factory', () => {
+    it('is implemented and returns a model factory', async () => {
+      await openaiProvider.ensureReady?.();
       expect(openaiProvider.embeddingModel).toBeDefined();
       expect(typeof openaiProvider.embeddingModel).toBe('function');
       const model = openaiProvider.embeddingModel?.('text-embedding-3-small');
@@ -131,7 +132,8 @@ describe('ai/providers/openai', () => {
   });
 
   describe('transcriptionModel ( slice 1)', () => {
-    it('is implemented and returns a TranscriptionModelV4 factory', () => {
+    it('is implemented and returns a TranscriptionModelV4 factory', async () => {
+      await openaiProvider.ensureReady?.();
       expect(openaiProvider.transcriptionModel).toBeDefined();
       expect(typeof openaiProvider.transcriptionModel).toBe('function');
       const model = openaiProvider.transcriptionModel?.('whisper-1');

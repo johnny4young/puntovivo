@@ -10,7 +10,6 @@
  *
  * @module services/ai/copilot/chat
  */
-import { generateText, hasToolCall, isStepCount, tool } from 'ai';
 import type { ProviderOptions } from '@ai-sdk/provider-utils';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
@@ -201,6 +200,8 @@ export async function runCopilotChat(
       })),
       contextBlock
     );
+    await provider.ensureReady?.();
+    const { generateText, hasToolCall, isStepCount, tool } = await import('ai');
     const model = provider.languageModel(modelId);
     const prompt = buildPrompt(messagesWithContext);
     admissionAttempted = true;

@@ -18,6 +18,7 @@ import { RouteErrorBoundary } from '@/components/feedback/AppErrorBoundary';
 import { StaffSwitchModal } from '@/features/auth/StaffSwitchModal';
 import { useRecoveryCodeMissing } from '@/features/auth/useRecoveryCodeMissing';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useIsModuleActive } from '@/features/modules';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { FiscalContingencyIndicator } from '@/features/fiscal/FiscalContingencyIndicator';
 import { SyncConflictsPill } from './SyncConflictsPill';
@@ -70,6 +71,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
   const [isStaffSwitchOpen, setIsStaffSwitchOpen] = useState(false);
   const [isRecoveryCodeOpen, setIsRecoveryCodeOpen] = useState(false);
   const recoveryCodeMissing = useRecoveryCodeMissing(user?.role === 'admin');
+  const anomalyDetectionActive = useIsModuleActive('anomaly-detection');
   const userMenuId = 'header-user-menu';
   const accountRef = useRef<HTMLDivElement>(null);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
@@ -229,13 +231,20 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
             </span>
           </div>
 
-          {currentSite && user && ['admin', 'manager'].includes(user.role) && (
-            <Suspense
-              fallback={<span className="hidden h-10 w-10 shrink-0 sm:block" aria-hidden="true" />}
-            >
-              <LossPreventionAlertCenter siteId={currentSite.id} />
-            </Suspense>
-          )}
+          {anomalyDetectionActive &&
+            user &&
+            ['admin', 'manager'].includes(user.role) &&
+            (currentSite ? (
+              <Suspense
+                fallback={
+                  <span className="hidden h-10 w-10 shrink-0 sm:block" aria-hidden="true" />
+                }
+              >
+                <LossPreventionAlertCenter siteId={currentSite.id} />
+              </Suspense>
+            ) : (
+              <span className="hidden h-10 w-10 shrink-0 sm:block" aria-hidden="true" />
+            ))}
 
           <div ref={accountRef} className="relative shrink-0">
             <button

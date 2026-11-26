@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   getStatus: vi.fn(),
   trigger: vi.fn(),
+  tenantId: 'desktop-tenant',
 }));
 vi.mock('@/lib/trpc', () => ({
   vanillaClient: {
@@ -17,11 +18,12 @@ vi.mock('@/lib/trpc', () => ({
     },
   },
 }));
-vi.mock('@/features/auth/authStorage', () => ({ getStoredAuthTenantId: () => 'desktop-tenant' }));
+vi.mock('@/features/auth/authStorage', () => ({ getStoredAuthTenantId: () => mocks.tenantId }));
 import { useOfflineSync } from './useOfflineSync';
 
 beforeEach(async () => {
   vi.resetAllMocks();
+  mocks.tenantId = 'desktop-tenant';
   await i18n.changeLanguage('en');
   Object.defineProperty(window, 'api', {
     configurable: true,
@@ -141,5 +143,86 @@ describe('desktop sync session rejection', () => {
     expect(result.current.isSyncing).toBe(false);
     expect(mocks.status).not.toHaveBeenCalled();
     expect(mocks.push).not.toHaveBeenCalled();
+  });
+
+  it('coalesces simultaneous hook mounts onto a single getStatus poll and single triggerSync flight', async () => {
+    let resolveSync: (() => void) | undefined;
+    mocks.trigger.mockImplementation(
+      () =>
+        new Promise<{ syncedCount: number; failedCount: number; conflictCount: number }>(
+          resolve => {
+            resolveSync = () => resolve({ syncedCount: 1, failedCount: 0, conflictCount: 0 });
+          }
+        )
+    );
+
+    const first = renderHook(() => useOfflineSync());
+    const second = renderHook(() => useOfflineSync());
+
+    await waitFor(() => expect(mocks.getStatus).toHaveBeenCalledTimes(1));
+
+    let p1: Promise<void>;
+    let p2: Promise<void>;
+    act(() => {
+      p1 = first.result.current.triggerSync();
+      p2 = second.result.current.triggerSync();
+    });
+    expect(mocks.trigger).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveSync?.();
+      await Promise.all([p1!, p2!]);
+    });
+    expect(first.result.current.isSyncing).toBe(false);
+    expect(second.result.current.isSyncing).toBe(false);
+  });
+
+  it('still fetches once when the scheduling subscriber unmounts before the first fetch', async () => {
+    const first = renderHook(() => useOfflineSync());
+    renderHook(() => useOfflineSync());
+    first.unmount();
+    await waitFor(() => expect(mocks.getStatus).toHaveBeenCalledTimes(1));
+  });
+
+  it('drops the previous tenant status when the store key changes', async () => {
+    mocks.getStatus.mockResolvedValue({ lastSync: null, pendingItems: 5, conflicts: 0 });
+    const { result, rerender } = renderHook(() => useOfflineSync());
+    await waitFor(() => expect(result.current.pendingItems).toBe(5));
+    mocks.getStatus.mockReturnValue(new Promise(() => undefined));
+    mocks.tenantId = 'other-tenant';
+    rerender();
+    expect(result.current.pendingItems).toBe(0);
+  });
+
+  it('keeps the shared store alive when the language changes', async () => {
+    renderHook(() => useOfflineSync());
+    await waitFor(() => expect(mocks.getStatus).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await i18n.changeLanguage('es');
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mocks.getStatus).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes again after a push instead of reusing a pre-push refresh', async () => {
+    let resolveFirst: ((value: unknown) => void) | undefined;
+    mocks.getStatus
+      .mockImplementationOnce(() => new Promise(resolve => (resolveFirst = resolve)))
+      .mockResolvedValue({ lastSync: null, pendingItems: 0, conflicts: 0 });
+    mocks.trigger.mockResolvedValue({ success: true, syncedCount: 3 });
+    const { result } = renderHook(() => useOfflineSync());
+    await waitFor(() => expect(mocks.getStatus).toHaveBeenCalledTimes(1));
+    let sync: Promise<void>;
+    act(() => {
+      sync = result.current.triggerSync();
+    });
+    await act(async () => {
+      resolveFirst?.({ lastSync: null, pendingItems: 3, conflicts: 0 });
+      await sync!;
+    });
+    expect(mocks.getStatus).toHaveBeenCalledTimes(2);
+    expect(result.current.pendingItems).toBe(0);
   });
 });

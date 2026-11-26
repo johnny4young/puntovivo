@@ -1,5 +1,5 @@
 /** Live kitchen board: coherent server projection, explicit stale/offline states and CAS actions. */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -51,7 +51,12 @@ function KitchenBoard({
   const [configurationOpen, setConfigurationOpen] = useState(false);
   const [station, setStation] = useState('');
   const [busy, setBusy] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const lock = useRef(false);
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
   const list = trpc.kds.list.useQuery({ siteId, limit: 500 }, { refetchInterval: 30_000 });
   // Order SSE events do not cover configuration edits on another display.
   // Keep station ordering/filter choices fresh even without new submissions.
@@ -87,8 +92,14 @@ function KitchenBoard({
   // Chips count every station, so the filter applies here and not in the query.
   for (const order of allOrders) {
     stationCounts.set(order.station, (stationCounts.get(order.station) ?? 0) + 1);
-    if (!station || order.station === station)
-      groups.set(order.station, [...(groups.get(order.station) ?? []), order]);
+    if (!station || order.station === station) {
+      let bucket = groups.get(order.station);
+      if (!bucket) {
+        bucket = [];
+        groups.set(order.station, bucket);
+      }
+      bucket.push(order);
+    }
   }
   const configuredStations = [...(stations.data ?? [])];
   const stationPositions = new Map(configuredStations.map(item => [item.code, item.position]));
@@ -210,6 +221,7 @@ function KitchenBoard({
               key={code}
               stationKey={code}
               orders={orders}
+              now={now}
               disabled={busy || !online || list.isError}
               onReady={(input: KitchenInputs['markReady']) => act(ready.mutate, input)}
               onRecall={(input: KitchenInputs['recall']) => act(recall.mutate, input)}

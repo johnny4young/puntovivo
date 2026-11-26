@@ -108,4 +108,36 @@ describe('query planner maintenance', () => {
     vi.advanceTimersByTime(10_000);
     expect(exec).not.toHaveBeenCalled();
   });
+
+  it('sleeps until optimizeIntervalMs instead of polling every 500 ms once stats exist', () => {
+    vi.useFakeTimers();
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    const pragma = vi.spyOn(sqlite, 'pragma');
+    const maintenance = createQueryPlannerMaintenance(sqlite, {
+      idleMs: 3_000,
+      checkIntervalMs: 500,
+      optimizeIntervalMs: 6 * 60 * 60 * 1_000,
+      now,
+    });
+
+    // Complete first pass so sqlite_stat1 is populated.
+    while (maintenance.runStep());
+
+    setTimeoutSpy.mockClear();
+    pragma.mockClear();
+    maintenance.start();
+
+    // Advance 5 hours: scheduler must not wake every 500 ms while steady.
+    clock += 5 * 60 * 60 * 1_000;
+    vi.advanceTimersByTime(5 * 60 * 60 * 1_000);
+    expect(setTimeoutSpy.mock.calls.length).toBeLessThanOrEqual(2);
+    expect(pragma).not.toHaveBeenCalledWith('optimize');
+
+    // Cross the 6 h mark: PRAGMA optimize runs once and schedules the next 6 h sleep.
+    clock += 60 * 60 * 1_000;
+    vi.advanceTimersByTime(60 * 60 * 1_000);
+    expect(pragma).toHaveBeenCalledWith('optimize');
+
+    maintenance.stop();
+  });
 });

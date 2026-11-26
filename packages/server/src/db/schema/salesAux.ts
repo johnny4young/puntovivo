@@ -794,7 +794,7 @@ export const saleReturns = sqliteTable(
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
-    index('idx_sale_returns_tenant').on(table.tenantId),
+    index('idx_sale_returns_tenant_created').on(table.tenantId, table.createdAt),
     index('idx_sale_returns_sale').on(table.saleId),
     index('idx_sale_returns_created_by').on(table.createdBy),
     // refund amount stores the absolute value being returned.

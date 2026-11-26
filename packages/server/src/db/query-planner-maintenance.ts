@@ -60,6 +60,7 @@ export function createQueryPlannerMaintenance(
   }: QueryPlannerMaintenanceOptions = {}
 ): QueryPlannerMaintenance {
   let timer: NodeJS.Timeout | null = null;
+  let running = false;
   let pending: string[] | null = null;
   let lastActivityAt = now();
   let lastOptimizeAt = now();
@@ -82,11 +83,24 @@ export function createQueryPlannerMaintenance(
     return false;
   };
 
-  return {
-    start() {
-      if (timer) return;
-      timer = setInterval(() => {
-        if (now() - lastActivityAt < idleMs) return;
+  const nextDelayMs = (): number => {
+    if (pending === null || pending.length > 0) {
+      return checkIntervalMs;
+    }
+    const untilOptimize = optimizeIntervalMs - (now() - lastOptimizeAt);
+    if (untilOptimize > 0) {
+      return Math.max(checkIntervalMs, untilOptimize);
+    }
+    const untilIdle = idleMs - (now() - lastActivityAt);
+    return Math.max(checkIntervalMs, untilIdle);
+  };
+
+  const scheduleNext = (): void => {
+    if (!running || timer) return;
+    timer = setTimeout(() => {
+      timer = null;
+      if (!running) return;
+      if (now() - lastActivityAt >= idleMs) {
         try {
           runStep();
         } catch (error) {
@@ -95,11 +109,21 @@ export function createQueryPlannerMaintenance(
             'query planner statistics step failed; that table waits for the next server start'
           );
         }
-      }, checkIntervalMs);
-      timer.unref();
+      }
+      scheduleNext();
+    }, nextDelayMs());
+    timer.unref();
+  };
+
+  return {
+    start() {
+      if (running) return;
+      running = true;
+      scheduleNext();
     },
     stop() {
-      if (timer) clearInterval(timer);
+      running = false;
+      if (timer) clearTimeout(timer);
       timer = null;
     },
     noteActivity() {

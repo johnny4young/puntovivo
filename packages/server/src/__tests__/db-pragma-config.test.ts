@@ -57,6 +57,31 @@ describe('SQLite PRAGMA cluster', () => {
     expect(readPragma('temp_store')).toBe(2);
     expect(readPragma('wal_autocheckpoint')).toBe(1000);
     expect(readPragma('analysis_limit')).toBe(400);
+    // NORMAL = 1 (WAL-safe, avoids per-commit fsync stalls on modest register storage).
+    expect(readPragma('synchronous')).toBe(1);
+    expect(readPragma('journal_size_limit')).toBe(67108864);
+  });
+
+  it('checkpoints and truncates the WAL file when closing a file-based database', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'puntovivo-wal-close-'));
+    createdDirs.push(dir);
+    const dbPath = join(dir, 'wal-close.db');
+    await initDatabase({ dbPath, seedData: true });
+    // A second connection keeps SQLite from deleting the WAL on last close,
+    // so only the explicit TRUNCATE checkpoint can empty it.
+    const { default: SqliteDatabase } = await import('better-sqlite3');
+    const observer = new SqliteDatabase(dbPath);
+    observer.prepare('SELECT count(*) FROM sqlite_master').get();
+    try {
+      closeDatabase();
+
+      const { statSync, existsSync } = await import('node:fs');
+      const walPath = `${dbPath}-wal`;
+      expect(existsSync(walPath)).toBe(true);
+      expect(statSync(walPath).size).toBe(0);
+    } finally {
+      observer.close();
+    }
   });
 
   it('still applies the connection-level PRAGMAs in `:memory:` mode', async () => {
