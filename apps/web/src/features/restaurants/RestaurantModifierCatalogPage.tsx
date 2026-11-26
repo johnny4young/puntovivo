@@ -269,6 +269,7 @@ function CatalogForm({
   const [draft, setDraft] = useState(initial),
     [error, setError] = useState<string | null>(null);
   const busy = useRef(false),
+    bomSavePendingRef = useRef<(() => Promise<void>) | null>(null),
     save = useCriticalMutation('restaurantModifiers.save');
   const utils = trpc.useUtils();
   return (
@@ -288,6 +289,9 @@ function CatalogForm({
           busy.current = true;
           setError(null);
           try {
+            if (bomSavePendingRef.current) {
+              await bomSavePendingRef.current();
+            }
             await save.mutateAsync({ siteId, ...draft });
             await utils.restaurantModifiers.invalidate();
             onSaved();
@@ -360,7 +364,11 @@ function CatalogForm({
           )}
           {initial.id && (
             <Suspense fallback={null}>
-              <ModifierBomSection siteId={siteId} catalogId={initial.id} />
+              <ModifierBomSection
+                siteId={siteId}
+                catalogId={initial.id}
+                savePendingRef={bomSavePendingRef}
+              />
             </Suspense>
           )}
           {error && (

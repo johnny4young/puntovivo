@@ -66,6 +66,7 @@ import {
 
 import { assertGs1CheckDigit } from '../../services/products/barcode-check-digit.js';
 import { assertBundleInventoryPolicy } from '../../services/product-bundles.js';
+import { assertModifierBomInventoryPolicy } from '../../services/restaurant/modifier-bom.js';
 
 export async function updateProduct(ctx: ProductMutationContext, input: UpdateProductInput) {
   const { id, ...updates } = input;
@@ -232,6 +233,13 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     tracksSerials: nextTracksSerials,
   });
   assertBundleInventoryPolicy(ctx.db, {
+    tenantId: ctx.tenantId,
+    productId: id,
+    nextTracksStock,
+    nextTracksLots,
+    nextTracksSerials,
+  });
+  assertModifierBomInventoryPolicy(ctx.db, {
     tenantId: ctx.tenantId,
     productId: id,
     nextTracksStock,

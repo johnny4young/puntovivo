@@ -49,6 +49,7 @@ function loadLines(tx: DatabaseInstance, scope: KdsWriteScope, saleId: string) {
       roundLabel: restaurantRounds.label,
       courseKey: restaurantCourses.courseKey,
       dinerLabel: restaurantDiners.label,
+      dinerSeatNumber: restaurantDiners.seatNumber,
     })
     .from(saleItems)
     .innerJoin(sales, and(eq(sales.id, saleItems.saleId), eq(sales.tenantId, scope.tenantId)))
@@ -235,7 +236,8 @@ export function submitKitchenSaleInTransaction(
         roundId: row.roundId,
         roundLabel: row.roundLabel,
         courseKey: row.courseKey,
-        dinerLabel: row.dinerLabel,
+        dinerLabel:
+          row.dinerLabel ?? (row.dinerSeatNumber != null ? `C${row.dinerSeatNumber}` : null),
         modifiers: row.checkLineId ? (modifiersByLine.get(row.checkLineId) ?? []) : [],
       }))
     );

@@ -22,6 +22,7 @@ type StationDraft = {
   printerHost: string;
   printerPort: number;
   printerPaperWidth: '58mm' | '80mm';
+  printerCharacterSet: 'cp858' | 'cp437' | 'cp850' | 'pc858_euro';
   printerCopies: number;
 };
 const newStation = (): StationDraft => ({
@@ -34,6 +35,7 @@ const newStation = (): StationDraft => ({
   printerHost: '',
   printerPort: 9100,
   printerPaperWidth: '80mm',
+  printerCharacterSet: 'cp858',
   printerCopies: 1,
 });
 export function KdsConfiguration({ siteId, onClose }: { siteId: string; onClose: () => void }) {
@@ -97,6 +99,7 @@ export function KdsConfiguration({ siteId, onClose }: { siteId: string; onClose:
                       printerHost: station.printerConfig?.host ?? '',
                       printerPort: station.printerConfig?.port ?? 9100,
                       printerPaperWidth: station.printerConfig?.paperWidth ?? '80mm',
+                      printerCharacterSet: station.printerConfig?.characterSet ?? 'cp858',
                       printerCopies: station.printerConfig?.copies ?? 1,
                     })
                   }
@@ -138,7 +141,7 @@ export function KdsConfiguration({ siteId, onClose }: { siteId: string; onClose:
                           ? { host: draft.printerHost.trim(), port: draft.printerPort }
                           : {}),
                         paperWidth: draft.printerPaperWidth,
-                        characterSet: 'cp858',
+                        characterSet: draft.printerCharacterSet,
                         copies: draft.printerCopies,
                       },
               });

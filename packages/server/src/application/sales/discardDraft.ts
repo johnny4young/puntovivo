@@ -21,6 +21,7 @@ import { cancelExternalSale } from '../external-orders/sale-binding.js';
  */
 
 import { reconcileKitchenSaleInTransaction } from '../kds/sale-lifecycle.js';
+import { tickDefaultHardwareWorker } from '../../services/peripherals/hardware-worker.js';
 import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { operationEvents, saleItems, sales } from '../../db/schema.js';
@@ -415,6 +416,8 @@ export async function discardDraft(
     }
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
   }
+
+  void tickDefaultHardwareWorker(ctx.tenantId).catch(() => {});
 
   return {
     id: input.saleId,

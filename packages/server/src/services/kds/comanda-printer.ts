@@ -12,6 +12,7 @@ import {
   hardwareOutbox,
   kdsStations,
   sitePeripherals,
+  tenants,
   users,
   type KdsModifierSnapshot,
   type KdsStationPrinterConfig,
@@ -51,6 +52,7 @@ export interface KitchenComandaInput {
   roundLabel?: string | null | undefined;
   waiterName?: string | null | undefined;
   timestampIso: string;
+  timezone?: string | null | undefined;
   lines: readonly KitchenComandaLineInput[];
   orderNotes?: string | null | undefined;
 }
@@ -63,6 +65,7 @@ export interface KitchenVoidTicketInput {
   actorName?: string | null | undefined;
   reason: 'discard' | 'void';
   timestampIso: string;
+  timezone?: string | null | undefined;
   lines: readonly Array<{
     productName: string;
     quantity: number;
@@ -70,12 +73,34 @@ export interface KitchenVoidTicketInput {
   }>[number][];
 }
 
-function formatKitchenTime(iso: string): string {
+function formatKitchenTime(iso: string, timezone?: string | null | undefined): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso.slice(11, 16);
+  if (timezone) {
+    try {
+      return new Intl.DateTimeFormat('en-GB', {
+        timeZone: timezone,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).format(date);
+    } catch {
+      // Fall back to local process time if timezone identifier is invalid.
+    }
+  }
   const hh = String(date.getHours()).padStart(2, '0');
   const mm = String(date.getMinutes()).padStart(2, '0');
   return `${hh}:${mm}`;
+}
+
+function resolveTenantTimezone(tx: DatabaseInstance, tenantId: string): string | undefined {
+  const row = tx
+    .select({ settings: tenants.settings })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .get();
+  const tz = (row?.settings as Record<string, unknown> | null | undefined)?.timezone;
+  return typeof tz === 'string' && tz.trim().length > 0 ? tz.trim() : undefined;
 }
 
 function formatModifierLine(modifier: KdsModifierSnapshot): string {
@@ -103,7 +128,7 @@ export function buildKitchenComandaDocument(input: KitchenComandaInput): Receipt
     doubleHeight: true,
   });
   lines.push({
-    text: `Cuenta: ${input.saleNumber}   Hora: ${formatKitchenTime(input.timestampIso)}`,
+    text: `Cuenta: ${input.saleNumber}   Hora: ${formatKitchenTime(input.timestampIso, input.timezone)}`,
   });
   if (input.roundLabel) {
     lines.push({ text: `Ronda: ${input.roundLabel}`, bold: true });
@@ -161,7 +186,9 @@ export function buildKitchenVoidDocument(input: KitchenVoidTicketInput): Receipt
     { text: input.stationName.toUpperCase(), align: 'center', bold: true },
     { text: '--------------------------------' },
     { text: `Mesa: ${input.tableLabel?.trim() || 'Para llevar'}`, bold: true },
-    { text: `Cuenta: ${input.saleNumber}   Hora: ${formatKitchenTime(input.timestampIso)}` },
+    {
+      text: `Cuenta: ${input.saleNumber}   Hora: ${formatKitchenTime(input.timestampIso, input.timezone)}`,
+    },
     { text: `Motivo: ${input.reason === 'discard' ? 'Cuenta descartada' : 'Venta anulada'}` },
   ];
   if (input.actorName) {
@@ -182,13 +209,13 @@ function hasActiveStationPrinter(
   return Boolean(config && (config.mode === 'site_printer' || config.mode === 'tcp'));
 }
 
-function resolveSitePrinterPeripheralId(
+function resolveSitePrinterPeripheral(
   tx: DatabaseInstance,
   tenantId: string,
   siteId: string
-): string | null {
+): { id: string; paperWidth?: '58mm' | '80mm'; characterSet?: EscPosCharset } | null {
   const row = tx
-    .select({ id: sitePeripherals.id })
+    .select({ id: sitePeripherals.id, config: sitePeripherals.config })
     .from(sitePeripherals)
     .where(
       and(
@@ -199,7 +226,17 @@ function resolveSitePrinterPeripheralId(
       )
     )
     .get();
-  return row?.id ?? null;
+  if (!row) return null;
+  const cfg = (row.config ?? {}) as Record<string, unknown>;
+  return {
+    id: row.id,
+    ...(cfg.paperWidth === '58mm' || cfg.paperWidth === '80mm'
+      ? { paperWidth: cfg.paperWidth }
+      : {}),
+    ...(typeof cfg.characterSet === 'string'
+      ? { characterSet: cfg.characterSet as EscPosCharset }
+      : {}),
+  };
 }
 
 function insertComandaOutboxJob(
@@ -218,14 +255,16 @@ function insertComandaOutboxJob(
     now: string;
   }
 ): string[] {
-  const paperWidth = args.printerConfig.paperWidth ?? '80mm';
-  const characterSet: EscPosCharset = args.printerConfig.characterSet ?? 'cp858';
+  const sitePeripheral =
+    args.printerConfig.mode === 'site_printer'
+      ? resolveSitePrinterPeripheral(tx, args.tenantId, args.siteId)
+      : null;
+  const paperWidth = sitePeripheral?.paperWidth ?? args.printerConfig.paperWidth ?? '80mm';
+  const characterSet: EscPosCharset =
+    sitePeripheral?.characterSet ?? args.printerConfig.characterSet ?? 'cp858';
   const copies = Math.max(1, Math.min(3, Math.trunc(args.printerConfig.copies ?? 1)));
   const bytes = buildEscPosBytes(args.document, { paperWidth, characterSet });
-  const peripheralId =
-    args.printerConfig.mode === 'site_printer'
-      ? resolveSitePrinterPeripheralId(tx, args.tenantId, args.siteId)
-      : null;
+  const peripheralId = sitePeripheral?.id ?? null;
 
   const insertedIds: string[] = [];
   for (let copy = 1; copy <= copies; copy += 1) {
@@ -305,6 +344,7 @@ export function enqueueStationComandaInTransaction(
     .from(users)
     .where(and(eq(users.id, args.actorId), eq(users.tenantId, args.tenantId)))
     .get();
+  const timezone = resolveTenantTimezone(tx, args.tenantId);
   const document = buildKitchenComandaDocument({
     stationName: args.stationName,
     stationCode: args.stationCode,
@@ -313,6 +353,7 @@ export function enqueueStationComandaInTransaction(
     roundLabel: args.roundLabel,
     waiterName: actor?.name ?? null,
     timestampIso: args.now,
+    timezone,
     lines: args.lines,
     orderNotes: args.orderNotes,
   });
@@ -375,6 +416,7 @@ export function enqueueStationVoidTicketInTransaction(
     .from(users)
     .where(and(eq(users.id, args.actorId), eq(users.tenantId, args.tenantId)))
     .get();
+  const timezone = resolveTenantTimezone(tx, args.tenantId);
   const document = buildKitchenVoidDocument({
     stationName: args.stationName,
     stationCode: args.stationCode,
@@ -383,6 +425,7 @@ export function enqueueStationVoidTicketInTransaction(
     actorName: actor?.name ?? null,
     reason: args.reason,
     timestampIso: args.now,
+    timezone,
     lines: args.lines,
   });
   return insertComandaOutboxJob(tx, {

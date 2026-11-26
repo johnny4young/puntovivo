@@ -181,6 +181,40 @@ describe('KdsConfiguration', () => {
     expect(screen.getByLabelText('Nombre de la estación')).toHaveValue('Cocina');
     expect(screen.getByLabelText('Activa')).toBeDisabled();
   });
+
+  it('preserves an existing station printer characterSet when saving edits', async () => {
+    await i18n.changeLanguage('en');
+    h.stations = [
+      {
+        id: 'station-1',
+        tenantId: 'tenant-1',
+        siteId: 'site-1',
+        code: 'hot',
+        name: 'Grill',
+        isActive: true,
+        position: 2,
+        printerConfig: {
+          mode: 'tcp',
+          host: '192.168.1.40',
+          port: 9100,
+          paperWidth: '80mm',
+          characterSet: 'cp850',
+          copies: 1,
+        },
+        version: 8,
+        createdAt: '',
+        updatedAt: '',
+      },
+    ];
+    render(<KdsConfiguration siteId="site-1" onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Grill' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save station' }));
+    expect(h.saveStation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        printerConfig: expect.objectContaining({ characterSet: 'cp850' }),
+      })
+    );
+  });
 });
 
 it('uses an HTML unicode-sets pattern compatible with current Chromium', () => {

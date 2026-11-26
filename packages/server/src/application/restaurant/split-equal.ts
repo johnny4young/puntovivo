@@ -49,6 +49,7 @@ import {
   type DraftSplitTransaction,
 } from '../sales/draft-split.js';
 import {
+  RESTAURANT_SERVICE_LIMITS,
   assertDineInStillActive,
   assertNoUnnormalizedRestaurantDrafts,
   cloneRestaurantCourse,
@@ -115,21 +116,37 @@ function allocateQuantityEvenly(totalQty: number, parts: number): number[] {
   return shares.map(v => roundQuantity(v / 1_000_000, 6));
 }
 
+function rotateShares<T>(shares: readonly T[], offset: number): T[] {
+  const n = shares.length;
+  if (n <= 1) return [...shares];
+  const shift = ((offset % n) + n) % n;
+  if (shift === 0) return [...shares];
+  return Array.from({ length: n }, (_, idx) => shares[(idx - shift + n) % n]!);
+}
+
 function assertLinesNotLotOrSerialTracked(
   tx: DatabaseInstance,
+  tenantId: string,
   saleItemIds: readonly string[]
 ): void {
   if (saleItemIds.length === 0) return;
   const lotRow = tx
     .select({ id: saleItemLots.id })
     .from(saleItemLots)
-    .where(inArray(saleItemLots.saleItemId, [...saleItemIds]))
+    .where(
+      and(eq(saleItemLots.tenantId, tenantId), inArray(saleItemLots.saleItemId, [...saleItemIds]))
+    )
     .limit(1)
     .get();
   const serialRow = tx
     .select({ id: saleItemSerials.id })
     .from(saleItemSerials)
-    .where(inArray(saleItemSerials.saleItemId, [...saleItemIds]))
+    .where(
+      and(
+        eq(saleItemSerials.tenantId, tenantId),
+        inArray(saleItemSerials.saleItemId, [...saleItemIds])
+      )
+    )
     .limit(1)
     .get();
   if (lotRow || serialRow) {
@@ -165,24 +182,27 @@ function splitOneSaleItemAcrossTargets(
     sourceItem: typeof saleItems.$inferSelect;
     sourceCheckLine: typeof restaurantCheckLines.$inferSelect;
     targets: readonly TargetCheckHandle[];
+    lineIndex?: number;
   }
 ): void {
   const parts = args.targets.length;
+  const offset = args.lineIndex ?? 0;
   const weights = Array.from({ length: parts }, () => 1);
 
-  const quantities = allocateQuantityEvenly(args.sourceItem.quantity, parts);
-  const totalCents = allocateCentsByWeights(toCents(args.sourceItem.total), weights);
-  const taxCents = allocateCentsByWeights(toCents(args.sourceItem.taxAmount), weights);
-  if (!totalCents || !taxCents) {
+  const quantities = rotateShares(allocateQuantityEvenly(args.sourceItem.quantity, parts), offset);
+  const rawTotalCents = allocateCentsByWeights(toCents(args.sourceItem.total), weights);
+  const rawTaxCents = allocateCentsByWeights(toCents(args.sourceItem.taxAmount), weights);
+  if (!rawTotalCents || !rawTaxCents) {
     invalidDraftSplit('Line totals could not be allocated evenly');
   }
+  const totalCents = rotateShares(rawTotalCents, offset);
   const invCostShares =
     args.sourceItem.inventoryCostCents !== null
-      ? allocateIntegerEvenly(args.sourceItem.inventoryCostCents, parts)
+      ? rotateShares(allocateIntegerEvenly(args.sourceItem.inventoryCostCents, parts), offset)
       : null;
   const cogsCostShares =
     args.sourceItem.cogsCostCents !== null
-      ? allocateIntegerEvenly(args.sourceItem.cogsCostCents, parts)
+      ? rotateShares(allocateIntegerEvenly(args.sourceItem.cogsCostCents, parts), offset)
       : null;
 
   const taxComponents = tx
@@ -196,6 +216,30 @@ function splitOneSaleItemAcrossTargets(
     )
     .orderBy(asc(saleItemTaxComponents.position))
     .all();
+
+  const taxComponentAllocations = taxComponents.map((comp, compIdx) => {
+    const tax = rotateShares(
+      allocateCentsByWeights(toCents(comp.taxAmount), weights)!,
+      offset + compIdx
+    );
+    const singleInclusive =
+      taxComponents.length === 1 &&
+      toCents(comp.taxableAmount) + toCents(comp.taxAmount) === toCents(args.sourceItem.total);
+    const taxable = singleInclusive
+      ? totalCents.map((tot, idx) => tot - tax[idx]!)
+      : rotateShares(
+          allocateCentsByWeights(toCents(comp.taxableAmount), weights)!,
+          offset + compIdx
+        );
+    return { comp, taxable, tax };
+  });
+
+  const taxCents =
+    taxComponentAllocations.length > 0
+      ? Array.from({ length: parts }, (_, idx) =>
+          taxComponentAllocations.reduce((sum, alloc) => sum + alloc.tax[idx]!, 0)
+        )
+      : rotateShares(rawTaxCents, offset);
 
   const bundleSnapshots = tx
     .select()
@@ -320,16 +364,16 @@ function splitOneSaleItemAcrossTargets(
         roundId: ensureRoundOnTarget(firstTarget.checkId),
         courseId: ensureCourseOnTarget(firstTarget.checkId),
       })
-      .where(eq(restaurantCheckLines.id, args.sourceCheckLine.id))
+      .where(
+        and(
+          eq(restaurantCheckLines.id, args.sourceCheckLine.id),
+          eq(restaurantCheckLines.tenantId, args.tenantId)
+        )
+      )
       .run();
   }
 
-  // Re-allocate tax, bundle, and modifier-BOM snapshots across all targets.
-  const taxComponentAllocations = taxComponents.map(comp => ({
-    comp,
-    taxable: allocateCentsByWeights(toCents(comp.taxableAmount), weights)!,
-    tax: allocateCentsByWeights(toCents(comp.taxAmount), weights)!,
-  }));
+  // Re-allocate bundle and modifier-BOM snapshots across all targets.
   const bundleAllocations = bundleSnapshots.map(snap => ({
     snap,
     qty: allocateQuantityEvenly(snap.totalQuantityDeducted, parts),
@@ -355,7 +399,12 @@ function splitOneSaleItemAcrossTargets(
         taxableAmount: fromCents(alloc.taxable[0]!),
         taxAmount: fromCents(alloc.tax[0]!),
       })
-      .where(eq(saleItemTaxComponents.id, alloc.comp.id))
+      .where(
+        and(
+          eq(saleItemTaxComponents.id, alloc.comp.id),
+          eq(saleItemTaxComponents.tenantId, args.tenantId)
+        )
+      )
       .run();
   }
   for (const alloc of bundleAllocations) {
@@ -365,7 +414,12 @@ function splitOneSaleItemAcrossTargets(
         ...(alloc.inv ? { inventoryCostCents: alloc.inv[0]! } : {}),
         ...(alloc.cogs ? { cogsCostCents: alloc.cogs[0]! } : {}),
       })
-      .where(eq(saleItemBundleComponents.id, alloc.snap.id))
+      .where(
+        and(
+          eq(saleItemBundleComponents.id, alloc.snap.id),
+          eq(saleItemBundleComponents.tenantId, args.tenantId)
+        )
+      )
       .run();
   }
   for (const alloc of modBomAllocations) {
@@ -375,7 +429,12 @@ function splitOneSaleItemAcrossTargets(
         ...(alloc.inv ? { inventoryCostCents: alloc.inv[0]! } : {}),
         ...(alloc.cogs ? { cogsCostCents: alloc.cogs[0]! } : {}),
       })
-      .where(eq(saleItemModifierBomComponents.id, alloc.snap.id))
+      .where(
+        and(
+          eq(saleItemModifierBomComponents.id, alloc.snap.id),
+          eq(saleItemModifierBomComponents.tenantId, args.tenantId)
+        )
+      )
       .run();
   }
 
@@ -546,6 +605,68 @@ function recalculateDraftHeaderFromLines(
   return total;
 }
 
+function countServiceProjectionUsage(
+  tx: DatabaseInstance,
+  tenantId: string,
+  serviceId: string
+): { openLines: number; openModifiers: number } {
+  const openLines =
+    tx
+      .select({ value: count() })
+      .from(restaurantCheckLines)
+      .innerJoin(
+        restaurantChecks,
+        and(
+          eq(restaurantChecks.id, restaurantCheckLines.checkId),
+          eq(restaurantChecks.tenantId, tenantId)
+        )
+      )
+      .where(
+        and(
+          eq(restaurantCheckLines.tenantId, tenantId),
+          eq(restaurantChecks.serviceId, serviceId),
+          eq(restaurantChecks.status, 'open')
+        )
+      )
+      .get()?.value ?? 0;
+  const openModifiers =
+    tx
+      .select({ value: count() })
+      .from(restaurantLineModifiers)
+      .innerJoin(
+        restaurantCheckLines,
+        and(
+          eq(restaurantCheckLines.id, restaurantLineModifiers.checkLineId),
+          eq(restaurantCheckLines.tenantId, tenantId)
+        )
+      )
+      .innerJoin(
+        restaurantChecks,
+        and(
+          eq(restaurantChecks.id, restaurantCheckLines.checkId),
+          eq(restaurantChecks.tenantId, tenantId)
+        )
+      )
+      .where(
+        and(
+          eq(restaurantLineModifiers.tenantId, tenantId),
+          eq(restaurantChecks.serviceId, serviceId),
+          eq(restaurantChecks.status, 'open')
+        )
+      )
+      .get()?.value ?? 0;
+  return { openLines, openModifiers };
+}
+
+function readDraftGrossCents(tx: DatabaseInstance, saleId: string): number {
+  const rows = tx
+    .select({ total: saleItems.total })
+    .from(saleItems)
+    .where(eq(saleItems.saleId, saleId))
+    .all();
+  return rows.reduce((sum, r) => sum + toCents(r.total), 0);
+}
+
 /**
  * Split one open restaurant check into `parts` equal payable checks (`Total / N`).
  * Preserves exact cent sum across checks, keeps stock untouched, and fences KDS.
@@ -558,6 +679,13 @@ export function splitRestaurantCheckEqualInTransaction(
   const tx = transaction as unknown as DatabaseInstance;
   const { tenantId, actorId, now } = context;
   assertDineInStillActive(tx, tenantId);
+  if (context.callerSiteId === null) {
+    throwServerError({
+      trpcCode: 'NOT_FOUND',
+      errorCode: 'RESTAURANT_TABLE_NOT_FOUND',
+      message: 'Restaurant table was not found at the active site',
+    });
+  }
 
   const table = tx
     .select({
@@ -589,6 +717,13 @@ export function splitRestaurantCheckEqualInTransaction(
       trpcCode: 'CONFLICT',
       errorCode: 'RESTAURANT_SERVICE_NOT_OPEN',
       message: 'The table has no open service to split',
+    });
+  }
+  if (service.siteId !== table.siteId) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+      message: 'Restaurant service site does not match its physical table',
     });
   }
   assertNoUnnormalizedRestaurantDrafts(tx, tenantId, table.id);
@@ -645,6 +780,13 @@ export function splitRestaurantCheckEqualInTransaction(
       message: 'This check is currently resumed on a register',
     });
   }
+  if (sourceSale.tableId !== table.id) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+      message: 'Restaurant check sale is not parked at this table',
+    });
+  }
   assertSalesNotExternallyBound(tx, tenantId, [sourceSale.id]);
   assertDraftTenderDivisible(sourceSale);
   const sessionSites = readCashSessionSites(
@@ -687,8 +829,35 @@ export function splitRestaurantCheckEqualInTransaction(
   });
   assertLinesNotLotOrSerialTracked(
     tx,
+    tenantId,
     sourceItems.map(i => i.id)
   );
+  const usage = countServiceProjectionUsage(tx, tenantId, service.id);
+  const sourceModCount =
+    tx
+      .select({ value: count() })
+      .from(restaurantLineModifiers)
+      .where(
+        and(
+          eq(restaurantLineModifiers.tenantId, tenantId),
+          inArray(
+            restaurantLineModifiers.checkLineId,
+            sourceCheckLines.map(l => l.id)
+          )
+        )
+      )
+      .get()?.value ?? 0;
+  if (
+    usage.openLines + sourceItems.length * (args.parts - 1) > RESTAURANT_SERVICE_LIMITS.openLines ||
+    usage.openModifiers + sourceModCount * (args.parts - 1) >
+      RESTAURANT_SERVICE_LIMITS.openModifiers
+  ) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'RESTAURANT_SERVICE_LIMIT_REACHED',
+      message: 'Splitting this check equally would exceed the open line or modifier limit',
+    });
+  }
 
   const kdsScope = { tenantId, siteId: table.siteId, actorId };
   adoptLegacyKitchenSale(tx, kdsScope, sourceSale.id);
@@ -743,7 +912,7 @@ export function splitRestaurantCheckEqualInTransaction(
     });
   }
 
-  for (const item of sourceItems) {
+  for (const [lineIndex, item] of sourceItems.entries()) {
     const checkLine = checkLineBySaleItem.get(item.id)!;
     splitOneSaleItemAcrossTargets(tx, {
       tenantId,
@@ -752,13 +921,20 @@ export function splitRestaurantCheckEqualInTransaction(
       sourceItem: item,
       sourceCheckLine: checkLine,
       targets,
+      lineIndex,
     });
   }
 
-  const weights = Array.from({ length: args.parts }, () => 1);
-  const discountShares = allocateCentsByWeights(toCents(sourceSale.discountAmount), weights)!;
-  const tipShares = allocateCentsByWeights(toCents(sourceSale.tipAmount), weights)!;
-  const serviceShares = allocateCentsByWeights(toCents(sourceSale.serviceChargeAmount), weights)!;
+  const targetGrossCents = targets.map(t => readDraftGrossCents(tx, t.saleId));
+  const totalPostGross = targetGrossCents.reduce((s, g) => s + g, 0);
+  const headerWeights =
+    totalPostGross > 0 ? targetGrossCents : Array.from({ length: args.parts }, () => 1);
+  const discountShares = allocateCentsByWeights(toCents(sourceSale.discountAmount), headerWeights)!;
+  const tipShares = allocateCentsByWeights(toCents(sourceSale.tipAmount), headerWeights)!;
+  const serviceShares = allocateCentsByWeights(
+    toCents(sourceSale.serviceChargeAmount),
+    headerWeights
+  )!;
 
   const resultChecks: SplitChecksSummaryResult['checks'] = [];
   const syncContext = {
@@ -863,6 +1039,13 @@ export function splitRestaurantSharedLineInTransaction(
   const tx = transaction as unknown as DatabaseInstance;
   const { tenantId, actorId, now } = context;
   assertDineInStillActive(tx, tenantId);
+  if (context.callerSiteId === null) {
+    throwServerError({
+      trpcCode: 'NOT_FOUND',
+      errorCode: 'RESTAURANT_TABLE_NOT_FOUND',
+      message: 'Restaurant table was not found at the active site',
+    });
+  }
 
   const table = tx
     .select({
@@ -894,6 +1077,13 @@ export function splitRestaurantSharedLineInTransaction(
       trpcCode: 'CONFLICT',
       errorCode: 'RESTAURANT_SERVICE_NOT_OPEN',
       message: 'The table has no open service',
+    });
+  }
+  if (service.siteId !== table.siteId) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+      message: 'Restaurant service site does not match its physical table',
     });
   }
   assertNoUnnormalizedRestaurantDrafts(tx, tenantId, table.id);
@@ -984,6 +1174,11 @@ export function splitRestaurantSharedLineInTransaction(
     tenantId,
     openChecks.map(c => c.sale.id)
   );
+  const sessionSites = readCashSessionSites(
+    tx,
+    tenantId,
+    openChecks.flatMap(c => (c.sale.cashSessionId ? [c.sale.cashSessionId] : []))
+  );
   for (const { sale } of openChecks) {
     if (sale.status !== 'draft' || !sale.suspendedAt) {
       throwServerError({
@@ -992,9 +1187,53 @@ export function splitRestaurantSharedLineInTransaction(
         message: 'A check of this table is resumed on a register',
       });
     }
+    if (sale.tableId !== table.id) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+        message: 'Restaurant check sale is not parked at this table',
+      });
+    }
     assertDraftTenderDivisible(sale);
+    assertDraftSessionAtTableSite(
+      sale.cashSessionId ? sessionSites.get(sale.cashSessionId) : null,
+      table.siteId
+    );
+    const items = tx
+      .select({ total: saleItems.total })
+      .from(saleItems)
+      .where(eq(saleItems.saleId, sale.id))
+      .all();
+    assertDraftHeaderMatchesLines(sale, {
+      count: items.length,
+      gross: fromCents(items.reduce((sum, item) => sum + toCents(item.total), 0)),
+    });
   }
-  assertLinesNotLotOrSerialTracked(tx, [sourceItem.id]);
+  assertLinesNotLotOrSerialTracked(tx, tenantId, [sourceItem.id]);
+
+  const usage = countServiceProjectionUsage(tx, tenantId, service.id);
+  const sourceModCount =
+    tx
+      .select({ value: count() })
+      .from(restaurantLineModifiers)
+      .where(
+        and(
+          eq(restaurantLineModifiers.tenantId, tenantId),
+          eq(restaurantLineModifiers.checkLineId, sourceCheckLine.id)
+        )
+      )
+      .get()?.value ?? 0;
+  const addedShares = args.targetCheckIds.length - 1;
+  if (
+    usage.openLines + addedShares > RESTAURANT_SERVICE_LIMITS.openLines ||
+    usage.openModifiers + sourceModCount * addedShares > RESTAURANT_SERVICE_LIMITS.openModifiers
+  ) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'RESTAURANT_SERVICE_LIMIT_REACHED',
+      message: 'Splitting this dish would exceed the open line or modifier limit',
+    });
+  }
 
   // Ensure source check doesn't end up empty if it only had this line and isn't in targets.
   const sourceItemCount =
@@ -1101,7 +1340,7 @@ export function splitRestaurantSharedLineInTransaction(
     targets,
   });
 
-  // Recalculate headers for every touched check and bump check versions.
+  // Recalculate headers for every touched check with proportional header adjustments and bump versions.
   const syncContext = {
     db: tx,
     tenantId,
@@ -1109,27 +1348,55 @@ export function splitRestaurantSharedLineInTransaction(
     deviceId: context.deviceId ?? null,
   };
   const createdById = new Map(targets.filter(t => t.created).map(t => [t.checkId, t]));
+  const touchedList = [...touchedCheckIds];
+  const touchedSaleIds = touchedList.map(
+    id => checkById.get(id)?.sale.id ?? createdById.get(id)!.saleId
+  );
+  const postGrossCents = touchedSaleIds.map(sid => readDraftGrossCents(tx, sid));
+  const totalPostGross = postGrossCents.reduce((s, g) => s + g, 0);
+  const headerWeights =
+    totalPostGross > 0 ? postGrossCents : Array.from({ length: touchedList.length }, () => 1);
+  const pooledDiscountCents = touchedList.reduce(
+    (s, id) => s + toCents(checkById.get(id)?.sale.discountAmount ?? 0),
+    0
+  );
+  const pooledTipCents = touchedList.reduce(
+    (s, id) => s + toCents(checkById.get(id)?.sale.tipAmount ?? 0),
+    0
+  );
+  const pooledServiceCents = touchedList.reduce(
+    (s, id) => s + toCents(checkById.get(id)?.sale.serviceChargeAmount ?? 0),
+    0
+  );
+  const discountShares = allocateCentsByWeights(pooledDiscountCents, headerWeights)!;
+  const tipShares = allocateCentsByWeights(pooledTipCents, headerWeights)!;
+  const serviceShares = allocateCentsByWeights(pooledServiceCents, headerWeights)!;
+
   const resultChecks: SplitChecksSummaryResult['checks'] = [];
 
-  for (const checkId of touchedCheckIds) {
+  for (const [idx, checkId] of touchedList.entries()) {
     const existing = checkById.get(checkId);
     const created = createdById.get(checkId);
+    const discountAmount = fromCents(discountShares[idx]!);
+    const tipAmount = fromCents(tipShares[idx]!);
+    const serviceChargeAmount = fromCents(serviceShares[idx]!);
     if (existing) {
       const syncVersion = (existing.sale.syncVersion ?? 0) + 1;
       const total = recalculateDraftHeaderFromLines(tx, {
         tenantId,
         saleId: existing.sale.id,
-        discountAmount: existing.sale.discountAmount,
-        tipAmount: existing.sale.tipAmount,
-        tipMethod: existing.sale.tipMethod,
-        serviceChargeAmount: existing.sale.serviceChargeAmount,
-        serviceChargeRate: existing.sale.serviceChargeRate,
+        discountAmount,
+        tipAmount,
+        tipMethod: existing.sale.tipMethod ?? sourceEntry.sale.tipMethod,
+        serviceChargeAmount,
+        serviceChargeRate: existing.sale.serviceChargeRate ?? sourceEntry.sale.serviceChargeRate,
         paymentMethod: existing.sale.paymentMethod,
         syncVersion,
         now,
       });
       const nextVersion = existing.check.version + 1;
-      tx.update(restaurantChecks)
+      const bumped = tx
+        .update(restaurantChecks)
         .set({ version: nextVersion, updatedAt: now })
         .where(
           and(
@@ -1139,6 +1406,13 @@ export function splitRestaurantSharedLineInTransaction(
           )
         )
         .run();
+      if (bumped.changes !== 1) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'RESTAURANT_SPLIT_STALE',
+          message: 'Check changed during shared dish split',
+        });
+      }
       reconcileKitchenSaleInTransaction(tx, kdsScope, existing.sale.id);
       enqueueSyncInTransaction(syncContext, {
         entityType: 'sales',
@@ -1164,10 +1438,10 @@ export function splitRestaurantSharedLineInTransaction(
       const total = recalculateDraftHeaderFromLines(tx, {
         tenantId,
         saleId: created.saleId,
-        discountAmount: 0,
-        tipAmount: 0,
+        discountAmount,
+        tipAmount,
         tipMethod: sourceEntry.sale.tipMethod,
-        serviceChargeAmount: 0,
+        serviceChargeAmount,
         serviceChargeRate: sourceEntry.sale.serviceChargeRate,
         paymentMethod: sourceEntry.sale.paymentMethod,
         syncVersion: 1,

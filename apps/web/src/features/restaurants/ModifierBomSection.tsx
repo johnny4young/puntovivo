@@ -2,7 +2,7 @@
  * Compact BOM ingredient editor for a saved restaurant modifier option.
  * Self-contained with inline status so isolated modifier-catalog tests never depend on ToastProvider.
  */
-import { useState } from 'react';
+import { useEffect, useState, type MutableRefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Trash2 } from 'lucide-react';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -12,9 +12,10 @@ import { translateServerError } from '@/lib/translateServerError';
 interface ModifierBomSectionProps {
   siteId: string;
   catalogId: string;
+  savePendingRef?: MutableRefObject<(() => Promise<void>) | null> | undefined;
 }
 
-export function ModifierBomSection({ siteId, catalogId }: ModifierBomSectionProps) {
+export function ModifierBomSection({ siteId, catalogId, savePendingRef }: ModifierBomSectionProps) {
   const { t } = useTranslation(['restaurants', 'common', 'errors']);
   const utils = trpc.useUtils();
   const bomQuery = trpc.restaurantModifiers.getBomComponents.useQuery(
@@ -60,8 +61,34 @@ export function ModifierBomSection({ siteId, catalogId }: ModifierBomSectionProp
       quantity: item.quantity,
     }));
 
+  useEffect(() => {
+    if (!savePendingRef) return;
+    if (draft === null) {
+      savePendingRef.current = null;
+      return;
+    }
+    savePendingRef.current = async () => {
+      await saveMutation.mutateAsync({
+        siteId,
+        catalogId,
+        components: draft.map(item => ({
+          componentProductId: item.componentProductId,
+          quantity: item.quantity,
+        })),
+      });
+    };
+    return () => {
+      savePendingRef.current = null;
+    };
+  }, [catalogId, draft, saveMutation, savePendingRef, siteId]);
+
   const candidates = (productsQuery.data?.items ?? []).filter(
-    product => !rows.some(r => r.componentProductId === product.id)
+    product =>
+      product.tracksStock !== false &&
+      !product.tracksLots &&
+      !product.tracksSerials &&
+      product.catalogType !== 'variant_parent' &&
+      !rows.some(r => r.componentProductId === product.id)
   );
 
   function handleAdd() {

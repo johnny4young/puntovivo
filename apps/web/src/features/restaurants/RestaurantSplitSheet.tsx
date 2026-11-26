@@ -211,7 +211,7 @@ export function RestaurantSplitSheet({
           {t('restaurants:server.RESTAURANT_SPLIT_CHECK_IN_USE')}
         </p>
       )}
-      {primaryCheck && (
+      {primaryCheck && openRealChecks.length === 1 && (
         <div
           className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface-2 px-4 py-3"
           data-testid="split-sheet-equal-bar"

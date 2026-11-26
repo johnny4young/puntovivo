@@ -115,7 +115,7 @@ export const restaurantModifiersRouter = router({
     .input(getRestaurantModifierBomInput)
     .query(async ({ ctx, input }) => {
       await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
-      return getModifierBomComponents(ctx.db, ctx.tenantId, input.catalogId);
+      return getModifierBomComponents(ctx.db, ctx.tenantId, input.siteId, input.catalogId);
     }),
   setBomComponents: managerOrAdminProcedure
     .use(createModuleGuard('dine-in'))

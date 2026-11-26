@@ -22,6 +22,7 @@ import {
   restaurantDiners,
   restaurantLineModifiers,
   restaurantRounds,
+  restaurantServices,
   restaurantTables,
   saleItemTaxComponents,
   saleItems,
@@ -49,12 +50,15 @@ import {
   resolveTenantBusinessClock,
 } from '../../services/pharmacy/business-clock.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
+import { requireActiveCashSession } from '../../services/cash-session.js';
 import { assertCashSessionStillOpen } from '../../services/cash-session/movements.js';
 import { assertSalesNotExternallyBound } from '../external-orders/sale-binding.js';
 import { submitKitchenSaleInTransaction } from '../kds/submit.js';
 import { resolveSaleItems } from '../sales/item-resolution.js';
 import {
   assertDraftHeaderMatchesLines,
+  assertDraftSessionAtTableSite,
+  readCashSessionSites,
   rebuildProvisionalDraftPayment,
 } from '../sales/draft-split.js';
 import type { CompleteSaleContext, CompleteSaleItemInput } from '../sales/types.js';
@@ -104,9 +108,19 @@ export interface AddRestaurantRoundResult {
 
 export async function addRestaurantRound(
   ctx: CompleteSaleContext,
-  input: AddRestaurantRoundInput
+  input: AddRestaurantRoundInput,
+  options?: { callerSiteId?: string | null | undefined }
 ): Promise<AddRestaurantRoundResult> {
   const { db, tenantId } = ctx;
+  const callerSiteId =
+    options && 'callerSiteId' in options ? options.callerSiteId : ctx.siteId || undefined;
+  if (callerSiteId === null) {
+    throwServerError({
+      trpcCode: 'NOT_FOUND',
+      errorCode: 'RESTAURANT_TABLE_NOT_FOUND',
+      message: 'Restaurant table was not found at the active site',
+    });
+  }
 
   // Pre-transaction read: verify table, check, and resolve priced lines.
   const preTable = db
@@ -121,7 +135,7 @@ export async function addRestaurantRound(
       and(
         eq(restaurantTables.id, input.tableId),
         eq(restaurantTables.tenantId, tenantId),
-        ...(ctx.siteId ? [eq(restaurantTables.siteId, ctx.siteId)] : [])
+        ...(callerSiteId ? [eq(restaurantTables.siteId, callerSiteId)] : [])
       )
     )
     .get();
@@ -133,6 +147,29 @@ export async function addRestaurantRound(
     });
   }
 
+  const siteRow = db
+    .select({ name: sites.name })
+    .from(sites)
+    .where(
+      and(eq(sites.id, preTable.siteId), eq(sites.tenantId, tenantId), eq(sites.isActive, true))
+    )
+    .get();
+  if (!siteRow) {
+    throwServerError({
+      trpcCode: 'NOT_FOUND',
+      errorCode: 'RESTAURANT_TABLE_NOT_FOUND',
+      message: 'Restaurant table site is not active',
+    });
+  }
+  const siteName = siteRow.name;
+
+  const activeCashSession = await requireActiveCashSession(
+    db,
+    tenantId,
+    preTable.siteId,
+    ctx.user.id
+  );
+
   const preCheck = db
     .select({
       id: restaurantChecks.id,
@@ -140,6 +177,15 @@ export async function addRestaurantRound(
       priceTier: sales.priceTier,
     })
     .from(restaurantChecks)
+    .innerJoin(
+      restaurantServices,
+      and(
+        eq(restaurantServices.id, restaurantChecks.serviceId),
+        eq(restaurantServices.tenantId, tenantId),
+        eq(restaurantServices.tableId, preTable.id),
+        eq(restaurantServices.status, 'open')
+      )
+    )
     .innerJoin(sales, and(eq(sales.id, restaurantChecks.saleId), eq(sales.tenantId, tenantId)))
     .where(
       and(
@@ -156,13 +202,6 @@ export async function addRestaurantRound(
       message: 'The restaurant check is no longer open',
     });
   }
-
-  const siteRow = db
-    .select({ name: sites.name })
-    .from(sites)
-    .where(and(eq(sites.id, preTable.siteId), eq(sites.tenantId, tenantId)))
-    .get();
-  const siteName = siteRow?.name ?? preTable.siteId;
 
   const saleItemsInput: CompleteSaleItemInput[] = input.items.map(item => {
     const modAmount = restaurantModifierAmount(item.modifiers);
@@ -282,8 +321,10 @@ export async function addRestaurantRound(
         });
       }
       assertSalesNotExternallyBound(tx, tenantId, [sale.id]);
+      assertCashSessionStillOpen(tx, tenantId, activeCashSession.id);
       if (sale.cashSessionId) {
-        assertCashSessionStillOpen(tx, tenantId, sale.cashSessionId);
+        const sessionSites = readCashSessionSites(tx, tenantId, [sale.cashSessionId]);
+        assertDraftSessionAtTableSite(sessionSites.get(sale.cashSessionId), table.siteId);
       }
 
       // Check existing line arithmetic before mutating the draft header.
@@ -294,7 +335,7 @@ export async function addRestaurantRound(
         .all();
       assertDraftHeaderMatchesLines(sale, {
         count: existingItems.length,
-        gross: roundMoney(existingItems.reduce((sum, item) => sum + item.total, 0)),
+        gross: existingItems.reduce((sum, item) => roundMoney(sum + item.total), 0),
       });
 
       const txContext = {
@@ -362,14 +403,42 @@ export async function addRestaurantRound(
             )
           )
           .get()?.value ?? 0;
+      const openModifierCount =
+        tx
+          .select({ value: count() })
+          .from(restaurantLineModifiers)
+          .innerJoin(
+            restaurantCheckLines,
+            and(
+              eq(restaurantCheckLines.id, restaurantLineModifiers.checkLineId),
+              eq(restaurantCheckLines.tenantId, tenantId)
+            )
+          )
+          .innerJoin(
+            restaurantChecks,
+            and(
+              eq(restaurantChecks.id, restaurantCheckLines.checkId),
+              eq(restaurantChecks.tenantId, tenantId)
+            )
+          )
+          .where(
+            and(
+              eq(restaurantLineModifiers.tenantId, tenantId),
+              eq(restaurantChecks.serviceId, service.id),
+              eq(restaurantChecks.status, 'open')
+            )
+          )
+          .get()?.value ?? 0;
+      const addedModifierCount = input.items.reduce((sum, item) => sum + item.modifiers.length, 0);
       if (
         openLineCount + resolvedItems.rows.length > RESTAURANT_SERVICE_LIMITS.openLines ||
-        openRoundCount + 1 > RESTAURANT_SERVICE_LIMITS.openRounds
+        openRoundCount + 1 > RESTAURANT_SERVICE_LIMITS.openRounds ||
+        openModifierCount + addedModifierCount > RESTAURANT_SERVICE_LIMITS.openModifiers
       ) {
         throwServerError({
           trpcCode: 'CONFLICT',
           errorCode: 'RESTAURANT_SERVICE_LIMIT_REACHED',
-          message: 'Restaurant service reached its open line or round projection limit',
+          message: 'Restaurant service reached its open line, round, or modifier projection limit',
         });
       }
 
@@ -645,6 +714,7 @@ export async function addRestaurantRound(
       const existingDinerBySeat = new Map(
         existingDiners.flatMap(d => (d.seatNumber != null ? ([[d.seatNumber, d]] as const) : []))
       );
+      let activeDinerCount = existingDiners.filter(d => d.isActive).length;
       const dinerIdByClientId = new Map<string, string>();
       for (const diner of input.diners) {
         if (
@@ -658,17 +728,64 @@ export async function addRestaurantRound(
             message: 'Diner seat exceeds the established guest count',
           });
         }
+        const nextLabel = diner.label?.trim() || null;
         const existingDiner =
           diner.seatNumber == null ? undefined : existingDinerBySeat.get(diner.seatNumber);
         if (existingDiner) {
+          if (existingDiner.label && nextLabel && existingDiner.label !== nextLabel) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'RESTAURANT_SERVICE_DINER_INVALID',
+              message: 'Seated diner label conflicts with the existing diner on that seat',
+            });
+          }
           if (!existingDiner.isActive) {
+            activeDinerCount += 1;
+            if (activeDinerCount > RESTAURANT_SERVICE_LIMITS.activeDiners) {
+              throwServerError({
+                trpcCode: 'CONFLICT',
+                errorCode: 'RESTAURANT_SERVICE_LIMIT_REACHED',
+                message: 'Restaurant service reached its active diner limit',
+              });
+            }
+            if (service.guestCount !== null && activeDinerCount > service.guestCount) {
+              throwServerError({
+                trpcCode: 'CONFLICT',
+                errorCode: 'RESTAURANT_SERVICE_DINER_INVALID',
+                message: 'Active diners exceed the established guest count',
+              });
+            }
             tx.update(restaurantDiners)
-              .set({ isActive: true, updatedAt: now })
-              .where(eq(restaurantDiners.id, existingDiner.id))
+              .set({
+                isActive: true,
+                ...(nextLabel && !existingDiner.label ? { label: nextLabel } : {}),
+                updatedAt: now,
+              })
+              .where(
+                and(
+                  eq(restaurantDiners.id, existingDiner.id),
+                  eq(restaurantDiners.tenantId, tenantId)
+                )
+              )
               .run();
           }
           dinerIdByClientId.set(diner.clientId, existingDiner.id);
           continue;
+        }
+        activeDinerCount += 1;
+        if (activeDinerCount > RESTAURANT_SERVICE_LIMITS.activeDiners) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'RESTAURANT_SERVICE_LIMIT_REACHED',
+            message: 'Restaurant service reached its active diner limit',
+          });
+        }
+        if (service.guestCount !== null && activeDinerCount > service.guestCount) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'RESTAURANT_SERVICE_DINER_INVALID',
+            message: 'Active diners exceed the established guest count',
+          });
         }
         const dinerId = nanoid();
         dinerIdByClientId.set(diner.clientId, dinerId);
@@ -677,7 +794,7 @@ export async function addRestaurantRound(
             id: dinerId,
             tenantId,
             serviceId: service.id,
-            label: diner.label?.trim() || null,
+            label: nextLabel,
             seatNumber: diner.seatNumber ?? null,
             isActive: true,
             createdAt: now,
@@ -801,6 +918,7 @@ export async function addRestaurantRound(
           subtotal: nextSubtotal,
           taxAmount: nextTaxAmount,
           total: nextTotal,
+          ...(sale.cashSessionId ? {} : { cashSessionId: activeCashSession.id }),
           paymentStatus: 'pending',
           syncStatus: 'pending',
           syncVersion: nextSyncVersion,

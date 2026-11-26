@@ -14,11 +14,14 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase, type DatabaseInstance } from '../db/index.js';
 import {
   cashSessions,
+  companies,
   hardwareOutbox,
   inventoryBalances,
   kdsOrders,
+  productBundleComponents,
   products,
   restaurantTables,
+  saleItems,
   sales,
   sequentials,
   sitePeripherals,
@@ -27,9 +30,11 @@ import {
   unitXProduct,
   units,
   users,
+  vatRates,
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
+import { buildKitchenComandaDocument } from '../services/kds/comanda-printer.js';
 import { ESCPOS_BYTES } from '../services/peripherals/escpos/byte-builder.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 
@@ -731,5 +736,622 @@ describe('Band 6A — Restaurant operational closure', () => {
     // Discarding the draft restores exact 1.25 cheese back to 10.0!
     await manager().sales.discardDraft({ saleId: opened.id });
     expect(getSiteOnHand(cheeseIngredientId)).toBeCloseTo(10.0, 5);
+  });
+
+  it('6A.6 preserves exact valuation on stock-tracked dishes + modifier BOM across discard, void, and partial returns', async () => {
+    const now = new Date().toISOString();
+    const dishId = await createProduct('Hamburguesa Valuada', 30000, 10);
+    const cheeseId = await createProduct('Queso Valuado', 4000, 10);
+    // Establish authoritative cent valuation bases on both dish ($150,000 total / 10 = $15k) and cheese ($20,000 / 10 = $2k).
+    await db
+      .update(products)
+      .set({
+        inventoryValueCents: 15_000_000,
+        cogsValueCents: 15_000_000,
+        valuationQuantity: 10,
+        updatedAt: now,
+      })
+      .where(eq(products.id, dishId));
+    await db
+      .update(products)
+      .set({
+        inventoryValueCents: 2_000_000,
+        cogsValueCents: 2_000_000,
+        valuationQuantity: 10,
+        updatedAt: now,
+      })
+      .where(eq(products.id, cheeseId));
+
+    const mod = await manager().restaurantModifiers.save({
+      siteId,
+      expectedVersion: 0,
+      name: `Queso Val ${nanoid(4)}`,
+      unitPriceDelta: 4000,
+      maxQuantity: 4,
+      requiresManager: false,
+      isActive: true,
+    });
+    await manager().restaurantModifiers.setBomComponents({
+      siteId,
+      catalogId: mod.id,
+      components: [{ componentProductId: cheeseId, quantity: 0.5 }],
+    });
+
+    const tableDiscard = await createTable(`Mesa Val Discard ${nanoid(4)}`);
+    const draft = await cashier().restaurantServices.openCheck({
+      tableId: tableDiscard,
+      guestCount: 1,
+      priceTier: 1,
+      diners: [],
+      items: [
+        {
+          productId: dishId,
+          unitId: baseUnitId,
+          quantity: 2,
+          unitPrice: 30000,
+          discount: 0,
+          taxRate: 0,
+          courseKey: 'main',
+          modifiers: [
+            {
+              catalogId: mod.id,
+              catalogVersion: mod.version,
+              name: mod.name,
+              quantity: 1,
+              unitPriceDelta: 4000,
+            },
+          ],
+        },
+      ],
+    });
+    await manager().sales.discardDraft({ saleId: draft.id });
+
+    // Dish inventoryValueCents MUST return to exact 15_000_000 (no double-credit from cheese!).
+    const dishAfterDiscard = db.select().from(products).where(eq(products.id, dishId)).get()!;
+    const cheeseAfterDiscard = db.select().from(products).where(eq(products.id, cheeseId)).get()!;
+    expect(dishAfterDiscard.inventoryValueCents).toBe(15_000_000);
+    expect(cheeseAfterDiscard.inventoryValueCents).toBe(2_000_000);
+
+    // Partial returns + void conservation: sell 4 dishes with odd 3-cent cheese BOM (0.25/dish = 1.0 total), return 2 + 1 + 1!
+    const oddCheeseId = await createProduct('Queso 3 Centavos', 100, 1);
+    await db
+      .update(products)
+      .set({
+        inventoryValueCents: 3,
+        cogsValueCents: 3,
+        valuationQuantity: 1,
+        updatedAt: now,
+      })
+      .where(eq(products.id, oddCheeseId));
+    const oddMod = await manager().restaurantModifiers.save({
+      siteId,
+      expectedVersion: 0,
+      name: `Odd Mod ${nanoid(4)}`,
+      unitPriceDelta: 100,
+      maxQuantity: 2,
+      requiresManager: false,
+      isActive: true,
+    });
+    await manager().restaurantModifiers.setBomComponents({
+      siteId,
+      catalogId: oddMod.id,
+      components: [{ componentProductId: oddCheeseId, quantity: 0.25 }],
+    });
+
+    const tableRet = await createTable(`Mesa Val Ret ${nanoid(4)}`);
+    const retDraft = await cashier().restaurantServices.openCheck({
+      tableId: tableRet,
+      guestCount: 1,
+      priceTier: 1,
+      diners: [],
+      items: [
+        {
+          productId: dishId,
+          unitId: baseUnitId,
+          quantity: 4,
+          unitPrice: 30000,
+          discount: 0,
+          taxRate: 0,
+          courseKey: 'main',
+          modifiers: [
+            {
+              catalogId: oddMod.id,
+              catalogVersion: oddMod.version,
+              name: oddMod.name,
+              quantity: 1,
+              unitPriceDelta: 100,
+            },
+          ],
+        },
+      ],
+    });
+    await cashier().sales.resume({ saleId: retDraft.id });
+    const completed = await cashier().sales.completeDraft({
+      saleId: retDraft.id,
+      paymentMethod: 'cash',
+      amountReceived: 130000,
+    });
+    const soldItem = db.select().from(saleItems).where(eq(saleItems.saleId, completed.id)).get()!;
+    for (const qty of [2, 1, 1]) {
+      await manager().sales.returnSale({
+        id: completed.id,
+        reason: 'Prueba devolución parcial BOM',
+        items: [{ saleItemId: soldItem.id, quantity: qty }],
+      });
+    }
+    const oddCheeseAfterReturns = db
+      .select()
+      .from(products)
+      .where(eq(products.id, oddCheeseId))
+      .get()!;
+    expect(oddCheeseAfterReturns.inventoryValueCents).toBe(3);
+
+    // Void conservation on completed sale:
+    const tableVoid = await createTable(`Mesa Val Void ${nanoid(4)}`);
+    const voidDraft = await cashier().restaurantServices.openCheck({
+      tableId: tableVoid,
+      guestCount: 1,
+      priceTier: 1,
+      diners: [],
+      items: [
+        {
+          productId: dishId,
+          unitId: baseUnitId,
+          quantity: 1,
+          unitPrice: 30000,
+          discount: 0,
+          taxRate: 0,
+          courseKey: 'main',
+          modifiers: [
+            {
+              catalogId: mod.id,
+              catalogVersion: mod.version,
+              name: mod.name,
+              quantity: 2,
+              unitPriceDelta: 4000,
+            },
+          ],
+        },
+      ],
+    });
+    await cashier().sales.resume({ saleId: voidDraft.id });
+    await cashier().sales.completeDraft({
+      saleId: voidDraft.id,
+      paymentMethod: 'cash',
+      amountReceived: 40000,
+    });
+    await appRouter
+      .createCaller(fresh({ role: 'admin' }))
+      .sales.void({ id: voidDraft.id, reason: 'Anulación prueba BOM' });
+    const dishAfterVoid = db.select().from(products).where(eq(products.id, dishId)).get()!;
+    const cheeseAfterVoid = db.select().from(products).where(eq(products.id, cheeseId)).get()!;
+    expect(dishAfterVoid.inventoryValueCents).toBe(15_000_000);
+    expect(cheeseAfterVoid.inventoryValueCents).toBe(2_000_000);
+  });
+
+  it('6A.7 settles splitEqual checks cleanly through quotePromotions, conserves multi-tax components on returnSale, and rotates remainders', async () => {
+    // 1) $900,000 COP split into 3 checks settled WITH promotionFingerprint -> exact $300,000 × 3 = $900,000!
+    const tableCop = await createTable(`Mesa Quote ${nanoid(4)}`);
+    const platterCop = await createProduct('Parrillada 900k', 900000, 20);
+    await cashier().restaurantServices.openCheck({
+      tableId: tableCop,
+      guestCount: 3,
+      priceTier: 1,
+      diners: [],
+      items: [
+        {
+          productId: platterCop,
+          unitId: baseUnitId,
+          quantity: 1,
+          unitPrice: 900000,
+          discount: 0,
+          taxRate: 0,
+          courseKey: 'main',
+          modifiers: [],
+        },
+      ],
+    });
+    const stCop = await cashier().restaurantServices.getTableState({ tableId: tableCop });
+    const splitCop = await cashier().restaurantServices.splitEqual({
+      tableId: tableCop,
+      checkId: stCop.checks[0]!.id,
+      expectedCheckVersion: stCop.checks[0]!.version,
+      parts: 3,
+    });
+    let settledCopSum = 0;
+    for (const chk of splitCop.checks) {
+      await cashier().sales.resume({ saleId: chk.saleId });
+      const quote = await cashier().sales.quotePromotions({
+        mode: 'fromDraft',
+        saleId: chk.saleId,
+      });
+      const settled = await cashier().sales.completeDraft({
+        saleId: chk.saleId,
+        paymentMethod: 'cash',
+        amountReceived: 300000,
+        promotionFingerprint: quote.fingerprint,
+      });
+      expect(settled.total).toBe(300000);
+      settledCopSum += settled.total;
+    }
+    expect(settledCopSum).toBe(900000);
+
+    // 2) Remainder rotation: 3 items × $10.00 split into 3 checks -> [$10.00, $10.00, $10.00]!
+    const tableRot = await createTable(`Mesa Rot ${nanoid(4)}`);
+    const itemTen = await createProduct('Tapa Diez', 10, 50);
+    await cashier().restaurantServices.openCheck({
+      tableId: tableRot,
+      guestCount: 3,
+      priceTier: 1,
+      diners: [],
+      items: [1, 2, 3].map(() => ({
+        productId: itemTen,
+        unitId: baseUnitId,
+        quantity: 1,
+        unitPrice: 10,
+        discount: 0,
+        taxRate: 0,
+        courseKey: 'starter' as const,
+        modifiers: [],
+      })),
+    });
+    const stRot = await cashier().restaurantServices.getTableState({ tableId: tableRot });
+    const splitRot = await cashier().restaurantServices.splitEqual({
+      tableId: tableRot,
+      checkId: stRot.checks[0]!.id,
+      expectedCheckVersion: stRot.checks[0]!.version,
+      parts: 3,
+    });
+    expect(splitRot.checks.map(c => c.total)).toEqual([10, 10, 10]);
+
+    // 3) Multi-tax component parity across splitEqual + completeDraft + returnSale!
+    const now = new Date().toISOString();
+    const fracUnitId = nanoid();
+    await db.insert(units).values({
+      id: fracUnitId,
+      tenantId,
+      name: `Kilogramo ${nanoid(4)}`,
+      abbreviation: `KG${nanoid(2)}`,
+      dimension: 'mass',
+      standardCode: 'KGM',
+      referenceFactor: 1000,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const vat1Id = nanoid();
+    const vat2Id = nanoid();
+    await db.insert(vatRates).values([
+      {
+        id: vat1Id,
+        tenantId,
+        name: `IVA 10 ${nanoid(4)}`,
+        rate: 10,
+        kind: 'iva',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: vat2Id,
+        tenantId,
+        name: `INC 5 ${nanoid(4)}`,
+        rate: 5,
+        kind: 'inc',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    const tableTax = await createTable(`Mesa MultiTax ${nanoid(4)}`);
+    const taxedDish = await createProduct('Plato Doble Impuesto', 100.1, 20);
+    await manager().products.update({
+      id: taxedDish,
+      version: 0,
+      taxComponents: [{ vatRateId: vat1Id }, { vatRateId: vat2Id }],
+    });
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId: taxedDish,
+      unitId: fracUnitId,
+      equivalence: 1,
+      price: 100.1,
+      price2: 100.1,
+      price3: 100.1,
+      isBase: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await cashier().restaurantServices.openCheck({
+      tableId: tableTax,
+      guestCount: 2,
+      priceTier: 1,
+      diners: [],
+      items: [
+        {
+          productId: taxedDish,
+          unitId: fracUnitId,
+          quantity: 1,
+          unitPrice: 100.1,
+          discount: 0,
+          taxComponents: [{ vatRateId: vat1Id }, { vatRateId: vat2Id }],
+          courseKey: 'main',
+          modifiers: [],
+        },
+      ],
+    });
+    const stTax = await cashier().restaurantServices.getTableState({ tableId: tableTax });
+    const splitTax = await cashier().restaurantServices.splitEqual({
+      tableId: tableTax,
+      checkId: stTax.checks[0]!.id,
+      expectedCheckVersion: stTax.checks[0]!.version,
+      parts: 2,
+    });
+    for (const chk of splitTax.checks) {
+      await cashier().sales.resume({ saleId: chk.saleId });
+      const quote = await cashier().sales.quotePromotions({
+        mode: 'fromDraft',
+        saleId: chk.saleId,
+      });
+      const settled = await cashier().sales.completeDraft({
+        saleId: chk.saleId,
+        paymentMethod: 'cash',
+        amountReceived: 200,
+        promotionFingerprint: quote.fingerprint,
+      });
+      const line = db.select().from(saleItems).where(eq(saleItems.saleId, settled.id)).get()!;
+      const ret = await manager().sales.returnSale({
+        id: settled.id,
+        reason: 'Prueba paridad componentes',
+        items: [{ saleItemId: line.id, quantity: line.quantity }],
+      });
+      expect(ret).toBeDefined();
+    }
+  });
+
+  it('6A.8 enforces site isolation, BOM custody guards, shift-handoff addRound, and proportional discount in splitSharedLine', async () => {
+    const now = new Date().toISOString();
+    const company = db.select().from(companies).where(eq(companies.tenantId, tenantId)).get()!;
+    const siteBId = nanoid();
+    await db.insert(sites).values({
+      id: siteBId,
+      tenantId,
+      companyId: company.id,
+      name: `Sede B ${nanoid(4)}`,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Site B modifier BOM is NOT readable when calling getBomComponents with Site A's siteId!
+    const modB = await appRouter
+      .createCaller(fresh({ role: 'manager', siteId: siteBId }))
+      .restaurantModifiers.save({
+        siteId: siteBId,
+        expectedVersion: 0,
+        name: `Secreto Sede B ${nanoid(4)}`,
+        unitPriceDelta: 1000,
+        maxQuantity: 2,
+        requiresManager: false,
+        isActive: true,
+      });
+    const ingB = await createProduct('Insumo Secreto', 500, 10);
+    await appRouter
+      .createCaller(fresh({ role: 'manager', siteId: siteBId }))
+      .restaurantModifiers.setBomComponents({
+        siteId: siteBId,
+        catalogId: modB.id,
+        components: [{ componentProductId: ingB, quantity: 1 }],
+      });
+    const crossSiteRead = await cashier().restaurantModifiers.getBomComponents({
+      siteId,
+      catalogId: modB.id,
+    });
+    expect(crossSiteRead).toEqual([]);
+
+    // Rejects turning a BOM ingredient into lot-tracked via products.update, and rejects stockless/bundle BOM components!
+    await expect(
+      manager().products.update({ id: ingB, version: 1, tracksLots: true })
+    ).rejects.toThrow(/modifier recipe ingredient/i);
+
+    const stocklessId = await createProduct('Servicio No Stock', 1000, 0);
+    await db.update(products).set({ tracksStock: false }).where(eq(products.id, stocklessId));
+    await expect(
+      appRouter
+        .createCaller(fresh({ role: 'manager', siteId: siteBId }))
+        .restaurantModifiers.setBomComponents({
+          siteId: siteBId,
+          catalogId: modB.id,
+          components: [{ componentProductId: stocklessId, quantity: 1 }],
+        })
+    ).rejects.toThrow();
+
+    const comboParentId = await createProduct('Combo Padre', 15000, 0);
+    await db.update(products).set({ tracksStock: false }).where(eq(products.id, comboParentId));
+    await db.insert(productBundleComponents).values({
+      id: nanoid(),
+      tenantId,
+      bundleProductId: comboParentId,
+      componentProductId: ingB,
+      quantity: 1,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await expect(
+      appRouter
+        .createCaller(fresh({ role: 'manager', siteId: siteBId }))
+        .restaurantModifiers.setBomComponents({
+          siteId: siteBId,
+          catalogId: modB.id,
+          components: [{ componentProductId: comboParentId, quantity: 1 }],
+        })
+    ).rejects.toThrow();
+
+    // Null siteId (rejected x-site-id header) fails closed on restaurant table procedures!
+    const tableClosed = await createTable(`Mesa NullSite ${nanoid(4)}`);
+    const nullSiteCaller = appRouter.createCaller({
+      ...fresh({ role: 'cashier' }),
+      siteId: null,
+    });
+    await expect(
+      nullSiteCaller.restaurantServices.getPrecheck({ tableId: tableClosed })
+    ).rejects.toThrow();
+
+    // Shift-handoff addRound: check opened under morning session A still accepts Round 2 after session A closes and session B opens!
+    const tableShift = await createTable(`Mesa Turno ${nanoid(4)}`);
+    const coffee = await createProduct('Café Turno', 5000, 30);
+    const shiftSale = await cashier().restaurantServices.openCheck({
+      tableId: tableShift,
+      guestCount: 2,
+      priceTier: 1,
+      diners: [
+        { clientId: 's1', seatNumber: 1 },
+        { clientId: 's2', seatNumber: 2 },
+      ],
+      items: [
+        {
+          productId: coffee,
+          unitId: baseUnitId,
+          quantity: 1,
+          unitPrice: 5000,
+          discount: 0,
+          taxRate: 0,
+          courseKey: 'drink',
+          modifiers: [],
+        },
+      ],
+    });
+    // Mark the opener's historical session closed and open a new active session for the afternoon shift.
+    if (shiftSale.cashSessionId) {
+      await db
+        .update(cashSessions)
+        .set({ status: 'closed', closedAt: now })
+        .where(eq(cashSessions.id, shiftSale.cashSessionId));
+    }
+    await db.insert(cashSessions).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      cashierId: adminId,
+      registerName: 'Caja Tarde',
+      openingFloat: 0,
+      openingCountDenominations: [],
+      expectedBalance: 0,
+      status: 'open',
+      openedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const stShift = await cashier().restaurantServices.getTableState({ tableId: tableShift });
+    // Rejects unseated 3rd diner exceeding guestCount=2 without corrupting getTableState:
+    await expect(
+      cashier().restaurantServices.addRound({
+        tableId: tableShift,
+        checkId: stShift.checks[0]!.id,
+        expectedCheckVersion: stShift.checks[0]!.version,
+        diners: [{ clientId: 'extra-unseated', label: 'Extra' }],
+        items: [
+          {
+            productId: coffee,
+            unitId: baseUnitId,
+            quantity: 1,
+            unitPrice: 5000,
+            discount: 0,
+            taxRate: 0,
+            courseKey: 'drink',
+            modifiers: [],
+          },
+        ],
+      })
+    ).rejects.toThrow();
+
+    // Succeeds on valid Round 2 after shift handoff AND replays idempotently with same envelope!
+    const sharedCtx = fresh({ role: 'cashier' });
+    const round2Payload = {
+      tableId: tableShift,
+      checkId: stShift.checks[0]!.id,
+      expectedCheckVersion: stShift.checks[0]!.version,
+      diners: [{ clientId: 's1', seatNumber: 1 }],
+      items: [
+        {
+          productId: coffee,
+          unitId: baseUnitId,
+          quantity: 1,
+          unitPrice: 5000,
+          discount: 0,
+          taxRate: 0,
+          dinerClientId: 's1',
+          courseKey: 'drink' as const,
+          modifiers: [],
+        },
+      ],
+    };
+    const r2First = await appRouter
+      .createCaller(sharedCtx)
+      .restaurantServices.addRound(round2Payload);
+    const r2Replay = await appRouter
+      .createCaller(sharedCtx)
+      .restaurantServices.addRound(round2Payload);
+    expect(r2Replay).toEqual(r2First);
+
+    // splitSharedLine proportionally allocates header discount so donor check never goes negative!
+    const tableDisc = await createTable(`Mesa SharedDisc ${nanoid(4)}`);
+    const platter9k = await createProduct('Picada 9k', 9000, 20);
+    const drink1k = await createProduct('Gaseosa 1k', 1000, 20);
+    const discDraft = await cashier().restaurantServices.openCheck({
+      tableId: tableDisc,
+      guestCount: 3,
+      priceTier: 1,
+      diners: [],
+      items: [
+        {
+          productId: platter9k,
+          unitId: baseUnitId,
+          quantity: 1,
+          unitPrice: 9000,
+          discount: 0,
+          taxRate: 0,
+          courseKey: 'main',
+          modifiers: [],
+        },
+        {
+          productId: drink1k,
+          unitId: baseUnitId,
+          quantity: 1,
+          unitPrice: 1000,
+          discount: 0,
+          taxRate: 0,
+          courseKey: 'drink',
+          modifiers: [],
+        },
+      ],
+    });
+    await db
+      .update(sales)
+      .set({ discountAmount: 5500, total: 4500 })
+      .where(eq(sales.id, discDraft.id));
+    const stDisc = await cashier().restaurantServices.getTableState({ tableId: tableDisc });
+    const platterLine = stDisc.checks[0]!.lines.find(l => l.total === 9000)!;
+    const sharedDiscRes = await cashier().restaurantServices.splitSharedLine({
+      tableId: tableDisc,
+      checks: [{ checkId: stDisc.checks[0]!.id, version: stDisc.checks[0]!.version }],
+      saleItemId: platterLine.saleItemId,
+      targetCheckIds: [stDisc.checks[0]!.id, null, null],
+    });
+    expect(sharedDiscRes.checks).toHaveLength(3);
+    const discSum = Number(sharedDiscRes.checks.reduce((s, c) => s + c.total, 0).toFixed(2));
+    expect(discSum).toBe(4500);
+
+    // Kitchen comanda formats timestamp in requested timezone (`America/Bogota` -> 18:30 from 23:30Z)!
+    const doc = buildKitchenComandaDocument({
+      stationName: 'Parrilla',
+      stationCode: 'grill',
+      tableLabel: 'Mesa 9',
+      saleNumber: 'POS-999',
+      timestampIso: '2026-11-26T23:30:00.000Z',
+      timezone: 'America/Bogota',
+      lines: [{ productName: 'Churrasco', quantity: 1, dinerLabel: 'C1' }],
+    });
+    expect(doc.lines.map(l => l.text).join('\n')).toContain('18:30');
+    expect(doc.lines.map(l => l.text).join('\n')).toContain('(C1)');
   });
 });

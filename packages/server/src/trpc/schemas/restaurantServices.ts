@@ -222,6 +222,16 @@ export const addRestaurantRoundInput = z
     if (new Set(clientIds).size !== clientIds.length) {
       ctx.addIssue({ code: 'custom', path: ['diners'], message: 'Diner ids must be unique' });
     }
+    const seats = value.diners.flatMap(diner =>
+      diner.seatNumber != null ? [diner.seatNumber] : []
+    );
+    if (new Set(seats).size !== seats.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['diners'],
+        message: 'Diner seat numbers must be unique',
+      });
+    }
     const knownDiners = new Set(clientIds);
     for (const [index, item] of value.items.entries()) {
       if (item.dinerClientId && !knownDiners.has(item.dinerClientId)) {

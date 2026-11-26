@@ -23,6 +23,7 @@ import { cancelExternalSale } from '../external-orders/sale-binding.js';
  */
 
 import { reconcileKitchenSaleInTransaction } from '../kds/sale-lifecycle.js';
+import { tickDefaultHardwareWorker } from '../../services/peripherals/hardware-worker.js';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
@@ -689,6 +690,7 @@ export async function voidSale(
   // Retract the sale from the companion ticker; post-commit and
   // best-effort like every other hook here.
   broadcastSaleRetracted(ctx, { id: input.id, saleNumber: updated?.saleNumber ?? '' }, 'voided');
+  void tickDefaultHardwareWorker(ctx.tenantId).catch(() => {});
 
   return {
     sale: updated as VoidedSaleRecord,

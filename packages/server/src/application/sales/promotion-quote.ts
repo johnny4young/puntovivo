@@ -133,6 +133,8 @@ export function quotePersistedDraftPromotions(
       manualDiscountRate: saleItems.manualDiscountRate,
       taxKind: saleItems.taxKind,
       taxRate: saleItems.taxRate,
+      taxAmount: saleItems.taxAmount,
+      total: saleItems.total,
       tracksLots: products.tracksLots,
     })
     .from(saleItems)
@@ -190,30 +192,61 @@ export function quotePersistedDraftPromotions(
     group.push(lot);
     lotsByItem.set(lot.saleItemId, group);
   }
-  const lines: PromotionPricingLine[] = rows.map(row => ({
-    lineKey: `draft:${row.id}`,
-    productId: row.productId,
-    categoryId: row.categoryId,
-    quantity: row.quantity,
-    normalizedQuantity: getNormalizedSaleQuantity(row.quantity, row.unitEquivalence),
-    unitPrice: row.unitPrice,
-    manualDiscountRate: row.manualDiscountRate ?? row.discount,
-    taxComponents: componentsByItem.get(row.id) ?? [
-      legacyComponent({
-        vatRateId: null,
-        taxKind: row.taxKind,
-        taxRate: row.taxRate,
-      }),
-    ],
-    tracksLots: row.tracksLots,
-    lotAllocations: (lotsByItem.get(row.id) ?? []).map(lot => ({
-      lotId: lot.lotId,
-      quantity: lot.quantity,
-      sellable:
-        (lot.status === 'active' || lot.status === 'depleted') &&
-        !isLotExpiredAt(lot.expiresAt, args.nowIso, args.businessDate),
-    })),
-  }));
+  const lines: PromotionPricingLine[] = rows.map(row => {
+    const persistedComponents = componentsByItem.get(row.id);
+    const lineBase = Number((row.total - row.taxAmount).toFixed(2));
+    return {
+      lineKey: `draft:${row.id}`,
+      productId: row.productId,
+      categoryId: row.categoryId,
+      quantity: row.quantity,
+      normalizedQuantity: getNormalizedSaleQuantity(row.quantity, row.unitEquivalence),
+      unitPrice: row.unitPrice,
+      manualDiscountRate: row.manualDiscountRate ?? row.discount,
+      taxComponents: persistedComponents ?? [
+        legacyComponent({
+          vatRateId: null,
+          taxKind: row.taxKind,
+          taxRate: row.taxRate,
+        }),
+      ],
+      tracksLots: row.tracksLots,
+      lotAllocations: (lotsByItem.get(row.id) ?? []).map(lot => ({
+        lotId: lot.lotId,
+        quantity: lot.quantity,
+        sellable:
+          (lot.status === 'active' || lot.status === 'depleted') &&
+          !isLotExpiredAt(lot.expiresAt, args.nowIso, args.businessDate),
+      })),
+      frozenDraftTotals: {
+        lineBase,
+        lineTax: row.taxAmount,
+        lineTotal: row.total,
+        components: persistedComponents
+          ? persistedComponents.map((comp, idx) => ({
+              componentKey: comp.componentKey,
+              position: comp.position ?? idx,
+              vatRateId: comp.vatRateId,
+              taxKind: comp.taxKind,
+              taxRate: comp.taxRate,
+              taxableAmount: comp.taxableAmount,
+              taxAmount: comp.taxAmount,
+            }))
+          : [
+              {
+                ...legacyComponent({
+                  vatRateId: null,
+                  taxKind: row.taxKind,
+                  taxRate: row.taxRate,
+                }),
+                position: 0,
+                taxableAmount: lineBase,
+                taxAmount: row.taxAmount,
+              },
+            ],
+      },
+    };
+  });
   const tenant = db
     .select({ settings: tenants.settings })
     .from(tenants)

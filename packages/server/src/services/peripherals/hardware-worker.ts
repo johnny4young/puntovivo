@@ -532,5 +532,8 @@ export function getDefaultHardwareWorker(): HardwareWorker | null {
 export async function tickDefaultHardwareWorker(tenantId: string): Promise<void> {
   const worker = defaultWorker;
   if (!worker) return;
-  await worker.tickOnce(tenantId);
+  for (let i = 0; i < 10; i += 1) {
+    const res = await worker.tickOnce(tenantId);
+    if (!res.processed || res.outcome !== 'completed') break;
+  }
 }

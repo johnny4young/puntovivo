@@ -26,6 +26,10 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
+import {
+  assertDraftSessionAtTableSite,
+  readCashSessionSites,
+} from '../../application/sales/draft-split.js';
 import { writeAuditLog } from '../audit-logs.js';
 import {
   buildEscPosBytes,
@@ -162,6 +166,13 @@ export function buildRestaurantPrecheck(
     tipPercent?: number | undefined;
   }
 ): RestaurantPrecheckDocument {
+  if (args.callerSiteId === null) {
+    throwServerError({
+      trpcCode: 'NOT_FOUND',
+      errorCode: 'RESTAURANT_TABLE_NOT_FOUND',
+      message: 'Restaurant table was not found at the active site',
+    });
+  }
   const tipPercent = roundMoney(args.tipPercent ?? DEFAULT_PRECHECK_TIP_PERCENT);
   const table = db
     .select({
@@ -205,6 +216,13 @@ export function buildRestaurantPrecheck(
       message: 'The table has no open service for a precheck',
     });
   }
+  if (service.siteId !== table.siteId) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+      message: 'Restaurant service site does not match its physical table',
+    });
+  }
 
   const checks = db
     .select({
@@ -212,6 +230,9 @@ export function buildRestaurantPrecheck(
       saleId: restaurantChecks.saleId,
       label: restaurantChecks.label,
       saleNumber: sales.saleNumber,
+      status: sales.status,
+      tableId: sales.tableId,
+      cashSessionId: sales.cashSessionId,
       subtotal: sales.subtotal,
       taxAmount: sales.taxAmount,
       discountAmount: sales.discountAmount,
@@ -239,6 +260,24 @@ export function buildRestaurantPrecheck(
       message: 'No open check was found for this precheck',
     });
   }
+  const sessionSites = readCashSessionSites(
+    db,
+    args.tenantId,
+    checks.flatMap(c => (c.cashSessionId ? [c.cashSessionId] : []))
+  );
+  for (const chk of checks) {
+    if (chk.status !== 'draft' || chk.tableId !== table.id) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+        message: 'Open restaurant check sale does not match the active table draft state',
+      });
+    }
+    assertDraftSessionAtTableSite(
+      chk.cashSessionId ? sessionSites.get(chk.cashSessionId) : null,
+      table.siteId
+    );
+  }
 
   const checkIds = checks.map(c => c.id);
   const diners = db
@@ -263,7 +302,21 @@ export function buildRestaurantPrecheck(
       notes: saleItems.notes,
     })
     .from(restaurantCheckLines)
-    .innerJoin(saleItems, eq(saleItems.id, restaurantCheckLines.saleItemId))
+    .innerJoin(
+      restaurantChecks,
+      and(
+        eq(restaurantChecks.id, restaurantCheckLines.checkId),
+        eq(restaurantChecks.tenantId, args.tenantId)
+      )
+    )
+    .innerJoin(sales, and(eq(sales.id, restaurantChecks.saleId), eq(sales.tenantId, args.tenantId)))
+    .innerJoin(
+      saleItems,
+      and(
+        eq(saleItems.id, restaurantCheckLines.saleItemId),
+        eq(saleItems.saleId, restaurantChecks.saleId)
+      )
+    )
     .leftJoin(
       products,
       and(eq(products.id, saleItems.productId), eq(products.tenantId, args.tenantId))
@@ -327,12 +380,13 @@ export function buildRestaurantPrecheck(
     .where(and(eq(users.id, args.actorId), eq(users.tenantId, args.tenantId)))
     .get();
 
-  const subtotal = roundMoney(checks.reduce((s, c) => s + c.subtotal, 0));
-  const taxAmount = roundMoney(checks.reduce((s, c) => s + c.taxAmount, 0));
-  const discountAmount = roundMoney(checks.reduce((s, c) => s + c.discountAmount, 0));
-  const serviceChargeAmount = roundMoney(checks.reduce((s, c) => s + c.serviceChargeAmount, 0));
-  const baseTotal = roundMoney(subtotal + taxAmount - discountAmount + serviceChargeAmount);
-  const suggestedTipAmount = roundMoney((baseTotal * tipPercent) / 100);
+  const subtotal = checks.reduce((s, c) => roundMoney(s + c.subtotal), 0);
+  const taxAmount = checks.reduce((s, c) => roundMoney(s + c.taxAmount), 0);
+  const discountAmount = checks.reduce((s, c) => roundMoney(s + c.discountAmount), 0);
+  const serviceChargeAmount = checks.reduce((s, c) => roundMoney(s + c.serviceChargeAmount), 0);
+  const tipBase = Math.max(0, roundMoney(subtotal + taxAmount - discountAmount));
+  const baseTotal = roundMoney(tipBase + serviceChargeAmount);
+  const suggestedTipAmount = roundMoney((tipBase * tipPercent) / 100);
   const totalWithTip = roundMoney(baseTotal + suggestedTipAmount);
   const currencyCode = checks[0]!.currencyCode ?? 'COP';
 

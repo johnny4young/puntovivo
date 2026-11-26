@@ -14,6 +14,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import {
   inventoryBalances,
   inventoryMovements,
+  productBundleComponents,
   products,
   restaurantModifierBomComponents,
   restaurantModifierCatalog,
@@ -22,10 +23,15 @@ import {
   saleReturnItems,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { roundMoney } from '../../lib/money.js';
 import { QUANTITY_EPSILON } from '../../lib/quantity.js';
 import { writeAuditLog } from '../audit-logs.js';
 import { applyInventoryBalanceDelta, getProductStockTotals } from '../inventory-balances.js';
-import { fromInventoryCents, toInventoryCents } from '../inventory-valuation.js';
+import {
+  allocateInventoryValue,
+  fromInventoryCents,
+  toInventoryCents,
+} from '../inventory-valuation.js';
 
 export interface ModifierBomComponentEntry {
   componentProductId: string;
@@ -43,9 +49,43 @@ export interface ModifierBomComponentDetail {
   unitCost: number;
 }
 
+export function assertModifierBomInventoryPolicy(
+  db: DatabaseInstance,
+  args: {
+    tenantId: string;
+    productId: string;
+    nextTracksStock: boolean;
+    nextTracksLots: boolean;
+    nextTracksSerials: boolean;
+  }
+): void {
+  if (!args.nextTracksStock || args.nextTracksLots || args.nextTracksSerials) {
+    const usedInBom = db
+      .select({ id: restaurantModifierBomComponents.id })
+      .from(restaurantModifierBomComponents)
+      .where(
+        and(
+          eq(restaurantModifierBomComponents.tenantId, args.tenantId),
+          eq(restaurantModifierBomComponents.componentProductId, args.productId)
+        )
+      )
+      .get();
+    if (usedInBom) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'PRODUCT_BUNDLE_COMPONENT_CUSTODY',
+        message:
+          'A modifier recipe ingredient must remain a standard stock-tracked product without lot or serial custody',
+        details: { productId: args.productId },
+      });
+    }
+  }
+}
+
 export function getModifierBomComponents(
   db: DatabaseInstance,
   tenantId: string,
+  siteId: string,
   catalogId: string
 ): ModifierBomComponentDetail[] {
   return db
@@ -60,6 +100,14 @@ export function getModifierBomComponents(
       unitCost: products.cost,
     })
     .from(restaurantModifierBomComponents)
+    .innerJoin(
+      restaurantModifierCatalog,
+      and(
+        eq(restaurantModifierCatalog.id, restaurantModifierBomComponents.catalogId),
+        eq(restaurantModifierCatalog.tenantId, tenantId),
+        eq(restaurantModifierCatalog.siteId, siteId)
+      )
+    )
     .innerJoin(
       products,
       and(
@@ -131,6 +179,7 @@ export function setModifierBomComponents(
           .select({
             id: products.id,
             catalogType: products.catalogType,
+            tracksStock: products.tracksStock,
             tracksLots: products.tracksLots,
             tracksSerials: products.tracksSerials,
           })
@@ -143,12 +192,31 @@ export function setModifierBomComponents(
             message: 'One or more modifier ingredients do not belong to this business',
           });
         }
+        const bundleParentIds = new Set(
+          tx
+            .select({ id: productBundleComponents.bundleProductId })
+            .from(productBundleComponents)
+            .where(
+              and(
+                eq(productBundleComponents.tenantId, args.tenantId),
+                inArray(productBundleComponents.bundleProductId, componentIds)
+              )
+            )
+            .all()
+            .map(r => r.id)
+        );
         for (const row of componentRows) {
-          if (row.catalogType === 'variant_parent' || row.tracksLots || row.tracksSerials) {
+          if (
+            !row.tracksStock ||
+            row.catalogType === 'variant_parent' ||
+            row.tracksLots ||
+            row.tracksSerials ||
+            bundleParentIds.has(row.id)
+          ) {
             throw new TRPCError({
               code: 'BAD_REQUEST',
               message:
-                'Modifier ingredients must be standard stock products without lot or serial custody',
+                'Modifier ingredients must be standard stock products without lot, serial, or bundle custody',
             });
           }
         }
@@ -211,7 +279,7 @@ export function setModifierBomComponents(
     { behavior: 'immediate' }
   );
 
-  return getModifierBomComponents(db, args.tenantId, args.catalogId);
+  return getModifierBomComponents(db, args.tenantId, args.siteId, args.catalogId);
 }
 
 export interface DeductModifierBomLine {
@@ -263,6 +331,14 @@ export function deductModifierBomInTransaction(args: {
       unitCost: products.cost,
     })
     .from(restaurantModifierBomComponents)
+    .innerJoin(
+      restaurantModifierCatalog,
+      and(
+        eq(restaurantModifierCatalog.id, restaurantModifierBomComponents.catalogId),
+        eq(restaurantModifierCatalog.tenantId, args.tenantId),
+        eq(restaurantModifierCatalog.siteId, args.siteId)
+      )
+    )
     .innerJoin(
       products,
       and(
@@ -345,7 +421,6 @@ export function deductModifierBomInTransaction(args: {
   }
 
   const movementIds: string[] = [];
-  const lineExtraCost = new Map<string, { inventoryCents: number; cogsCents: number }>();
 
   for (const line of args.lines) {
     for (const mod of line.modifiers) {
@@ -413,7 +488,12 @@ export function deductModifierBomInTransaction(args: {
             args.tx
               .update(saleItemModifierBomComponents)
               .set({ inventoryCostCents: inventoryCents, cogsCostCents: cogsCents })
-              .where(eq(saleItemModifierBomComponents.id, snapshotId))
+              .where(
+                and(
+                  eq(saleItemModifierBomComponents.id, snapshotId),
+                  eq(saleItemModifierBomComponents.tenantId, args.tenantId)
+                )
+              )
               .run();
             args.tx
               .update(inventoryMovements)
@@ -428,35 +508,12 @@ export function deductModifierBomInTransaction(args: {
                 )
               )
               .run();
-            const acc = lineExtraCost.get(line.saleItemId) ?? { inventoryCents: 0, cogsCents: 0 };
-            acc.inventoryCents += inventoryCents;
-            acc.cogsCents += cogsCents;
-            lineExtraCost.set(line.saleItemId, acc);
           },
           initialOnHandIfMissing: previousStock,
           now: args.now,
         });
       }
     }
-  }
-
-  for (const [saleItemId, extra] of lineExtraCost) {
-    const existing = args.tx
-      .select({
-        inventoryCostCents: saleItems.inventoryCostCents,
-        cogsCostCents: saleItems.cogsCostCents,
-      })
-      .from(saleItems)
-      .where(eq(saleItems.id, saleItemId))
-      .get();
-    args.tx
-      .update(saleItems)
-      .set({
-        inventoryCostCents: (existing?.inventoryCostCents ?? 0) + extra.inventoryCents,
-        cogsCostCents: (existing?.cogsCostCents ?? 0) + extra.cogsCents,
-      })
-      .where(eq(saleItems.id, saleItemId))
-      .run();
   }
 
   return movementIds;
@@ -563,18 +620,31 @@ export function reverseModifierBomInTransaction(args: {
 
     let valueDelta: { inventoryValue: number; cogsValue: number } | undefined;
     if (snap.inventoryCostCents !== null && snap.cogsCostCents !== null) {
-      let shareBefore = 0;
-      let shareAfter = fraction;
-      if (entry.returnedBaseQuantity !== undefined && soldBase > 0) {
-        const returnedAfter = Math.min(soldBase, returnedBaseByItem.get(snap.saleItemId) ?? 0);
-        shareAfter = returnedAfter / soldBase;
-        shareBefore = Math.max(0, returnedAfter - entry.returnedBaseQuantity) / soldBase;
-      }
-      const credit = (cents: number) =>
-        Math.round(cents * shareAfter) - Math.round(cents * shareBefore);
+      const creditMoney = (centsValue: number): number => {
+        const totalMoney = fromInventoryCents(centsValue);
+        if (entry.returnedBaseQuantity !== undefined && soldBase > 0) {
+          const returnedAfter = Math.min(
+            soldBase,
+            roundQuantity(returnedBaseByItem.get(snap.saleItemId) ?? 0, 12)
+          );
+          const returnedBefore = Math.max(
+            0,
+            roundQuantity(returnedAfter - entry.returnedBaseQuantity, 12)
+          );
+          const cumulativeAt = (qty: number): number =>
+            qty <= 0
+              ? 0
+              : qty >= soldBase
+                ? totalMoney
+                : allocateInventoryValue(totalMoney, soldBase, qty).consumedValue;
+          return roundMoney(cumulativeAt(returnedAfter) - cumulativeAt(returnedBefore));
+        }
+        if (fraction >= 1) return totalMoney;
+        return fromInventoryCents(Math.round(centsValue * fraction));
+      };
       valueDelta = {
-        inventoryValue: fromInventoryCents(credit(snap.inventoryCostCents)),
-        cogsValue: fromInventoryCents(credit(snap.cogsCostCents)),
+        inventoryValue: creditMoney(snap.inventoryCostCents),
+        cogsValue: creditMoney(snap.cogsCostCents),
       };
     }
 

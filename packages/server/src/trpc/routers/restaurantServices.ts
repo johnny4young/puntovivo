@@ -42,6 +42,7 @@ import {
   buildRestaurantPrecheck,
   printRestaurantPrecheck,
 } from '../../services/restaurant/precheck.js';
+import { tickDefaultHardwareWorker } from '../../services/peripherals/hardware-worker.js';
 import {
   addRestaurantRoundInput,
   getRestaurantPrecheckInput,
@@ -158,6 +159,7 @@ export const restaurantServicesRouter = router({
           })),
         },
       });
+      void tickDefaultHardwareWorker(ctx.tenantId).catch(() => {});
       return {
         ...result.sale,
         change: result.change,
@@ -172,7 +174,13 @@ export const restaurantServicesRouter = router({
    */
   addRound: restaurantCommandProcedure
     .input(addRestaurantRoundInput)
-    .mutation(async ({ ctx, input }) => addRestaurantRound(buildLifecycleContext(ctx), input)),
+    .mutation(async ({ ctx, input }) => {
+      const result = await addRestaurantRound(buildLifecycleContext(ctx), input, {
+        callerSiteId: ctx.siteId,
+      });
+      void tickDefaultHardwareWorker(ctx.tenantId).catch(() => {});
+      return result;
+    }),
 
   /** Non-fiscal precheck preview with editable suggested voluntary tip (Ley 1935/2018). */
   getPrecheck: restaurantStaffProcedure.input(getRestaurantPrecheckInput).query(({ ctx, input }) =>
@@ -189,8 +197,8 @@ export const restaurantServicesRouter = router({
   /** Print non-fiscal precheck without consuming a fiscal sequential or closing the sale. */
   printPrecheck: restaurantStaffProcedure
     .input(printRestaurantPrecheckInput)
-    .mutation(({ ctx, input }) =>
-      printRestaurantPrecheck(ctx.db, {
+    .mutation(({ ctx, input }) => {
+      const result = printRestaurantPrecheck(ctx.db, {
         tenantId: ctx.tenantId,
         callerSiteId: ctx.siteId,
         actorId: ctx.user!.id,
@@ -198,8 +206,12 @@ export const restaurantServicesRouter = router({
         checkId: input.checkId,
         tipPercent: input.tipPercent,
         markBillRequested: input.markBillRequested,
-      })
-    ),
+      });
+      if (result.printedVia === 'hardware_outbox') {
+        void tickDefaultHardwareWorker(ctx.tenantId).catch(() => {});
+      }
+      return result;
+    }),
 
   /** Split one open check into N equal payable checks (`Total / N`), available to waiters/cashiers. */
   splitEqual: restaurantCommandProcedure

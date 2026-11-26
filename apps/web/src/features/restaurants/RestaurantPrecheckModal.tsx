@@ -9,10 +9,72 @@ import { Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { invalidateCommittedGroups, RESTAURANT_TABLE_INVALIDATIONS } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
+import { printHtmlDocument } from '@/lib/receiptDocumentPrint';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
 
 const TIP_PRESETS = [0, 10, 15] as const;
+
+function escapeHtml(text: string): string {
+  return text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+interface PrecheckPrintDoc {
+  tenantName: string;
+  siteName: string;
+  tableName: string;
+  saleNumbers: string[];
+  items: Array<{
+    saleItemId: string;
+    productName: string;
+    quantity: number;
+    total: number;
+    modifiers: Array<{
+      name: string;
+      quantity: number;
+      groupKind: string | null;
+    }>;
+  }>;
+  subtotal: number;
+  taxAmount: number;
+  discountAmount: number;
+  baseTotal: number;
+  tipPercent: number;
+  suggestedTipAmount: number;
+  totalWithTip: number;
+  voluntaryTipNoticeEs: string;
+  voluntaryTipNoticeEn: string;
+}
+
+function buildPrecheckPrintHtml(
+  doc: PrecheckPrintDoc,
+  options: { autoPrint: boolean; isEnglish: boolean; labels: Record<string, string> }
+): string {
+  const withoutPrefix = options.isEnglish ? 'no ' : 'sin ';
+  const rowsHtml = doc.items
+    .map(item => {
+      const modsHtml =
+        item.modifiers.length > 0
+          ? `<div class="mods">${item.modifiers
+              .map(m => {
+                const qty = m.quantity > 1 ? `${m.quantity}× ` : '';
+                const pfx = m.groupKind === 'without' ? withoutPrefix : `+ ${qty}`;
+                return escapeHtml(`${pfx}${m.name}`);
+              })
+              .join(' · ')}</div>`
+          : '';
+      return `<div class="row"><div><div><strong>${escapeHtml(String(item.quantity))} × ${escapeHtml(item.productName)}</strong></div>${modsHtml}</div><div>${escapeHtml(formatCurrency(item.total))}</div></div>`;
+    })
+    .join('');
+  const notice = options.isEnglish ? doc.voluntaryTipNoticeEn : doc.voluntaryTipNoticeEs;
+  const script = options.autoPrint ? '<script>window.onload=()=>window.print();</script>' : '';
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(doc.tableName)}</title><style>body{font-family:ui-monospace,monospace;max-width:300px;margin:0 auto;padding:12px;color:#111;font-size:12px}.c{text-align:center}.b{font-weight:700}.hr{border-top:1px dashed #666;margin:8px 0}.row{display:flex;justify-content:space-between;gap:8px;margin:4px 0}.mods{font-size:11px;color:#444}</style></head><body><div class="c b">${escapeHtml(doc.tenantName)}</div><div class="c">${escapeHtml(doc.siteName)}</div><div class="hr"></div><div class="c b">${escapeHtml(options.labels.badge ?? '')}</div><div>${escapeHtml(doc.tableName)} · ${escapeHtml(doc.saleNumbers.join(', '))}</div><div class="hr"></div>${rowsHtml}<div class="hr"></div><div class="row"><span>${escapeHtml(options.labels.subtotal ?? '')}</span><span>${escapeHtml(formatCurrency(doc.subtotal))}</span></div>${doc.taxAmount > 0 ? `<div class="row"><span>${escapeHtml(options.labels.taxes ?? '')}</span><span>${escapeHtml(formatCurrency(doc.taxAmount))}</span></div>` : ''}${doc.discountAmount > 0 ? `<div class="row"><span>${escapeHtml(options.labels.discount ?? '')}</span><span>-${escapeHtml(formatCurrency(doc.discountAmount))}</span></div>` : ''}<div class="row b"><span>${escapeHtml(options.labels.baseTotal ?? '')}</span><span>${escapeHtml(formatCurrency(doc.baseTotal))}</span></div><div class="row"><span>${escapeHtml(options.labels.tip ?? '')}</span><span>${escapeHtml(formatCurrency(doc.suggestedTipAmount))}</span></div><div class="row b"><span>${escapeHtml(options.labels.totalWithTip ?? '')}</span><span>${escapeHtml(formatCurrency(doc.totalWithTip))}</span></div><div class="hr"></div><div class="c" style="font-size:11px">${escapeHtml(notice)}</div>${script}</body></html>`;
+}
 
 interface RestaurantPrecheckModalProps {
   tableId: string | null;
@@ -44,9 +106,27 @@ export function RestaurantPrecheckModal({
         toast.success({ title: t('restaurants:precheck.printedOutbox') });
       } else {
         toast.success({ title: t('restaurants:precheck.printedBrowser') });
-        if (typeof window !== 'undefined' && typeof window.print === 'function') {
-          window.print();
-        }
+        const labels = {
+          badge: t('restaurants:precheck.nonFiscalBadge'),
+          subtotal: t('restaurants:precheck.subtotal'),
+          taxes: t('restaurants:precheck.taxes'),
+          discount: t('restaurants:precheck.discount'),
+          baseTotal: t('restaurants:precheck.baseTotal'),
+          tip: t('restaurants:precheck.suggestedTip', { percent: result.precheck.tipPercent }),
+          totalWithTip: t('restaurants:precheck.totalWithTip'),
+        };
+        await printHtmlDocument({
+          buildHtml: ({ autoPrint }) =>
+            buildPrecheckPrintHtml(result.precheck, {
+              autoPrint,
+              isEnglish: i18n.language.startsWith('en'),
+              labels,
+            }),
+          createError: (_kind, message) => new Error(message),
+          desktopBridgeFailedMessage: t('restaurants:precheck.errorTitle'),
+          unknownErrorMessage: t('restaurants:precheck.errorTitle'),
+          cancelledDialogIsSuccess: true,
+        }).catch(() => {});
       }
     },
     onError: onErrorToast(toast, t, { titleKey: 'restaurants:precheck.errorTitle' }),
@@ -144,7 +224,13 @@ export function RestaurantPrecheckModal({
                     {item.modifiers.length > 0 && (
                       <p className="text-xs text-fg3">
                         {item.modifiers
-                          .map(m => `${m.groupKind === 'without' ? 'sin ' : '+ '}${m.name}`)
+                          .map(m => {
+                            const qty = m.quantity > 1 ? `${m.quantity}× ` : '';
+                            const withoutPrefix = isEnglish ? 'no ' : 'sin ';
+                            return m.groupKind === 'without'
+                              ? `${withoutPrefix}${m.name}`
+                              : `+ ${qty}${m.name}`;
+                          })
                           .join(' · ')}
                       </p>
                     )}
