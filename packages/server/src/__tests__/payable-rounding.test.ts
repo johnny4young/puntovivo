@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  auditLogs,
   cashMovements,
   cashSessions,
   currencyCatalog,
@@ -27,6 +28,12 @@ import { appRouter } from '../trpc/router.js';
 import { registerDevice } from '../services/devices/devicesService.js';
 import { completeSale } from '../application/sales/completeSale.js';
 import { returnSale } from '../application/sales/partialReturnSale.js';
+import { recordCashMovement } from '../application/cash-sessions/recordCashMovement.js';
+import {
+  addCustomerLedgerAdjustment,
+  addCustomerTillPayment,
+} from '../application/customers/index.js';
+import { writeCashCloseSettings } from '../services/cash-close-settings.js';
 import type { CompleteSaleContext, CompleteSaleInput } from '../application/sales/types.js';
 import { payableDecimals } from '../lib/money.js';
 import { resolveFiscalDocumentSnapshot } from '../services/fiscal/orchestrator/snapshots.js';
@@ -443,5 +450,222 @@ describe('payable total rounding', () => {
     } finally {
       await setTenantCurrency('COP');
     }
+  });
+
+  it('rounds COP cash-only sales and cash returns to 50-peso multiples while keeping card and split at 1 peso', async () => {
+    await writeCashCloseSettings(getDatabase(), tenantId, { cashRoundingStep: 50 });
+    try {
+      // 0.33 kg x 16,800 = 5,544 -> 5,550 (+6) in cash, 5,544 (0) on card/split.
+      const beefId = await seedProduct(16800);
+      const cashSale = await completeSale(context(), {
+        mode: 'fresh',
+        customerId: null,
+        items: [{ productId: beefId, unitId, quantity: 0.33, unitPrice: 16800, discount: 0 }],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 6000,
+        discountAmount: 0,
+      });
+      const cashSaleId = (cashSale.sale as { id: string }).id;
+      expect(await saleRow(cashSaleId)).toMatchObject({
+        subtotal: 5544,
+        total: 5550,
+        roundingAdjustment: 6,
+      });
+      expect(cashSale.change).toBe(450);
+
+      const cardSale = await completeSale(context(), {
+        mode: 'fresh',
+        customerId: null,
+        items: [{ productId: beefId, unitId, quantity: 0.33, unitPrice: 16800, discount: 0 }],
+        paymentMethod: 'card',
+        paymentStatus: 'paid',
+        status: 'completed',
+        discountAmount: 0,
+      });
+      expect(await saleRow((cardSale.sale as { id: string }).id)).toMatchObject({
+        total: 5544,
+        roundingAdjustment: 0,
+      });
+
+      const splitSale = await completeSale(context(), {
+        mode: 'fresh',
+        customerId: null,
+        items: [{ productId: beefId, unitId, quantity: 0.33, unitPrice: 16800, discount: 0 }],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        payments: [
+          { method: 'cash', amount: 3000 },
+          { method: 'card', amount: 2544, reference: 'CARD-50' },
+        ],
+        discountAmount: 0,
+      });
+      expect(await saleRow((splitSale.sale as { id: string }).id)).toMatchObject({
+        total: 5544,
+        roundingAdjustment: 0,
+      });
+
+      // Partial cash return rounds to 50-peso multiples; final return closes exact remaining balance.
+      const saleLines = await getDatabase()
+        .select({ id: saleItems.id })
+        .from(saleItems)
+        .where(eq(saleItems.saleId, cashSaleId))
+        .all();
+      await returnSale(context(), {
+        id: cashSaleId,
+        items: [{ saleItemId: saleLines[0]!.id, quantity: 0.1 }],
+        reason: 'partial cash rounding',
+      });
+      await returnSale(context(), {
+        id: cashSaleId,
+        items: [{ saleItemId: saleLines[0]!.id, quantity: 0.23 }],
+        reason: 'rest of cash rounding',
+      });
+      const cashReturns = await getDatabase()
+        .select({ refundAmount: saleReturns.refundAmount })
+        .from(saleReturns)
+        .where(eq(saleReturns.saleId, cashSaleId))
+        .all();
+      // 0.1 x 16,800 = 1,680 -> 1,700; remainder closes exact 5,550 -> 3,850
+      expect(cashReturns.map(r => r.refundAmount).sort((a, b) => a - b)).toEqual([1700, 3850]);
+    } finally {
+      await writeCashCloseSettings(getDatabase(), tenantId, { cashRoundingStep: null });
+    }
+  });
+
+  it('refunds a sale rung up before the cash step was enabled on its own payable unit', async () => {
+    const beefId = await seedProduct(16800);
+    const sale = await completeSale(context(), {
+      mode: 'fresh',
+      customerId: null,
+      items: [{ productId: beefId, unitId, quantity: 0.33, unitPrice: 16800, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 6000,
+      discountAmount: 0,
+    });
+    const saleId = (sale.sale as { id: string }).id;
+    expect(await saleRow(saleId)).toMatchObject({ total: 5544 });
+
+    await writeCashCloseSettings(getDatabase(), tenantId, { cashRoundingStep: 50 });
+    try {
+      const [line] = await getDatabase()
+        .select({ id: saleItems.id })
+        .from(saleItems)
+        .where(eq(saleItems.saleId, saleId))
+        .all();
+      await returnSale(context(), {
+        id: saleId,
+        items: [{ saleItemId: line!.id, quantity: 0.1 }],
+        reason: 'step enabled after sale',
+      });
+      const [refund] = await getDatabase()
+        .select({ refundAmount: saleReturns.refundAmount })
+        .from(saleReturns)
+        .where(eq(saleReturns.saleId, saleId))
+        .all();
+      expect(refund?.refundAmount).toBe(1680);
+    } finally {
+      await writeCashCloseSettings(getDatabase(), tenantId, { cashRoundingStep: null });
+    }
+  });
+
+  it('keeps partial return subtotal + taxAmount === total on odd-cent IVA-inclusive lines', async () => {
+    const db = getDatabase();
+    const productId = await seedProduct(4500);
+    await db.update(products).set({ taxRate: 19 }).where(eq(products.id, productId)).run();
+    const saleResult = await completeSale(context(), {
+      mode: 'fresh',
+      customerId: null,
+      items: [{ productId, unitId, quantity: 2, unitPrice: 4500, discount: 0, taxRate: 19 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 10000,
+      discountAmount: 0,
+    });
+    const saleId = (saleResult.sale as { id: string }).id;
+    const item = await db
+      .select({ id: saleItems.id, total: saleItems.total, taxAmount: saleItems.taxAmount })
+      .from(saleItems)
+      .where(eq(saleItems.saleId, saleId))
+      .get();
+    expect(item).toBeDefined();
+    const itemSubtotal = Number((item!.total - item!.taxAmount).toFixed(2));
+
+    await returnSale(context(), {
+      id: saleId,
+      items: [{ saleItemId: item!.id, quantity: 1 }],
+    });
+    await returnSale(context(), {
+      id: saleId,
+      items: [{ saleItemId: item!.id, quantity: 1 }],
+    });
+    const rows = await db
+      .select({
+        subtotal: saleReturns.subtotal,
+        taxAmount: saleReturns.taxAmount,
+        refundAmount: saleReturns.refundAmount,
+      })
+      .from(saleReturns)
+      .where(eq(saleReturns.saleId, saleId))
+      .all();
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(Number((row.subtotal + row.taxAmount).toFixed(2))).toBe(row.refundAmount);
+    }
+    expect(Number((rows[0]!.subtotal + rows[1]!.subtotal).toFixed(2))).toBe(itemSubtotal);
+    expect(Number((rows[0]!.taxAmount + rows[1]!.taxAmount).toFixed(2))).toBe(item!.taxAmount);
+  });
+
+  it('rejects fractional COP amounts in cash movements, till payments, and ledger adjustments (with audit)', async () => {
+    const db = getDatabase();
+    const customerId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(customers).values({
+      id: customerId,
+      tenantId,
+      name: 'Payable Guard Customer',
+      creditLimit: 100000,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await expect(
+      recordCashMovement(
+        { db, tenantId, siteId, user: { id: userId, role: 'admin' }, envelope: null },
+        { type: 'paid_in', amount: 1000.5, note: 'Bad cents' }
+      )
+    ).rejects.toMatchObject({ cause: { errorCode: 'SALE_TENDER_NOT_PAYABLE_UNIT' } });
+
+    await expect(
+      addCustomerTillPayment(
+        { db, tenantId, siteId, user: { id: userId, role: 'admin' }, envelope: null },
+        { customerId, amount: 500.25 }
+      )
+    ).rejects.toMatchObject({ cause: { errorCode: 'SALE_TENDER_NOT_PAYABLE_UNIT' } });
+
+    await expect(
+      addCustomerLedgerAdjustment(
+        { db, tenantId, user: { id: userId } },
+        { customerId, amount: 250.75, note: 'Bad adjustment' }
+      )
+    ).rejects.toMatchObject({ cause: { errorCode: 'SALE_TENDER_NOT_PAYABLE_UNIT' } });
+
+    await addCustomerLedgerAdjustment(
+      { db, tenantId, user: { id: userId } },
+      { customerId, amount: 500, note: 'Valid COP adjustment' }
+    );
+    const audit = await db
+      .select()
+      .from(auditLogs)
+      .where(and(eq(auditLogs.tenantId, tenantId), eq(auditLogs.action, 'customer.ledger.adjust')))
+      .orderBy(desc(auditLogs.createdAt))
+      .get();
+    expect(audit).toBeDefined();
   });
 });

@@ -15,6 +15,7 @@ import {
   updateProduct,
 } from '../../../application/products/index.js';
 import { products } from '../../../db/schema.js';
+import { writeAuditLog } from '../../../services/audit-logs.js';
 import { enqueueSyncInTransaction } from '../../../services/sync/enqueue.js';
 import { adminProcedure, managerOrAdminProcedure } from '../../middleware/roles.js';
 import {
@@ -79,6 +80,17 @@ export const productMutationProcedures = {
             data: { id: input.id, ...changes },
           }
         );
+
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'product.delete',
+          resourceType: 'product',
+          resourceId: input.id,
+          before: { name: existing.name, sku: existing.sku, isActive: existing.isActive },
+          after: { isActive: false },
+        });
 
         return { success: true, id: input.id };
       },

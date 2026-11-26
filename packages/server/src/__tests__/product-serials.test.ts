@@ -366,6 +366,19 @@ describe('serialized inventory receipt', () => {
       cause: { errorCode: 'AUTHORITY_SITE_NOT_FOUND' },
     });
   });
+
+  it('rejects receiving serials into a deactivated site', async () => {
+    const product = await createTrackedProduct('inactive-site');
+    const db = getDatabase();
+    await db.update(sites).set({ isActive: false }).where(eq(sites.id, siteId)).run();
+    try {
+      await expect(receiveSerials(product.id, ['INACTIVE-SITE-SERIAL'])).rejects.toMatchObject({
+        cause: { errorCode: 'AUTHORITY_SITE_NOT_FOUND' },
+      });
+    } finally {
+      await db.update(sites).set({ isActive: true }).where(eq(sites.id, siteId)).run();
+    }
+  });
 });
 
 describe('serialized sale lifecycle', () => {

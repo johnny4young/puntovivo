@@ -693,6 +693,54 @@ export function seedLargeTotalSaleScenario(seed: string): SeededSaleScenario {
   return seedPricedSaleScenario(seed, 123456789);
 }
 
+/** An isolated COP tenant + non-50-multiple price exercises optional 50-peso cash rounding without mutating shared E2E state. */
+export function seedCashRoundingScenario(seed: string): SeededSaleScenario {
+  const scenario = seedSurfaceGateScenario(seed, {}, 'COP');
+  const db = openDb();
+  try {
+    const now = nowIso();
+    const sites = [scenario.site];
+    const unitId = makeId('e2e_round_unit');
+    db.prepare(
+      `insert into units (
+        id, tenant_id, name, abbreviation, dimension, standard_code,
+        reference_factor, is_active, created_at, updated_at
+      ) values (?, ?, 'Unit', 'u', 'count', 'H87', 1, 1, ?, ?)`
+    ).run(unitId, scenario.tenantId, now, now);
+    db.prepare(
+      'insert into sequentials (id, tenant_id, site_id, document_type, prefix) values (?, ?, ?, ?, ?)'
+    ).run(makeId('e2e_round_sequence'), scenario.tenantId, scenario.site.id, 'sale', 'RND-');
+    const manager = seedBusinessUser(db, {
+      tenantId: scenario.tenantId,
+      sites,
+      role: 'manager',
+      templateEmail: 'e2e.manager@local.test',
+      seed: normalizeSeed(seed),
+    });
+    const product = seedBusinessProduct(db, {
+      tenantId: scenario.tenantId,
+      sites,
+      unitId,
+      seed: normalizeSeed(seed),
+      siteStocks: [SITE_STOCK],
+    });
+    db.prepare('update products set price = 5544, price2 = 5544, price3 = 5544 where id = ?').run(
+      product.id
+    );
+    db.prepare('update unit_x_product set price = 5544 where product_id = ?').run(product.id);
+    return {
+      tenantId: scenario.tenantId,
+      sites,
+      admin: scenario.admin,
+      manager,
+      cashier: manager,
+      product,
+    };
+  } finally {
+    db.close();
+  }
+}
+
 /**
  * A tiny catalog price exposes cent allocation without fabricating a sale or
  * refund. COP pays in whole pesos, so the isolated tenant settles in USD.

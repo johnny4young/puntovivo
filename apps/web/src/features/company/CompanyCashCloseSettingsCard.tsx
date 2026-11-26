@@ -19,16 +19,22 @@ import { EyeOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useToast } from '@/components/feedback/ToastProvider';
+import { useResolvedLocale } from '@/features/locale/LocaleProvider';
+import { defaultCashRoundingStep } from '@/lib/money';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
+import { formatCurrency } from '@/lib/utils';
 
 export function CompanyCashCloseSettingsCard() {
   const { t } = useTranslation(['settings', 'errors']);
   const toast = useToast();
   const utils = trpc.useUtils();
+  const { currency } = useResolvedLocale();
+  const coinStep = defaultCashRoundingStep(currency);
 
   const settingsQuery = trpc.cashCloseSettings.get.useQuery();
   const blindClose = settingsQuery.data?.blindClose ?? true;
+  const cashRoundingStep = settingsQuery.data?.cashRoundingStep ?? null;
 
   const updateMutation = trpc.cashCloseSettings.update.useMutation({
     // The checkbox is controlled by the query cache, so reflect the click
@@ -37,12 +43,17 @@ export function CompanyCashCloseSettingsCard() {
     onMutate: async next => {
       await utils.cashCloseSettings.get.cancel();
       const previous = utils.cashCloseSettings.get.getData();
-      if (next.blindClose !== undefined) {
-        const optimistic = next.blindClose;
-        utils.cashCloseSettings.get.setData(undefined, old =>
-          old ? { ...old, blindClose: optimistic } : old
-        );
-      }
+      utils.cashCloseSettings.get.setData(undefined, old =>
+        old
+          ? {
+              ...old,
+              ...(next.blindClose !== undefined ? { blindClose: next.blindClose } : {}),
+              ...(next.cashRoundingStep !== undefined
+                ? { cashRoundingStep: next.cashRoundingStep }
+                : {}),
+            }
+          : old
+      );
       return { previous };
     },
     onSuccess: () => {
@@ -63,6 +74,7 @@ export function CompanyCashCloseSettingsCard() {
   });
 
   const disabled = settingsQuery.isLoading || updateMutation.isPending;
+  const formattedStep = coinStep !== null ? formatCurrency(coinStep) : '';
 
   return (
     <section className="rounded-2xl border border-line bg-surface p-6">
@@ -76,7 +88,7 @@ export function CompanyCashCloseSettingsCard() {
         </div>
       </div>
 
-      <div className="mt-5">
+      <div className="mt-5 space-y-4">
         <label className="flex items-start gap-3">
           <input
             type="checkbox"
@@ -84,9 +96,7 @@ export function CompanyCashCloseSettingsCard() {
             checked={blindClose}
             disabled={disabled}
             data-testid="cash-close-blind-toggle"
-            onChange={event =>
-              updateMutation.mutate({ blindClose: event.target.checked })
-            }
+            onChange={event => updateMutation.mutate({ blindClose: event.target.checked })}
           />
           <span>
             <span className="block text-sm font-medium text-fg1">
@@ -99,6 +109,32 @@ export function CompanyCashCloseSettingsCard() {
             </span>
           </span>
         </label>
+        {coinStep !== null ? (
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded border-line accent-[var(--primary)]"
+              checked={cashRoundingStep !== null}
+              disabled={disabled}
+              data-testid="cash-close-rounding-toggle"
+              onChange={event =>
+                updateMutation.mutate({
+                  cashRoundingStep: event.target.checked ? coinStep : null,
+                })
+              }
+            />
+            <span>
+              <span className="block text-sm font-medium text-fg1">
+                {t('settings:company.cashClose.cashRoundingLabel', { step: formattedStep })}
+              </span>
+              <span className="mt-0.5 block text-[12.5px] text-fg3">
+                {cashRoundingStep !== null
+                  ? t('settings:company.cashClose.cashRoundingOnHint', { step: formattedStep })
+                  : t('settings:company.cashClose.cashRoundingOffHint')}
+              </span>
+            </span>
+          </label>
+        ) : null}
         <p className="mt-3 text-[11.5px] text-fg4">{t('settings:company.cashClose.sessionNote')}</p>
       </div>
     </section>

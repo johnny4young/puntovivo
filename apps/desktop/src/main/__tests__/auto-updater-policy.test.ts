@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import {
   compareUpdateVersions,
+  computeUpdateRolloutBucket,
   fetchUpdatePolicy,
   isCandidateAllowedByPolicy,
   parseUpdatePolicy,
@@ -84,6 +85,30 @@ describe('rollback candidate policy', () => {
     );
     assert.equal(compareUpdateVersions('2.0.0-alpha.1', '2.0.0-alpha.beta'), -1);
     assert.throws(() => compareUpdateVersions('2.0.0-01', '2.0.0'), /must be semantic/);
+  });
+
+  it('enforces rolloutPercentage deterministically when a rolloutKey is supplied', () => {
+    let allowedAt10: string | null = null;
+    let blockedAt10: string | null = null;
+    for (let i = 0; i < 200; i += 1) {
+      const key = `device-${i}`;
+      const bucket = computeUpdateRolloutBucket(key, '1.6.0');
+      assert.ok(bucket >= 0 && bucket < 100);
+      if (bucket < 10 && !allowedAt10) allowedAt10 = key;
+      if (bucket >= 50 && !blockedAt10) blockedAt10 = key;
+    }
+    assert.ok(allowedAt10 && blockedAt10);
+    assert.equal(isCandidateAllowedByPolicy(NORMAL_POLICY, '1.6.0', '1.6.0', allowedAt10), true);
+    assert.equal(isCandidateAllowedByPolicy(NORMAL_POLICY, '1.6.0', '1.6.0', blockedAt10), false);
+    assert.equal(
+      isCandidateAllowedByPolicy(
+        { ...NORMAL_POLICY, rolloutPercentage: 100 },
+        '1.6.0',
+        '1.6.0',
+        blockedAt10
+      ),
+      true
+    );
   });
 });
 

@@ -8,18 +8,21 @@ Un mantenedor revisa igualmente cada contribución; el bot solo se asegura de qu
 
 ## Qué revisa
 
-| Área         | Pull request                                                                                                           |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| Descripción  | Título Conventional Commit y las secciones **Qué**, **Por qué** y **Cómo probar** de la plantilla                      |
-| Evidencia    | Capturas o una grabación para cambios de interfaz, pasos de reproducción para correcciones, pruebas para código nuevo  |
-| Tamaño       | Líneas cambiadas sin lockfiles ni archivos generados; a las pull requests grandes se les pide dividir o justificar     |
-| Idioma       | Ortografía en las líneas agregadas, textos en español con registro usted, cada clave de traducción en inglés y español |
-| Seguridad    | Workflows, scripts de instalación, licencias, protecciones de Electron, Unicode oculto, secretos, bloques codificados  |
-| Identidad    | Commits con la identidad de un mantenedor sin firma verificada                                                         |
-| Dependencias | Dependencias nuevas, su licencia y hace cuánto se publicó la versión                                                   |
+| Área         | Pull request                                                                                                                                               |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Descripción  | Título Conventional Commit y las secciones **Qué**, **Por qué** y **Cómo probar** de la plantilla                                                          |
+| Evidencia    | Capturas o una grabación para cambios de interfaz, pasos de reproducción para correcciones, pruebas para código nuevo                                      |
+| Tamaño       | Líneas cambiadas sin lockfiles ni archivos generados; a las pull requests grandes se les pide dividir o justificar                                         |
+| Idioma       | Ortografía en las líneas agregadas, textos en español con registro usted, cada clave de traducción en inglés y español                                     |
+| Seguridad    | Workflows, scripts de instalación, licencias, protecciones de Electron, Unicode oculto, secretos, bloques codificados                                      |
+| Identidad    | Commits con la identidad de un mantenedor sin firma verificada                                                                                             |
+| Dependencias | Dependencias nuevas, su licencia y hace cuánto se publicó la versión                                                                                       |
+| Higiene      | Conflictos de merge, migraciones secuenciales de Drizzle que chocan con `main`, commits compartidos con otra pull request abierta, chequeos de CI fallidos |
 
 Los issues que reportan un error necesitan pasos para reproducirlo, comportamiento esperado y actual, la versión de Puntovivo y el sistema operativo.
 Los reportes que parecen una vulnerabilidad se dirigen al proceso privado de [SECURITY](../SECURITY.md).
+
+Los chequeos de higiene comparan la pull request con `main` y con las demás pull requests abiertas. Un choque de migraciones significa que la pull request agrega una migración en `packages/server/src/db/migrations/` cuyo número secuencial ya está ocupado en `main` o queda detrás del más reciente allí; el autor debe generar de nuevo la migración sobre el `main` actual.
 
 ## Resultados
 
@@ -36,6 +39,23 @@ Se ejecuta de nuevo solo cuando cambia algo que lee: un commit nuevo, el título
 Las contribuciones de mantenedores se omiten salvo que lleven la etiqueta `triage`. Los borradores y las cuentas de automatización se omiten.
 
 El workflow se ejecuta desde `main` y lee la pull request solo mediante la API de GitHub; nunca descarga ni ejecuta el código contribuido.
+
+## Solicitudes de mantenedores
+
+Un mantenedor puede pedirle más a Centinela con una etiqueta. Centinela quita la etiqueta en cuanto toma la solicitud, así que aplicarla de nuevo pide una nueva ejecución.
+
+| Etiqueta               | Se aplica a  | Qué hace                                                                                                                             |
+| ---------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `centinela: ai-review` | Pull request | Revisión profunda con IA del diff según las [reglas de código](#reglas-de-código); sus hallazgos nunca cambian el estado `centinela` |
+| `centinela: triage`    | Issue        | Triage de issues con IA: posibles duplicados, errores ya corregidos por una pull request fusionada y orientación para contribuir     |
+| `centinela: learn`     | Cualquiera   | Recopila las revisiones recientes de los mantenedores y abre o actualiza una pull request con las reglas aprendidas                  |
+| `centinela: draft-pr`  | Issue        | Ejecuta el workflow aparte `Centinela Execute`, que implementa el issue en una rama nueva y abre una Draft PR                        |
+
+La Draft PR creada con `centinela: draft-pr` se omite mientras sea un borrador; cuando se marca como lista para revisión, Centinela la revisa como cualquier otra pull request y igualmente necesita que un mantenedor la revise y la fusione.
+
+También puede comentar `/centinela review` en una pull request para pedir de nuevo la revisión con IA, o `/centinela draft-pr` en un issue. `Centinela Execute` solo acepta `/centinela draft-pr` del propietario, los miembros y los colaboradores del repositorio.
+
+Si usted responde a un hilo de revisión de Centinela, o menciona a `@centinela` en un comentario, recibe una respuesta basada en estas reglas. Cuando la respuesta muestra que un hallazgo es un falso positivo y Centinela lo confirma, el hilo se resuelve automáticamente y el descarte queda registrado para revisiones futuras.
 
 ## Reglas de código
 
@@ -81,6 +101,8 @@ Un mantenedor puede pedir a Centinela una revisión con IA con la etiqueta `cent
 
 Las reglas de Puntovivo viven en `.github/centinela.json`; los chequeos viven en el [repositorio de Centinela](https://github.com/johnny4young/centinela).
 Cualquier cambio en uno u otro cambia la versión de las reglas, así que cada contribución abierta se revisa una vez más con las reglas nuevas.
+
+Para previsualizar una ejecución desde GitHub sin publicar nada, abra **Actions → Centinela → Run workflow**, elija un `mode` (`review`, `triage` o `learn`), escriba el `number` de la pull request o del issue para `review` y `triage`, y mantenga `dry_run: true`. El resultado aparece en el resumen del job (Job Summary) de la ejecución en lugar de un comentario en la pull request o el issue.
 
 Para probar un cambio contra una pull request real sin publicar nada, desde una copia de Centinela:
 

@@ -13,7 +13,7 @@ for (const role of ['admin', 'manager', 'cashier', 'viewer']) {
           return 'tenant-main';
         },
         requireOneOfRoles: allowed => {
-          assert.ok(allowed.includes(role));
+          if (!allowed.includes(role)) throw new Error('FORBIDDEN');
           return role;
         },
       },
@@ -32,6 +32,11 @@ for (const role of ['admin', 'manager', 'cashier', 'viewer']) {
     assert.deepEqual(Object.keys(handlers).sort(), ['getSyncStatus', 'triggerSync']);
     assert.equal('setSyncConfig' in handlers, false);
     assert.deepEqual(await handlers.getSyncStatus(), { pendingItems: 0 });
+    if (role === 'viewer') {
+      assert.throws(() => handlers.triggerSync(), { message: 'FORBIDDEN' });
+      assert.deepEqual(calls, ['session', 'tenant-main', 'session']);
+      return;
+    }
     assert.deepEqual(await handlers.triggerSync(), { synced: 0 });
     assert.deepEqual(calls, ['session', 'tenant-main', 'session', 'tenant-main']);
   });

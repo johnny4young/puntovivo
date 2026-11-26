@@ -34,6 +34,7 @@ import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { tenants } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 import { getFiscalAdapter } from '../../services/fiscal/registry.js';
 import { findRegimenFiscal } from '../../services/fiscal/packs/mx/catalogs/index.js';
 import { validateRfc } from '../../services/fiscal/packs/mx/rfc.js';
@@ -202,12 +203,26 @@ export const fiscalSettingsRouter = router({
     }
 
     const patch = buildMxFiscalSettingsPatch(partial);
+    const beforeMx = readMxFiscalSettings(tenantSettings);
     const nextSettings = mergeMxFiscalSettingsIntoTenantSettings(tenantSettings, patch);
+    const afterMx = readMxFiscalSettings(nextSettings);
 
-    await ctx.db
-      .update(tenants)
-      .set({ settings: nextSettings, updatedAt: new Date().toISOString() })
-      .where(eq(tenants.id, ctx.tenantId));
+    ctx.db.transaction(tx => {
+      tx.update(tenants)
+        .set({ settings: nextSettings, updatedAt: new Date().toISOString() })
+        .where(eq(tenants.id, ctx.tenantId))
+        .run();
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user!.id,
+        action: 'fiscal.settings.update',
+        resourceType: 'tenant',
+        resourceId: ctx.tenantId,
+        before: { countryCode: 'MX', ...beforeMx },
+        after: { countryCode: 'MX', ...afterMx },
+      });
+    });
 
     // Re-correr validateConfig contra el blob recién persistido
     // para que la respuesta lleve el readiness fresco — la card
@@ -288,12 +303,26 @@ export const fiscalSettingsRouter = router({
     }
 
     const patch = buildClFiscalSettingsPatch(partial);
+    const beforeCl = readClFiscalSettings(tenantSettings);
     const nextSettings = mergeClFiscalSettingsIntoTenantSettings(tenantSettings, patch);
+    const afterCl = readClFiscalSettings(nextSettings);
 
-    await ctx.db
-      .update(tenants)
-      .set({ settings: nextSettings, updatedAt: new Date().toISOString() })
-      .where(eq(tenants.id, ctx.tenantId));
+    ctx.db.transaction(tx => {
+      tx.update(tenants)
+        .set({ settings: nextSettings, updatedAt: new Date().toISOString() })
+        .where(eq(tenants.id, ctx.tenantId))
+        .run();
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user!.id,
+        action: 'fiscal.settings.update',
+        resourceType: 'tenant',
+        resourceId: ctx.tenantId,
+        before: { countryCode: 'CL', ...beforeCl },
+        after: { countryCode: 'CL', ...afterCl },
+      });
+    });
 
     // Re-corre validateConfig contra el blob recién persistido.
     const adapter = getFiscalAdapter('CL');
@@ -353,13 +382,27 @@ export const fiscalSettingsRouter = router({
     if (input.softwareId !== undefined) partial.softwareId = input.softwareId;
     if (input.softwarePin !== undefined) partial.softwarePin = input.softwarePin;
 
+    const beforeCo = toCoFiscalSettingsView(readCoFiscalSettings(tenantSettings));
     const nextSettings = mergeCoFiscalSettingsIntoTenantSettings(tenantSettings, partial);
     const nextCo = readCoFiscalSettings(nextSettings);
+    const afterCo = toCoFiscalSettingsView(nextCo);
 
-    await ctx.db
-      .update(tenants)
-      .set({ settings: nextSettings, updatedAt: new Date().toISOString() })
-      .where(eq(tenants.id, ctx.tenantId));
+    ctx.db.transaction(tx => {
+      tx.update(tenants)
+        .set({ settings: nextSettings, updatedAt: new Date().toISOString() })
+        .where(eq(tenants.id, ctx.tenantId))
+        .run();
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user!.id,
+        action: 'fiscal.settings.update',
+        resourceType: 'tenant',
+        resourceId: ctx.tenantId,
+        before: { countryCode: 'CO', ...beforeCo },
+        after: { countryCode: 'CO', ...afterCo },
+      });
+    });
 
     return {
       ok: true as const,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useContext, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   extractDesktopIpcSessionErrorCode,
@@ -6,7 +6,9 @@ import {
 } from '@/lib/translateServerError';
 import { vanillaClient } from '@/lib/trpc';
 import { getErrorMessage, isOnline } from '@/lib/utils';
+import { AuthContext } from '@/features/auth/AuthContext';
 import { getStoredAuthTenantId } from '@/features/auth/authStorage';
+import { canAccessRole, salesRoles } from '@/features/auth/roleAccess';
 
 /** Local sync presentation; an error blocks automatic pushes without discarding queue counts. */
 interface SyncStatus {
@@ -30,6 +32,9 @@ export function useOfflineSync() {
   });
   const hasDesktopSync = typeof window !== 'undefined' && Boolean(window.api?.sync);
   const tenantId = getStoredAuthTenantId();
+  // sync.push is limited to sales roles; a viewer only reads the status.
+  const role = useContext(AuthContext)?.user?.role;
+  const canPush = role === undefined || canAccessRole(role, salesRoles);
 
   // Listen for online/offline events
   useEffect(() => {
@@ -205,6 +210,7 @@ export function useOfflineSync() {
   useEffect(() => {
     if (!(
       tenantId &&
+      canPush &&
       status.isOnline &&
       status.pendingItems > 0 &&
       status.conflicts === 0 &&
@@ -234,6 +240,7 @@ export function useOfflineSync() {
     };
   }, [
     tenantId,
+    canPush,
     status.isOnline,
     status.pendingItems,
     status.conflicts,
@@ -244,6 +251,7 @@ export function useOfflineSync() {
 
   return {
     ...status,
+    canPush,
     triggerSync,
     refreshStatus,
   };

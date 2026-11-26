@@ -26,6 +26,7 @@ import {
   resolveUpdateInstallPolicy,
   type UpdateInstallPolicy,
 } from './auto-updater/install-policy';
+import { readDeviceIdFromDir } from './device-id-store.js';
 import { t } from './i18n';
 
 export type {
@@ -112,6 +113,7 @@ let autoCheckInFlight: Promise<AutoUpdateStatus> | null = null;
 let updateHistoryInitialized = false;
 let activeUpdatePolicy: UpdatePolicy | null = null;
 let activeUpdateFloorVersion: string | null = null;
+let activeRolloutKey: string | null = null;
 let pendingDownloadedUpdate: DownloadedUpdateRecord | null = null;
 let reconfirmedArtifactIdentity: string | null = null;
 let e2eRestartRequested = false;
@@ -121,10 +123,25 @@ const statusListeners = new Set<(status: AutoUpdateStatus) => void>();
 // Capturing the original callback avoids duplicating electron-updater's evolving
 // minimumSystemVersion policy in Puntovivo.
 const defaultIsUpdateSupported = autoUpdater.isUpdateSupported;
-autoUpdater.isUpdateSupported = async info =>
-  (await Promise.resolve(defaultIsUpdateSupported(info))) &&
-  activeUpdateFloorVersion !== null &&
-  isCandidateAllowedByPolicy(activeUpdatePolicy, info.version, activeUpdateFloorVersion);
+autoUpdater.isUpdateSupported = async info => {
+  if (!activeRolloutKey) {
+    try {
+      activeRolloutKey = await readDeviceIdFromDir(app.getPath('userData'));
+    } catch {
+      activeRolloutKey = null;
+    }
+  }
+  return (
+    (await Promise.resolve(defaultIsUpdateSupported(info))) &&
+    activeUpdateFloorVersion !== null &&
+    isCandidateAllowedByPolicy(
+      activeUpdatePolicy,
+      info.version,
+      activeUpdateFloorVersion,
+      activeRolloutKey
+    )
+  );
+};
 
 function currentTimestamp(): string {
   return new Date().toISOString();
@@ -424,7 +441,12 @@ function attachListeners(): void {
     if (
       !artifactSha512 ||
       !activeUpdateFloorVersion ||
-      !isCandidateAllowedByPolicy(activeUpdatePolicy, info.version, activeUpdateFloorVersion) ||
+      !isCandidateAllowedByPolicy(
+        activeUpdatePolicy,
+        info.version,
+        activeUpdateFloorVersion,
+        activeRolloutKey
+      ) ||
       !canAcceptDownloadedArtifact(pendingDownloadedUpdate, {
         version: info.version,
         artifactSha512: artifactSha512 ?? '',

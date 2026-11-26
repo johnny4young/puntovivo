@@ -91,6 +91,7 @@ interface SalesModalsProps {
   isPaymentSaving: boolean;
   saleError: string | null;
   serviceChargeRate: number;
+  cashRoundingStep?: number | null | undefined;
   allowTip: boolean;
   fastCashTrigger: number;
   fastCashAmount?: number | null | undefined;
@@ -143,6 +144,7 @@ export function SalesModals({
   isPaymentSaving,
   saleError,
   serviceChargeRate,
+  cashRoundingStep = null,
   allowTip,
   fastCashTrigger,
   fastCashAmount = null,
@@ -377,6 +379,7 @@ export function SalesModals({
             isSaving={isPaymentSaving}
             error={saleError}
             serviceChargeRate={serviceChargeRate}
+            cashRoundingStep={cashRoundingStep}
             allowTip={allowTip}
             // role gates the credit method tile inside the
             // modal. Cashier never sees it; manager + admin do; admin

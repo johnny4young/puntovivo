@@ -12,6 +12,9 @@ import {
   type DesktopSessionAuthorizer,
 } from './session-authorization.ts';
 
+// Same roles the server allows on sync.push.
+const SYNC_PUSH_ROLES = ['admin', 'manager', 'cashier'] as const;
+
 interface DataBridgeLogger {
   warn: (bindings: Record<string, unknown>, message: string) => void;
 }
@@ -60,7 +63,8 @@ export function createDataBridgeHandlers(deps: DataBridgeHandlerDeps) {
     triggerSync: withAuthenticatedDesktopSession(
       deps.session,
       async ({ tenantId }, rendererTenantId?: unknown) =>
-        operations.triggerSync(activeTenant(tenantId, rendererTenantId))
+        operations.triggerSync(activeTenant(tenantId, rendererTenantId)),
+      SYNC_PUSH_ROLES
     ),
   };
 }

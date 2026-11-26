@@ -537,7 +537,7 @@ export const productQueryProcedures = {
       ? await resolveSiteGs1ParseOptions({
           db: ctx.db,
           tenantId: ctx.tenantId,
-          siteId: ctx.siteId,
+          siteId: input.siteId ?? ctx.siteId,
         })
       : undefined;
     const parsed = parseScan(input.barcode, scannerOptions);

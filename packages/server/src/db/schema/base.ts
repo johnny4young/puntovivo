@@ -628,6 +628,13 @@ export const auditLogActionEnum = [
   'vat_rate.create',
   'vat_rate.update',
   'vat_rate.delete',
+  'customer.ledger.adjust',
+  'fiscal.settings.update',
+  'cash_close.settings.update',
+  'product.delete',
+  'product.variant_matrix.create',
+  'inventory.serial.receive',
+  'sync.conflict.resolve',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 

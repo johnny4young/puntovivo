@@ -17,6 +17,7 @@ import { throwServerError } from '../../../lib/errorCodes.js';
 import { syncConflicts, syncOutbox } from '../../../db/schema.js';
 import { listConflictsInput, resolveSyncConflictInput } from '../../schemas/sync.js';
 import { enqueueSyncInTransaction } from '../../../services/sync/enqueue.js';
+import { writeAuditLog } from '../../../services/audit-logs.js';
 import { isRemoteSyncApplyBlocked } from '../../../services/sync/contract.js';
 import {
   iterateSyncEntityPayloads,
@@ -172,6 +173,17 @@ export const syncConflictsProcedures = {
               data: nextData,
             }
           );
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'sync.conflict.resolve',
+          resourceType: 'tenant',
+          resourceId: ctx.tenantId,
+          before: { conflictId: conflict.id, status: conflict.status },
+          after: { conflictId: conflict.id, status: 'resolved', resolution: input.resolution },
+          metadata: { entityType: conflict.entityType, entityId: conflict.entityId },
+        });
         return conflict.id;
       },
       { behavior: 'immediate' }

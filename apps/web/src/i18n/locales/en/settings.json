@@ -633,6 +633,9 @@
       "blindLabel": "Blind close",
       "blindOnHint": "Cashiers count without seeing the expected balance; managers and admins see the live over/short indicator.",
       "blindOffHint": "Every role sees the live over/short indicator while counting.",
+      "cashRoundingLabel": "Round cash to multiples of {{step}}",
+      "cashRoundingOnHint": "Cash sales round to the nearest {{step}} so drawers match physical coins; card and transfer stay on the exact currency unit.",
+      "cashRoundingOffHint": "Every sale uses the currency's exact payable unit without coin rounding.",
       "sessionNote": "Changes reach each register on the next login or page refresh.",
       "toast": {
         "saved": "Cash close settings saved",

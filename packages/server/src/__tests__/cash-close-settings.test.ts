@@ -1,11 +1,12 @@
 /**
  * tenant-level cash-close settings (blind close toggle).
  */
+import type Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { tenants, users } from '../db/schema.js';
+import { auditLogs, tenants, users } from '../db/schema.js';
 import { resolveCashCloseSettings } from '../services/cash-close-settings.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
@@ -98,5 +99,47 @@ describe('cashCloseSettings', () => {
         blindClose: false,
       })
     ).rejects.toThrow();
+  });
+
+  it('persists cashRoundingStep, rejects unsupported steps, and writes an audit row', async () => {
+    const caller = appRouter.createCaller(buildContext('admin'));
+    expect((await caller.cashCloseSettings.get()).cashRoundingStep).toBeNull();
+
+    const enabled = await caller.cashCloseSettings.update({ cashRoundingStep: 50 });
+    expect(enabled.cashRoundingStep).toBe(50);
+    expect((await resolveCashCloseSettings(getDatabase(), tenantId)).cashRoundingStep).toBe(50);
+
+    await expect(
+      caller.cashCloseSettings.update({ cashRoundingStep: 25 as never })
+    ).rejects.toThrow();
+
+    const disabled = await caller.cashCloseSettings.update({ cashRoundingStep: null });
+    expect(disabled.cashRoundingStep).toBeNull();
+
+    const audit = await getDatabase()
+      .select()
+      .from(auditLogs)
+      .where(
+        and(eq(auditLogs.tenantId, tenantId), eq(auditLogs.action, 'cash_close.settings.update'))
+      )
+      .orderBy(desc(auditLogs.createdAt))
+      .get();
+    expect(audit).toBeDefined();
+  });
+
+  it('keeps the previous settings when the audit row cannot be written', async () => {
+    const caller = appRouter.createCaller(buildContext('admin'));
+    const client = (
+      getDatabase() as ReturnType<typeof getDatabase> & { $client: Database.Database }
+    ).$client;
+    client.exec(
+      `CREATE TEMP TRIGGER fail_cash_close_audit BEFORE INSERT ON audit_logs WHEN NEW.action = 'cash_close.settings.update' BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END`
+    );
+    try {
+      await expect(caller.cashCloseSettings.update({ cashRoundingStep: 50 })).rejects.toThrow();
+    } finally {
+      client.exec('DROP TRIGGER fail_cash_close_audit');
+    }
+    expect((await resolveCashCloseSettings(getDatabase(), tenantId)).cashRoundingStep).toBeNull();
   });
 });

@@ -29,7 +29,14 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import type { ServerErrorCode } from '../../lib/errorCodes.js';
-import { payableDecimals, roundMoney, roundPayable } from '../../lib/money.js';
+import {
+  defaultCashRoundingStep,
+  isCashOnlyTender,
+  payableDecimals,
+  roundMoney,
+  roundPayable,
+} from '../../lib/money.js';
+import { resolveCashCloseSettingsSync } from '../../services/cash-close-settings.js';
 import {
   addInventoryValues,
   allocateInventoryValue,
@@ -770,9 +777,10 @@ export function buildReturnPlan(
 
     const baseQuantity = quantity * line.unitEquivalence;
     const subtotalOriginal = roundMoney(line.total - line.taxAmount);
-    const subtotal = cumulativeDelta(subtotalOriginal, line.quantity, alreadyReturned, quantity);
-    const taxAmount = cumulativeDelta(line.taxAmount, line.quantity, alreadyReturned, quantity);
     const total = cumulativeDelta(line.total, line.quantity, alreadyReturned, quantity);
+    const taxAmount = cumulativeDelta(line.taxAmount, line.quantity, alreadyReturned, quantity);
+    // Derive subtotal from total - tax so independent half-cent splits never create a 0.01 drift.
+    const subtotal = roundMoney(total - taxAmount);
     const grossOriginal = roundMoney(line.unitPrice * line.quantity);
     const discountOriginal = roundMoney((grossOriginal * line.discount) / 100);
     const discountAmount = cumulativeDelta(
@@ -972,9 +980,28 @@ export function buildReturnPlan(
   const grossRefundAmount = roundMoney(
     lineRefundAmount - headerDiscountAmount + tipAmount + serviceChargeAmount
   );
-  // A sale paid in whole units refunds whole units. Rounding the cumulative
-  // target, not each share, keeps a run of partial returns from drifting.
-  const wholeUnitCurrency = payableDecimals(sale.currencyCode) < 2;
+  const payments = db
+    .select()
+    .from(salePayments)
+    .where(and(eq(salePayments.tenantId, tenantId), eq(salePayments.saleId, sale.id)))
+    .orderBy(salePayments.createdAt, salePayments.id)
+    .all();
+  const currentCashStep =
+    input.destination === 'original' &&
+    isCashOnlyTender({ paymentMethod: sale.paymentMethod, payments })
+      ? resolveCashCloseSettingsSync(db, tenantId).cashRoundingStep
+      : null;
+  // The step may have changed since the sale; a total off the step was not rung up with it.
+  const cashRoundingStep =
+    currentCashStep !== null &&
+    defaultCashRoundingStep(sale.currencyCode) !== null &&
+    roundPayable(sale.total, sale.currencyCode, currentCashStep) === roundMoney(sale.total)
+      ? currentCashStep
+      : null;
+
+  // A sale paid in whole units (or cash coin steps) refunds on that same unit.
+  // Rounding the cumulative target keeps sequential partial returns from drifting.
+  const wholeUnitCurrency = payableDecimals(sale.currencyCode) < 2 || cashRoundingStep !== null;
   const cumulativeShare = (original: number) => {
     if (allLineQuantitiesReturned) return roundMoney(original);
     if (originalLineAmount <= EPSILON) return 0;
@@ -993,7 +1020,10 @@ export function buildReturnPlan(
     wholeUnitCurrency
       ? allLineQuantitiesReturned
         ? remainingSaleAmount
-        : roundMoney(roundPayable(cumulativeRefundTarget, sale.currencyCode) - priorRefundAmount)
+        : roundMoney(
+            roundPayable(cumulativeRefundTarget, sale.currencyCode, cashRoundingStep) -
+              priorRefundAmount
+          )
       : grossRefundAmount,
     remainingSaleAmount
   );
@@ -1008,12 +1038,6 @@ export function buildReturnPlan(
   }
   const fullyReturned = remainingSaleAmount - refundAmount <= EPSILON && allLineQuantitiesReturned;
 
-  const payments = db
-    .select()
-    .from(salePayments)
-    .where(and(eq(salePayments.tenantId, tenantId), eq(salePayments.saleId, sale.id)))
-    .orderBy(salePayments.createdAt, salePayments.id)
-    .all();
   const persistedPaymentSources =
     payments.length > 0
       ? payments.map(payment => ({

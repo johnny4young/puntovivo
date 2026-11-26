@@ -11,9 +11,9 @@ import {
   onSerialBindingLoadError,
   openSerialScalePort,
 } from '../scale/serial-port.js';
-import type { ScaleConfig, ScaleReadResult } from '../scale/protocol.js';
 import { captureDesktopIpcSessionResult } from './session-authorization.js';
 import {
+  createBoundedScaleReadQueue,
   getScaleSettings,
   getScaleStatus,
   readScale,
@@ -29,13 +29,10 @@ export function registerScaleIpc(): void {
     scaleLog.warn({ err: error }, 'serial scale driver unavailable')
   );
   const preferences = createScalePreferences(join(app.getPath('userData'), 'scale-preferences'));
-  let queue: Promise<unknown> = Promise.resolve();
   // Two reads on one serial port would interleave their frames.
-  const readWeight = (config: ScaleConfig): Promise<ScaleReadResult> => {
-    const next = queue.then(() => readScaleWeight(config, openSerialScalePort));
-    queue = next.catch(() => {});
-    return next;
-  };
+  const readWeight = createBoundedScaleReadQueue(config =>
+    readScaleWeight(config, openSerialScalePort)
+  );
   const deps: ScaleDependencies = {
     session: desktopSession,
     captureSession: desktopSession.captureSessionGuard,

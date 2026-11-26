@@ -29,6 +29,7 @@ import {
   sanitizeRegisterZoneOverrides,
   type RegisterZoneOverrides,
 } from '@puntovivo/shared/register-zones';
+import { isValidCashRoundingStep } from '../lib/money.js';
 
 /**
  * The shape `auth.me` is allowed to publish. Mirrors the client contract.
@@ -43,7 +44,7 @@ export interface ClientTenantSettings {
   logo?: string;
   theme?: 'light' | 'dark' | 'system';
   restaurant?: { serviceChargeRate: number };
-  cashClose?: { blindClose: boolean };
+  cashClose?: { blindClose: boolean; cashRoundingStep?: number | null };
   discount?: { expiryTiers: Array<{ maxDays: number; pct: number }> };
   registerZones?: RegisterZoneOverrides;
 }
@@ -124,7 +125,15 @@ export function projectTenantSettingsForClient(settings: unknown): ClientTenantS
   pick(projected, source, 'logo');
   pick(projected, source, 'theme');
   pickNested(projected, source, 'restaurant', 'serviceChargeRate');
-  pickNested(projected, source, 'cashClose', 'blindClose');
+  const cashClose = asRecord(source.cashClose);
+  if (cashClose && typeof cashClose.blindClose === 'boolean') {
+    projected.cashClose = {
+      blindClose: cashClose.blindClose,
+      ...(isValidCashRoundingStep(cashClose.cashRoundingStep) || cashClose.cashRoundingStep === null
+        ? { cashRoundingStep: cashClose.cashRoundingStep }
+        : {}),
+    };
+  }
 
   // The only setting whose shape the client narrows beyond a primitive. The
   // stored blob is untyped, so casting it to the declared array would be the

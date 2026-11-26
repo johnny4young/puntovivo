@@ -4,8 +4,10 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { customerLedgerEntries, customers } from '../../db/schema.js';
+import { resolveTenantCurrency } from '../../lib/currency.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { tryRoundMoneyToSafeCents } from '../../lib/money.js';
+import { roundPayable, tryRoundMoneyToSafeCents } from '../../lib/money.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 import type { AddCustomerLedgerAdjustmentInput, CustomerLedgerContext } from './types.js';
 
 export async function addCustomerLedgerAdjustment(
@@ -13,7 +15,7 @@ export async function addCustomerLedgerAdjustment(
   input: AddCustomerLedgerAdjustmentInput
 ) {
   const [existing] = await ctx.db
-    .select({ id: customers.id })
+    .select({ id: customers.id, name: customers.name })
     .from(customers)
     .where(and(eq(customers.id, input.customerId), eq(customers.tenantId, ctx.tenantId)))
     .limit(1);
@@ -28,16 +30,38 @@ export async function addCustomerLedgerAdjustment(
       message: 'CUSTOMER_LEDGER_INVALID_AMOUNT',
     });
   }
+  const currencyCode = resolveTenantCurrency(ctx.db, ctx.tenantId);
+  if (roundPayable(amount, currencyCode) !== amount) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_TENDER_NOT_PAYABLE_UNIT',
+      message: 'Ledger adjustment amounts must use the currency payable unit',
+      details: { currencyCode },
+    });
+  }
   const id = nanoid();
-  await ctx.db.insert(customerLedgerEntries).values({
-    id,
-    tenantId: ctx.tenantId,
-    customerId: input.customerId,
-    kind: 'adjustment',
-    // Same reason as the payment path: the balance is a SUM of these rows.
-    amount,
-    note: input.note,
-    createdBy: ctx.user!.id,
+  ctx.db.transaction(tx => {
+    tx.insert(customerLedgerEntries)
+      .values({
+        id,
+        tenantId: ctx.tenantId,
+        customerId: input.customerId,
+        kind: 'adjustment',
+        // Same reason as the payment path: the balance is a SUM of these rows.
+        amount,
+        note: input.note,
+        createdBy: ctx.user!.id,
+      })
+      .run();
+    writeAuditLog({
+      tx,
+      tenantId: ctx.tenantId,
+      actorId: ctx.user!.id,
+      action: 'customer.ledger.adjust',
+      resourceType: 'customer',
+      resourceId: input.customerId,
+      after: { ledgerEntryId: id, amount, note: input.note },
+    });
   });
   return { id };
 }

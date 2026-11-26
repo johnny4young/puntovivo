@@ -96,7 +96,8 @@ export function getCartSummary(items: SaleCartItem[], priceIncludesTax: boolean)
  */
 export function getPayableCartTotal(
   summary: Pick<SaleCartSummary, 'total'>,
-  currencyCode: string
+  currencyCode: string,
+  roundingStep?: number | null
 ): PayableTotal {
-  return resolvePayableTotal(summary.total, currencyCode);
+  return resolvePayableTotal(summary.total, currencyCode, roundingStep);
 }
