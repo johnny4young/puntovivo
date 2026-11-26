@@ -306,13 +306,13 @@ test('--require-measurement alone fails launches that measure nothing', async ()
   assert.equal(code, 1);
 });
 
-test('a launch whose workload fails its own check fails strict, even when the others pass', async () => {
+test('one workload-rejected launch of three passes strict when the other two pass', async () => {
   const spawnImpl = (command, args, options) => {
-    // The kit skips the failed launch; its workload left the reason behind.
+    // The kit skips the failed launch; a strict majority (2/3) still measured full load.
     appendFileSync(options.env.PUNTOVIVO_BUDGET_REJECT_FILE, 'only 85 sales in the window\n');
     return fakeSpawn(0, launches(12, 13), [])(command, args);
   };
-  const errors = [];
+  const warnings = [];
   const code = await runBudgetGate({
     check: 'main-thread',
     label: 'test',
@@ -320,10 +320,32 @@ test('a launch whose workload fails its own check fails strict, even when the ot
     argv: ['--strict', '--require-measurement'],
     processEnv: {},
     spawnImpl,
+    output: { ...quiet, warn: message => warnings.push(message) },
+  });
+  assert.equal(code, 0);
+  assert.match(warnings.join('\n'), /a launch failed: only 85 sales/);
+});
+
+test('two workload-rejected launches of three fail strict even when the third passes', async () => {
+  const spawnImpl = (command, args, options) => {
+    appendFileSync(
+      options.env.PUNTOVIVO_BUDGET_REJECT_FILE,
+      'only 73 sales in the window\nonly 72 sales in the window\n'
+    );
+    return fakeSpawn(0, launches(12), [])(command, args);
+  };
+  const errors = [];
+  const code = await runBudgetGate({
+    check: 'main-thread',
+    label: 'test',
+    env: {},
+    argv: ['--strict'],
+    processEnv: {},
+    spawnImpl,
     output: { ...quiet, error: message => errors.push(message) },
   });
   assert.equal(code, 1);
-  assert.match(errors.join('\n'), /a launch failed: only 85 sales/);
+  assert.match(errors.join('\n'), /a launch failed: only 73 sales/);
 });
 
 test('a CLI that cannot start is a usage error, not a pass', async () => {

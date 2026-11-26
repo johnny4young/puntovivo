@@ -475,6 +475,21 @@ jobs:
             throw "pnpm version mismatch"
           }
 
+      # Real-time Defender scans on %TEMP% SQLCipher WAL writes cause multi-second
+      # NTFS stalls during the 15 s main-thread sales workload on shared runners.
+      - name: Exclude CI workspace and temp paths from Windows Defender
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          try {
+            $paths = @($env:GITHUB_WORKSPACE, $env:RUNNER_TEMP, $env:TEMP) | Where-Object { $_ } | Select-Object -Unique
+            if ($paths.Count -gt 0) {
+              Add-MpPreference -ExclusionPath $paths
+            }
+          } catch {
+            Write-Warning "Could not add Windows Defender exclusions: $_"
+          }
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
