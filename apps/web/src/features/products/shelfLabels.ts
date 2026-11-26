@@ -230,6 +230,12 @@ export function sanitizeCode128Text(raw: string): string {
   return cleaned.length > 0 ? cleaned : '000000';
 }
 
+/** Code 128 text that is also safe inside ZPL (^ and ~) and TSPL (") command strings. */
+function sanitizeThermalCode128(raw: string): string {
+  const cleaned = sanitizeCode128Text(raw).replace(/[\^~"]/g, '');
+  return cleaned.trim().length > 0 ? cleaned : '000000';
+}
+
 export function encodeCode128BModules(raw: string): { bits: string; value: string } {
   const value = sanitizeCode128Text(raw);
   const startCode = 104;
@@ -391,7 +397,7 @@ export function buildZplLabels(
     const rawCode = resolveLabelBarcode(item);
     const barcodeCmd = isValidEan13(rawCode)
       ? `^BY2,3,52^BEN,52,Y,N^FD${rawCode.slice(0, 12)}^FS`
-      : `^BY2,3,52^BCN,52,Y,N,N^FD${sanitizeCode128Text(rawCode)}^FS`;
+      : `^BY2,3,52^BCN,52,Y,N,N^FD${sanitizeThermalCode128(rawCode)}^FS`;
     blocks.push(
       [
         '^XA',
@@ -423,7 +429,9 @@ export function buildTsplLabels(
     const sku = sanitizeThermalText(item.sku, 20);
     const rawCode = resolveLabelBarcode(item);
     const barcodeType = isValidEan13(rawCode) ? 'EAN13' : '128';
-    const barcodeVal = isValidEan13(rawCode) ? rawCode.slice(0, 12) : sanitizeCode128Text(rawCode);
+    const barcodeVal = isValidEan13(rawCode)
+      ? rawCode.slice(0, 12)
+      : sanitizeThermalCode128(rawCode);
     lines.push(
       'CLS',
       `TEXT 16,14,"3",0,1,1,"${name}"`,

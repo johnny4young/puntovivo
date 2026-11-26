@@ -81,4 +81,16 @@ describe('shelfLabels', () => {
     expect(tspl).toContain('PRINT 1,2');
     expect(tspl).toContain('PRINT 1,1');
   });
+
+  it('strips ZPL and TSPL control characters from Code 128 barcode values', () => {
+    const unsafe: ShelfLabelProduct[] = [
+      { id: 'p3', name: 'Promo', sku: 'AB^C~D"E', barcode: null, price: 1000, copies: 1 },
+    ];
+    const zpl = buildZplLabels(unsafe, { formatPrice: p => `$${p}` });
+    expect(zpl).toContain('^BCN,52,Y,N,N^FDABCDE^FS');
+
+    const tspl = buildTsplLabels(unsafe, { formatPrice: p => `$${p}` });
+    const barcodeLine = tspl.split('\n').find(line => line.startsWith('BARCODE'));
+    expect(barcodeLine).toContain('"ABCDE"');
+  });
 });

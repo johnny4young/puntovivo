@@ -150,13 +150,14 @@ export function ProductBundleSection({ productId }: ProductBundleSectionProps) {
               </div>
               <div className="flex items-center gap-2">
                 <input
+                  key={`${entry.componentProductId}:${entry.quantity}`}
                   type="number"
                   min={0.001}
                   step="any"
                   aria-label={t('bundles.quantity')}
                   className="input w-24 py-1 text-right"
-                  value={entry.quantity}
-                  onChange={event => {
+                  defaultValue={entry.quantity}
+                  onBlur={event => {
                     const nextQty = Number(event.target.value);
                     setLocalComponents(
                       components.map(item =>

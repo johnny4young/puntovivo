@@ -179,7 +179,11 @@ describe('device_sessions isolated hub_client revocation', () => {
 
     // Even after expired refresh families are pruned, the revoked access token stays invalid.
     pruneExpiredRefreshFamilies(db);
+    expect(
+      db.select().from(deviceSessions).where(eq(deviceSessions.deviceId, hubClient.deviceId)).all()
+    ).toMatchObject([{ status: 'revoked', revokedByUserId: adminId }]);
     expect(await verifyTokenWithServer(server.app, hubAccessToken, 'access')).toBeNull();
+    expect(await verifyTokenWithServer(server.app, hubRefreshToken, 'refresh')).toBeNull();
     expect(await verifyTokenWithServer(server.app, desktopAccessToken, 'access')).not.toBeNull();
 
     // Defensive check: binding an unknown family id fails safely.

@@ -365,6 +365,8 @@ export function deductBundleComponentsInTransaction(args: {
     const comps = defsByBundle.get(row.productId);
     if (!comps) continue;
     for (const comp of comps) {
+      // A snapshot row is the proof of a debit; reversal credits exactly these.
+      if (!comp.tracksStock) continue;
       const totalDeducted = roundQuantity(comp.quantity * row.normalizedQuantity, 12);
       args.tx
         .insert(saleItemBundleComponents)
@@ -380,7 +382,6 @@ export function deductBundleComponentsInTransaction(args: {
         })
         .run();
 
-      if (!comp.tracksStock) continue;
       const previousStock = args.productStockState.get(comp.componentProductId) ?? 0;
       const newStock = roundQuantity(previousStock - totalDeducted, 12);
       args.productStockState.set(comp.componentProductId, newStock);
@@ -455,7 +456,6 @@ export function reverseBundleComponentsInTransaction(args: {
       saleItemId: saleItemBundleComponents.saleItemId,
       componentProductId: saleItemBundleComponents.componentProductId,
       totalQuantityDeducted: saleItemBundleComponents.totalQuantityDeducted,
-      tracksStock: products.tracksStock,
       soldQuantity: saleItems.quantity,
       soldEquivalence: saleItems.unitEquivalence,
     })
@@ -489,7 +489,6 @@ export function reverseBundleComponentsInTransaction(args: {
   const movementIds: string[] = [];
   const note = `${BUNDLE_REVERSAL_LABEL[args.reversalKind]} ${args.saleNumber}`;
   for (const snap of snapshots) {
-    if (!snap.tracksStock) continue;
     const entry = entryByItem.get(snap.saleItemId);
     if (!entry) continue;
     const soldBase = roundQuantity(snap.soldQuantity * (snap.soldEquivalence ?? 1), 12);

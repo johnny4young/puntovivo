@@ -4,7 +4,15 @@ import { nanoid } from 'nanoid';
 
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { companies, sites, tenants, units, users } from '../db/schema.js';
+import {
+  companies,
+  products,
+  saleItemBundleComponents,
+  sites,
+  tenants,
+  units,
+  users,
+} from '../db/schema.js';
 import { and, eq } from 'drizzle-orm';
 import { getProductStockTotal } from '../services/inventory-balances.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
@@ -362,5 +370,73 @@ describe('Product bundles (combos/kits) and returnable containers', () => {
     await discardCaller.sales.discardDraft({ saleId: draft.id });
     expect(getProductStockTotal(db, tenantId, bread.id)).toBe(8);
     expect(getProductStockTotal(db, tenantId, coffee.id)).toBe(4);
+  });
+
+  it('reverses only what the sale debited, even if a component changes stock tracking later', async () => {
+    const db = getDatabase();
+    const caller = appRouter.createCaller(fresh());
+
+    const soda = await caller.products.create({
+      name: 'Gaseosa 400ml',
+      sku: `GAS-${nanoid(5)}`,
+      price: 2500,
+      cost: 1000,
+      stock: 10,
+    });
+    const service = await caller.products.create({
+      name: 'Empaque Regalo',
+      sku: `EMP-${nanoid(5)}`,
+      price: 500,
+      cost: 0,
+      tracksStock: false,
+      stock: 0,
+    });
+    const combo = await caller.products.create({
+      name: 'Combo Regalo',
+      sku: `REG-${nanoid(5)}`,
+      price: 3000,
+      cost: 1000,
+      tracksStock: false,
+      stock: 0,
+    });
+    await caller.products.setBundleComponents({
+      productId: combo.id,
+      components: [
+        { componentProductId: soda.id, quantity: 1 },
+        { componentProductId: service.id, quantity: 1 },
+      ],
+    });
+
+    const sale = await appRouter.createCaller(fresh()).sales.create({
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 3000,
+      discountAmount: 0,
+      items: [
+        { productId: combo.id, unitId: baseUnitId, quantity: 1, unitPrice: 3000, discount: 0 },
+      ],
+    });
+    expect(getProductStockTotal(db, tenantId, soda.id)).toBe(9);
+    expect(
+      db
+        .select()
+        .from(saleItemBundleComponents)
+        .where(eq(saleItemBundleComponents.componentProductId, service.id))
+        .all()
+    ).toHaveLength(0);
+
+    db.update(products).set({ tracksStock: false }).where(eq(products.id, soda.id)).run();
+    db.update(products).set({ tracksStock: true }).where(eq(products.id, service.id)).run();
+
+    const returnCaller = appRouter.createCaller(fresh());
+    const fullSale = await returnCaller.sales.getById({ id: sale.id });
+    await returnCaller.sales.returnSale({
+      id: sale.id,
+      reason: 'Devolución completa',
+      items: [{ saleItemId: fullSale.items[0]!.id, quantity: 1 }],
+    });
+    expect(getProductStockTotal(db, tenantId, soda.id)).toBe(10);
+    expect(getProductStockTotal(db, tenantId, service.id)).toBe(0);
   });
 });

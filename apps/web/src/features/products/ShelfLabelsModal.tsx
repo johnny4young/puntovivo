@@ -4,6 +4,7 @@ import { Copy, Download, Printer } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { formatCurrency } from '@/lib/utils';
+import { openHtmlInPrintWindow } from '@/lib/printWindow';
 import {
   buildShelfLabelsPrintHtml,
   buildTsplLabels,
@@ -56,16 +57,14 @@ export function ShelfLabelsModal({ isOpen, products, onClose }: ShelfLabelsModal
       formatPrice: formatCurrency,
       title: t('labels.title'),
     });
-    const printWindow = window.open('', '_blank', 'width=900,height=720');
+    const autoPrint =
+      "<script>window.addEventListener('load',function(){window.print();});</script>";
+    const printWindow = openHtmlInPrintWindow(html.replace('</body>', `${autoPrint}</body>`), {
+      features: 'noopener,noreferrer,width=900,height=720',
+    });
     if (!printWindow) {
       toast.warning({ title: t('labels.popupBlocked') });
-      return;
     }
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    window.setTimeout(() => printWindow.print(), 150);
   };
 
   const handleCopyThermal = async () => {

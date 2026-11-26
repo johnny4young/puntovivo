@@ -59,6 +59,15 @@ test.describe('Band 5 — Retail & Supermarket Promotions v2, Shelf Labels & GS1
     await expect(modal.getByTestId('shelf-label-card').first()).toBeVisible();
     await expect(modal.locator('svg').first()).toBeVisible();
 
+    const popupPromise = page.waitForEvent('popup');
+    await page.getByRole('button', { name: /Imprimir hoja|Print sheet/ }).click();
+    const popup = await popupPromise;
+    await popup.waitForLoadState();
+    expect(popup.url()).toMatch(/^blob:/);
+    await expect(popup.locator('.label-card').first()).toBeVisible();
+    expect(await popup.evaluate(() => window.opener)).toBeNull();
+    await popup.close();
+
     await modal.getByTestId('shelf-labels-tab-zpl').click();
     await expect(modal.getByTestId('shelf-labels-code-zpl')).toContainText('^XA');
     await expect(modal.getByTestId('shelf-labels-code-zpl')).toContainText('^XZ');
