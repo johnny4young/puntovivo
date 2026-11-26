@@ -31,6 +31,7 @@ import type {
   InitialTender,
   SalePaymentQuoteItem,
   SalePaymentValues,
+  SaleTransferPresentation,
 } from './salePaymentModal.types';
 import {
   TENDER_SUM_EPSILON,
@@ -381,6 +382,17 @@ export function useSalePaymentModal({
   const isTransfer = paymentMethod === 'transfer' && !splitMode;
   const transferReference = isTransfer ? (transferReferenceWatch ?? '').trim() : '';
   const transferReferenceValid = transferReference.length >= TRANSFER_REFERENCE_MIN_LENGTH;
+  // Presentation id reported by the transfer section for the QR on screen.
+  // Held here so the transfer tender can carry it without coupling the
+  // presentational section to the sale payload.
+  const [transferPresentation, setTransferPresentation] =
+    useState<SaleTransferPresentation | null>(null);
+  const transferPresentationId =
+    isTransfer &&
+    transferPresentation &&
+    Math.abs(transferPresentation.amount - grandTotal) < TENDER_SUM_EPSILON
+      ? transferPresentation.id
+      : null;
   const receivedValue = isTransfer ? grandTotal : amountReceivedValue;
   // A single-tender credit sale may take part in cash now; it then travels as cash + credit tenders.
   const creditDownPayment =
@@ -403,9 +415,17 @@ export function useSalePaymentModal({
   const singleTenders = useMemo(
     () =>
       isTransfer
-        ? [{ method: 'transfer' as const, amount: grandTotal, reference: transferReference }]
+        ? [
+            {
+              method: 'transfer' as const,
+              amount: grandTotal,
+              reference: transferReference,
+              // Only the transfer tender may carry the static QR it was paid against.
+              ...(transferPresentationId ? { presentationId: transferPresentationId } : {}),
+            },
+          ]
         : creditDownPaymentTenders,
-    [creditDownPaymentTenders, grandTotal, isTransfer, transferReference]
+    [creditDownPaymentTenders, grandTotal, isTransfer, transferPresentationId, transferReference]
   );
 
   // F2 fast-cash apply. Shared by mount-time F2 open
@@ -1100,5 +1120,6 @@ export function useSalePaymentModal({
     handleEnableSplit,
     handleDisableSplit,
     presetActive,
+    setTransferPresentation,
   };
 }

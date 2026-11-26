@@ -91,6 +91,7 @@ export async function getPaymentReconciliation(
     .where(
       and(
         eq(paymentOutbox.tenantId, tenantId),
+        eq(paymentOutbox.kind, 'charge'),
         gte(paymentOutbox.createdAt, since),
         // A charge the register left was never money owed to the store.
         not(isCancelledByRegister())

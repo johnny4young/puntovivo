@@ -1,3 +1,4 @@
+import { toHumanSessionIdentity } from '../security/session-identity.js';
 /**
  * `restaurantServices.regroupChecks`: lines move between the open checks of a
  * table, new accounts open drafts, emptied checks are cancelled and the money
@@ -259,7 +260,7 @@ beforeAll(async () => {
     serverApp: server.app,
     tenantId,
     userId: adminId,
-    email: admin.email,
+    email: toHumanSessionIdentity(admin).email,
     defaultRole: 'admin',
     siteId,
     deviceId: registration.deviceId,

@@ -31,7 +31,9 @@ const webOrigin = resolveE2eWebOrigin(apiOrigin);
 const webHost = new URL(webOrigin).hostname;
 // Direct probes, renderer and owned backend must target the same listener.
 process.env.PUNTOVIVO_E2E_API_ORIGIN = apiOrigin;
-const e2eDbPath = path.resolve(process.cwd(), 'packages/server/data/local.db');
+const e2eDbPath = process.env.PUNTOVIVO_E2E_DB_PATH
+  ? path.resolve(process.cwd(), process.env.PUNTOVIVO_E2E_DB_PATH)
+  : path.resolve(process.cwd(), 'packages/server/data/local.db');
 
 const webServerEnv = Object.fromEntries(
   Object.entries({

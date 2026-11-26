@@ -1,3 +1,4 @@
+import { requireHumanCredentials } from '../security/session-identity.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -67,7 +68,7 @@ function clearIdentities() {
 
 async function passwordIs(userId: string, password: string): Promise<boolean> {
   const row = server.db.select().from(users).where(eq(users.id, userId)).get()!;
-  return verifyPasswordSecurely(row.passwordHash, password);
+  return verifyPasswordSecurely(requireHumanCredentials(row).passwordHash, password);
 }
 
 function auditActions(): string[] {

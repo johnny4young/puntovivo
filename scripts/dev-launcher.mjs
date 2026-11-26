@@ -309,6 +309,10 @@ function spawnStep(step) {
     env: process.env,
     stdio: 'inherit',
     detached: !isWindows,
+    // Windows cannot spawn a .cmd shim without a shell: Node refuses with
+    // EINVAL since the fix for CVE-2024-27980. `pnpm.cmd` is exactly that
+    // kind of shim, so every dev mode was unrunnable on Windows until this.
+    shell: isWindows,
   });
 
   return {

@@ -63,6 +63,13 @@ export type ReceiptSale = {
   // printed receipt when the sale was settled as a split payment.
   payments?: SalePayment[];
   /**
+   * Money received for a transfer tender above what the sale expected. It is
+   * never applied to the sale, so the receipt states it separately instead of
+   * letting it disappear into a total. Absent/undefined means "no captured
+   * evidence" and omits the row rather than printing a false zero.
+   */
+  unappliedTransferAmount?: number | null;
+  /**
    * fiscal proof block(s). Always rendered when present;
    * the section is omitted entirely for non-fiscal sales (DIAN-disabled
    * tenants, drafts, sales emitted before fiscal pack activation).

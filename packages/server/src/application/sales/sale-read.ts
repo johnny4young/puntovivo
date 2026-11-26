@@ -58,6 +58,8 @@ import { readCoFiscalSettings } from '../../services/fiscal/packs/co/settings.js
 import { readMxFiscalSettings } from '../../services/fiscal/packs/mx/settings.js';
 import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import { listSaleItemSerialNumbers } from '../../services/product-serials.js';
+import { accumulateSaleDeposits } from '../../services/payments/transfer-reconciliation.js';
+import type { DepositAccumulation } from './transfer-adjustment.js';
 
 export async function getSaleRecord(db: DatabaseInstance, tenantId: string, saleId: string) {
   const sale = await db
@@ -600,6 +602,13 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       loyaltyPoints: salePayments.loyaltyPoints,
       reference: salePayments.reference,
       createdAt: salePayments.createdAt,
+      // Transfer confirmation lifecycle (design V3.3). Receipts print the
+      // frozen destination, the reference and the confirmation state, so the
+      // read model has to carry them; historical rows stay NULL.
+      confirmationStatus: salePayments.confirmationStatus,
+      confirmationSource: salePayments.confirmationSource,
+      confirmedAt: salePayments.confirmedAt,
+      destinationSnapshot: salePayments.destinationSnapshot,
     })
     .from(salePayments)
     .where(and(eq(salePayments.tenantId, tenantId), eq(salePayments.saleId, saleId)))
@@ -613,13 +622,36 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       roundMoney((returnedByPayment.get(allocation.salePaymentId) ?? 0) + allocation.amount)
     );
   }
-  const payments = paymentRows.map(payment => ({
-    ...payment,
-    returnedAmount: returnedByPayment.get(payment.id) ?? 0,
-    remainingAmount: roundMoney(
-      Math.max(0, payment.amount - (returnedByPayment.get(payment.id) ?? 0))
-    ),
-  }));
+  // Only tenders that carry a confirmation lifecycle ask for their recorded
+  // deposits; a sale with no transfer, or with a transfer created before the
+  // lifecycle existed, pays no extra read for this.
+  const lifecycleTenders = paymentRows
+    .filter(payment => payment.method === 'transfer' && payment.confirmationStatus !== null)
+    .map(payment => ({ id: payment.id, amount: payment.amount }));
+  const depositsByTender: Map<string, DepositAccumulation> =
+    lifecycleTenders.length > 0
+      ? accumulateSaleDeposits(db, { tenantId, saleId, tenders: lifecycleTenders })
+      : new Map<string, DepositAccumulation>();
+
+  const payments = paymentRows.map(payment => {
+    // A transfer tender prints what the movements actually added up to. Only a
+    // tender that carries a confirmation lifecycle is asked for its deposits;
+    // every other sale pays no read cost for this.
+    const accumulation = depositsByTender.get(payment.id);
+    return {
+      ...payment,
+      returnedAmount: returnedByPayment.get(payment.id) ?? 0,
+      remainingAmount: roundMoney(
+        Math.max(0, payment.amount - (returnedByPayment.get(payment.id) ?? 0))
+      ),
+      ...(accumulation
+        ? {
+            appliedAmount: accumulation.appliedAmount,
+            surplusAmount: accumulation.surplusAmount,
+          }
+        : {}),
+    };
+  });
 
   const fiscalDocumentsList = await loadFiscalDocumentsForSale(db, tenantId, saleId);
 

@@ -1,3 +1,4 @@
+import { toHumanSessionIdentity } from '../security/session-identity.js';
 /**
  * A sale reads tenant settings and locale from many helpers. Inside
  * completeSale the pre-transaction readers share one read each.
@@ -70,7 +71,7 @@ beforeAll(async () => {
     serverApp: server.app,
     tenantId: admin.tenantId,
     userId: admin.id,
-    email: admin.email,
+    email: toHumanSessionIdentity(admin).email,
     siteId: site.id,
     deviceId: device.deviceId,
   });

@@ -58,6 +58,15 @@ export interface SalePaymentTenderValue {
   reference: string;
   /** Whole points whose server-priced value equals amount. Loyalty only. */
   loyaltyPoints?: number | undefined;
+  /** Static QR presentation shown for this transfer. Transfer tenders only. */
+  presentationId?: string | undefined;
+}
+
+/** Identity of the store QR presentation the register is showing. */
+export interface SaleTransferPresentation {
+  destinationId: string;
+  amount: number;
+  id: string;
 }
 
 export interface SaleElectronicInvoiceBuyer {

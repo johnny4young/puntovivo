@@ -132,6 +132,7 @@ export async function countPaymentOutboxFailures(
     .where(
       and(
         eq(paymentOutbox.tenantId, tenantId),
+        eq(paymentOutbox.kind, 'charge'),
         inArray(paymentOutbox.status, [...PAYMENT_OUTBOX_FAILURE_STATUSES]),
         not(isCancelledByRegister())
       )

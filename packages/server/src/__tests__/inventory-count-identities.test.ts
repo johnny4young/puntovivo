@@ -25,6 +25,7 @@ import {
 } from './utils/criticalCommandFixture.js';
 import { __withExpectedTestLogs } from '../logging/logger.js';
 import { markEntityAsSynced, syncEntityConfig } from '../trpc/routers/sync/helpers.js';
+import { requireActorEmail, toHumanSessionIdentity } from '../security/session-identity.js';
 
 let server: PuntovivoServer;
 let db: DatabaseInstance;
@@ -36,7 +37,7 @@ function caller() {
       ...context,
       role: context.user!.role,
       userId: context.user!.id,
-      email: context.user!.email,
+      email: requireActorEmail(context.user!),
       serverApp: server.app,
       deviceId,
       siteId,
@@ -165,7 +166,7 @@ describe('exact identity physical counts', () => {
       tenantId,
       siteId,
       userId: admin.id,
-      email: admin.email,
+      email: toHumanSessionIdentity(admin).email,
       role: 'manager',
       serverApp: server.app,
     });

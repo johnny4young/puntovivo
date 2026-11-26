@@ -1,3 +1,4 @@
+import { toHumanSessionIdentity } from '../security/session-identity.js';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
@@ -238,7 +239,7 @@ describe('till returns', () => {
       serverApp: server.app,
       tenantId,
       userId,
-      email: user.email,
+      email: toHumanSessionIdentity(user).email,
       siteId,
       deviceId: device.deviceId,
     });

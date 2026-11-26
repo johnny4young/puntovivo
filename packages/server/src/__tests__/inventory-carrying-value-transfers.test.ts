@@ -1,3 +1,4 @@
+import { toHumanSessionIdentity } from '../security/session-identity.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -66,7 +67,7 @@ describe('fractional carrying value through transfers', () => {
       serverApp: server.app,
       tenantId,
       userId: user.id,
-      email: user.email,
+      email: toHumanSessionIdentity(user).email,
       siteId: fromSiteId,
       deviceId: device.deviceId,
       defaultRole: 'admin',

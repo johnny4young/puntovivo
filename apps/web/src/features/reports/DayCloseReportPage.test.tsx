@@ -3,6 +3,7 @@ import type { AppRouter } from '@puntovivo/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@/test/utils';
 import { DayCloseReportPage } from './DayCloseReportPage';
+import type { DayCloseTransferConfirmations } from './dayCloseTransferSection';
 import { setActiveTenantLocale } from '@/lib/utils';
 
 const refetch = vi.fn();
@@ -13,7 +14,11 @@ let mockPending = false;
 let mockError: Error | null = null;
 type DayCloseReadinessCode =
   inferRouterOutputs<AppRouter>['reports']['dayClose']['preview']['readiness']['blockers'][number];
-let mockData: ReturnType<typeof reportFixture> | undefined;
+let mockData:
+  | (ReturnType<typeof reportFixture> & {
+      transferConfirmations?: DayCloseTransferConfirmations;
+    })
+  | undefined;
 let mockSignoff: ReturnType<typeof signoffFixture> | null = null;
 let mockSignoffPending = false;
 let mockSignoffError: Error | null = null;
@@ -141,6 +146,53 @@ function reportFixture() {
         'waste_not_tracked' as const,
       ],
     },
+  };
+}
+
+// The served block: confirmed and pending are separate figures on purpose, and
+// superseded money is evidence that was already replaced, not extra income.
+function transferFixture(
+  overrides: Partial<DayCloseTransferConfirmations> = {}
+): DayCloseTransferConfirmations {
+  return {
+    saleTotal: 400_000,
+    reported: 350_000,
+    confirmed: 200_000,
+    pending: 100_000,
+    rejected: 30_000,
+    legacy: 20_000,
+    unapplied: 15_000,
+    superseded: 25_000,
+    notApplied: {
+      count: 2,
+      amount: 52_000,
+      byReason: {
+        tender_rejected: { count: 1, amount: 40_000 },
+        tender_cancelled: { count: 0, amount: 0 },
+        other: { count: 1, amount: 12_000 },
+      },
+    },
+    destinations: [
+      {
+        destinationId: 'dest-bank',
+        label: 'Bancolombia ****1234',
+        kind: 'bank_account',
+        confirmed: 200_000,
+        pending: 100_000,
+        count: 3,
+        references: ['REF-2', 'REF-7'],
+      },
+      {
+        destinationId: null,
+        label: null,
+        kind: null,
+        confirmed: 0,
+        pending: 50_000,
+        count: 1,
+        references: [],
+      },
+    ],
+    ...overrides,
   };
 }
 
@@ -355,5 +407,127 @@ describe('DayCloseReportPage (-141b)', () => {
     expect(screen.getByTestId('day-close-readiness')).toHaveTextContent(/firmada|signed evidence/i);
     expect(screen.getByTestId('day-close-report-page')).not.toHaveTextContent(/99 sales/i);
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+
+  it('reports every transfer figure as its own value and never adds confirmed to pending', () => {
+    mockData = { ...reportFixture(), transferConfirmations: transferFixture() };
+    render(<DayCloseReportPage />);
+
+    const figures: Array<[string, RegExp]> = [
+      ['saleTotal', /400[.,]?000/],
+      ['reported', /350[.,]?000/],
+      ['confirmed', /200[.,]?000/],
+      ['pending', /100[.,]?000/],
+      ['rejected', /30[.,]?000/],
+      ['legacy', /20[.,]?000/],
+      ['unapplied', /15[.,]?000/],
+      ['superseded', /25[.,]?000/],
+    ];
+    for (const [key, expected] of figures) {
+      expect(screen.getByTestId(`day-close-transfer-figure-${key}`)).toHaveTextContent(expected);
+    }
+
+    const section = screen.getByTestId('day-close-transfer-confirmation-section');
+    // confirmed (200.000) + pending (100.000) is a figure this page must never print.
+    expect(section).not.toHaveTextContent(/300[.,]?000/);
+    // superseded (25.000) is already inside reported (350.000); never added twice.
+    expect(section).not.toHaveTextContent(/375[.,]?000/);
+  });
+
+  it('splits not-applied money by reason instead of folding it into any total', () => {
+    mockData = { ...reportFixture(), transferConfirmations: transferFixture() };
+    render(<DayCloseReportPage />);
+
+    const bucket = screen.getByTestId('day-close-transfer-not-applied');
+    expect(bucket).toHaveTextContent(/2 movimientos|2 movements/);
+    expect(
+      screen.getByTestId('day-close-transfer-not-applied-reason-tender_rejected')
+    ).toHaveTextContent(/40[.,]?000/);
+    expect(
+      screen.getByTestId('day-close-transfer-not-applied-reason-tender_cancelled')
+    ).toHaveTextContent(/0/);
+    expect(screen.getByTestId('day-close-transfer-not-applied-reason-other')).toHaveTextContent(
+      /12[.,]?000/
+    );
+  });
+
+  it('keeps the frozen destination label and its bank references', () => {
+    mockData = { ...reportFixture(), transferConfirmations: transferFixture() };
+    render(<DayCloseReportPage />);
+
+    const bank = screen.getByTestId('day-close-transfer-destination-dest-bank');
+    expect(bank).toHaveTextContent('Bancolombia ****1234');
+    expect(bank).toHaveTextContent('REF-2');
+    expect(bank).toHaveTextContent('REF-7');
+    expect(bank).toHaveTextContent(/200[.,]?000/);
+    expect(bank).toHaveTextContent(/100[.,]?000/);
+    expect(screen.getByTestId('day-close-transfer-destination-unlabelled-1')).toHaveTextContent(
+      /Destino sin etiqueta|Unlabelled destination/
+    );
+  });
+
+  it('renders an older snapshot that lacks the newer transfer fields', () => {
+    const { superseded: _superseded, notApplied: _notApplied, ...older } = transferFixture();
+    mockData = { ...reportFixture(), transferConfirmations: older };
+    render(<DayCloseReportPage />);
+
+    expect(screen.getByTestId('day-close-transfer-figure-confirmed')).toHaveTextContent(
+      /200[.,]?000/
+    );
+    expect(screen.getByTestId('day-close-transfer-figure-unapplied')).toHaveTextContent(
+      /15[.,]?000/
+    );
+    expect(screen.queryByTestId('day-close-transfer-figure-superseded')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('day-close-transfer-not-applied')).not.toBeInTheDocument();
+    expect(screen.getByTestId('day-close-transfer-destination-dest-bank')).toBeInTheDocument();
+  });
+
+  it('renders no transfer section when the report carries no block', () => {
+    mockData = reportFixture();
+    render(<DayCloseReportPage />);
+    expect(
+      screen.queryByTestId('day-close-transfer-confirmation-section')
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows an empty state on a day without transfers instead of a header-only table', () => {
+    mockData = {
+      ...reportFixture(),
+      transferConfirmations: {
+        saleTotal: 0,
+        reported: 0,
+        confirmed: 0,
+        pending: 0,
+        rejected: 0,
+        legacy: 0,
+        unapplied: 0,
+        notApplied: {
+          count: 0,
+          amount: 0,
+          byReason: {
+            tender_rejected: { count: 0, amount: 0 },
+            tender_cancelled: { count: 0, amount: 0 },
+            other: { count: 0, amount: 0 },
+          },
+        },
+        destinations: [],
+      },
+    };
+    render(<DayCloseReportPage />);
+
+    const section = screen.getByTestId('day-close-transfer-confirmation-section');
+    expect(section).toHaveTextContent(/Sin transferencias este d[ií]a|No transfers on this day/i);
+    expect(screen.queryByTestId('day-close-transfer-destinations')).not.toBeInTheDocument();
+  });
+
+  it('leaves cash, expected cash and net revenue untouched when transfers are present', () => {
+    mockData = { ...reportFixture(), transferConfirmations: transferFixture() };
+    render(<DayCloseReportPage />);
+
+    const cash = screen.getByTestId('day-close-cash-section');
+    expect(cash).toHaveTextContent(/600[.,]?000/);
+    expect(cash).toHaveTextContent(/595[.,]?000/);
+    expect(screen.getByTestId('day-close-report-page')).toHaveTextContent(/1[.,]?021[.,]?000/);
+    expect(screen.getByTestId('day-close-sales-section')).toHaveTextContent(/900[.,]?000/);
   });
 });

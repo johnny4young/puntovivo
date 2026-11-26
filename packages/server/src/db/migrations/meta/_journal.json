@@ -764,6 +764,20 @@
       "when": 1795380770170,
       "tag": "0108_sale_rounding_adjustment",
       "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "6",
+      "when": 1795393928053,
+      "tag": "0109_transfer_confirmation",
+      "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "6",
+      "when": 1795396828793,
+      "tag": "0110_user_kind_service",
+      "breakpoints": true
     }
   ]
 }

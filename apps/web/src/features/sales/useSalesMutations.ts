@@ -16,6 +16,7 @@ import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatCurrency } from '@/lib/utils';
 import type { Sale } from '@/types';
 import type { CompletedSaleSummary } from './SaleCompleteStrip';
+import { clearPresentationKeys } from './transferPresentation';
 
 function toCompletedSale(sale: {
   id: string;
@@ -107,6 +108,9 @@ export function useSalesMutations({
   // reset to a fresh blank draft.
   const finishSaleEpilogue = useCallback(
     async (sale: CompletedSaleSummary, itemCount: number, loyaltyPointsEarned = 0) => {
+      // The sale is committed: this checkout's QR presentation idempotency
+      // keys no longer describe an in-progress attempt (cancel/close keeps them).
+      clearPresentationKeys();
       // The financial command is already committed when this callback runs.
       // Clear the chargeable workspace first so a read-cache failure cannot
       // leave merchandise on screen and invite a duplicate sale.

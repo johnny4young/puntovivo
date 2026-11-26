@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { keepPreviousData } from '@tanstack/react-query';
 import { CircleAlert, CircleCheck, Clock, LoaderCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -12,8 +12,9 @@ import { useTenant } from '@/features/tenant/TenantProvider';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { trpc } from '@/lib/trpc';
 import { useCheckoutTransferDisplay } from './checkoutTransferDisplay';
-import type { SalePaymentValues } from './salePaymentModal.types';
+import type { SalePaymentValues, SaleTransferPresentation } from './salePaymentModal.types';
 import { TransferQrCode } from './TransferQrCode';
+import { useStoreQrPresentation } from './useStoreQrPresentation';
 import { useWalletCharge, type WalletChargeState } from './useWalletCharge';
 
 interface SalePaymentTransferSectionProps {
@@ -23,6 +24,8 @@ interface SalePaymentTransferSectionProps {
   canSubmit: boolean;
   isSaving: boolean;
   onConfirm: () => void;
+  /** Hands the presentation shown for this checkout up to the tender builder. */
+  onPresentationChange: (presentation: SaleTransferPresentation | null) => void;
 }
 
 export function SalePaymentTransferSection({
@@ -32,12 +35,14 @@ export function SalePaymentTransferSection({
   canSubmit,
   isSaving,
   onConfirm,
+  onPresentationChange,
 }: SalePaymentTransferSectionProps) {
   const { t, i18n } = useTranslation(['sales', 'common']);
   const { currentSite } = useTenant();
   const { user } = useAuth();
   const customerDisplayActive = useIsModuleActive('customer-display');
   const setDisplayTransfer = useCheckoutTransferDisplay(state => state.setTransfer);
+  const clearDisplayTransfer = useCheckoutTransferDisplay(state => state.clearTransfer);
   const siteId = currentSite?.id ?? '';
   // A tip typed while charging changes the total per keystroke; ask once it settles.
   const qrAmount = useDebouncedValue(grandTotal, 300);
@@ -50,7 +55,7 @@ export function SalePaymentTransferSection({
   const selected = destinations.find(item => item.id === pickedId) ?? destinations[0] ?? null;
 
   const amountSettled = qrAmount === grandTotal;
-  const wallet = useWalletCharge({
+  const { state: wallet, cancelAttempt } = useWalletCharge({
     siteId,
     amount: qrAmount,
     enabled: amountSettled && query.data?.autoConfirm === true,
@@ -63,6 +68,51 @@ export function SalePaymentTransferSection({
     ? live.status !== 'declined'
     : wallet.mode === 'idle' && query.data?.autoConfirm === true;
   const storeQr = storeQrHidden ? null : selected;
+  const [presentationId, setPresentationId] = useState<string | null>(null);
+  // Stable identity: the hook reports on change, and a fresh callback each
+  // render would make it report forever.
+  const handlePresentationChange = useCallback(
+    (presentation: SaleTransferPresentation | null) => {
+      const nextId = presentation?.id ?? null;
+      setPresentationId(current => (current === nextId ? current : nextId));
+      onPresentationChange(presentation);
+    },
+    [onPresentationChange]
+  );
+  // Record the store QR that is actually on screen. Never awaited by the sale.
+  useStoreQrPresentation({
+    siteId,
+    destinationId: storeQr?.id ?? null,
+    amount: qrAmount,
+    enabled: storeQr !== null && amountSettled && !providerCharge,
+    onChange: handlePresentationChange,
+  });
+  // The customer display must not keep showing a QR the server no longer holds
+  // as live: an expired or administratively closed presentation is exactly the
+  // case where the customer would otherwise pay against a QR the till already
+  // considers gone. Read once and on focus - no interval drives this.
+  const presentationStatus = trpc.payments.presentation.useQuery(
+    { presentationId: presentationId ?? '' },
+    {
+      enabled: presentationId !== null,
+      // 0 so a window focus actually re-reads it: with a fresh cache React
+      // Query skips the refetch and a QR closed elsewhere keeps showing.
+      staleTime: 0,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+    }
+  );
+  // Fail closed once we know an id and cannot confirm it is live: a QR the
+  // till would refuse to link must not stay on the customer screen. While the
+  // first read is in flight we stay open, or the QR would blink on every mount.
+  const presentationLive =
+    presentationId === null
+      ? true
+      : presentationStatus.isError
+        ? false
+        : presentationStatus.data === undefined
+          ? true
+          : presentationStatus.data.status === 'presented';
 
   const label = providerCharge ? providerCharge.railLabel : storeQr?.label;
   const account = providerCharge ? '' : storeQr?.account;
@@ -94,12 +144,41 @@ export function SalePaymentTransferSection({
     autoConfirmedRef.current = approvedReference;
     onConfirm();
   }, [approvedReference, canSubmit, onConfirm, referenceValid]);
+  const displayOwner = presentationId ?? 'static-qr';
   useEffect(() => {
+    if (!presentationLive) {
+      clearDisplayTransfer(displayOwner);
+      return;
+    }
     if (!customerDisplayActive || qrIsStale) return;
     if (label === undefined || account === undefined || qrPayload === undefined) return;
-    setDisplayTransfer({ label, account, qrPayload, amount: grandTotal });
-    return () => setDisplayTransfer(null);
-  }, [account, customerDisplayActive, grandTotal, label, qrIsStale, qrPayload, setDisplayTransfer]);
+    setDisplayTransfer(
+      {
+        label,
+        account,
+        qrPayload,
+        amount: grandTotal,
+        // A charge with an amount and a static QR without one both reach the display,
+        // but only the second one makes the customer type it.
+        amountIncluded: providerCharge ? true : Boolean(selected?.qr.amountIncluded),
+      },
+      displayOwner
+    );
+    return () => clearDisplayTransfer(displayOwner);
+  }, [
+    account,
+    clearDisplayTransfer,
+    customerDisplayActive,
+    displayOwner,
+    grandTotal,
+    label,
+    presentationLive,
+    providerCharge,
+    qrIsStale,
+    qrPayload,
+    selected,
+    setDisplayTransfer,
+  ]);
 
   const referenceField = form.register('transferReference');
   const qrCopy = [
@@ -154,6 +233,16 @@ export function SalePaymentTransferSection({
           <div className="min-w-0">
             <p className="sale-pay-transfer-title">{t('payment.transferQr.title')}</p>
             {qrCopy && <p className="sale-pay-transfer-copy">{qrCopy}</p>}
+            {!selected.qr.amountIncluded && (
+              <p
+                className="sale-pay-note mt-2"
+                data-tone="muted"
+                data-testid="sale-payment-transfer-static-warning"
+              >
+                <CircleAlert className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <span>{t('payment.transferQr.staticWarning')}</span>
+              </p>
+            )}
             <div
               className="sale-pay-transfer-chips"
               role="group"
@@ -211,7 +300,11 @@ export function SalePaymentTransferSection({
         </div>
       </div>
 
-      <WalletStatusNote wallet={wallet} autoConfirming={isSaving} />
+      <WalletStatusNote
+        wallet={wallet}
+        autoConfirming={isSaving}
+        onCancelAttempt={cancelAttempt}
+      />
     </section>
   );
 }
@@ -219,9 +312,11 @@ export function SalePaymentTransferSection({
 function WalletStatusNote({
   wallet,
   autoConfirming,
+  onCancelAttempt,
 }: {
   wallet: WalletChargeState;
   autoConfirming: boolean;
+  onCancelAttempt: () => void;
 }) {
   const { t } = useTranslation('sales');
   const note =
@@ -276,6 +371,17 @@ function WalletStatusNote({
         aria-hidden="true"
       />
       {note.text}
+      {note.state === 'pending' && (
+        <button
+          type="button"
+          className="ml-auto shrink-0 font-semibold text-primary-700 underline"
+          title={t('payment.wallet.cancelAttemptHint')}
+          onClick={onCancelAttempt}
+          data-testid="sale-payment-wallet-cancel"
+        >
+          {t('payment.wallet.cancelAttempt')}
+        </button>
+      )}
     </p>
   );
 }

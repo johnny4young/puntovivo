@@ -1,3 +1,4 @@
+import type { TransferConfirmationStatus } from '../../db/schema/base.js';
 import type { ExternalAcceptanceReference } from '../external-orders/quote.js';
 /**
  * Public types for the `completeSale` application service.
@@ -54,8 +55,20 @@ export interface CompleteSaleTender {
   amount: number;
   // explicit `| undefined` on Zod-optional field.
   reference?: string | null | undefined;
+  /**
+   * Static QR presentation shown for this transfer, when the register
+   * recorded one. Absent for every other method and for callers that predate
+   * it, which keeps those paths byte-identical.
+   */
+  presentationId?: string | null | undefined;
   /** Required only for a loyalty tender; the server prices the points. */
   loyaltyPoints?: number | undefined;
+  /**
+   * Transfer confirmation state (design V3.3). Absent for every non-transfer
+   * method and for callers that predate the lifecycle; the persistence layer
+   * resolves the initial state through `resolveInitialTransferState`.
+   */
+  confirmationStatus?: TransferConfirmationStatus | null | undefined;
 }
 
 export interface CompleteSaleApprovalReference {

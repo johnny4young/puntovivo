@@ -28,6 +28,8 @@ import {
   sqliteNow,
   syncStatusEnum,
   taxKindEnum,
+  transferConfirmationSourceEnum,
+  transferConfirmationStatusEnum,
 } from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { units, vatRates } from './catalogs.js';
@@ -459,6 +461,30 @@ export const salePayments = sqliteTable(
      * method and for historical payments. The money amount remains in
      * `amount`, freezing the configured point value used at checkout. */
     loyaltyPoints: integer('loyalty_points'),
+    // Transfer confirmation lifecycle (design V3.3). Historical rows stay
+    // NULL; every transfer tender created after the migration is born
+    // explicitly as 'pending'. Non-transfer methods never carry a state.
+    confirmationStatus: text('confirmation_status', {
+      enum: transferConfirmationStatusEnum,
+    }),
+    // Only set together with a confirmed status; never for pending,
+    // rejected or reconciliation rows.
+    confirmationSource: text('confirmation_source', {
+      enum: transferConfirmationSourceEnum,
+    }),
+    // Exclusively the user who performed an effective confirmation. Rejections
+    // and other decisions carry their actor through the audit chain only.
+    confirmedBy: text('confirmed_by').references(() => users.id),
+    confirmedAt: text('confirmed_at'),
+    // Frozen destination snapshot { id, label, kind } built server-side at
+    // tender creation. Receipts read this, never the live configuration, so
+    // renaming or removing a destination never alters a historical receipt.
+    destinationSnapshot: text('destination_snapshot', {
+      mode: 'json',
+    }).$type<{ id: string; label: string; kind: string } | null>(),
+    // The destination id extracted to its own indexed column so
+    // reconciliation filters never scan the JSON snapshot.
+    transferDestinationId: text('transfer_destination_id'),
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
@@ -467,6 +493,13 @@ export const salePayments = sqliteTable(
     index('idx_sale_payments_tenant').on(table.tenantId),
     index('idx_sale_payments_sale').on(table.saleId),
     index('idx_sale_payments_method').on(table.method),
+    index('idx_sale_payments_transfer_destination').on(table.tenantId, table.transferDestinationId),
+    // The confirmation lifecycle exists only for transfer tenders. Historical
+    // transfer rows keep NULL; other methods can never carry a state.
+    check(
+      'chk_sale_payments_confirmation_transfer_only',
+      sql`(${table.method} = 'transfer') OR (${table.confirmationStatus} IS NULL)`
+    ),
     // sale_payments.amount is intentionally
     // signed (reverse-payment + split-refund flows). Only precision
     // enforced; application rounds via roundMoney() before writing.
@@ -506,6 +539,13 @@ export const paymentRailIdEnum = [
   'mercado_pago',
   'nequi',
   'daviplata',
+  /**
+   * Not a provider rail: a static store QR is shown, never charged through an
+   * API.  is NOT NULL, so presentations need an
+   * identity here; every charge processor filters kind='charge', which keeps
+   * this value out of all rail logic. No SQL change: the column has no CHECK.
+   */
+  'static_qr',
 ] as const;
 export type PaymentRailId = (typeof paymentRailIdEnum)[number];
 
@@ -524,10 +564,23 @@ export const paymentOutboxStatusEnum = [
   'retrying',
   'settled',
   'dead_letter',
+  // Presentation lifecycle (design V3.3). These rows live under
+  // kind='presentation' and are never claimed by the charge worker.
+  'presented',
+  'linked',
+  'closed_admin',
 ] as const;
 export type PaymentOutboxStatus = (typeof paymentOutboxStatusEnum)[number];
 
-export const paymentOutboxKindEnum = ['charge', 'refund', 'get_status'] as const;
+export const paymentOutboxKindEnum = [
+  'charge',
+  'refund',
+  'get_status',
+  // Static QR shown to a customer before any sale exists (design V3.3).
+  // Durable pre-sale presentation: never sent to any provider, never claimed
+  // by the payment worker — every charge processor filters kind='charge'.
+  'presentation',
+] as const;
 export type PaymentOutboxKind = (typeof paymentOutboxKindEnum)[number];
 
 export const paymentOutbox = sqliteTable(

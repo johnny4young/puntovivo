@@ -33,6 +33,26 @@
       "return": "Nota crédito por devolución"
     }
   },
+  "transfer": {
+    "sectionTitle": "Confirmación de transferencia",
+    "destination": "Destino",
+    "reference": "Referencia",
+    "status": "Estado",
+    "amount": "Monto",
+    "saleTotal": "Total de la venta",
+    "confirmedTotal": "Total confirmado",
+    "pendingTotal": "Pendiente de confirmación",
+    "unapplied": "Dinero no aplicado",
+    "statuses": {
+      "pending": "Pendiente",
+      "customer_reported": "Reportada por el cliente",
+      "manual_confirmed": "Confirmada manualmente",
+      "provider_confirmed": "Confirmada por el proveedor",
+      "rejected": "Rechazada",
+      "needs_reconciliation": "Requiere conciliación",
+      "cancelled": "Cancelada"
+    }
+  },
   "fallback": {
     "title": "Recibo {{number}}",
     "taxId": "Identificación tributaria {{value}}",

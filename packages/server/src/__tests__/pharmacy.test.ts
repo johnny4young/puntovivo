@@ -1,3 +1,4 @@
+import { toHumanSessionIdentity } from '../security/session-identity.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { and, eq, inArray, sql } from 'drizzle-orm';
@@ -197,7 +198,7 @@ beforeAll(async () => {
     serverApp: server.app,
     tenantId,
     userId,
-    email: admin.email,
+    email: toHumanSessionIdentity(admin).email,
     siteId,
     deviceId: device.deviceId,
     defaultRole: 'admin',

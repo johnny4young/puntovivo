@@ -1,3 +1,4 @@
+import { toHumanSessionIdentity } from '../security/session-identity.js';
 /**
  * review follow-up - realtime SSE tenant boundary tests.
  *
@@ -70,7 +71,7 @@ async function startListeningAdmin(): Promise<{ server: PuntovivoServer; token: 
     .where(eq(users.email, 'admin@localhost'))
     .get();
   if (!admin) throw new Error('Expected seeded admin user');
-  return { server: started, token: signAccessToken(started.app, admin) };
+  return { server: started, token: signAccessToken(started.app, toHumanSessionIdentity(admin)) };
 }
 
 /** Resolves 'closed', or 'still waiting' after 3 s; `release` then frees a hung close. */
@@ -251,7 +252,7 @@ describe('SSE realtime tenant boundary', () => {
     const db = getDatabase();
     const admin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
     if (!admin) throw new Error('Expected seeded admin user');
-    const token = signAccessToken(server.app, admin);
+    const token = signAccessToken(server.app, toHumanSessionIdentity(admin));
     const request = {
       server: server.app,
       headers: { authorization: `Bearer ${token}` },
@@ -507,7 +508,7 @@ describe('SSE collection authorization', () => {
     });
     const cashier = await db.select().from(users).where(eq(users.id, cashierId)).get();
     if (!cashier) throw new Error('Expected the inserted cashier');
-    const token = signAccessToken(server.app, cashier);
+    const token = signAccessToken(server.app, toHumanSessionIdentity(cashier));
 
     const response = await server.app.inject({
       method: 'GET',
@@ -646,7 +647,7 @@ describe('SSE collection authorization', () => {
     const db = getDatabase();
     const admin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
     if (!admin) throw new Error('Expected seeded admin user');
-    const token = signAccessToken(server.app, admin);
+    const token = signAccessToken(server.app, toHumanSessionIdentity(admin));
 
     // Two streams for the caller's tenant, three for somebody else's. The
     // unit test below pins the counting helper; this one pins the ROUTE,

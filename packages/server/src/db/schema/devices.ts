@@ -49,7 +49,7 @@ export const devices = sqliteTable(
     // via auth.registerDevice; the column is plain text so adding the
     // value needs no migration. Removing a value later would require a
     // data migration.
-    kind: text('kind', { enum: ['desktop', 'web', 'hub_client'] as const }).notNull(),
+    kind: text('kind', { enum: ['desktop', 'web', 'hub_client', 'server'] as const }).notNull(),
     name: text('name').notNull(),
     registeredByUserId: text('registered_by_user_id')
       .notNull()

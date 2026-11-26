@@ -1,3 +1,4 @@
+import { toHumanSessionIdentity } from '../security/session-identity.js';
 import { randomUUID } from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -150,7 +151,7 @@ describe('inventory transformations', () => {
       serverApp: server.app,
       tenantId,
       userId,
-      email: user.email,
+      email: toHumanSessionIdentity(user).email,
       siteId,
       deviceId: device.deviceId,
       defaultRole: 'admin',

@@ -164,6 +164,7 @@ export function SalePaymentModal({
     handleEnableSplit,
     handleDisableSplit,
     presetActive,
+    setTransferPresentation,
   } = useSalePaymentModal({
     isOpen,
     total,
@@ -399,6 +400,7 @@ export function SalePaymentModal({
               canSubmit={canSubmit}
               isSaving={isSaving}
               onConfirm={confirmSale}
+              onPresentationChange={setTransferPresentation}
             />
           </Suspense>
         )}

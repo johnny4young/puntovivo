@@ -251,6 +251,84 @@ const readinessCode = z.enum([
   'waste_not_tracked',
 ]);
 
+export const transferConfirmationDestinationOutput = z.object({
+  destinationId: z.string().min(1).nullable(),
+  label: z.string().nullable(),
+  kind: z.string().nullable(),
+  confirmed: money,
+  pending: money,
+  count: z.number().int().nonnegative(),
+  references: z.array(z.string()),
+});
+
+/**
+ * Money the day's deposits reported that no tender could absorb because the
+ * tender was already rejected or cancelled. It is not sale money: it is
+ * evidence of a movement a human still has to resolve, and it is never added to
+ * confirmed, pending or legacy.
+ */
+export const notAppliedDepositsOutput = z.object({
+  count: z.number().int().nonnegative(),
+  amount: money,
+  byReason: z.object({
+    tender_rejected: z.object({
+      count: z.number().int().nonnegative(),
+      amount: money,
+    }),
+    tender_cancelled: z.object({
+      count: z.number().int().nonnegative(),
+      amount: money,
+    }),
+    /**
+     * Any reason this build does not name. The contract treats the reason as
+     * open-ended, so unknown reasons are still money and are kept here instead
+     * of being dropped.
+     */
+    other: z.object({
+      count: z.number().int().nonnegative(),
+      amount: money,
+    }),
+  }),
+});
+
+/**
+ * Transfer confirmation evidence for one business day. Confirmed and pending
+ * money are separate fields on purpose: a single transfer figure would report
+ * unconfirmed money as if it were collected.
+ */
+export const transferConfirmationsOutput = z.object({
+  saleTotal: money,
+  reported: money,
+  confirmed: money,
+  pending: money,
+  rejected: money,
+  legacy: money,
+  unapplied: money,
+  /**
+   * Rejected or cancelled tenders whose money was re-issued on the same sale:
+   * reported as evidence and never part of `reported`, so each peso of tender
+   * is counted once.
+   *
+   * Optional because a close signed before this field existed must keep
+   * verifying byte for byte.
+   */
+  superseded: money.optional(),
+  /** Money received that no tender absorbed. Additive, never sale money. */
+  notApplied: notAppliedDepositsOutput.optional(),
+  byStatus: z.object({
+    pending: z.number().int().nonnegative(),
+    customer_reported: z.number().int().nonnegative(),
+    manual_confirmed: z.number().int().nonnegative(),
+    provider_confirmed: z.number().int().nonnegative(),
+    rejected: z.number().int().nonnegative(),
+    needs_reconciliation: z.number().int().nonnegative(),
+    cancelled: z.number().int().nonnegative(),
+    /** Tenders written before the confirmation lifecycle existed. */
+    legacy: z.number().int().nonnegative(),
+  }),
+  destinations: z.array(transferConfirmationDestinationOutput),
+});
+
 export const comprehensiveDayCloseReportOutput = z.object({
   date: calendarDay,
   timeZone: z.string().min(1),
@@ -275,6 +353,11 @@ export const comprehensiveDayCloseReportOutput = z.object({
       transactionCount: z.number().int().nonnegative(),
     })
   ),
+  /**
+   * Optional on purpose: a close signed before this section existed has no such
+   * key, and its stored snapshot must keep verifying byte for byte.
+   */
+  transferConfirmations: transferConfirmationsOutput.optional(),
   cash: z.object({
     closedSessions: z.number().int().nonnegative(),
     openSessions: z.number().int().nonnegative(),

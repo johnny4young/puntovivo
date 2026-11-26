@@ -1,3 +1,4 @@
+import { toHumanSessionIdentity } from '../security/session-identity.js';
 /**
  * Sale cost against a store-sized catalog.
  *
@@ -141,7 +142,7 @@ describe('sale against a store-sized catalog', () => {
       serverApp: server.app,
       tenantId,
       userId: admin.id,
-      email: admin.email,
+      email: toHumanSessionIdentity(admin).email,
       siteId,
       deviceId: device.deviceId,
     });

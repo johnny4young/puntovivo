@@ -166,13 +166,13 @@ export async function seedMegaData(input: SeedMegaInput): Promise<MegaCounts> {
     sites: tenantSites,
     cashiers: cashiers.map(c => ({
       id: c.id,
-      email: c.email,
+      email: c.email ?? `${c.id}@seed.invalid`,
       name: c.name,
       role: 'cashier',
     })),
     managers: managers.map(m => ({
       id: m.id,
-      email: m.email,
+      email: m.email ?? `${m.id}@seed.invalid`,
       name: m.name,
       role: 'manager',
     })),

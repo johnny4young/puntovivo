@@ -614,7 +614,63 @@
         }
       }
     },
-    "kicker": "Payments"
+    "kicker": "Payments",
+    "transfers": {
+      "title": "Transfer reconciliation",
+      "kicker": "Reconciliation",
+      "description": "Every transfer tender by status, the QR presentations that are open or expired, and the money the deposit chain has not applied yet. The table lists every tender still open, not only today's, so pending money from an earlier day stays visible.",
+      "countersTitle": "Tender status",
+      "derivedTitle": "Presentations and money",
+      "unavailable": "Unavailable",
+      "truncatedHint": "The read is at its row limit, so this total is not complete.",
+      "buckets": {
+        "reported": "Reported",
+        "confirmed": "Confirmed",
+        "rejected": "Rejected",
+        "awaitingReconciliation": "To reconcile",
+        "pending": "Pending",
+        "pendingPresentations": "Open QR presentations",
+        "expiredPresentations": "Expired presentations",
+        "unlinkedPresentations": "No linked sale",
+        "partialDeposits": "Partial or multiple deposits",
+        "excess": "Tenders with surplus",
+        "unappliedAmount": "Money not applied"
+      },
+      "bucketHints": {
+        "confirmed": "Manually or provider confirmed",
+        "expiredPresentations": "Expired and still waiting for a bank match",
+        "unlinkedPresentations": "Presentations that ended without a sale tender",
+        "partialDeposits": "Accumulated deposits below the expected amount, or above it",
+        "unappliedAmount": "Surplus received that was never applied to a sale"
+      },
+      "columns": {
+        "sale": "Sale",
+        "reference": "Reference",
+        "amount": "Expected",
+        "applied": "Applied",
+        "surplus": "Surplus",
+        "status": "Status",
+        "createdAt": "Created",
+        "actions": "Actions"
+      },
+      "status": {
+        "pending": "Pending",
+        "customer_reported": "Customer reported",
+        "manual_confirmed": "Manually confirmed",
+        "provider_confirmed": "Provider confirmed",
+        "rejected": "Rejected",
+        "needs_reconciliation": "To reconcile",
+        "cancelled": "Cancelled",
+        "missing": "Not recorded"
+      },
+      "actions": {
+        "deposit": "Record deposit",
+        "noPermission": "Only a manager or administrator can record a deposit",
+        "noSite": "This tender has no destination site, so it cannot be reconciled from here"
+      },
+      "emptyTitle": "No transfers to reconcile",
+      "emptyState": "No transfer tender is waiting for a bank match right now."
+    }
   },
   "authority": {
     "hub": {
@@ -840,7 +896,9 @@
       "bankName": "Enter the bank name.",
       "accountType": "Choose the account type.",
       "qrPayload": "That is not a complete bank QR. Scan it again."
-    }
+    },
+    "qrPreviewLabel": "QR preview",
+    "qrPreviewNote": "Preview of the QR exactly as the customer scans it. The content is kept unmodified."
   },
   "server": {
     "TRANSFER_DESTINATION_ACCOUNT_INVALID": "That account does not fit this destination. Bre-B takes an @ key, an email or a number; Nequi and Daviplata take a 10-digit mobile number; a bank account takes digits only.",

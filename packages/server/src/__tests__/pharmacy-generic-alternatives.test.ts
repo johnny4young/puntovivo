@@ -1,3 +1,4 @@
+import { toHumanSessionIdentity } from '../security/session-identity.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -146,7 +147,7 @@ beforeAll(async () => {
     serverApp: server.app,
     tenantId,
     userId: admin.id,
-    email: admin.email,
+    email: toHumanSessionIdentity(admin).email,
     siteId,
     deviceId: device.deviceId,
     defaultRole: 'admin',

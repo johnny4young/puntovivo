@@ -1,3 +1,4 @@
+import { toHumanSessionIdentity } from '../security/session-identity.js';
 /**
  * End-to-end application coverage for normalized restaurant services.
  *
@@ -343,7 +344,7 @@ beforeAll(async () => {
     serverApp: server.app,
     tenantId,
     userId: adminId,
-    email: admin.email,
+    email: toHumanSessionIdentity(admin).email,
     defaultRole: 'admin',
     siteId,
     deviceId: registration.deviceId,

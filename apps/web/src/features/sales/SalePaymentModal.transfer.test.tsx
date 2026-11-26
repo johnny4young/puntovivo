@@ -11,6 +11,8 @@ const moduleActiveMock = vi.hoisted(() => vi.fn(() => false));
 const roleMock = vi.hoisted(() => vi.fn(() => 'cashier'));
 const startWalletMock = vi.hoisted(() => vi.fn());
 const cancelWalletMock = vi.hoisted(() => vi.fn());
+const startPresentationMock = vi.hoisted(() => vi.fn());
+const presentationStatusMock = vi.hoisted(() => vi.fn(() => 'presented'));
 const walletStatusMock = vi.hoisted(() => vi.fn());
 const toastWarningMock = vi.hoisted(() => vi.fn());
 
@@ -43,6 +45,14 @@ vi.mock('@/lib/trpc', () => ({
       startWalletCharge: { useMutation: () => ({ mutateAsync: startWalletMock }) },
       cancelWalletCharge: { useMutation: () => ({ mutate: cancelWalletMock }) },
       walletChargeStatus: { useQuery: walletStatusMock },
+      startPresentation: { useMutation: () => ({ mutateAsync: startPresentationMock }) },
+      // Fase 5.2: el display sigue el ciclo de vida de la presentación.
+      presentation: {
+        useQuery: () => ({
+          data: { id: 'pres-1', status: presentationStatusMock() },
+          isLoading: false,
+        }),
+      },
     },
   },
 }));
@@ -137,8 +147,12 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  window.sessionStorage.clear();
   startWalletMock.mockReset();
   cancelWalletMock.mockReset();
+  startPresentationMock.mockReset();
+  presentationStatusMock.mockReturnValue('presented');
+  startPresentationMock.mockResolvedValue({ id: 'pres-1' });
   toastWarningMock.mockReset();
   mockWallet({ mode: 'manual', providerUnavailable: false });
 });
@@ -177,6 +191,7 @@ describe('SalePaymentModal — transfer', () => {
     const user = userEvent.setup();
     mockDestinations(destinations);
     const onSubmit = renderTransfer();
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalledTimes(1));
     const confirm = await screen.findByRole('button', { name: /It arrived · confirm sale/ });
 
     expect(confirm).toBeDisabled();
@@ -192,8 +207,26 @@ describe('SalePaymentModal — transfer', () => {
     const values = onSubmit.mock.calls[0]![0];
     expect(values.paymentMethod).toBe('transfer');
     expect(values.amountReceived).toBe(100);
-    expect(values.tenders).toEqual([{ method: 'transfer', amount: 100, reference: '482190' }]);
+    expect(values.tenders).toEqual([
+      { method: 'transfer', amount: 100, reference: '482190', presentationId: 'pres-1' },
+    ]);
     expect(values).not.toHaveProperty('transferReference');
+  });
+
+  it('stops showing the QR on the customer display once the presentation is no longer live', async () => {
+    moduleActiveMock.mockReturnValue(true);
+    mockDestinations(destinations);
+    renderTransfer();
+    // The QR really is on screen first: this is a live -> dead transition, not
+    // a component that never published anything.
+    await waitFor(() => expect(useCheckoutTransferDisplay.getState().transfer).not.toBeNull());
+
+    presentationStatusMock.mockReturnValue('timeout');
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+
+    await waitFor(() => expect(useCheckoutTransferDisplay.getState().transfer).toBeNull());
   });
 
   it('mirrors the picked destination to the customer display and says so', async () => {
@@ -211,14 +244,26 @@ describe('SalePaymentModal — transfer', () => {
         account: '@tienda',
         qrPayload: 'Bre-B\n@tienda\nCOP 100',
         amount: 100,
+        amountIncluded: true,
       })
     );
 
     await user.click(screen.getByTestId('sale-payment-transfer-destination-d-nequi'));
     expect(screen.getByText(/The customer types the amount in their app\./)).toBeInTheDocument();
+    expect(
+      screen.getByTestId('sale-payment-transfer-static-warning')
+    ).toHaveTextContent(/does not carry this sale/);
     await waitFor(() =>
-      expect(useCheckoutTransferDisplay.getState().transfer?.qrPayload).toBe('000201nequi')
+      expect(useCheckoutTransferDisplay.getState().transfer).toEqual(
+        expect.objectContaining({ qrPayload: '000201nequi', amountIncluded: false })
+      )
     );
+
+    // An amount-carrying QR never shows the static warning.
+    await user.click(screen.getByTestId('sale-payment-transfer-destination-d-breb'));
+    expect(
+      screen.queryByTestId('sale-payment-transfer-static-warning')
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId('sale-payment-tender-cash'));
     await waitFor(() => expect(useCheckoutTransferDisplay.getState().transfer).toBeNull());
@@ -298,10 +343,31 @@ describe('SalePaymentModal — transfer', () => {
         account: '',
         qrPayload: 'NEQUI-QR-9001',
         amount: 100,
+        amountIncluded: true,
       })
     );
     expect(screen.getByRole('button', { name: /It arrived · confirm sale/ })).toBeDisabled();
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('lets the cashier cancel a pending provider attempt explicitly', async () => {
+    moduleActiveMock.mockReturnValue(true);
+    mockWallet(liveCharge, 'pending');
+    renderTransfer();
+
+    const cancelButton = await screen.findByTestId('sale-payment-wallet-cancel');
+    expect(cancelButton).toHaveTextContent('Cancel attempt');
+
+    await userEvent.setup().click(cancelButton);
+
+    expect(cancelWalletMock).toHaveBeenCalledWith(
+      { chargeId: 'charge-1' },
+      expect.objectContaining({})
+    );
+    // The sheet stays usable: the attempt is gone and the manual note returns.
+    const note = await screen.findByTestId('sale-payment-wallet-status');
+    expect(note).toHaveAttribute('data-state', 'manual');
+    expect(screen.queryByTestId('sale-payment-wallet-cancel')).not.toBeInTheDocument();
   });
 
   it('confirms the sale by itself with the provider reference once approved', async () => {
@@ -391,6 +457,92 @@ describe('SalePaymentModal — transfer', () => {
         title: 'Nequi had already confirmed that charge. Check before charging again.',
       })
     );
+  });
+
+  it('records exactly one presentation for the static QR on screen', async () => {
+    mockDestinations(destinations);
+    renderTransfer();
+
+    expect(await screen.findByTestId('sale-payment-transfer-qr')).toBeInTheDocument();
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalledTimes(1));
+    expect(startPresentationMock).toHaveBeenCalledWith({
+      siteId: 'site-1',
+      destinationId: 'd-breb',
+      amount: 100,
+      idempotencyKey: expect.any(String),
+    });
+  });
+
+  it('reuses the same presentation across a re-render and a modal reopen', async () => {
+    mockDestinations(destinations);
+    const onSubmit = vi.fn<(values: SalePaymentValues) => Promise<void>>(async () => undefined);
+    const view = render(transferModal(onSubmit));
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalledTimes(1));
+    const firstKey = startPresentationMock.mock.calls[0]![0].idempotencyKey as string;
+
+    view.rerender(transferModal(onSubmit));
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalledTimes(1));
+
+    view.unmount();
+    render(transferModal(onSubmit));
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalledTimes(2));
+
+    const keys = startPresentationMock.mock.calls.map(call => call[0].idempotencyKey);
+    expect(keys).toEqual([firstKey, firstKey]);
+    expect(startPresentationMock.mock.calls[1]![0]).toMatchObject({ amount: 100 });
+  });
+
+  it('creates a different presentation when the total changes', async () => {
+    mockDestinations(destinations);
+    const onSubmit = vi.fn<(values: SalePaymentValues) => Promise<void>>(async () => undefined);
+    const view = render(transferModal(onSubmit, 100));
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalledTimes(1));
+    const firstKey = startPresentationMock.mock.calls[0]![0].idempotencyKey as string;
+
+    view.rerender(transferModal(onSubmit, 120));
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalledTimes(2), { timeout: 3000 });
+
+    const second = startPresentationMock.mock.calls[1]![0];
+    expect(second.amount).toBe(120);
+    expect(second.idempotencyKey).not.toBe(firstKey);
+  });
+
+  it('keeps the QR and the sale when the presentation cannot be created', async () => {
+    const user = userEvent.setup();
+    mockDestinations(destinations);
+    startPresentationMock.mockRejectedValue(new Error('offline'));
+    const onSubmit = renderTransfer();
+
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalled());
+    expect(screen.getByTestId('sale-payment-transfer-qr')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    const confirm = await screen.findByRole('button', { name: /It arrived · confirm sale/ });
+    await user.type(screen.getByTestId('sale-payment-transfer-reference'), '482190');
+    await waitFor(() => expect(confirm).toBeEnabled());
+    await user.click(confirm);
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0]![0].tenders).toEqual([
+      { method: 'transfer', amount: 100, reference: '482190' },
+    ]);
+  });
+
+  it('hands the presentation id to the transfer tender', async () => {
+    const user = userEvent.setup();
+    mockDestinations(destinations);
+    const onSubmit = renderTransfer();
+
+    await waitFor(() => expect(startPresentationMock).toHaveBeenCalledTimes(1));
+    const confirm = await screen.findByRole('button', { name: /It arrived · confirm sale/ });
+    await user.type(screen.getByTestId('sale-payment-transfer-reference'), '482190');
+    await waitFor(() => expect(confirm).toBeEnabled());
+    await user.click(confirm);
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0]![0].tenders).toEqual([
+      { method: 'transfer', amount: 100, reference: '482190', presentationId: 'pres-1' },
+    ]);
   });
 
   it('drops the approved reference when a new total opens a new charge', async () => {

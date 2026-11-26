@@ -137,6 +137,33 @@ describe('checkoutPayment', () => {
     ]);
   });
 
+  it('forwards the QR presentation id on the transfer tender only', () => {
+    const values = buildPaymentValues({
+      paymentMethod: 'transfer',
+      tenders: [
+        { method: 'cash', amount: 20, reference: '', presentationId: 'pres-cash' },
+        { method: 'card', amount: 20, reference: 'AUTH-1', presentationId: 'pres-card' },
+        { method: 'credit', amount: 20, reference: '', presentationId: 'pres-credit' },
+        {
+          method: 'loyalty',
+          amount: 10,
+          loyaltyPoints: 2,
+          reference: '',
+          presentationId: 'pres-loyalty',
+        },
+        { method: 'transfer', amount: 30, reference: 'WIRE-9', presentationId: 'pres-1' },
+      ],
+    });
+
+    expect(getCheckoutPaymentState(values, 100).payments).toEqual([
+      { method: 'cash', amount: 20 },
+      { method: 'card', amount: 20, reference: 'AUTH-1' },
+      { method: 'credit', amount: 20 },
+      { method: 'loyalty', amount: 10, loyaltyPoints: 2 },
+      { method: 'transfer', amount: 30, reference: 'WIRE-9', presentationId: 'pres-1' },
+    ]);
+  });
+
   it('forwards whole points only on loyalty tenders', () => {
     const values = buildPaymentValues({
       customerId: 'customer-1',

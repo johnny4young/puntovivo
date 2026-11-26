@@ -23,6 +23,12 @@ export const PAYMENT_RAIL_IDS = [
   'daviplata',
 ] as const satisfies readonly PaymentRailId[];
 
+/**
+ * Rails that are real payment providers. `static_qr` is deliberately excluded:
+ * it carries an outbox identity for presentations and never issues a charge.
+ */
+export type ProviderRailId = (typeof PAYMENT_RAIL_IDS)[number];
+
 export interface PaymentRailManifestEntry {
   railId: PaymentRailId;
   label: string;
@@ -110,6 +116,25 @@ export const PAYMENT_RAILS_MANIFEST = {
       requiresExternalCredentials: true,
     },
   },
+  /**
+   * A static store QR is not a provider: Puntovivo shows what the merchant
+   * already owns and the bank tells nobody anything. The entry exists because
+   * `payment_outbox.rail_id` is NOT NULL, and its capabilities are empty and
+   * non-live so no code path can ever treat it as an integration.
+   */
+  static_qr: {
+    railId: 'static_qr',
+    label: 'Static QR',
+    countryFocus: ['CO'],
+    liveIntegration: false,
+    capabilities: {
+      methods: [],
+      currencies: [],
+      supportsRefund: false,
+      supportsStatusPolling: false,
+      requiresExternalCredentials: false,
+    },
+  },
 } as const satisfies Record<PaymentRailId, PaymentRailManifestEntry>;
 
 export interface PaymentRailsContract {
@@ -119,10 +144,16 @@ export interface PaymentRailsContract {
 }
 
 export function buildPaymentRailsContract(): PaymentRailsContract {
+  // This contract is what the settings UI offers as payment providers, so it
+  // is projected from PAYMENT_RAIL_IDS. `static_qr` carries an outbox identity
+  // but is not a provider and never appears here.
+  const rails = Object.fromEntries(
+    PAYMENT_RAIL_IDS.map(railId => [railId, PAYMENT_RAILS_MANIFEST[railId]])
+  ) as unknown as PaymentRailsContract['rails'];
   return {
     version: PAYMENT_RAILS_VERSION,
     railIds: PAYMENT_RAIL_IDS,
-    rails: PAYMENT_RAILS_MANIFEST,
+    rails,
   };
 }
 
@@ -155,6 +186,8 @@ export const CREDENTIAL_FIELDS_BY_RAIL: Record<
   PaymentRailId,
   readonly PaymentCredentialFieldDescriptor[]
 > = {
+  // No credentials: a static QR has nothing to authenticate against.
+  static_qr: [],
   wompi: [
     { key: 'publicKey', labelKey: 'publicKey', required: true, sensitive: true },
     { key: 'privateKey', labelKey: 'privateKey', required: true, sensitive: true },

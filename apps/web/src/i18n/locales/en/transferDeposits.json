@@ -1,0 +1,78 @@
+{
+  "title": "Manual deposit",
+  "subtitle": "Record the money the bank actually credited for this transfer.",
+  "tender": {
+    "heading": "Transfer tender",
+    "sale": "Sale",
+    "expectedAmount": "Expected amount",
+    "destination": "Destination",
+    "destinationMissing": "No destination recorded",
+    "reportedReference": "Reported reference",
+    "presentation": "Presentation",
+    "presentationMissing": "No presentation linked",
+    "confirmationStatus": "Confirmation status"
+  },
+  "state": {
+    "heading": "State reported by the server",
+    "appliedAmount": "Applied to this tender",
+    "surplusAmount": "Unapplied surplus",
+    "status": "Confirmation status",
+    "pending": "The server has not reported a deposit for this tender yet.",
+    "outcomeHeading": "Outcome of this movement",
+    "outcomeHint": "Recorded when the server accepted this movement. It is evidence of that deposit, not what the tender owes today.",
+    "reading": "Reading the tender's current state…",
+    "refreshing": "Refreshing the current state…",
+    "absent": "This tender no longer appears in the server's current transfer list, so no live balance is shown. It may already be settled.",
+    "notRefreshed": "The tender's current state could not be refreshed, so no live balance is shown.",
+    "retry": "Retry"
+  },
+  "fields": {
+    "reference": "Bank reference",
+    "referenceHint": "The reference that appears on the bank statement.",
+    "amount": "Actual amount",
+    "amountHint": "Exactly what the bank credited; the server totals the deposits.",
+    "valueDate": "Value date",
+    "note": "Notes"
+  },
+  "validation": {
+    "referenceRequired": "Enter the bank reference.",
+    "amountRequired": "Enter the amount the bank credited.",
+    "valueDateRequired": "Enter the value date.",
+    "noteTooLong": "The note cannot exceed 500 characters."
+  },
+  "actions": {
+    "cancel": "Cancel",
+    "submit": "Record deposit",
+    "saving": "Recording…"
+  },
+  "permission": {
+    "denied": "Only a manager or an administrator can record a deposit."
+  },
+  "statuses": {
+    "pending": "Pending",
+    "customer_reported": "Reported by the customer",
+    "manual_confirmed": "Confirmed manually",
+    "provider_confirmed": "Confirmed by the provider",
+    "rejected": "Rejected",
+    "needs_reconciliation": "Needs reconciliation"
+  },
+  "history": {
+    "heading": "Deposit history",
+    "description": "Movements this sale reports to the server.",
+    "loading": "Loading the history…",
+    "error": "The history could not be loaded.",
+    "refresh": "Refresh",
+    "empty": "The server reports no transfer movements for this sale yet.",
+    "notReported": "Not reported",
+    "columns": {
+      "tenderAmount": "Tender amount",
+      "appliedAmount": "Applied",
+      "surplusAmount": "Surplus",
+      "reference": "Reference",
+      "confirmedAt": "Confirmed at"
+    }
+  },
+  "errors": {
+    "failed": "The deposit could not be recorded."
+  }
+}
