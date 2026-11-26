@@ -427,7 +427,7 @@ describe('sales.create — Colombian sale document', () => {
     });
     const doc = await waitForDocument(sale.id, 'FEV');
     expect(doc.buyerTaxId).toBe(`8765432-${dv}`);
-    expect(doc.xmlRef).toContain('<cbc:CompanyID>8765432</cbc:CompanyID>');
+    expect(doc.xmlRef).toContain(`schemeID="${dv}" schemeName="31">8765432</cbc:CompanyID>`);
   });
 
   it('links the invoice to the attached customer only when it names that customer', async () => {

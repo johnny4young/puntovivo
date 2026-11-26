@@ -287,3 +287,13 @@ test('the security page claims map to real controls', () => {
   assert.match(securityDoc, /Report a vulnerability/);
   assert.match(securityDoc, /asesordeprogramacion@gmail\.com/);
 });
+
+test('Spanish website and manual copy stay in neutral Latin American usted register', () => {
+  const esLocale = JSON.stringify(locales.es);
+  const esManual = readFileSync(path.join(here, '../content/manual/es.json'), 'utf8');
+  const disallowed =
+    /\b(tú|tu|tus|tienes|puedes|quieres|necesitas|envías|importas|tenés|podés|querés|sos|elegí|seleccioná|agregá)\b/i;
+
+  assert.doesNotMatch(esLocale, disallowed, 'es.json must use neutral LATAM usted register');
+  assert.doesNotMatch(esManual, disallowed, 'manual/es.json must use neutral LATAM usted register');
+});

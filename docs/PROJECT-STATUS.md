@@ -2,7 +2,7 @@
 
 **Language:** English · [Español](es/PROJECT-STATUS.md)
 
-> Updated: 2026-09-22. This is the public source of truth for shipped
+> Updated: 2026-11-26. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -387,9 +387,19 @@ The current validated candidate includes:
 - Colombia fiscal foundations plus draft Mexico and Chile document packs. The
   Colombia mock can retain an unsigned, untransmitted local UBL 2.1 draft with
   the frozen UN/ECE unit code; this is development evidence, not a signed
-  provider document. No pack is certified for production transmission yet;
-- Electron 45 and browser targets sharing the same React, Fastify, tRPC, and
-  SQLite application core.
+  provider document. The Colombia pack also includes DIAN UBL 2.1 structural
+  grouping (`TaxSubtotal` by `01` IVA / `04` INC and `LegalMonetaryTotal`
+  identity), an offline `XAdES-EPES` signer, and a `WS-Security` SOAP 1.2
+  transport with Contingencia tipo 08 (`ColombiaDianAdapter`, `draft` maturity
+  pending live `vpfe-hab` certification). No pack is certified for production
+  transmission yet;
+- Electron 45 (running the embedded Fastify + tRPC + SQLCipher server on a
+  dedicated `worker_threads` worker, with fail-closed update install policy and
+  detached `Ed25519` Linux artifact verification) and browser targets sharing the
+  same React, Fastify, tRPC, and SQLite application core;
+- configurable COP cash rounding (`$ 50`) with balanced rounding-adjustment
+  accounting export, simplified `/sales` dock with header shift menu, complete
+  `/touch` checkout, and dark-mode WCAG AA contrast parity.
 
 ## Readiness verdict
 

@@ -25,6 +25,8 @@
  * @module main/auto-updater/install-policy
  */
 
+import { isValidEd25519PublicKeyPem } from './artifact-signature.ts';
+
 export type UpdateSignatureTrust = 'verified' | 'unverified';
 
 export interface UpdateInstallPolicy {
@@ -36,7 +38,11 @@ export interface UpdateInstallPolicy {
    */
   allowSilentInstall: boolean;
   /** Why, in a form safe to log. */
-  reason: 'platform-verified' | 'no-publisher-identity' | 'no-signature-support';
+  reason:
+    | 'platform-verified'
+    | 'detached-ed25519-verified'
+    | 'no-publisher-identity'
+    | 'no-signature-support';
 }
 
 export interface UpdateInstallPolicyInput {
@@ -48,6 +54,11 @@ export interface UpdateInstallPolicyInput {
    * empty means the artifact is unsigned.
    */
   windowsPublisherName?: string | null | undefined;
+  /**
+   * Pinned build-time Ed25519 release public key PEM used to verify detached
+   * signatures on Linux AppImage updates. Null / empty keeps Linux unverified.
+   */
+  linuxPublicKeyPem?: string | null | undefined;
 }
 
 export function resolveUpdateInstallPolicy(input: UpdateInstallPolicyInput): UpdateInstallPolicy {
@@ -75,7 +86,15 @@ export function resolveUpdateInstallPolicy(input: UpdateInstallPolicyInput): Upd
     };
   }
 
-  // Linux (AppImage) and anything else: no signature verification exists.
+  if (input.platform === 'linux' && isValidEd25519PublicKeyPem(input.linuxPublicKeyPem)) {
+    return {
+      signatureTrust: 'verified',
+      allowSilentInstall: true,
+      reason: 'detached-ed25519-verified',
+    };
+  }
+
+  // Linux (without pinned Ed25519 key) and anything else: fail closed.
   return {
     signatureTrust: 'unverified',
     allowSilentInstall: false,
