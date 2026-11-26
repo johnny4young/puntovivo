@@ -12,6 +12,11 @@ permissions: {}
 
 jobs:
   execute:
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
     uses: johnny4young/centinela/.github/workflows/reusable-centinela-execute.yml@v1
     with:
       runs-on: ubuntu-latest
