@@ -1,8 +1,10 @@
 import {
+  DEFAULT_GS1_PRICE_DIVISOR,
   GS1_IN_STORE_PREFIXES,
   GS1_SCHEMES,
   isGs1PrefixConfig,
   type Gs1PrefixConfig,
+  type Gs1PriceDivisor,
   type Gs1Scheme,
 } from '@puntovivo/shared/gs1';
 import { and, eq } from 'drizzle-orm';
@@ -31,16 +33,23 @@ export const gs1PrefixConfigSchema: z.ZodType<Gs1PrefixConfig> = z
     }
   });
 
+export const gs1PriceDivisorSchema: z.ZodType<Gs1PriceDivisor> = z.union([
+  z.literal(1),
+  z.literal(100),
+]);
+
 const siteScannerParseConfigSchema = z
   .object({
     gs1Scheme: z.enum(GS1_SCHEMES).default('generic'),
     gs1Prefixes: gs1PrefixConfigSchema.optional(),
+    gs1PriceDivisor: gs1PriceDivisorSchema.default(DEFAULT_GS1_PRICE_DIVISOR),
   })
   .passthrough();
 
 export interface SiteGs1ParseOptions {
   gs1Scheme: Gs1Scheme;
   gs1Prefixes?: Gs1PrefixConfig;
+  gs1PriceDivisor?: Gs1PriceDivisor;
 }
 
 /**
@@ -82,5 +91,6 @@ export async function resolveSiteGs1ParseOptions(args: {
   return {
     gs1Scheme: parsed.data.gs1Scheme,
     ...(parsed.data.gs1Prefixes ? { gs1Prefixes: parsed.data.gs1Prefixes } : {}),
+    gs1PriceDivisor: parsed.data.gs1PriceDivisor,
   };
 }

@@ -42,6 +42,9 @@ import { ProductListFilters } from './ProductListFilters';
 const VariantMatrixModal = lazy(() =>
   import('./VariantMatrixModal').then(module => ({ default: module.VariantMatrixModal }))
 );
+const ShelfLabelsModal = lazy(() =>
+  import('./ShelfLabelsModal').then(module => ({ default: module.ShelfLabelsModal }))
+);
 
 function canManageProducts(role: UserRole | undefined): boolean {
   return role === 'admin' || role === 'manager';
@@ -166,6 +169,7 @@ export function ProductsPage() {
   // table (provider / location / tier-2 / tier-3 prices, SKU, min stock).
   const [detailsProduct, setDetailsProduct] = useState<Product | null>(null);
   const [matrixProduct, setMatrixProduct] = useState<Product | null>(null);
+  const [labelsProducts, setLabelsProducts] = useState<Product[] | null>(null);
   useEffect(() => {
     if (isModalOpen && editingProduct === null) {
       createProductMeasurement.markUsableControl();
@@ -521,6 +525,9 @@ export function ProductsPage() {
                 selected={products.filter(product => selectedIds.has(product.id))}
                 categories={categoriesQuery.data?.items ?? []}
                 canArchive={canDelete}
+                onPrintLabels={() =>
+                  setLabelsProducts(products.filter(product => selectedIds.has(product.id)))
+                }
                 onDone={() => setSelectedIds(new Set())}
               />
             )}
@@ -813,6 +820,21 @@ export function ProductsPage() {
                 axes,
               });
             }}
+          />
+        </Suspense>
+      )}
+      {labelsProducts && (
+        <Suspense fallback={null}>
+          <ShelfLabelsModal
+            isOpen
+            products={labelsProducts.map(item => ({
+              id: item.id,
+              name: item.name,
+              sku: item.sku,
+              barcode: item.barcode,
+              price: item.price,
+            }))}
+            onClose={() => setLabelsProducts(null)}
           />
         </Suspense>
       )}

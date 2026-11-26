@@ -33,6 +33,7 @@ import {
   claimPairingCodeForDevice,
   inferAuthorityRole,
 } from '../../../services/devices/authority.js';
+import { bindDeviceSession } from '../../../services/devices/deviceSessions.js';
 import { getCurrentSchemaVersion } from '../../../lib/runtimeMetadata.js';
 import {
   clearRefreshCookie,
@@ -233,6 +234,12 @@ export const authMutationProcedures = {
             tenantId: currentTarget.tenantId,
             userId: currentTarget.id,
           });
+          bindDeviceSession(tx as unknown as typeof ctx.db, {
+            tenantId: currentTarget.tenantId,
+            deviceId,
+            userId: currentTarget.id,
+            refreshFamilyId: createdFamily.familyId,
+          });
           writeAuditLog({
             tx,
             tenantId: ctx.tenantId,
@@ -255,7 +262,12 @@ export const authMutationProcedures = {
       // commits. A failed switch must not grant brute-force amnesty.
       registerStaffPinSuccess(ctx.db, rateIdentity);
 
-      const token = signAccessToken(ctx.req.server, handoff.target, sessionClaims);
+      const token = signAccessToken(
+        ctx.req.server,
+        handoff.target,
+        sessionClaims,
+        handoff.family.familyId
+      );
       const refreshToken = signRefreshToken(
         ctx.req.server,
         handoff.target,
@@ -394,8 +406,23 @@ export const authMutationProcedures = {
       tenantId: user.tenantId,
       userId: user.id,
     });
+    const headerDeviceId = readHeader(ctx.req.headers[DEVICE_ID_HEADER]);
+    if (headerDeviceId) {
+      const existingDevice = await findActiveDevice(ctx.db, {
+        tenantId: user.tenantId,
+        deviceId: headerDeviceId,
+      });
+      if (existingDevice) {
+        bindDeviceSession(ctx.db, {
+          tenantId: user.tenantId,
+          deviceId: existingDevice.id,
+          userId: user.id,
+          refreshFamilyId: family.familyId,
+        });
+      }
+    }
 
-    const token = signAccessToken(ctx.req.server, user);
+    const token = signAccessToken(ctx.req.server, user, undefined, family.familyId);
     const refreshToken = signRefreshToken(ctx.req.server, user, family);
     setRefreshCookie(ctx.req, ctx.res, refreshToken);
     setSessionCsrfCookieForFamily(ctx.req, ctx.res, user, family.familyId);
@@ -544,7 +571,7 @@ export const authMutationProcedures = {
       }
 
       const sessionClaims = getAuthSessionClaims(refreshPayload);
-      const token = signAccessToken(ctx.req.server, user, sessionClaims);
+      const token = signAccessToken(ctx.req.server, user, sessionClaims, family.familyId);
       const refreshToken = signRefreshToken(ctx.req.server, user, family, sessionClaims);
       setRefreshCookie(ctx.req, ctx.res, refreshToken);
       if (upgradedLegacy) {
@@ -779,6 +806,14 @@ export const authMutationProcedures = {
           code: input.pairingCode,
           deviceId: result.deviceId,
           actorUserId: ctx.user.id,
+        });
+      }
+      if (ctx.user.familyId) {
+        bindDeviceSession(ctx.db, {
+          tenantId: ctx.tenantId,
+          deviceId: result.deviceId,
+          userId: ctx.user.id,
+          refreshFamilyId: ctx.user.familyId,
         });
       }
       return result;

@@ -64,6 +64,8 @@ export const productSelection = {
   tracksStock: products.tracksStock,
   tracksLots: products.tracksLots,
   tracksSerials: products.tracksSerials,
+  isReturnableContainer: products.isReturnableContainer,
+  returnableDepositAmount: products.returnableDepositAmount,
   catalogType: products.catalogType,
   variantParentId: products.variantParentId,
   variantAxes: products.variantAxes,

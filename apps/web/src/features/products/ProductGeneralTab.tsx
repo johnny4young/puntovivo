@@ -27,6 +27,12 @@ const AISuggestionsPanel = lazy(() =>
   }))
 );
 
+const ProductBundleSection = lazy(() =>
+  import('./ProductBundleSection').then(module => ({
+    default: module.ProductBundleSection,
+  }))
+);
+
 interface ProductGeneralTabProps {
   formBundle: UseProductFormReturn;
   mode: ProductRole;
@@ -66,12 +72,15 @@ export function ProductGeneralTab({
     initialStock,
     tracksLots,
     tracksSerials,
+    isReturnableContainer,
     taxRateField,
     stockField,
     minStockField,
     sellByFractionField,
     tracksLotsField,
     tracksSerialsField,
+    isReturnableContainerField,
+    returnableDepositAmountField,
     fractionStepField,
     fractionMinimumField,
     vatRateField,
@@ -589,6 +598,42 @@ export function ProductGeneralTab({
               </SimpleFormField>
             </div>
           </div>
+        )}
+
+        <div className="rounded-2xl border border-line/80 bg-surface-2/50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <label className="flex items-center gap-3 text-sm font-medium text-secondary-900">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-secondary-300"
+                data-testid="product-returnable-toggle"
+                {...isReturnableContainerField}
+              />
+              {t('form.fields.isReturnableContainer')}
+            </label>
+            {isReturnableContainer && (
+              <SimpleFormField
+                label={t('form.fields.returnableDepositAmount')}
+                htmlFor="product-returnable-deposit"
+              >
+                <input
+                  id="product-returnable-deposit"
+                  data-testid="product-returnable-deposit"
+                  type="number"
+                  min="0"
+                  step="any"
+                  className="pv-input w-40"
+                  {...returnableDepositAmountField}
+                />
+              </SimpleFormField>
+            )}
+          </div>
+        </div>
+
+        {mode === 'edit' && productId && (
+          <Suspense fallback={null}>
+            <ProductBundleSection productId={productId} />
+          </Suspense>
         )}
       </ProductFormFieldGroup>
     </div>

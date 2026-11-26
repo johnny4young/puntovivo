@@ -771,6 +771,13 @@
       "when": 1795569311326,
       "tag": "0109_perf_hot_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "6",
+      "when": 1795712615862,
+      "tag": "0110_retail_promotions_bundles_device_sessions",
+      "breakpoints": true
     }
   ]
 }

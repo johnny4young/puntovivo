@@ -3,8 +3,11 @@ import test from 'node:test';
 
 import {
   DEFAULT_GS1_PREFIX_CONFIG,
+  DEFAULT_GS1_PRICE_DIVISOR,
+  GS1_PRICE_DIVISORS,
   hasInvalidGs1CheckDigit,
   isGs1PrefixConfig,
+  isGs1PriceDivisor,
   resolveGs1PrefixRole,
 } from './gs1.ts';
 
@@ -42,4 +45,14 @@ test('the shared config guard rejects empty, duplicate, out-of-range, and misspe
   assert.equal(isGs1PrefixConfig({ weight: ['30'], price: ['21'] }), false);
   assert.equal(isGs1PrefixConfig({ weight: '20', price: [] }), false);
   assert.equal(isGs1PrefixConfig({ weight: ['20'], price: ['21'], prices: [] }), false);
+});
+
+test('price divisor guard accepts only 1 (whole pesos) and 100 (cents)', () => {
+  assert.deepEqual(GS1_PRICE_DIVISORS, [1, 100]);
+  assert.equal(DEFAULT_GS1_PRICE_DIVISOR, 100);
+  assert.equal(isGs1PriceDivisor(1), true);
+  assert.equal(isGs1PriceDivisor(100), true);
+  assert.equal(isGs1PriceDivisor(10), false);
+  assert.equal(isGs1PriceDivisor('1'), false);
+  assert.equal(isGs1PriceDivisor(null), false);
 });

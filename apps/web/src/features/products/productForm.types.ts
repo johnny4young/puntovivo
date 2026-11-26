@@ -54,6 +54,8 @@ export interface ProductFormValues {
   tracksStock: boolean;
   tracksLots: boolean;
   tracksSerials: boolean;
+  isReturnableContainer: boolean;
+  returnableDepositAmount: number;
   isActive: boolean;
   unitAssignments: ProductUnitAssignmentFormValues[];
   providerAssignments: ProductProviderAssignmentFormValues[];

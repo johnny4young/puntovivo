@@ -246,6 +246,7 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         '0107_owner_push_subscriptions',
         '0108_sale_rounding_adjustment',
         '0109_perf_hot_indexes',
+        '0110_retail_promotions_bundles_device_sessions',
       ].includes(entry.tag)
     ) {
       // A later marker skips every earlier entry in Drizzle. The exact

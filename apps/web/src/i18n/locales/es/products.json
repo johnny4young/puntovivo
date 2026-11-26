@@ -207,7 +207,9 @@
       "serviceItemEnabledHelp": "Este ítem se vende sin validación de stock y nunca crea movimientos de inventario.",
       "serviceItemBlockedHelp": "Este producto todavía tiene stock. Déjelo en cero desde Inventario antes de convertirlo en servicio.",
       "serviceItemStockHelp": "Los ítems de servicio no manejan stock.",
-      "serviceItemStockError": "Un ítem de servicio no puede tener stock"
+      "serviceItemStockError": "Un ítem de servicio no puede tener stock",
+      "isReturnableContainer": "Envase retornable",
+      "returnableDepositAmount": "Depósito por envase"
     },
     "units": {
       "title": "Asignaciones de unidad",
@@ -335,6 +337,7 @@
     "selected_one": "{{count}} seleccionado",
     "selected_other": "{{count}} seleccionados",
     "moveCategory": "Mover a categoría",
+    "printLabels": "Etiquetas de góndola",
     "archive": "Archivar",
     "clear": "Limpiar",
     "selectRow": "Seleccionar {{name}}",

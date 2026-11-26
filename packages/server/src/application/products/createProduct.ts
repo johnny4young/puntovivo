@@ -176,6 +176,10 @@ async function persistProduct(
           tracksStock: input.tracksStock,
           tracksLots: input.tracksLots,
           tracksSerials: input.tracksSerials,
+          isReturnableContainer: input.isReturnableContainer,
+          returnableDepositAmount: input.isReturnableContainer
+            ? roundMoney(input.returnableDepositAmount)
+            : 0,
           isActive: input.isActive,
           barcode: input.barcode ?? null,
           imageUrl: input.imageUrl ?? null,

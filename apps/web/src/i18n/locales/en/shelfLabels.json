@@ -1,0 +1,41 @@
+{
+  "labels": {
+    "title": "Shelf labels",
+    "close": "Close",
+    "formatLabel": "Label output format",
+    "tabs": {
+      "sheet": "Printable sheet",
+      "zpl": "ZPL (Zebra)",
+      "tspl": "TSPL (TSC / Xprinter)"
+    },
+    "paper": "Paper size",
+    "papers": {
+      "letter": "Letter",
+      "a4": "A4"
+    },
+    "grid": "Grid layout",
+    "grids": {
+      "3x8": "3×8 (24 per sheet)",
+      "3x10": "3×10 (30 per sheet)",
+      "2x6": "2×6 (12 per sheet)"
+    },
+    "copies": "Copies",
+    "printSheet": "Print sheet ({{count}})",
+    "copyCommands": "Copy commands",
+    "downloadCommands": "Download .{{format}}",
+    "copied": "Commands copied to clipboard",
+    "copyError": "Could not copy to clipboard",
+    "popupBlocked": "Allow pop-ups to open the print sheet."
+  },
+  "bundles": {
+    "title": "Combo / kit components",
+    "searchPlaceholder": "Search component product by name or SKU",
+    "quantity": "Quantity per bundle",
+    "remove": "Remove component",
+    "save": "Save components",
+    "submitting": "Saving...",
+    "saved": "Bundle components saved",
+    "saveError": "Unable to save bundle components",
+    "empty": "No components linked. Add physical products to deduct their inventory when this combo sells."
+  }
+}

@@ -207,7 +207,9 @@
       "serviceItemEnabledHelp": "This item sells without stock checks and never creates inventory movements.",
       "serviceItemBlockedHelp": "This product still holds stock. Bring it down to zero through Inventory before turning it into a service.",
       "serviceItemStockHelp": "Service items do not carry stock.",
-      "serviceItemStockError": "A service item cannot carry stock"
+      "serviceItemStockError": "A service item cannot carry stock",
+      "isReturnableContainer": "Returnable container",
+      "returnableDepositAmount": "Container deposit"
     },
     "units": {
       "title": "Unit assignments",
@@ -335,6 +337,7 @@
     "selected_one": "{{count}} selected",
     "selected_other": "{{count}} selected",
     "moveCategory": "Move to category",
+    "printLabels": "Shelf labels",
     "archive": "Archive",
     "clear": "Clear",
     "selectRow": "Select {{name}}",

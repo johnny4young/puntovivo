@@ -67,6 +67,7 @@ async function quoteFresh(
     headerDiscountAmount: input.discountAmount,
     nowIso: businessClock.nowIso,
     businessDate: businessClock.businessDate,
+    timezone: businessClock.timezone,
   });
 }
 
@@ -92,6 +93,7 @@ export function quotePersistedDraftPromotions(
     customerId: string | null;
     nowIso: string;
     businessDate?: string;
+    timezone?: string;
   }
 ) {
   const sale = db
@@ -227,6 +229,7 @@ export function quotePersistedDraftPromotions(
     headerDiscountAmount: sale.discountAmount,
     nowIso: args.nowIso,
     ...(args.businessDate ? { businessDate: args.businessDate } : {}),
+    ...(args.timezone ? { timezone: args.timezone } : {}),
   });
 }
 
@@ -249,6 +252,7 @@ async function quoteDraft(
     customerId: customer.customerId,
     nowIso: businessClock.nowIso,
     businessDate: businessClock.businessDate,
+    timezone: businessClock.timezone,
   });
 }
 

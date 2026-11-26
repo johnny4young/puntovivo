@@ -10,16 +10,23 @@ import { Badge } from '@/components/ui';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
-import { formatDateTime } from '@/lib/utils';
+import { formatCurrency, formatDateTime } from '@/lib/utils';
 
 type PromotionStatus = 'draft' | 'active' | 'paused' | 'archived';
 type PromotionTargetKind = 'all' | 'product' | 'category';
+type PromotionRuleKind = 'percentage' | 'fixed_amount' | 'nxm';
+
+const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const;
 
 interface PromotionRecord {
   id: string;
   name: string;
   status: PromotionStatus;
+  ruleKind?: PromotionRuleKind;
   discountPct: number;
+  discountAmount?: number | null;
+  buyQuantity?: number | null;
+  payQuantity?: number | null;
   siteId: string | null;
   siteName: string | null;
   productId: string | null;
@@ -31,6 +38,9 @@ interface PromotionRecord {
   minQuantity: number;
   startsAt: string | null;
   endsAt: string | null;
+  scheduleDays?: number[] | null;
+  scheduleStartTime?: string | null;
+  scheduleEndTime?: string | null;
   priority: number;
   combinable: boolean;
   source: 'manual' | 'expiry';
@@ -40,7 +50,11 @@ interface PromotionRecord {
 
 interface PromotionDraft {
   name: string;
+  ruleKind: PromotionRuleKind;
   discountPct: number;
+  discountAmount: number;
+  buyQuantity: number;
+  payQuantity: number;
   siteId: string;
   targetKind: PromotionTargetKind;
   productId: string;
@@ -51,13 +65,20 @@ interface PromotionDraft {
   minQuantity: number;
   startsAt: string;
   endsAt: string;
+  scheduleDays: number[];
+  scheduleStartTime: string;
+  scheduleEndTime: string;
   priority: number;
   combinable: boolean;
 }
 
 const EMPTY_DRAFT: PromotionDraft = {
   name: '',
+  ruleKind: 'percentage',
   discountPct: 10,
+  discountAmount: 1000,
+  buyQuantity: 2,
+  payQuantity: 1,
   siteId: '',
   targetKind: 'all',
   productId: '',
@@ -68,6 +89,9 @@ const EMPTY_DRAFT: PromotionDraft = {
   minQuantity: 1,
   startsAt: '',
   endsAt: '',
+  scheduleDays: [],
+  scheduleStartTime: '',
+  scheduleEndTime: '',
   priority: 0,
   combinable: false,
 };
@@ -84,7 +108,11 @@ function toLocalDateTime(value: string | null): string {
 function fromRecord(record: PromotionRecord): PromotionDraft {
   return {
     name: record.name,
+    ruleKind: record.ruleKind ?? 'percentage',
     discountPct: record.discountPct,
+    discountAmount: record.discountAmount ?? 1000,
+    buyQuantity: record.buyQuantity ?? 2,
+    payQuantity: record.payQuantity ?? 1,
     siteId: record.siteId ?? '',
     targetKind: record.productId ? 'product' : record.categoryId ? 'category' : 'all',
     productId: record.productId ?? '',
@@ -95,6 +123,9 @@ function fromRecord(record: PromotionRecord): PromotionDraft {
     minQuantity: record.minQuantity,
     startsAt: toLocalDateTime(record.startsAt),
     endsAt: toLocalDateTime(record.endsAt),
+    scheduleDays: record.scheduleDays ?? [],
+    scheduleStartTime: record.scheduleStartTime ?? '',
+    scheduleEndTime: record.scheduleEndTime ?? '',
     priority: record.priority,
     combinable: record.combinable,
   };
@@ -205,11 +236,26 @@ export function PromotionsPage() {
     setIsFormOpen(true);
   };
 
-  const formIsValid = useMemo(
-    () =>
+  const formIsValid = useMemo(() => {
+    const ruleValid =
+      draft.ruleKind === 'percentage'
+        ? draft.discountPct > 0 && draft.discountPct <= 100
+        : draft.ruleKind === 'fixed_amount'
+          ? draft.discountAmount > 0
+          : Number.isInteger(draft.buyQuantity) &&
+            Number.isInteger(draft.payQuantity) &&
+            draft.buyQuantity >= 2 &&
+            draft.payQuantity >= 1 &&
+            draft.payQuantity < draft.buyQuantity;
+    const scheduleTimeValid =
+      (!draft.scheduleStartTime && !draft.scheduleEndTime) ||
+      (Boolean(draft.scheduleStartTime) &&
+        Boolean(draft.scheduleEndTime) &&
+        draft.scheduleStartTime !== draft.scheduleEndTime);
+    return (
       draft.name.trim().length > 0 &&
-      draft.discountPct > 0 &&
-      draft.discountPct <= 100 &&
+      ruleValid &&
+      scheduleTimeValid &&
       draft.minQuantity > 0 &&
       (draft.targetKind !== 'product' || draft.productId.length > 0) &&
       (draft.targetKind !== 'category' || draft.categoryId.length > 0) &&
@@ -218,22 +264,32 @@ export function PromotionsPage() {
       // targeting. Typing clears customerId, so saving here would send null
       // and silently turn an intended targeted promotion into an
       // all-customer one. Either the box is empty, or a customer is picked.
-      (customerQuery.trim().length === 0 || draft.customerId.length > 0),
-    [draft, customerQuery]
-  );
+      (customerQuery.trim().length === 0 || draft.customerId.length > 0)
+    );
+  }, [draft, customerQuery]);
 
   const save = async () => {
     if (!formIsValid) return;
     const rule = {
       name: draft.name.trim(),
-      discountPct: draft.discountPct,
+      ruleKind: draft.ruleKind,
+      discountPct: draft.ruleKind === 'percentage' ? draft.discountPct : undefined,
+      discountAmount: draft.ruleKind === 'fixed_amount' ? draft.discountAmount : null,
+      buyQuantity: draft.ruleKind === 'nxm' ? draft.buyQuantity : null,
+      payQuantity: draft.ruleKind === 'nxm' ? draft.payQuantity : null,
       siteId: draft.siteId || null,
       productId: draft.targetKind === 'product' ? draft.productId : null,
       categoryId: draft.targetKind === 'category' ? draft.categoryId : null,
       customerId: draft.customerId || null,
-      minQuantity: draft.minQuantity,
+      minQuantity:
+        draft.ruleKind === 'nxm'
+          ? Math.max(draft.minQuantity, draft.buyQuantity)
+          : draft.minQuantity,
       startsAt: draft.startsAt ? new Date(draft.startsAt).toISOString() : null,
       endsAt: draft.endsAt ? new Date(draft.endsAt).toISOString() : null,
+      scheduleDays: draft.scheduleDays.length > 0 ? [...draft.scheduleDays].sort() : null,
+      scheduleStartTime: draft.scheduleStartTime || null,
+      scheduleEndTime: draft.scheduleEndTime || null,
       priority: draft.priority,
       combinable: draft.combinable,
     };
@@ -323,7 +379,16 @@ export function PromotionsPage() {
                     )}
                   </div>
                   <p className="mt-2 text-2xl font-semibold text-primary-700">
-                    {t('promotions:discount', { value: record.discountPct })}
+                    {record.ruleKind === 'nxm' && record.buyQuantity && record.payQuantity
+                      ? t('promotions:nxmDiscount', {
+                          buy: record.buyQuantity,
+                          pay: record.payQuantity,
+                        })
+                      : record.ruleKind === 'fixed_amount' && record.discountAmount
+                        ? t('promotions:fixedDiscount', {
+                            amount: formatCurrency(record.discountAmount),
+                          })
+                        : t('promotions:discount', { value: record.discountPct })}
                   </p>
                 </div>
                 {record.source === 'manual' && ['draft', 'paused'].includes(record.status) && (
@@ -363,6 +428,24 @@ export function PromotionsPage() {
                   {t('promotions:window', {
                     start: record.startsAt ? formatDateTime(new Date(record.startsAt)) : '—',
                     end: record.endsAt ? formatDateTime(new Date(record.endsAt)) : '—',
+                  })}
+                </p>
+              )}
+              {((record.scheduleDays && record.scheduleDays.length > 0) ||
+                (record.scheduleStartTime && record.scheduleEndTime)) && (
+                <p className="mt-2 flex items-center gap-2 text-xs text-fg3">
+                  <CalendarClock className="h-4 w-4" aria-hidden="true" />
+                  {t('promotions:scheduleSummary', {
+                    days:
+                      record.scheduleDays && record.scheduleDays.length > 0
+                        ? record.scheduleDays
+                            .map(day => t(`promotions:fields.days.${day}`))
+                            .join(', ')
+                        : t('promotions:scheduleEveryDay'),
+                    time:
+                      record.scheduleStartTime && record.scheduleEndTime
+                        ? ` · ${record.scheduleStartTime}–${record.scheduleEndTime}`
+                        : '',
                   })}
                 </p>
               )}
@@ -460,27 +543,107 @@ export function PromotionsPage() {
               onChange={event => setDraft(current => ({ ...current, name: event.target.value }))}
             />
           </label>
-          <label>
-            <span className="label">{t('promotions:fields.discount')}</span>
-            <input
+          <label className="sm:col-span-2">
+            <span className="label">{t('promotions:fields.ruleKind')}</span>
+            <select
               className="input mt-1"
-              type="number"
-              min={0.01}
-              max={100}
-              step={0.01}
-              value={draft.discountPct}
-              onChange={event =>
-                setDraft(current => ({ ...current, discountPct: Number(event.target.value) }))
-              }
-            />
+              data-testid="promotion-rule-kind"
+              value={draft.ruleKind}
+              onChange={event => {
+                const nextKind = event.target.value as PromotionRuleKind;
+                setDraft(current => ({
+                  ...current,
+                  ruleKind: nextKind,
+                  minQuantity:
+                    nextKind === 'nxm'
+                      ? Math.max(current.minQuantity, current.buyQuantity)
+                      : current.minQuantity,
+                }));
+              }}
+            >
+              <option value="percentage">{t('promotions:fields.ruleKinds.percentage')}</option>
+              <option value="fixed_amount">{t('promotions:fields.ruleKinds.fixed_amount')}</option>
+              <option value="nxm">{t('promotions:fields.ruleKinds.nxm')}</option>
+            </select>
           </label>
+          {draft.ruleKind === 'percentage' && (
+            <label>
+              <span className="label">{t('promotions:fields.discount')}</span>
+              <input
+                className="input mt-1"
+                type="number"
+                min={0.01}
+                max={100}
+                step={0.01}
+                value={draft.discountPct}
+                onChange={event =>
+                  setDraft(current => ({ ...current, discountPct: Number(event.target.value) }))
+                }
+              />
+            </label>
+          )}
+          {draft.ruleKind === 'fixed_amount' && (
+            <label>
+              <span className="label">{t('promotions:fields.discountAmount')}</span>
+              <input
+                className="input mt-1"
+                data-testid="promotion-discount-amount"
+                type="number"
+                min={0.01}
+                step={0.01}
+                value={draft.discountAmount}
+                onChange={event =>
+                  setDraft(current => ({ ...current, discountAmount: Number(event.target.value) }))
+                }
+              />
+            </label>
+          )}
+          {draft.ruleKind === 'nxm' && (
+            <>
+              <label>
+                <span className="label">{t('promotions:fields.buyQuantity')}</span>
+                <input
+                  className="input mt-1"
+                  data-testid="promotion-buy-qty"
+                  type="number"
+                  min={2}
+                  max={100}
+                  step={1}
+                  value={draft.buyQuantity}
+                  onChange={event => {
+                    const buy = Number(event.target.value);
+                    setDraft(current => ({
+                      ...current,
+                      buyQuantity: buy,
+                      minQuantity: Math.max(current.minQuantity, Number.isFinite(buy) ? buy : 2),
+                    }));
+                  }}
+                />
+              </label>
+              <label>
+                <span className="label">{t('promotions:fields.payQuantity')}</span>
+                <input
+                  className="input mt-1"
+                  data-testid="promotion-pay-qty"
+                  type="number"
+                  min={1}
+                  max={99}
+                  step={1}
+                  value={draft.payQuantity}
+                  onChange={event =>
+                    setDraft(current => ({ ...current, payQuantity: Number(event.target.value) }))
+                  }
+                />
+              </label>
+            </>
+          )}
           <label>
             <span className="label">{t('promotions:fields.minimum')}</span>
             <input
               className="input mt-1"
               type="number"
-              min={0.001}
-              step={0.001}
+              min={draft.ruleKind === 'nxm' ? draft.buyQuantity : 0.001}
+              step={draft.ruleKind === 'nxm' ? 1 : 0.001}
               value={draft.minQuantity}
               onChange={event =>
                 setDraft(current => ({ ...current, minQuantity: Number(event.target.value) }))
@@ -646,6 +809,69 @@ export function PromotionsPage() {
               onChange={event => setDraft(current => ({ ...current, endsAt: event.target.value }))}
             />
           </label>
+          <fieldset className="rounded-xl border border-line p-3 sm:col-span-2">
+            <legend className="px-1 text-sm font-medium text-fg">
+              {t('promotions:fields.schedule')}
+            </legend>
+            <div
+              className="mt-1 flex flex-wrap gap-1.5"
+              role="group"
+              aria-label={t('promotions:fields.scheduleDays')}
+            >
+              {WEEKDAYS.map(day => {
+                const active = draft.scheduleDays.includes(day);
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    data-testid={`promotion-day-${day}`}
+                    aria-pressed={active}
+                    className={
+                      active
+                        ? 'rounded-lg border border-primary-600 bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white'
+                        : 'rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-medium text-fg2 hover:bg-surface-2'
+                    }
+                    onClick={() =>
+                      setDraft(current => ({
+                        ...current,
+                        scheduleDays: active
+                          ? current.scheduleDays.filter(value => value !== day)
+                          : [...current.scheduleDays, day].sort(),
+                      }))
+                    }
+                  >
+                    {t(`promotions:fields.days.${day}`)}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label>
+                <span className="label">{t('promotions:fields.scheduleStartTime')}</span>
+                <input
+                  className="input mt-1"
+                  data-testid="promotion-schedule-start"
+                  type="time"
+                  value={draft.scheduleStartTime}
+                  onChange={event =>
+                    setDraft(current => ({ ...current, scheduleStartTime: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                <span className="label">{t('promotions:fields.scheduleEndTime')}</span>
+                <input
+                  className="input mt-1"
+                  data-testid="promotion-schedule-end"
+                  type="time"
+                  value={draft.scheduleEndTime}
+                  onChange={event =>
+                    setDraft(current => ({ ...current, scheduleEndTime: event.target.value }))
+                  }
+                />
+              </label>
+            </div>
+          </fieldset>
           <label>
             <span className="label">{t('promotions:fields.priority')}</span>
             <input

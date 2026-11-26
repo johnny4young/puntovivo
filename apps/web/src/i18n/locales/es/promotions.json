@@ -7,6 +7,10 @@
   "loading": "Cargando promociones…",
   "error": "No se pudieron cargar las promociones.",
   "discount": "{{value}}% de descuento",
+  "fixedDiscount": "{{amount}} de descuento",
+  "nxmDiscount": "Lleva {{buy}}, paga {{pay}}",
+  "scheduleSummary": "{{days}}{{time}}",
+  "scheduleEveryDay": "Todos los días",
   "window": "Desde {{start}} hasta {{end}}",
   "filter": {
     "label": "Filtrar promociones por estado",
@@ -38,7 +42,16 @@
   },
   "fields": {
     "name": "Nombre de la promoción",
+    "ruleKind": "Tipo de regla",
+    "ruleKinds": {
+      "percentage": "Porcentaje (%)",
+      "fixed_amount": "Monto fijo ($)",
+      "nxm": "Lleva N, paga M (2×1, 3×2)"
+    },
     "discount": "Porcentaje de descuento",
+    "discountAmount": "Monto fijo de descuento",
+    "buyQuantity": "Cantidad a llevar (N)",
+    "payQuantity": "Cantidad a pagar (M)",
     "minimum": "Cantidad mínima",
     "site": "Sede",
     "target": "Alcance de productos",
@@ -47,6 +60,19 @@
     "customer": "Alcance de clientes",
     "startsAt": "Inicia",
     "endsAt": "Finaliza",
+    "schedule": "Horario recurrente (opcional)",
+    "scheduleDays": "Días activos",
+    "scheduleStartTime": "Hora de inicio",
+    "scheduleEndTime": "Hora de fin",
+    "days": {
+      "0": "Dom",
+      "1": "Lun",
+      "2": "Mar",
+      "3": "Mié",
+      "4": "Jue",
+      "5": "Vie",
+      "6": "Sáb"
+    },
     "priority": "Prioridad",
     "combinable": "Se puede combinar",
     "combinableHelp": "Solo se combina con otras reglas combinables que apliquen. La prioridad conserva el orden."
