@@ -2,7 +2,7 @@
 
 **Idioma:** Español · [English](../PROJECT-STATUS.md)
 
-> Actualizado: 2026-09-22. Esta es la fuente pública de referencia sobre las
+> Actualizado: 2026-11-26. Esta es la fuente pública de referencia sobre las
 > capacidades entregadas y la preparación para publicar versiones. La priorización
 > interna, las estimaciones y las notas de ejecución permanecen en un archivo
 > privado de planificación ignorado por Git.
@@ -433,10 +433,21 @@ El candidato validado actual incluye:
 - fundamentos fiscales de Colombia y paquetes documentales en borrador para
   México y Chile. El simulador de Colombia puede conservar un borrador UBL 2.1
   local sin firma ni transmisión con el código de unidad UN/ECE congelado; es
-  evidencia de desarrollo, no un documento firmado por un proveedor. Ningún
-  paquete está certificado todavía para transmisión en producción;
-- destinos Electron 45 y navegador que comparten el mismo núcleo React, Fastify,
-  tRPC y SQLite.
+  evidencia de desarrollo, no un documento firmado por un proveedor. El paquete
+  de Colombia incluye además agrupación estructural UBL 2.1 (`TaxSubtotal` por
+  `01` IVA / `04` INC e identidad `LegalMonetaryTotal`), firmador local
+  `XAdES-EPES` y transporte `WS-Security` SOAP 1.2 con Contingencia tipo 08
+  (`ColombiaDianAdapter`, madurez `draft` hasta completar certificación en vivo
+  en `vpfe-hab`). Ningún paquete está certificado todavía para transmisión en
+  producción;
+- destinos Electron 45 (con el servidor Fastify + tRPC + SQLCipher aislado en
+  `worker_threads`, política de instalación segura; el verificador `Ed25519` para
+  artefactos Linux existe pero aún no está conectado al actualizador) y navegador
+  que comparten el mismo núcleo React, Fastify, tRPC y SQLite;
+- redondeo configurable de efectivo COP (`$ 50`) con cuadre de ajuste por
+  redondeo en exportación contable, barra de cobro simplificada en `/sales` con
+  menú de turno en cabecera, cobro completo en `/touch` y contraste WCAG AA en
+  modo oscuro.
 
 ## Veredicto de preparación
 

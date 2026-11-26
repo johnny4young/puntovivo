@@ -1,10 +1,10 @@
 {
   "ui": {
     "kicker": "Manual de usuario",
-    "title": "Lleva tu negocio, paso a paso.",
-    "lead": "Configura Puntovivo, prepara tu caja y resuelve las tareas del día. Guía para dueños, gerentes y cajeros.",
+    "title": "Lleve su negocio, paso a paso.",
+    "lead": "Configure Puntovivo, prepare su caja y resuelva las tareas del día. Guía para dueños, gerentes y cajeros.",
     "home": "Inicio",
-    "index": "Elige una tarea",
+    "index": "Elija una tarea",
     "resources": [
       ["/migracion", "Importar un catálogo"],
       ["/atajos", "Atajos de teclado"],
@@ -15,21 +15,21 @@
     "skip": "Ir a las tareas",
     "search": "Buscar en el manual",
     "placeholder": "Ej.: abrir caja, impresora, impuestos…",
-    "searchHint": "Busca palabras del título o del contenido. La búsqueda funciona en este idioma y no envía consultas a un servidor.",
+    "searchHint": "Busque palabras del título o del contenido. La búsqueda funciona en este idioma y no envía consultas a un servidor.",
     "clear": "Mostrar todas las tareas",
     "results": "{count} tareas encontradas",
-    "empty": "No encontramos esa búsqueda. Prueba con caja, productos o respaldo.",
+    "empty": "No encontramos esa búsqueda. Pruebe con caja, productos o respaldo.",
     "steps": "Qué hacer",
     "check": "Antes de continuar",
-    "related": "Continúa con",
+    "related": "Continúe con",
     "source": "Referencia técnica",
-    "versionTitle": "Comprueba tu versión",
-    "version": "Referencia: v1.15.2, publicada el 15 de octubre de 2026. Revisado el 15 de octubre de 2026. Las pantallas pueden variar según tu rol, sede, módulos y versión instalada. Si todavía usas v1.15.1, la tarea de impresión indica qué cambia al actualizar.",
-    "help": "¿Necesitas ayuda?",
-    "helpText": "Anota la versión, plataforma, sede, acción y mensaje de error. Comparte solo diagnósticos redactados; omite contraseñas, claves y datos de clientes.",
+    "versionTitle": "Compruebe su versión",
+    "version": "Referencia: v1.19.0, actualizada el 26 de noviembre de 2026. Las pantallas pueden variar según su rol, sede, módulos y versión instalada. Si todavía usa v1.15.1, la tarea de impresión indica qué cambia al actualizar.",
+    "help": "¿Necesita ayuda?",
+    "helpText": "Anote la versión, plataforma, sede, acción y mensaje de error. Comparta solo diagnósticos redactados; omita contraseñas, claves y datos de clientes.",
     "contact": "Ver canales de contacto",
-    "nojs": "Sin JavaScript puedes leer todas las tareas y usar el índice o la búsqueda de tu navegador.",
-    "platformTitle": "Elige la superficie adecuada",
+    "nojs": "Sin JavaScript puede leer todas las tareas y usar el índice o la búsqueda de su navegador.",
+    "platformTitle": "Elija la superficie adecuada",
     "platforms": [
       [
         "Escritorio",
@@ -50,17 +50,17 @@
   "tasks": [
     {
       "id": "start",
-      "title": "Instalar y crear tu negocio",
+      "title": "Instalar y crear su negocio",
       "where": "Primera apertura · administrador",
-      "intro": "Una instalación nueva te pide crear el negocio y su propietario. Si ya existe un negocio, inicia sesión con una cuenta activa.",
+      "intro": "Una instalación nueva le pide crear el negocio y su propietario. Si ya existe un negocio, inicie sesión con una cuenta activa.",
       "steps": [
-        "Descarga el instalador de tu plataforma desde Versiones. Conserva tu instalación y tus respaldos al actualizar; no borres datos para volver a ver el asistente.",
-        "En la primera apertura elige el idioma. Ingresa nombre del negocio, primera sede, país y perfil de negocio. El país propone moneda y configuración regional; no crea autorizaciones fiscales.",
-        "Ingresa nombre y correo del propietario. Crea y confirma una contraseña de al menos 12 caracteres con mayúscula, minúscula, número y carácter especial.",
-        "En escritorio completa el asistente en la ventana principal. En web, el operador debe iniciar el servidor y abrir Puntovivo en ese mismo equipo; usa el código privado de instalación que aparece al iniciarlo. No es un registro remoto.",
-        "Inicia sesión con la cuenta elegida. Si se perdió la respuesta al crearla, intenta iniciar sesión antes de repetir el proceso."
+        "Descargue el instalador de su plataforma desde Versiones. Conserve su instalación y sus respaldos al actualizar; no borre datos para volver a ver el asistente.",
+        "En la primera apertura elija el idioma. Ingrese nombre del negocio, primera sede, país y perfil de negocio. El país propone moneda y configuración regional; no crea autorizaciones fiscales.",
+        "Ingrese nombre y correo del propietario. Cree y confirme una contraseña de al menos 12 caracteres con mayúscula, minúscula, número y carácter especial.",
+        "En escritorio complete el asistente en la ventana principal. En web, el operador debe iniciar el servidor y abrir Puntovivo en ese mismo equipo; use el código privado de instalación que aparece al iniciarlo. No es un registro remoto.",
+        "Inicie sesión con la cuenta elegida. Si se perdió la respuesta al crearla, intente iniciar sesión antes de repetir el proceso."
       ],
-      "check": "La cuenta propietaria no significa que el negocio esté listo para vender. Continúa con la configuración guiada. Si olvidas la contraseña, usa ¿Olvidaste tu contraseña? en la pantalla de ingreso; no elimines la base de datos.",
+      "check": "La cuenta propietaria no significa que el negocio esté listo para vender. Continúe con la configuración guiada. Si olvida la contraseña, use ¿Olvidó su contraseña? en la pantalla de ingreso; no elimine la base de datos.",
       "related": ["setup", "users"],
       "source": "docs/LOGIN_GUIDE.md"
     },
@@ -68,13 +68,13 @@
       "id": "setup",
       "title": "Completar la configuración inicial",
       "where": "Empresa → Configuración guiada · administrador",
-      "intro": "La guía reúne Tipo de negocio, Negocio, Ventas, Fiscal, Pagos y Dispositivos. Resuelve cada decisión marcada como obligatoria.",
+      "intro": "La guía reúne Tipo de negocio, Negocio, Ventas, Fiscal, Pagos y Dispositivos. Resuelva cada decisión marcada como obligatoria.",
       "steps": [
-        "Abre Empresa y revisa la configuración guiada. Usa Resolver ahora para llegar al dato pendiente.",
-        "Verifica país, moneda, identidad y datos de contacto en Empresa; revisa la primera sede y su estado en Sedes.",
-        "Prepara productos y numeración en Productos y Consecutivos. Revisa el prefijo y la numeración de cada sede antes del primer cobro.",
-        "Prepara usuarios y acceso por sede. En Ventas selecciona la sede y el registro que vas a operar; registra la apertura de caja.",
-        "Revisa Fiscal solo con la información y autorizaciones reales del negocio. Configura otros medios de pago y dispositivos cuando los necesites; la guía distingue lo opcional de lo obligatorio."
+        "Abra Empresa y revise la configuración guiada. Use Resolver ahora para llegar al dato pendiente.",
+        "Verifique país, moneda, identidad y datos de contacto en Empresa; revise la primera sede y su estado en Sedes.",
+        "Prepare productos y numeración en Productos y Consecutivos. Revise el prefijo y la numeración de cada sede antes del primer cobro.",
+        "Prepare usuarios y acceso por sede. En Ventas seleccione la sede y el registro que va a operar; registre la apertura de caja.",
+        "Revise Fiscal solo con la información y autorizaciones reales del negocio. Configure otros medios de pago y dispositivos cuando los necesite; la guía distingue lo opcional de lo obligatorio."
       ],
       "check": "El indicador de base operativa lista es una ayuda de configuración: no certifica obligaciones legales, facturación electrónica ni hardware. El catálogo de impuestos de ejemplo debe revisarse antes de usarlo.",
       "related": ["profiles", "products", "cash"],
@@ -84,15 +84,15 @@
       "id": "profiles",
       "title": "Elegir o activar un tipo de negocio",
       "where": "Empresa → Módulos · administrador",
-      "intro": "Hay siete perfiles. Un perfil ajusta herramientas visibles; no crea otra empresa, no transforma tu catálogo y no concede certificaciones.",
+      "intro": "Hay siete perfiles. Un perfil ajusta herramientas visibles; no crea otra empresa, no transforma su catálogo y no concede certificaciones.",
       "steps": [
-        "En la guía usa ¿Qué vendes? o abre Empresa → Módulos. Elige el perfil que corresponda a tu operación.",
-        "Revisa los interruptores después de aplicar el perfil. Puedes activar módulos disponibles de forma individual. No disponible no se puede habilitar mediante ese control.",
-        "Configura los recursos de cada herramienta: activar una pantalla no crea mesas, productos, recetas, lotes ni permisos profesionales.",
-        "Para combinar actividades elige un perfil base y ajusta sus módulos. Aplicar otro perfil puede cambiar varios interruptores: compruébalos antes de operar.",
-        "Antes de desactivar Servicio en mesa, resuelve el trabajo abierto en mesas. Desactivar un módulo conserva sus datos e historial, pero oculta la pantalla y bloquea su uso."
+        "En la guía use ¿Qué vende? o abra Empresa → Módulos. Elija el perfil que corresponda a su operación.",
+        "Revise los interruptores después de aplicar el perfil. Puede activar módulos disponibles de forma individual. No disponible no se puede habilitar mediante ese control.",
+        "Configure los recursos de cada herramienta: activar una pantalla no crea mesas, productos, recetas, lotes ni permisos profesionales.",
+        "Para combinar actividades elija un perfil base y ajuste sus módulos. Aplicar otro perfil puede cambiar varios interruptores: compruébelos antes de operar.",
+        "Antes de desactivar Servicio en mesa, resuelva el trabajo abierto en mesas. Desactivar un módulo conserva sus datos e historial, pero oculta la pantalla y bloquea su uso."
       ],
-      "check": "Los perfiles conservan tus ajustes de IA y eventos. Pantalla cliente queda apagada en todos los perfiles y se activa expresamente. Los permisos por rol siguen aplicándose.",
+      "check": "Los perfiles conservan sus ajustes de IA y eventos. Pantalla cliente queda apagada en todos los perfiles y se activa expresamente. Los permisos por rol siguen aplicándose.",
       "related": ["products", "inventory", "users"],
       "source": "packages/server/src/services/modules/presets.ts",
       "details": [
@@ -102,7 +102,7 @@
         ],
         [
           "Restaurante",
-          "Activa POS Táctil, cocina KDS, Móvil mesero y Servicio en mesa. Configura mesas, estaciones y rutas de cocina. Mesero móvil y pedidos por voz requieren también Servicio en mesa."
+          "Activa POS Táctil, cocina KDS, Móvil mesero y Servicio en mesa. Configure mesas, estaciones y rutas de cocina. Mesero móvil y pedidos por voz requieren también Servicio en mesa."
         ],
         [
           "Comida rápida / café",
@@ -114,15 +114,15 @@
         ],
         [
           "Ferretería",
-          "Activa cotizaciones. Al crear productos puedes elegir plantillas de longitud, serie o lote; el perfil no cambia existencias."
+          "Activa cotizaciones. Al crear productos puede elegir plantillas de longitud, serie o lote; el perfil no cambia existencias."
         ],
         [
           "Carnicería",
-          "Activa POS Táctil. Configura explícitamente unidades de masa, productos, lotes y etiquetas de peso/precio; las recetas y transformaciones no se crean por elegir el perfil."
+          "Activa POS Táctil. Configure explícitamente unidades de masa, productos, lotes y etiquetas de peso/precio; las recetas y transformaciones no se crean por elegir el perfil."
         ],
         [
           "Droguería / farmacia",
-          "Perfil de mostrador. Configura la ficha de medicamento, lotes, política del país, evidencia de prescripción y personal autorizado cuando corresponda. Medicamentos controlados siguen bloqueados; la prescripción fuera de países con adaptador revisado también. No es una habilitación sanitaria."
+          "Perfil de mostrador. Configure la ficha de medicamento, lotes, política del país, evidencia de prescripción y personal autorizado cuando corresponda. Medicamentos controlados siguen bloqueados; la prescripción fuera de países con adaptador revisado también. No es una habilitación sanitaria."
         ]
       ]
     },
@@ -130,15 +130,15 @@
       "id": "products",
       "title": "Crear productos, precios e impuestos",
       "where": "Productos · administrador / gerente según la acción",
-      "intro": "Prepara un catálogo pequeño y comprueba una venta antes de cargar todo el negocio.",
+      "intro": "Prepare un catálogo pequeño y compruebe una venta antes de cargar todo el negocio.",
       "steps": [
-        "Crea un producto con nombre, código o código de barras y unidad base. Marca si controla inventario; los servicios sin stock pueden venderse y no se abastecen como mercancía.",
-        "Configura precio, costo e impuestos aplicables, y si el precio incluye impuestos. Usa tasas verificadas para tu negocio; los catálogos de ejemplo no determinan tus obligaciones.",
-        "Si vendes por empaque o medida, configura unidades alternativas y sus conversiones. Revisa los tres niveles de precio cuando los uses.",
-        "Para clientes con nivel de precio, aplica ese nivel expresamente al ticket. Seleccionar al cliente no cambia silenciosamente un ticket abierto.",
-        "Para importar, abre la guía de migración: prepara el archivo CSV o Excel, mapea columnas, revisa la vista previa y confirma. El límite es de 2.000 productos por archivo, con hasta tres niveles de precio."
+        "Cree un producto con nombre, código o código de barras y unidad base. Marque si controla inventario; los servicios sin stock pueden venderse y no se abastecen como mercancía.",
+        "Configure precio, costo e impuestos aplicables, y si el precio incluye impuestos. Use tasas verificadas para su negocio; los catálogos de ejemplo no determinan sus obligaciones.",
+        "Si vende por empaque o medida, configure unidades alternativas y sus conversiones. Revise los tres niveles de precio cuando los use.",
+        "Para clientes con nivel de precio, aplique ese nivel expresamente al ticket. Seleccionar al cliente no cambia silenciosamente un ticket abierto.",
+        "Para importar, abra la guía de migración: prepare el archivo CSV o Excel, mapee columnas, revise la vista previa y confirme. El límite es de 2.000 productos por archivo, con hasta tres niveles de precio."
       ],
-      "check": "El precio de venta, el costo y el saldo físico son datos distintos. Revisa unidades, impuestos y totales antes de confirmar; no uses un ajuste de precio como corrección de inventario.",
+      "check": "El precio de venta, el costo y el saldo físico son datos distintos. Revise unidades, impuestos y totales antes de confirmar; no use un ajuste de precio como corrección de inventario.",
       "related": ["inventory", "sales"],
       "source": "docs/INVENTORY-MODEL.md"
     },
@@ -148,13 +148,13 @@
       "where": "Inventario, Compras y Transferencias · gerente / administrador",
       "intro": "El stock pertenece a una sede. Tener existencias en otra sede no aumenta el saldo de la sede activa.",
       "steps": [
-        "Confirma la sede activa antes de consultar stock, movimientos o realizar una recepción.",
-        "Registra el ingreso con una compra o recepción del pedido. Para productos con lotes captura la identidad concreta del lote y su vencimiento cuando corresponda; para productos serializados registra las series exactas.",
-        "Para mover mercancía entre sedes usa Transferencias. Revisa cantidades enviadas, recibidas y diferencias; no simules el traslado con una venta.",
-        "Para comparar el almacén con el sistema usa un conteo físico. Cuenta las unidades, lotes o series solicitadas y envía el conteo; la aprobación requiere que su base siga vigente.",
-        "Consulta movimientos ante diferencias. Para devolver al proveedor, abre la compra y revisa tanto lo pendiente de devolver como lo físicamente disponible en la sede."
+        "Confirme la sede activa antes de consultar stock, movimientos o realizar una recepción.",
+        "Registre el ingreso con una compra o recepción del pedido. Para productos con lotes capture la identidad concreta del lote y su vencimiento cuando corresponda; para productos serializados registre las series exactas.",
+        "Para mover mercancía entre sedes use Transferencias. Revise cantidades enviadas, recibidas y diferencias; no simule el traslado con una venta.",
+        "Para comparar el almacén con el sistema use un conteo físico. Cuente las unidades, lotes o series solicitadas y envíe el conteo; la aprobación requiere que su base siga vigente.",
+        "Consulte movimientos ante diferencias. Para devolver al proveedor, abra la compra y revise tanto lo pendiente de devolver como lo físicamente disponible en la sede."
       ],
-      "check": "No cambies el modo de seguimiento para eludir lotes, series o mercancía en tránsito. Los lotes bloqueados o en cuarentena no se vuelven vendibles mediante una devolución. Las sugerencias de reposición crean borradores solo cuando un operador lo decide.",
+      "check": "No cambie el modo de seguimiento para eludir lotes, series o mercancía en tránsito. Los lotes bloqueados o en cuarentena no se vuelven vendibles mediante una devolución. Las sugerencias de reposición crean borradores solo cuando un operador lo decide.",
       "related": ["purchasing", "sales"],
       "source": "docs/INVENTORY-MODEL.md"
     },
@@ -164,13 +164,13 @@
       "where": "Compras, Proveedores y Cotizaciones · gerente / administrador",
       "intro": "Un pedido no recibido no equivale a inventario disponible. Una compra histórica tampoco se convierte automáticamente en deuda.",
       "steps": [
-        "Revisa o registra el proveedor y crea una compra directa o un pedido. Comprueba la sede receptora y los costos.",
-        "Envía el pedido explícitamente y registra su recepción cuando llegue la mercancía. Captura lotes o series según el producto.",
-        "Si usas sugerencias por stock mínimo, elige proveedor y revisa el borrador antes de enviarlo; no se hace un pedido automático.",
-        "En cuentas de proveedor registra facturas, saldos iniciales, pagos o créditos explícitos y revisa vencimientos y estado de cuenta.",
-        "Activa Cotizaciones en Módulos si la necesitas. Una cotización aceptada puede llevarse a la caja y convertirse una sola vez en venta bajo sus condiciones."
+        "Revise o registre el proveedor y cree una compra directa o un pedido. Compruebe la sede receptora y los costos.",
+        "Envíe el pedido explícitamente y registre su recepción cuando llegue la mercancía. Capture lotes o series según el producto.",
+        "Si usa sugerencias por stock mínimo, elija proveedor y revise el borrador antes de enviarlo; no se hace un pedido automático.",
+        "En cuentas de proveedor registre facturas, saldos iniciales, pagos o créditos explícitos y revise vencimientos y estado de cuenta.",
+        "Active Cotizaciones en Módulos si la necesita. Una cotización aceptada puede llevarse a la caja y convertirse una sola vez en venta bajo sus condiciones."
       ],
-      "check": "Revisa cantidades y costos antes de recibir. Para corregir mercancía ya recibida usa el flujo de devolución a proveedor y conserva su vínculo con la compra.",
+      "check": "Revise cantidades y costos antes de recibir. Para corregir mercancía ya recibida use el flujo de devolución a proveedor y conserve su vínculo con la compra.",
       "related": ["inventory", "cash"],
       "source": "docs/PROJECT-STATUS.md"
     },
@@ -178,15 +178,15 @@
       "id": "cash",
       "title": "Abrir, mover y cerrar caja",
       "where": "Ventas → Caja · cajero, gerente o administrador",
-      "intro": "Para cobrar o reembolsar necesitas una sesión de caja activa en la sede y con el usuario correctos.",
+      "intro": "Para cobrar o reembolsar necesita una sesión de caja activa en la sede y con el usuario correctos.",
       "steps": [
-        "En Ventas selecciona un registro disponible. Si no hay registros asignables, pide al administrador que revise la configuración de caja y sede.",
-        "Pulsa Abrir caja. Registra la base de apertura y las cantidades de billetes y monedas; el total contado debe coincidir con esa base.",
-        "Durante el turno usa Registrar movimiento para ingresos, salidas, retiros o reposición de cambio y conserva el motivo.",
-        "Al terminar, pulsa Cerrar caja y cuenta todo el cajón por denominaciones. En cierre ciego no ves el saldo esperado hasta enviar el conteo; un gerente o administrador puede tener cierre supervisado.",
-        "Envía el conteo y revisa el resultado: cuadrada, sobrante o faltante. El responsable revisa el reporte de Control de caja y los movimientos del turno."
+        "En Ventas seleccione un registro disponible. Si no hay registros asignables, pida al administrador que revise la configuración de caja y sede.",
+        "Pulse Abrir caja. Registre la base de apertura y las cantidades de billetes y monedas; el total contado debe coincidir con esa base.",
+        "Durante el turno use Registrar movimiento para ingresos, salidas, retiros o reposición de cambio y conserve el motivo.",
+        "Al terminar, pulse Cerrar caja y cuente todo el cajón por denominaciones. En cierre ciego no ve el saldo esperado hasta enviar el conteo; un gerente o administrador puede tener cierre supervisado.",
+        "Envíe el conteo y revise el resultado: cuadrada, sobrante o faltante. El responsable revisa el reporte de Control de caja y los movimientos del turno."
       ],
-      "check": "Un registro ocupado por otra persona no está disponible para una segunda apertura. Ante una diferencia revisa efectivo, devoluciones y movimientos; no registres una venta ficticia para cuadrar.",
+      "check": "Un registro ocupado por otra persona no está disponible para una segunda apertura. Ante una diferencia revise efectivo, devoluciones y movimientos; no registre una venta ficticia para cuadrar.",
       "related": ["sales", "returns"],
       "source": "apps/web/src/i18n/locales/es/sales.json"
     },
@@ -194,15 +194,15 @@
       "id": "sales",
       "title": "Cobrar y recuperar una venta pendiente",
       "where": "Ventas · cajero, gerente o administrador",
-      "intro": "Confirma sede y caja antes de empezar. Los permisos y módulos pueden cambiar las acciones disponibles.",
+      "intro": "Confirme sede y caja antes de empezar. Los permisos y módulos pueden cambiar las acciones disponibles.",
       "steps": [
-        "Busca o escanea el producto y confirma cantidad, unidad y precio. Para lotes o series selecciona la identidad solicitada.",
-        "Agrega el cliente cuando corresponda. Revisa impuestos, descuentos y total; solicita aprobación de gerente si la acción la requiere.",
-        "Para continuar después usa Suspender y luego recupera la venta desde las pendientes. Comprueba que retomaste el ticket correcto antes de cobrar.",
-        "Al cobrar elige el medio de pago o divide el pago entre medios disponibles. Confirma el efectivo recibido y el cambio; un pago único en efectivo conserva ambos en el recibo. Un pago parcial muestra el saldo pendiente y te pide confirmarlo de forma explícita.",
-        "Comprueba que la venta quedó completada y conserva su número. Imprime o vuelve a imprimir desde el detalle. Compartir por WhatsApp prepara texto y un PNG local opcional; tú decides y haces el envío."
+        "Busque o escanee el producto y confirme cantidad, unidad y precio. Para lotes o series seleccione la identidad solicitada.",
+        "Agregue el cliente cuando corresponda. Revise impuestos, descuentos y total; solicite aprobación de gerente si la acción la requiere.",
+        "Para continuar después use Suspender y luego recupere la venta desde las pendientes. Compruebe que retomó el ticket correcto antes de cobrar.",
+        "Al cobrar elija el medio de pago o divida el pago entre medios disponibles. Confirme el efectivo recibido y el cambio; un pago único en efectivo conserva ambos en el recibo. Un pago parcial muestra el saldo pendiente y le pide confirmarlo de forma explícita.",
+        "Compruebe que la venta quedó completada y conserve su número. Imprima o vuelva a imprimir desde el detalle. Compartir por WhatsApp prepara texto y un PNG local opcional; usted decide y realiza el envío."
       ],
-      "check": "Un terminal manual registra el medio de pago; no prueba una autorización bancaria. Si falla la impresión después de cobrar, revisa y reimprime la venta guardada antes de volver a cobrar.",
+      "check": "Un terminal manual registra el medio de pago; no prueba una autorización bancaria. Si falla la impresión después de cobrar, revise y reimprima la venta guardada antes de volver a cobrar.",
       "related": ["returns", "printing"],
       "source": "docs/PROJECT-STATUS.md"
     },
@@ -210,15 +210,15 @@
       "id": "returns",
       "title": "Devolver, cambiar o anular una venta",
       "where": "Detalle de venta · según permisos y aprobación",
-      "intro": "Parte de la venta original para conservar las cantidades, lotes, series y evidencia del reembolso.",
+      "intro": "Parta de la venta original para conservar las cantidades, lotes, series y evidencia del reembolso.",
       "steps": [
-        "Busca la venta original y abre su detalle. Verifica número, sede, cliente y líneas.",
-        "Para una devolución selecciona las líneas y cantidades elegibles; puede ser total o parcial. Revisa las cantidades que ya se devolvieron.",
-        "Confirma el motivo y el método de reembolso que ofrezca el flujo. Si afecta efectivo, comprueba la sesión de caja activa.",
-        "Para un cambio usa la venta de reemplazo vinculada. Si usas saldo a favor, verifica el cliente y el crédito emitido o aplicado.",
-        "Usa Anular solo para revertir la operación completa cuando corresponda y tu permiso lo permita. Después revisa estado, stock y movimientos de caja."
+        "Busque la venta original y abra su detalle. Verifique número, sede, cliente y líneas.",
+        "Para una devolución seleccione las líneas y cantidades elegibles; puede ser total o parcial. Revise las cantidades que ya se devolvieron.",
+        "Confirme el motivo y el método de reembolso que ofrezca el flujo. Si afecta efectivo, compruebe la sesión de caja activa.",
+        "Para un cambio use la venta de reemplazo vinculada. Si usa saldo a favor, verifique el cliente y el crédito emitido o aplicado.",
+        "Use Anular solo para revertir la operación completa cuando corresponda y su permiso lo permita. Después revise estado, stock y movimientos de caja."
       ],
-      "check": "Una devolución no autoriza vender de nuevo un lote vencido o bloqueado. No hagas un segundo reembolso si hubo un error de conexión: consulta primero el estado de la venta.",
+      "check": "Una devolución no autoriza vender de nuevo un lote vencido o bloqueado. No realice un segundo reembolso si hubo un error de conexión: consulte primero el estado de la venta.",
       "related": ["cash", "inventory"],
       "source": "docs/PROJECT-STATUS.md"
     },
@@ -228,13 +228,13 @@
       "where": "Usuarios y Empleados · administrador",
       "intro": "Los roles incluidos son administrador, gerente, cajero y consulta. No hay un editor general de roles personalizados.",
       "steps": [
-        "En Usuarios crea una cuenta individual con rol y contraseña fuerte. Evita compartir la cuenta propietaria entre cajeros.",
-        "Revisa las asignaciones de empleado y sede que correspondan a su trabajo. Selecciona la sede correcta antes de operar.",
-        "Usa administrador para usuarios, configuración y módulos. Gerente administra tareas operativas; cajero trabaja en ventas y caja; consulta accede a las vistas de lectura permitidas.",
-        "Para cambiar tu contraseña abre el menú de usuario y elige Cambiar contraseña. Tras guardar vuelve a iniciar sesión; un administrador también puede restablecer contraseñas. En ese mismo menú, cada administrador genera su código de recuperación y lo guarda fuera del equipo.",
-        "Cuando se configure cambio de empleado por PIN, verifica la identidad mostrada antes de continuar. Cierra sesión al dejar el equipo."
+        "En Usuarios cree una cuenta individual con rol y contraseña fuerte. Evite compartir la cuenta propietaria entre cajeros.",
+        "Revise las asignaciones de empleado y sede que correspondan a su trabajo. Seleccione la sede correcta antes de operar.",
+        "Use administrador para usuarios, configuración y módulos. Gerente administra tareas operativas; cajero trabaja en ventas y caja; consulta accede a las vistas de lectura permitidas.",
+        "Para cambiar su contraseña abra el menú de usuario y elija Cambiar contraseña. Tras guardar vuelva a iniciar sesión; un administrador también puede restablecer contraseñas. En ese mismo menú, cada administrador genera su código de recuperación y lo guarda fuera del equipo.",
+        "Cuando se configure cambio de empleado por PIN, verifique la identidad mostrada antes de continuar. Cierre sesión al dejar el equipo."
       ],
-      "check": "Si falta un menú, revisa primero rol, sede y módulo activo. Un PIN de empleado no sustituye el proceso de recuperación de la cuenta propietaria.",
+      "check": "Si falta un menú, revise primero rol, sede y módulo activo. Un PIN de empleado no sustituye el proceso de recuperación de la cuenta propietaria.",
       "related": ["profiles", "backup"],
       "source": "docs/LOGIN_GUIDE.md"
     },
@@ -242,16 +242,16 @@
       "id": "printing",
       "title": "Configurar recibos e impresión",
       "where": "Plantillas de recibo y Dispositivos · administrador",
-      "intro": "Elige la conexión que realmente tiene tu impresora. Una impresora USB instalada en el sistema usa el controlador del sistema; no implica USB ESC/POS directo.",
+      "intro": "Elija la conexión que realmente tiene su impresora. Una impresora USB instalada en el sistema usa el controlador del sistema; no implica USB ESC/POS directo.",
       "steps": [
-        "Instala y prueba la impresora en el sistema operativo antes de configurarla en Puntovivo. Confirma modelo, ancho de papel y nombre de la cola.",
-        "En Plantillas de recibo crea o edita la plantilla, elige 58 mm, 80 mm o carta según el caso, revisa bloques y vista previa, y marca la plantilla activa por defecto para su tipo.",
-        "En Dispositivos revisa la sede, agrega la impresora y elige su método de conexión. Para una impresora USB elige Sistema; USB directo y puerto serie ESC/POS aparecen como no implementados. Para una impresora ESC/POS en red ingresa su IP privada real, un puerto entre 9100 y 9103 y el ancho del rollo; el formulario no rellena una dirección de ejemplo.",
-        "En escritorio, en Impresora del sistema en este equipo, actualiza la lista, elige la impresora exacta para este equipo y usa Imprimir ticket de prueba; no registra ninguna venta. Si la impresora guardada deja de estar disponible, la impresión se detiene con un mensaje en lugar de usar otra impresora.",
-        "Usa Probar en un dispositivo ESC/POS: una prueba fallida aparece como fallida y muestra su motivo. En un dispositivo Sistema el botón dice Verificar registro y no imprime en papel. Después revisa un recibo desde el detalle de una venta; en web permite la ventana emergente de impresión y confirma el destino en el diálogo del navegador.",
-        "Si falla después de cobrar, revisa la cola de impresión y la venta antes de reintentar. Un trabajo ESC/POS fallido queda en cola para su reintento y no se abre una segunda impresión por el diálogo del sistema. Reimprime desde el detalle de la venta sin volver a cobrar; una reimpresión auditada imprime su propia copia y, si cancelas su diálogo, no se imprime nada pero la reimpresión queda registrada."
+        "Instale y pruebe la impresora en el sistema operativo antes de configurarla en Puntovivo. Confirme modelo, ancho de papel y nombre de la cola.",
+        "En Plantillas de recibo cree o edite la plantilla, elija 58 mm, 80 mm o carta según el caso, revise bloques y vista previa, y marque la plantilla activa por defecto para su tipo.",
+        "En Dispositivos revise la sede, agregue la impresora y elija su método de conexión. Para una impresora USB elija Sistema; USB directo y puerto serie ESC/POS aparecen como no implementados. Para una impresora ESC/POS en red ingrese su IP privada real, un puerto entre 9100 y 9103 y el ancho del rollo; el formulario no rellena una dirección de ejemplo.",
+        "En escritorio, en Impresora del sistema en este equipo, actualice la lista, elija la impresora exacta para este equipo y use Imprimir ticket de prueba; no registra ninguna venta. Si la impresora guardada deja de estar disponible, la impresión se detiene con un mensaje en lugar de usar otra impresora.",
+        "Use Probar en un dispositivo ESC/POS: una prueba fallida aparece como fallida y muestra su motivo. En un dispositivo Sistema el botón dice Verificar registro y no imprime en papel. Después revise un recibo desde el detalle de una venta; en web permita la ventana emergente de impresión y confirme el destino en el diálogo del navegador.",
+        "Si falla después de cobrar, revise la cola de impresión y la venta antes de reintentar. Un trabajo ESC/POS fallido queda en cola para su reintento y no se abre una segunda impresión por el diálogo del sistema. Reimprima desde el detalle de la venta sin volver a cobrar; una reimpresión auditada imprime su propia copia y, si cancela su diálogo, no se imprime nada pero la reimpresión queda registrada."
       ],
-      "check": "USB directo y puerto serie ESC/POS no están implementados. TCP requiere que la impresora sea accesible desde el servidor o el puente local correspondiente. Que el sistema acepte un trabajo no prueba la salida en papel, el corte ni la apertura del cajón RJ11. La validación con impresoras físicas, incluida una térmica en Windows, sigue pendiente: confirma un ticket de prueba en tu propia impresora antes de un turno.",
+      "check": "USB directo y puerto serie ESC/POS no están implementados. TCP requiere que la impresora sea accesible desde el servidor o el puente local correspondiente. Que el sistema acepte un trabajo no prueba la salida en papel, el corte ni la apertura del cajón RJ11. La validación con impresoras físicas, incluida una térmica en Windows, sigue pendiente: confirme un ticket de prueba en su propia impresora antes de un turno.",
       "related": ["sales", "backup"],
       "source": "docs/HARDWARE-POS.md",
       "details": [
@@ -264,8 +264,8 @@
           "Una venta completada con un solo pago en efectivo guarda el monto entregado y el cambio, y los recibos nuevos y las reimpresiones muestran ambos. Los recibos de versiones anteriores nunca inventan un efectivo recibido."
         ],
         [
-          "Si actualizas desde v1.15.1",
-          "Si tenías activa la impresión silenciosa, elige la impresora del sistema en cada equipo de escritorio. Mientras no lo hagas, los recibos abren el diálogo de impresión. La impresión automática al cerrar una venta con una impresora del sistema se activa por opción y viene apagada."
+          "Si actualiza desde v1.15.1",
+          "Si tenía activa la impresión silenciosa, elija la impresora del sistema en cada equipo de escritorio. Mientras no lo haga, los recibos abren el diálogo de impresión. La impresión automática al cerrar una venta con una impresora del sistema se activa por opción y viene apagada."
         ]
       ]
     },
@@ -273,15 +273,15 @@
       "id": "backup",
       "title": "Respaldar y recuperar el negocio",
       "where": "Empresa → Datos · administrador · controles nativos en escritorio",
-      "intro": "Un CSV de productos no es un respaldo completo. Conserva el paquete cifrado y su medio de recuperación fuera del equipo.",
+      "intro": "Un CSV de productos no es un respaldo completo. Conserve el paquete cifrado y su medio de recuperación fuera del equipo.",
       "steps": [
-        "En escritorio abre Empresa → Datos. Revisa programación, último respaldo correcto, protección de cifrado y bóveda remota si la usas.",
-        "Crea un respaldo manual y comprueba el resultado y su ubicación. Puedes protegerlo con una frase: guárdala de forma segura; para otro equipo conserva la frase o la clave de origen que requiera el paquete.",
-        "Configura la programación si la necesitas y revisa la fecha del último éxito. Para nube, configura la bóveda compatible S3 y confirma la subida; un respaldo local correcto no significa que la subida haya terminado.",
-        "Ejecuta el simulacro de restauración no destructivo y revisa integridad y conteos antes de restaurar sobre datos activos.",
-        "Ante almacenamiento dañado, deja de usar el equipo y preserva sus datos. Desde Operaciones → Soporte sigue la recuperación hacia Empresa → Datos; verifica el respaldo y solo entonces usa Restaurar respaldo y su confirmación."
+        "En escritorio abra Empresa → Datos. Revise programación, último respaldo correcto, protección de cifrado y bóveda remota si la usa.",
+        "Cree un respaldo manual y compruebe el resultado y su ubicación. Puede protegerlo con una frase: guárdela de forma segura; para otro equipo conserve la frase o la clave de origen que requiera el paquete.",
+        "Configure la programación si la necesita y revise la fecha del último éxito. Para nube, configure la bóveda compatible S3 y confirme la subida; un respaldo local correcto no significa que la subida haya terminado.",
+        "Ejecute el simulacro de restauración no destructivo y revise integridad y conteos antes de restaurar sobre datos activos.",
+        "Ante almacenamiento dañado, deje de usar el equipo y preserve sus datos. Desde Operaciones → Soporte siga la recuperación hacia Empresa → Datos; verifique el respaldo y solo entonces use Restaurar respaldo y su confirmación."
       ],
-      "check": "Restaurar reemplaza datos de la instalación: verifica negocio, fecha y clave antes de confirmar. Sin un respaldo válido o con integridad fallida, conserva el equipo y solicita soporte. En web estos controles nativos están marcados como solo escritorio.",
+      "check": "Restaurar reemplaza datos de la instalación: verifique negocio, fecha y clave antes de confirmar. Sin un respaldo válido o con integridad fallida, conserve el equipo y solicite soporte. En web estos controles nativos están marcados como solo escritorio.",
       "related": ["users", "faq"],
       "source": "docs/OPERATIONS-RUNBOOKS.md"
     },
@@ -289,34 +289,34 @@
       "id": "optional",
       "title": "Configurar herramientas opcionales y reconocer límites",
       "where": "Empresa, Módulos y Operaciones · administrador",
-      "intro": "Activa solo lo que vayas a configurar. El manual describe funciones del producto, no una autorización para operar legalmente.",
+      "intro": "Active solo lo que vaya a configurar. El manual describe funciones del producto, no una autorización para operar legalmente.",
       "steps": [
-        "Para restaurante configura mesas, estaciones y ruteo de cocina después de activar los módulos. La pantalla KDS conserva preparación local; no certifica entrega a una impresora física.",
-        "Para IA revisa proveedor y credenciales en Empresa antes de habilitar su uso. Las funciones pueden enviar datos al proveedor configurado y generar costos; seleccionar un perfil no las configura.",
-        "Para Pantalla cliente activa el módulo y abre la segunda pantalla desde la venta. Es una proyección local del carrito, no un controlador certificado de hardware.",
-        "Para Seguimiento en vivo activa el módulo Companion y accede con un rol de lectura permitido. No uses esa vista para cobrar ni como saldo actualizado cuando no tiene conexión.",
-        "En Operaciones revisa incidentes de sincronización, fiscal, equipos o pagos y sigue la recuperación del área. Antes de reintentar una acción comprueba su resultado guardado."
+        "Para restaurante configure mesas, estaciones y ruteo de cocina después de activar los módulos. La pantalla KDS conserva preparación local; no certifica entrega a una impresora física.",
+        "Para IA revise proveedor y credenciales en Empresa antes de habilitar su uso. Las funciones pueden enviar datos al proveedor configurado y generar costos; seleccionar un perfil no las configura.",
+        "Para Pantalla cliente active el módulo y abra la segunda pantalla desde la venta. Es una proyección local del carrito, no un controlador certificado de hardware.",
+        "Para Seguimiento en vivo active el módulo Companion y acceda con un rol de lectura permitido. No use esa vista para cobrar ni como saldo actualizado cuando no tiene conexión.",
+        "En Operaciones revise incidentes de sincronización, fiscal, equipos o pagos y siga la recuperación del área. Antes de reintentar una acción compruebe su resultado guardado."
       ],
-      "check": "Facturación electrónica requiere configuración, proveedor y certificación real: los borradores locales no los sustituyen. Los adaptadores de terminal de pago y conectores externos no equivalen a proveedores certificados. Consulta Estado y Roadmap para límites y trabajo futuro.",
+      "check": "Facturación electrónica requiere configuración, proveedor y certificación real: los borradores locales no los sustituyen. Los adaptadores de terminal de pago y conectores externos no equivalen a proveedores certificados. Consulte Estado y Roadmap para límites y trabajo futuro.",
       "related": ["profiles", "faq"],
       "source": "docs/PROJECT-STATUS.md"
     },
     {
       "id": "faq",
       "title": "Resolver problemas frecuentes",
-      "where": "Diagnóstico · empieza por versión, usuario y sede",
-      "intro": "Antes de repetir una operación revisa qué quedó guardado. Un mensaje de error no demuestra que una venta o pago no ocurrió.",
+      "where": "Diagnóstico · empiece por versión, usuario y sede",
+      "intro": "Antes de repetir una operación revise qué quedó guardado. Un mensaje de error no demuestra que una venta o pago no ocurrió.",
       "steps": [
-        "No puedo entrar: usa tu cuenta propietaria o una cuenta activa, confirma idioma del teclado y contraseña. No hay una cuenta universal de producción. Si olvidaste la contraseña, elige ¿Olvidaste tu contraseña?: ingresa tu código de recuperación o, en escritorio, si eres el único usuario y no tienes código, crea una nueva desde ese equipo. Si nada de eso aplica, pide a un administrador que la restablezca en Usuarios.",
-        "No veo una función: confirma rol, sede activa y Empresa → Módulos. No disponible identifica una función que ese control no puede activar.",
-        "No puedo cobrar: revisa apertura de caja, registro disponible, numeración, existencias, lotes/series y cualquier aprobación que pida la pantalla.",
-        "No imprime: confirma primero la venta guardada y la cola de impresión, luego papel, alimentación, la impresora del sistema elegida en este equipo o la IP/puerto TCP, y la sede del dispositivo. Lee el motivo de una prueba fallida. En navegador revisa ventanas emergentes. USB ESC/POS directo no está implementado, así que cambiar a esa opción no es una solución.",
-        "No coincide el inventario: revisa sede, unidad y conversiones, recepciones pendientes, transferencias y devoluciones. Consulta movimientos antes de un conteo o ajuste.",
-        "No puedo apagar Servicio en mesa: completa o resuelve los trabajos de mesa abiertos antes de desactivarlo.",
+        "No puedo entrar: use su cuenta propietaria o una cuenta activa, confirme idioma del teclado y contraseña. No hay una cuenta universal de producción. Si olvidó la contraseña, elija ¿Olvidó su contraseña?: ingrese su código de recuperación o, en escritorio, si es el único usuario y no tiene código, cree una nueva desde ese equipo. Si nada de eso aplica, pida a un administrador que la restablezca en Usuarios.",
+        "No veo una función: confirme rol, sede activa y Empresa → Módulos. No disponible identifica una función que ese control no puede activar.",
+        "No puedo cobrar: revise apertura de caja, registro disponible, numeración, existencias, lotes/series y cualquier aprobación que pida la pantalla.",
+        "No imprime: confirme primero la venta guardada y la cola de impresión, luego papel, alimentación, la impresora del sistema elegida en este equipo o la IP/puerto TCP, y la sede del dispositivo. Lea el motivo de una prueba fallida. En navegador revise ventanas emergentes. USB ESC/POS directo no está implementado, así que cambiar a esa opción no es una solución.",
+        "No coincide el inventario: revise sede, unidad y conversiones, recepciones pendientes, transferencias y devoluciones. Consulte movimientos antes de un conteo o ajuste.",
+        "No puedo apagar Servicio en mesa: complete o resuelva los trabajos de mesa abiertos antes de desactivarlo.",
         "No hay internet: escritorio conserva la operación local, pero red, nube, sincronización y proveedores pueden quedar pendientes. Web necesita acceso a su servidor y Companion oculta datos al quedar offline.",
-        "No puedo restaurar: confirma que estás en escritorio con administrador, que el paquete pertenece al negocio y que tienes su frase o clave. Si falla integridad no fuerces la restauración."
+        "No puedo restaurar: confirme que está en escritorio con administrador, que el paquete pertenece al negocio y que tiene su frase o clave. Si falla integridad no fuerce la restauración."
       ],
-      "check": "Si el problema continúa, prepara versión, plataforma y mensaje exacto; exporta diagnósticos redactados desde soporte cuando esté disponible. No compartas bases de datos, códigos de instalación ni claves de respaldo por un canal público.",
+      "check": "Si el problema continúa, prepare versión, plataforma y mensaje exacto; exporte diagnósticos redactados desde soporte cuando esté disponible. No comparta bases de datos, códigos de instalación ni claves de respaldo por un canal público.",
       "related": ["start", "printing", "backup"],
       "source": "docs/TROUBLESHOOTING.md"
     }

@@ -9,13 +9,13 @@
     "docs": "Docs",
     "roadmap": "Roadmap",
     "github": "GitHub",
-    "demo": "Habla con nosotros",
+    "demo": "Hable con nosotros",
     "themeToggle": "Cambiar tema",
     "langToggle": "Cambiar idioma"
   },
   "download": {
-    "source": "Compila desde el código",
-    "release": "Descarga la app de escritorio"
+    "source": "Compile desde el código",
+    "release": "Descargue la app de escritorio"
   },
   "hero": {
     "badgePos": "Punto de venta",
@@ -26,9 +26,9 @@
     "titleEm": "caja tranquila",
     "titleB": " para el comercio colombiano.",
     "lead": "Puntovivo une ventas, inventario y compras en una sola consola de escritorio. Escaneo rápido, cierre ciego, transferencias entre sedes y cobro dividido — todo bajo un mismo idioma de diseño, en español neutro. Open source, en desarrollo activo, con demo disponible.",
-    "ctaDemo": "Pide una demo guiada",
-    "ctaFlow": "Mira el flujo de caja",
-    "ctaAsk": "Pregúntale a la consola",
+    "ctaDemo": "Solicite una demo guiada",
+    "ctaFlow": "Vea el flujo de caja",
+    "ctaAsk": "Pregúntele a la consola",
     "metaActions": "Acción principal visible",
     "metaCharge": "Cobrar venta",
     "metaOffline": "Offline-first con sincronización",
@@ -55,7 +55,7 @@
     "posTotalItems": "Cuatro ítems",
     "posCash": "Efectivo",
     "posCard": "Tarjeta",
-    "posCharge": "Cobra venta",
+    "posCharge": "Cobrar venta",
     "posKeyDiscount": "descuento",
     "posKeyFastCash": "cobro rápido"
   },
@@ -81,7 +81,7 @@
       },
       {
         "title": "Caja con cierre ciego",
-        "desc": "Apertura con conteo por denominaciones, movimientos de ingreso y salida durante el turno, y cierre ciego que oculta el saldo esperado hasta que envías el conteo final.",
+        "desc": "Apertura con conteo por denominaciones, movimientos de ingreso y salida durante el turno, y cierre ciego que oculta el saldo esperado hasta que se envíe el conteo final.",
         "foot": "Apertura · movimientos · cierre ciego"
       },
       {
@@ -91,12 +91,12 @@
       },
       {
         "title": "Transferencias entre sedes",
-        "desc": "Envía ahora y recibe después con estado en tránsito. Las discrepancias en recepción quedan registradas con nota y la anulación revierte balances al instante.",
+        "desc": "Envíe ahora y reciba después con estado en tránsito. Las discrepancias en recepción quedan registradas con nota y la anulación revierte balances al instante.",
         "foot": "En tránsito · recibir · anular"
       },
       {
         "title": "Compras, pedidos y cotizaciones",
-        "desc": "Recibe parcial o totalmente sobre un pedido, devuelve stock al proveedor y emite cotizaciones desde el mismo catálogo. Cada movimiento actualiza el historial de costo del producto.",
+        "desc": "Reciba parcial o totalmente sobre un pedido, devuelva stock al proveedor y emita cotizaciones desde el mismo catálogo. Cada movimiento actualiza el historial de costo del producto.",
         "foot": "OC · recibo parcial · devolución"
       },
       {
@@ -105,7 +105,7 @@
         "foot": "Consecutivos · roles · bitácora"
       },
       {
-        "title": "Impuestos como los cobra tu negocio",
+        "title": "Impuestos como los cobra su negocio",
         "desc": "IVA e impuesto al consumo (INC) por producto, congelados en cada línea de venta. Precios con impuesto incluido o sin él, por negocio, con el mismo motor de redondeo en la caja y en el documento fiscal.",
         "foot": "IVA · INC · precio con o sin impuesto"
       },
@@ -121,7 +121,7 @@
     "titleA": "La ",
     "titleEm": "caja",
     "titleB": " se concilia sola, sin que el cajero adivine.",
-    "desc": "Abre el turno contando billete por billete, registra cada ingreso o salida del cajón durante la jornada, y cierra ciego: el saldo esperado permanece oculto hasta que envías el conteo final. Si hay diferencia, queda en el reporte de cierres recientes — no en una libreta aparte.",
+    "desc": "Abra el turno contando billete por billete, registre cada ingreso o salida del cajón durante la jornada, y cierre ciego: el saldo esperado permanece oculto hasta que envíe el conteo final. Si hay diferencia, queda en el reporte de cierres recientes — no en una libreta aparte.",
     "chips": [
       "Apertura por denominaciones",
       "Ingreso · salida · retiro a caja fuerte",
@@ -138,26 +138,26 @@
     "skimDesc": "Excedente del cajón enviado a caja fuerte. Nota: <b>\"Skim 11:30 — corte parcial\"</b>.",
     "skimAction": "Ver línea",
     "blindTitle": "Cierre ciego pendiente",
-    "blindDesc": "El saldo esperado queda oculto hasta que envíes el conteo final por denominaciones. Diferencia se calcula al guardar.",
+    "blindDesc": "El saldo esperado queda oculto hasta que envíe el conteo final por denominaciones. Diferencia se calcula al guardar.",
     "blindAction": "Cerrar caja",
     "inputPlaceholder": "Registrar movimiento de caja…"
   },
   "ai": {
     "kicker": "Núcleo · IA",
     "titleA": "Una IA que ",
-    "titleEm": "conoce tu mostrador",
+    "titleEm": "conoce su mostrador",
     "titleB": ", no un chatbot pegado por fuera.",
-    "desc": "Pregunta en español, revisa patrones inusuales por cajero, busca productos por significado o extrae una factura de proveedor desde una imagen. Co-pilot, OCR, voz y embeddings semánticos ahora comparten una auditoría de uso aislada por negocio. Los montos siguen siendo estimaciones basadas en precios del proveedor, y las llamadas sin precio utilizable permanecen visibles como costo desconocido. Las cuatro capacidades vienen apagadas: actívalas desde Configuración › IA cuando lo decidas.",
+    "desc": "Pregunte en español, revise patrones inusuales por cajero, busque productos por significado o extraiga una factura de proveedor desde una imagen. Co-pilot, OCR, voz y embeddings semánticos ahora comparten una auditoría de uso aislada por negocio. Los montos siguen siendo estimaciones basadas en precios del proveedor, y las llamadas sin precio utilizable permanecen visibles como costo desconocido. Las cuatro capacidades vienen apagadas: actívelas desde Configuración › IA cuando lo decida.",
     "corePillDev": "Puntovivo IA · núcleo open source",
     "corePillTagged": "Puntovivo IA · núcleo {{version}}",
     "coreMeta": "co-pilot · anomalías · búsqueda semántica · OCR · 4 capacidades opcionales",
     "copilotBadge": "Co-pilot",
-    "copilotLabel": "Pregúntale a tus datos",
-    "copilotTitleA": "Conversa con tu negocio. ",
+    "copilotLabel": "Pregúntele a sus datos",
+    "copilotTitleA": "Converse con su negocio. ",
     "copilotTitleEm": "Responde con evidencia visible.",
-    "copilotLead": "Escribe en español lo que quieras saber — \"productos más vendidos\", \"mejor cajero\", \"sedes con margen bajo\". Puntovivo arma el SQL y lo ejecuta sobre los datos de tu negocio. Un administrador puede conservar la explicación generada o elegir solo resultados; el SQL, el número de filas, la tabla y el gráfico disponible permanecen visibles en ambos modos.",
+    "copilotLead": "Escriba en español lo que desee saber — \"productos más vendidos\", \"mejor cajero\", \"sedes con margen bajo\". Puntovivo arma el SQL y lo ejecuta sobre los datos de su negocio. Un administrador puede conservar la explicación generada o elegir solo resultados; el SQL, el número de filas, la tabla y el gráfico disponible permanecen visibles en ambos modos.",
     "responseLabel": "Puntovivo · respuesta",
-    "inputPlaceholder": "Pregúntale a tus datos…",
+    "inputPlaceholder": "Pregúntele a sus datos…",
     "scenarioAria": "Escenarios de Co-pilot",
     "scenarioLabel": "Escenario {{n}}",
     "askAgain": "Volver a preguntar",
@@ -199,7 +199,7 @@
     "cards": {
       "anomaliesTitle": "Anomalías detectadas",
       "anomaliesLabel": "Outliers estadísticos por cajero",
-      "anomaliesDesc": "Cruzamos cada cajero contra <b>su propio promedio de 30 días</b> y contra el resto del equipo. Cuando algo se sale del patrón — pico de tickets, devolución atípica, descuentos sospechosos — llega a tu bandeja con severidad y el contexto crudo.",
+      "anomaliesDesc": "Cruzamos cada cajero contra <b>su propio promedio de 30 días</b> y contra el resto del equipo. Cuando algo se sale del patrón — pico de tickets, devolución atípica, descuentos sospechosos — llega a su bandeja con severidad y el contexto crudo.",
       "anomaliesFoot": "Punto de partida, no acusación · silenciar 7 días · uso auditado",
       "sevHigh": "Alta",
       "sevMed": "Media",
@@ -214,8 +214,8 @@
       "semanticFoot": "Vectores almacenados localmente · generados por el proveedor configurado",
       "ocrTitle": "OCR de factura",
       "ocrLabel": "Foto → compra registrada",
-      "ocrDesc": "Sube una imagen de la factura del proveedor. Un proveedor de IA compatible y configurado intenta extraer <b>proveedor, líneas, cantidades, IVA y total</b>, y prellena compras para que revises todo antes de confirmar.",
-      "ocrFoot": "Requiere un proveedor compatible · revisa cada campo extraído",
+      "ocrDesc": "Suba una imagen de la factura del proveedor. Un proveedor de IA compatible y configurado intenta extraer <b>proveedor, líneas, cantidades, IVA y total</b>, y prellena compras para que revise todo antes de confirmar.",
+      "ocrFoot": "Requiere un proveedor compatible · revise cada campo extraído",
       "ocrFieldProvider": "Proveedor",
       "ocrFieldNit": "NIT",
       "ocrFieldLines": "Líneas",
@@ -241,16 +241,16 @@
   "aiFaq": {
     "kicker": "FAQ IA",
     "title": "Lo que preguntan dueños y gerentes antes de prender la IA.",
-    "desc": "Privacidad, costo, qué pasa offline y cómo apagarla. Si no convencen estas seis respuestas, no la prendas — la caja funciona igual sin ella.",
+    "desc": "Privacidad, costo, qué pasa offline y cómo apagarla. Si no convencen estas seis respuestas, no la encienda — la caja funciona igual sin ella.",
     "badge": "Sin telemetría oculta",
     "items": [
       {
         "q": "¿La IA ve los datos sensibles de mis clientes?",
-        "a": "El proveedor configurado recibe tu pregunta y puede recibir las filas devueltas por una copia analítica acotada y aislada para tu negocio. Esas filas pueden incluir nombres de cajeros, sedes, productos y clientes cuando la consulta los selecciona; la copia no incluye NIT, correos, teléfonos ni números de tarjeta. El OCR de facturas envía la imagen de la factura seleccionada al proveedor configurado, y la búsqueda semántica en la nube envía texto del producto o de la consulta para generar embeddings. El proveedor nunca recibe credenciales ni acceso directo a la base de datos. Configura Ollama local si el procesamiento compatible debe quedarse en tu red."
+        "a": "El proveedor configurado recibe su pregunta y puede recibir las filas devueltas por una copia analítica acotada y aislada para su negocio. Esas filas pueden incluir nombres de cajeros, sedes, productos y clientes cuando la consulta los selecciona; la copia no incluye NIT, correos, teléfonos ni números de tarjeta. El OCR de facturas envía la imagen de la factura seleccionada al proveedor configurado, y la búsqueda semántica en la nube envía texto del producto o de la consulta para generar embeddings. El proveedor nunca recibe credenciales ni acceso directo a la base de datos. Configure Ollama local si el procesamiento compatible debe quedarse en su red."
       },
       {
         "q": "¿Dónde corre el modelo? ¿Sale mi información del país?",
-        "a": "Co-pilot usa el proveedor que configures: OpenAI, Anthropic u Ollama. OpenAI y Anthropic operan en la nube; Ollama puede funcionar en tu propia red. El SQL se ejecuta localmente sobre una copia analítica desechable, de solo lectura y aislada para tu negocio. Los vectores de búsqueda semántica se almacenan y comparan localmente, pero OpenAI u Ollama genera los embeddings del producto y de cada consulta; con Anthropic se usa la búsqueda de texto normal."
+        "a": "Co-pilot usa el proveedor que configure: OpenAI, Anthropic u Ollama. OpenAI y Anthropic operan en la nube; Ollama puede funcionar en su propia red. El SQL se ejecuta localmente sobre una copia analítica desechable, de solo lectura y aislada para su negocio. Los vectores de búsqueda semántica se almacenan y comparan localmente, pero OpenAI u Ollama genera los embeddings del producto y de cada consulta; con Anthropic se usa la búsqueda de texto normal."
       },
       {
         "q": "¿Qué pasa si se cae internet en la sede?",
@@ -258,7 +258,7 @@
       },
       {
         "q": "¿Cuánto cuesta usar la IA?",
-        "a": "Puntovivo no añade una suscripción de IA: usas la cuenta del proveedor que configures. El límite mensual y la auditoría del negocio cubren llamadas de lenguaje, OCR, voz, catálogo, asociación de facturas y consultas semánticas. Los modelos con precio conocido producen estimaciones; las llamadas remotas sin precio se muestran aparte como costo desconocido en lugar de aparecer como gratuitas, y Ollama local registra US$0 de costo externo. Las facturas y cuotas del proveedor siguen siendo la autoridad porque Puntovivo no puede reservar ni certificar el cobro de un tercero. La detección de anomalías no usa un modelo de lenguaje."
+        "a": "Puntovivo no añade una suscripción de IA: se usa la cuenta del proveedor que configure. El límite mensual y la auditoría del negocio cubren llamadas de lenguaje, OCR, voz, catálogo, asociación de facturas y consultas semánticas. Los modelos con precio conocido producen estimaciones; las llamadas remotas sin precio se muestran aparte como costo desconocido en lugar de aparecer como gratuitas, y Ollama local registra US$0 de costo externo. Las facturas y cuotas del proveedor siguen siendo la autoridad porque Puntovivo no puede reservar ni certificar el cobro de un tercero. La detección de anomalías no usa un modelo de lenguaje."
       },
       {
         "q": "¿Puedo confiar en lo que responde? ¿Y si inventa números?",
@@ -266,17 +266,17 @@
       },
       {
         "q": "¿Cómo prendo o apago la IA?",
-        "a": "Las cuatro capacidades vienen apagadas. Desde Configuración › IA, un administrador activa el sistema de IA y elige las capacidades individuales del negocio: Co-pilot, anomalías, búsqueda semántica y OCR. Si mantienes la IA apagada, la caja y el catálogo siguen disponibles."
+        "a": "Las cuatro capacidades vienen apagadas. Desde Configuración › IA, un administrador activa el sistema de IA y elige las capacidades individuales del negocio: Co-pilot, anomalías, búsqueda semántica y OCR. Si mantiene la IA apagada, la caja y el catálogo siguen disponibles."
       }
     ]
   },
   "alerts": {
     "kicker": "Centro de mando · Alertas y novedades",
-    "title": "Lo que pasa en todas tus sedes, en una sola vista.",
-    "desc": "Stock al mínimo, cierres con diferencia, transferencias en tránsito, reembolsos. Puntovivo cruza datos por sede y te avisa solo cuando vale la pena interrumpir.",
+    "title": "Lo que pasa en todas sus sedes, en una sola vista.",
+    "desc": "Stock al mínimo, cierres con diferencia, transferencias en tránsito, reembolsos. Puntovivo cruza datos por sede y le avisa solo cuando vale la pena interrumpir.",
     "badgeSites": "3 sedes activas",
     "badgeAlerts": "4 alertas hoy",
-    "narrativeTitle": "No revises tres consolas. Revisa una.",
+    "narrativeTitle": "No revise tres consolas. Revise una.",
     "narrativeDesc": "El dashboard reúne ventas, inventario, turnos y syncs en un mismo feed. Cada alerta lleva al lugar exacto de la consola — un click, no tres pestañas.",
     "statSalesLabel": "Ventas hoy",
     "statSalesValue": "$3,21M",
@@ -333,14 +333,14 @@
     "desc": "Cada tarea muestra una acción principal clara y deja las herramientas avanzadas fuera del camino hasta que hagan falta.",
     "steps": [
       {
-        "t": "Abre la caja",
-        "p": "Cuenta la base de apertura por denominaciones. El registro queda listo para cobrar de inmediato.",
+        "t": "Abra la caja",
+        "p": "Cuente la base de apertura por denominaciones. El registro queda listo para cobrar de inmediato.",
         "k": [
           "denominaciones"
         ]
       },
       {
-        "t": "Escanea y arma la venta",
+        "t": "Escanee y arme la venta",
         "p": "SKU, código de barras, cantidades y descuentos sin abrir modales innecesarios.",
         "k": [
           "Alt+P",
@@ -348,15 +348,15 @@
         ]
       },
       {
-        "t": "Cobra",
+        "t": "Cobre",
         "p": "Efectivo, tarjeta, transferencia, crédito — o un pago dividido que sume el total. El recibo se imprime en 58 u 80 mm.",
         "k": [
           "F1"
         ]
       },
       {
-        "t": "Cierra ciego",
-        "p": "Cuenta el cajón por denominaciones. El sistema oculta el saldo esperado hasta que envías el conteo final.",
+        "t": "Cierre ciego",
+        "p": "Cuente el cajón por denominaciones. El sistema oculta el saldo esperado hasta que envíe el conteo final.",
         "k": [
           "cierre ciego"
         ]
@@ -366,13 +366,13 @@
   "modules": {
     "kicker": "Lo construido",
     "title": "Lo que ya está construido en la consola.",
-    "desc": "El núcleo de POS, caja, inventario, compras, recibos y la base fiscal independiente del proveedor son código real que puedes ejecutar hoy. La certificación DIAN y la validación de dispositivos físicos representativos siguen siendo condiciones externas.",
+    "desc": "El núcleo de POS, caja, inventario, compras, recibos y la base fiscal independiente del proveedor son código real que puede ejecutar hoy. La certificación DIAN y la validación de dispositivos físicos representativos siguen siendo condiciones externas.",
     "items": [
       {
         "when": "Construido",
         "h": "Núcleo IA (opcional)",
         "bullets": [
-          "Co-pilot: preguntas en español sobre tus datos · SQL auditable · gráfica + tabla.",
+          "Co-pilot: preguntas en español sobre sus datos · SQL auditable · gráfica + tabla.",
           "Anomalías detectadas por cajero contra su propio promedio de 30 días.",
           "Búsqueda semántica con vectores almacenados localmente; OpenAI u Ollama genera los embeddings.",
           "OCR de factura: foto → proveedor, líneas, IVA y total prellenados en compras."
@@ -440,7 +440,7 @@
         "when": "Construido",
         "h": "Verticales, servicios y báscula",
         "bullets": [
-          "El onboarding pregunta qué vendes y activa solo los módulos de tu vertical; restaurante vive aislado tras su módulo.",
+          "El onboarding pregunta qué vende y activa solo los módulos de su vertical; restaurante vive aislado tras su módulo.",
           "Ítems de servicio: se venden sin stock y nunca tocan inventario, mezclados con productos físicos en el mismo ticket.",
           "Unidades con dimensión y código UN/ECE (kg, gramo, litro, docena) que fluyen al documento fiscal.",
           "Etiquetas GS1 de peso o precio embebido: el escáner las resuelve en la caja clásica y en la pantalla táctil."
@@ -486,20 +486,20 @@
   },
   "pricing": {
     "kicker": "Cómo se usa",
-    "title": "Código abierto. Ejecútalo en tu propio computador, sin costo.",
-    "desc": "Puntovivo es software libre con licencia MIT. La versión local es gratuita: descarga la aplicación de escritorio o compílala desde el código. Una nube gestionada está en camino, sin precios todavía.",
+    "title": "Código abierto. Ejecútelo en su propio computador, sin costo.",
+    "desc": "Puntovivo es software libre con licencia MIT. La versión local es gratuita: descargue la aplicación de escritorio o compílela desde el código. Una nube gestionada está en camino, sin precios todavía.",
     "self": {
-      "name": "Tu propio computador",
+      "name": "Su propio computador",
       "badge": "Gratis · MIT",
       "price": "Gratis",
       "per": "open source",
-      "desc": "Ejecuta Puntovivo en tu propio computador o servidor. Incluye POS, inventario, compras, varias sedes y datos de cada negocio aislados, sin pagar una licencia.",
+      "desc": "Ejecute Puntovivo en su propio computador o servidor. Incluye POS, inventario, compras, varias sedes y datos de cada negocio aislados, sin pagar una licencia.",
       "bullets": [
         "Cajas y usuarios sin límite de licencia",
         "POS, inventario, compras y transferencias",
         "Cierre ciego + control de caja",
         "Datos del negocio aislados por diseño",
-        "IA opcional con tu propio proveedor"
+        "IA opcional con su propio proveedor"
       ]
     },
     "cloud": {
@@ -546,7 +546,7 @@
       },
       {
         "q": "¿Puedo migrar mi catálogo?",
-        "a": "Sí. La importación CSV / Excel admite SKU, descripción, costo, precio, IVA y stock inicial. Reconoce los formatos exactos de exportación probados para Loyverse, Alegra, Siigo y World Office y propone un perfil versionado; los formatos modificados o desconocidos usan el mapeo genérico. Siempre confirmas el mapeo y la vista previa antes de guardar."
+        "a": "Sí. La importación CSV / Excel admite SKU, descripción, costo, precio, IVA y stock inicial. Reconoce los formatos exactos de exportación probados para Loyverse, Alegra, Siigo y World Office y propone un perfil versionado; los formatos modificados o desconocidos usan el mapeo genérico. Siempre confirma el mapeo y la vista previa antes de guardar."
       },
       {
         "q": "¿Puedo enviar un recibo por WhatsApp?",
@@ -555,9 +555,9 @@
     ]
   },
   "cta": {
-    "title": "Una caja que respeta el ritmo de tu sede.",
-    "desc": "Pruébala hoy: descarga la app de escritorio o compílala desde el código. Es open source, está en desarrollo activo y hay una demo lista para que la veas funcionando.",
-    "demo": "Pide una demo"
+    "title": "Una caja que respeta el ritmo de su sede.",
+    "desc": "Pruébela hoy: descargue la app de escritorio o compílela desde el código. Es open source, está en desarrollo activo y hay una demo lista para que la vea funcionando.",
+    "demo": "Solicite una demo"
   },
   "footer": {
     "tagline": "POS, inventario y compras para el comercio de LatAm. Open source, local-first, bilingüe.",
@@ -657,7 +657,7 @@
         "y": "Hoy",
         "q": "Listo",
         "t": "IA opcional",
-        "d": "Co-pilot lenguaje natural → SQL de solo lectura, detección de anomalías por cajero, búsqueda semántica y OCR de factura. Todo apagado por defecto; lo activas en Configuración › IA."
+        "d": "Co-pilot lenguaje natural → SQL de solo lectura, detección de anomalías por cajero, búsqueda semántica y OCR de factura. Todo apagado por defecto; se activa en Configuración › IA."
       },
       {
         "y": "Roadmap",
@@ -680,7 +680,7 @@
     ],
     "teamKicker": "Quién lo construye",
     "teamTitle": "Una persona, un proyecto open source.",
-    "teamDesc": "Puntovivo lo desarrollo yo solo. No hay equipo, ni oficinas, ni inversionistas. Si quieres aportar, el código está en GitHub y se aceptan issues y pull requests.",
+    "teamDesc": "Puntovivo lo desarrollo yo solo. No hay equipo, ni oficinas, ni inversionistas. Si desea aportar, el código está en GitHub y se aceptan issues y pull requests.",
     "team": [
       {
         "n": "Johnny IV Young Ospino",
@@ -689,9 +689,9 @@
       }
     ],
     "ctaKicker": "Hablemos",
-    "ctaTitle": "¿Quieres aportar o probar el proyecto?",
-    "ctaDesc": "Abre un issue en GitHub, escribe a Discussions o mándame un correo. Toda contribución es bienvenida.",
-    "ctaContact": "Contáctame",
+    "ctaTitle": "¿Desea aportar o probar el proyecto?",
+    "ctaDesc": "Abra un issue en GitHub, escriba a Discussions o envíe un correo. Toda contribución es bienvenida.",
+    "ctaContact": "Contactar",
     "ctaRoadmap": "Ver roadmap"
   },
   "roadmap": {
@@ -864,17 +864,17 @@
         "area": "Seguridad"
       }
     ],
-    "voteKicker": "Propón una idea",
-    "voteTitle": "¿Necesitas algo que no está aquí?",
-    "voteDesc": "Si algo complica tu operación, abre un issue en GitHub. La propuesta queda pública para revisarla y acotarla; abrirla no promete una fecha de entrega.",
-    "votePlaceholder": "Describe la idea en una línea…",
+    "voteKicker": "Proponga una idea",
+    "voteTitle": "¿Necesita algo que no está aquí?",
+    "voteDesc": "Si algo complica su operación, abra un issue en GitHub. La propuesta queda pública para revisarla y acotarla; abrirla no promete una fecha de entrega.",
+    "votePlaceholder": "Describa la idea en una línea…",
     "voteSend": "Abrir issue en GitHub",
     "voteIssues": "Ver issues en GitHub",
     "openIssue": "Ver issue"
   },
   "contacto": {
     "kicker": "Contacto",
-    "titleA": "Habla con el proyecto por ",
+    "titleA": "Hable con el proyecto por ",
     "titleEm": "GitHub o correo",
     "titleB": ".",
     "lead": "Puntovivo es open source y lo desarrolla una sola persona. No hay equipo de ventas ni soporte 24/7: los canales reales son GitHub y un correo directo.",
@@ -889,11 +889,11 @@
     "asideFoot": "Al ser un proyecto en solitario, los tiempos de respuesta varían. Lo más rápido es abrir un issue en GitHub.",
     "channelsKicker": "Canales reales",
     "channelsTitle": "Sin formularios laberínticos.",
-    "channelsDesc": "Estos son los canales reales del proyecto. Escribe directo: te responde la persona que escribe el código.",
+    "channelsDesc": "Estos son los canales reales del proyecto. Escriba directo: le responde la persona que escribe el código.",
     "channels": {
       "issues": {
         "title": "GitHub Issues",
-        "desc": "Reporta un bug o pide una funcionalidad con contexto reproducible."
+        "desc": "Reporte un bug o solicite una funcionalidad con contexto reproducible."
       },
       "discussions": {
         "title": "GitHub Discussions",
@@ -901,42 +901,42 @@
       },
       "email": {
         "title": "Correo",
-        "desc": "Para algo que prefieras tratar en privado o por escrito."
+        "desc": "Para algo que prefiera tratar en privado o por escrito."
       }
     },
     "contribute": {
-      "kicker": "Contribuye",
-      "title": "Es código abierto: puedes aportar.",
-      "desc": "Todo el código vive en GitHub bajo licencia MIT. Reportes, ideas y pull requests son bienvenidos, sin importar tu nivel.",
+      "kicker": "Contribuya",
+      "title": "Es código abierto: puede aportar.",
+      "desc": "Todo el código vive en GitHub bajo licencia MIT. Reportes, ideas y pull requests son bienvenidos, sin importar su nivel.",
       "ctaIssues": "Abrir un issue",
       "ctaDiscussions": "Ir a Discussions",
       "steps": [
-        "Clona el repositorio y sigue el README para correrlo en local.",
-        "Abre un issue describiendo el bug o la propuesta con su contexto.",
-        "Manda un pull request; se revisa y se discute en abierto."
+        "Clone el repositorio y siga el README para correrlo en local.",
+        "Abra un issue describiendo el bug o la propuesta con su contexto.",
+        "Envíe un pull request; se revisa y se discute en abierto."
       ]
     },
     "leadForm": {
       "kicker": "Lista de espera",
-      "title": "Deja tu correo y te avisamos primero.",
-      "desc": "Los instaladores de escritorio firmados ya están disponibles. La nube administrada y una validación más amplia en campo siguen pendientes. Cuéntame cuántas tiendas operas y qué te importa; sin spam, solo el aviso.",
-      "emailLabel": "Tu correo",
-      "emailPlaceholder": "dueña@mitienda.co",
-      "sedesLabel": "¿Cuántas sedes tienes?",
+      "title": "Deje su correo y le avisamos primero.",
+      "desc": "Los instaladores de escritorio firmados ya están disponibles. La nube administrada y una validación más amplia en campo siguen pendientes. Cuéntenos cuántas tiendas opera y qué le importa; sin spam, solo el aviso.",
+      "emailLabel": "Su correo",
+      "emailPlaceholder": "duena@mitienda.co",
+      "sedesLabel": "¿Cuántas sedes tiene?",
       "sedes1": "1 sede",
       "sedes2": "2 a 5 sedes",
       "sedes6": "6 o más",
-      "interestLabel": "¿Qué te interesa?",
+      "interestLabel": "¿Qué le interesa?",
       "interestNube": "La nube gestionada",
       "interestEscritorio": "La app de escritorio",
       "interestAmbas": "Ambas",
-      "submit": "Avísame",
+      "submit": "Avísenme",
       "sending": "Enviando…",
-      "invalidEmail": "Revisa el correo — no parece válido.",
-      "sendError": "No se pudo enviar. Intenta de nuevo o escríbenos por correo.",
-      "sentTitle": "¡Listo, quedaste en la lista!",
-      "sentDesc": "Te escribimos apenas haya novedades. Gracias por el interés.",
-      "privacy": "Solo usamos tu correo para avisarte de Puntovivo. Nada de listas compartidas."
+      "invalidEmail": "Revise el correo — no parece válido.",
+      "sendError": "No se pudo enviar. Intente de nuevo o escríbanos por correo.",
+      "sentTitle": "¡Listo, quedó en la lista!",
+      "sentDesc": "Le escribimos apenas haya novedades. Gracias por el interés.",
+      "privacy": "Solo usamos su correo para avisarle de Puntovivo. Nada de listas compartidas."
     }
   },
   "atajos": {
@@ -944,7 +944,7 @@
     "titleA": "Cinco acciones por pantalla,",
     "titleEm": "cinco dedos en el teclado",
     "titleB": ".",
-    "lead": "Puntovivo se opera con teclado primero. Esta página es la chuleta: filtra por módulo, pasa el cursor sobre un atajo y míralo iluminarse en el teclado.",
+    "lead": "Puntovivo se opera con teclado primero. Esta página es la referencia: filtre por módulo, pase el cursor sobre un atajo y véalo iluminarse en el teclado.",
     "crumbInicio": "Inicio",
     "crumbRecursos": "Recursos",
     "crumbAtajos": "Atajos de teclado",
@@ -960,7 +960,7 @@
     "legendShift": "shift",
     "legendEnter": "enter",
     "printButton": "Imprimir chuleta",
-    "keyboardFoot": "Pasa el cursor sobre cualquier atajo para iluminar las teclas correspondientes.",
+    "keyboardFoot": "Pase el cursor sobre cualquier atajo para iluminar las teclas correspondientes.",
     "searchPlaceholder": "Buscar acción · cierre, descuento, transferencia…",
     "areas": [
       "Todos",
@@ -1002,21 +1002,21 @@
       "modoClaroOscuro": "Cambiar tema claro/oscuro",
       "cerrarSesion": "Cerrar sesión"
     },
-    "emptyText": "Ningún atajo coincide con esa búsqueda. Prueba con otra palabra o cambia el módulo."
+    "emptyText": "Ningún atajo coincide con esa búsqueda. Pruebe con otra palabra o cambie el módulo."
   },
   "migracion": {
     "kicker": "Guía de migración",
-    "titleA": "Trae tu catálogo con una ",
+    "titleA": "Traiga su catálogo con una ",
     "titleEm": "importación CSV",
     "titleB": ".",
-    "lead": "Elige un archivo CSV o Excel de hasta 2.000 productos, revisa duplicados y errores, y decide qué filas guardar. Puntovivo reconoce los formatos exactos de exportación probados para Loyverse, Alegra, Siigo y World Office; los formatos modificados o desconocidos vuelven al mapeo genérico. Todos los caminos requieren tu confirmación antes de guardar.",
+    "lead": "Elija un archivo CSV o Excel de hasta 2.000 productos, revise duplicados y errores, y decida qué filas guardar. Puntovivo reconoce los formatos exactos de exportación probados para Loyverse, Alegra, Siigo y World Office; los formatos modificados o desconocidos vuelven al mapeo genérico. Todos los caminos requieren su confirmación antes de guardar.",
     "crumbInicio": "Inicio",
     "crumbRecursos": "Recursos",
     "crumbMigracion": "Guía de migración",
     "badgeTime": "Hasta 2.000 productos por archivo",
     "badgeHuman": "Importación CSV / XLSX",
     "badgeNoDowntime": "Revisión antes de guardar",
-    "pickerHead": "¿De dónde vienes?",
+    "pickerHead": "¿De dónde viene?",
     "levelAuto": "Perfil probado · confirmar",
     "levelAsistida": "Perfil probado · confirmar",
     "levelManual": "Ruta genérica disponible",
@@ -1054,7 +1054,7 @@
       {
         "id": "otro",
         "t": "Otro sistema",
-        "d": "Si exporta a CSV, lo importas igual.",
+        "d": "Si exporta a CSV, lo importa igual.",
         "level": "manual"
       }
     ],
@@ -1066,9 +1066,9 @@
     "steps": [
       {
         "n": "01",
-        "t": "Exporta tu catálogo actual",
+        "t": "Exporte su catálogo actual",
         "time": "En el sistema origen",
-        "d": "Exporta un CSV o XLSX. Nombre y SKU son obligatorios; descripción, código de barras, precios 1, 2 y 3, costo, stock inicial, stock mínimo, IVA y control de lotes son opcionales. Cada archivo admite hasta 2.000 productos y 10 MB, en CSV (UTF-8 o Windows) o Excel.",
+        "d": "Exporte un CSV o XLSX. Nombre y SKU son obligatorios; descripción, código de barras, precios 1, 2 y 3, costo, stock inicial, stock mínimo, IVA y control de lotes son opcionales. Cada archivo admite hasta 2.000 productos y 10 MB, en CSV (UTF-8 o Windows) o Excel.",
         "checks": [
           {
             "t": "Nombre y SKU presentes",
@@ -1083,16 +1083,16 @@
             "ok": true
           },
           {
-            "t": "Crea una copia cifrada antes de guardar datos reales",
+            "t": "Cree una copia cifrada antes de guardar datos reales",
             "ok": false
           }
         ]
       },
       {
         "n": "02",
-        "t": "Limpia duplicados y formatos numéricos",
+        "t": "Limpie duplicados y formatos numéricos",
         "time": "Antes de subir",
-        "d": "Puntovivo detecta SKU y códigos de barras repetidos dentro del archivo y contra el catálogo del negocio. Elige el formato decimal correcto y evita que la hoja convierta códigos largos a notación científica.",
+        "d": "Puntovivo detecta SKU y códigos de barras repetidos dentro del archivo y contra el catálogo del negocio. Elija el formato decimal correcto y evite que la hoja convierta códigos largos a notación científica.",
         "checks": [
           {
             "t": "SKU sin duplicados",
@@ -1110,9 +1110,9 @@
       },
       {
         "n": "03",
-        "t": "Sube el CSV a la importación",
+        "t": "Suba el CSV a la importación",
         "time": "En Puntovivo",
-        "d": "En Productos → Importar productos (o Administrar negocio → Importar datos), con un usuario administrador, elige modo de datos reales, selecciona el CSV o XLSX y confirma el mapeo campo por campo. El archivo permanece en el navegador hasta que solicitas la vista previa.",
+        "d": "En Productos → Importar productos (o Administrar negocio → Importar datos), con un usuario administrador, elija modo de datos reales, seleccione el CSV o XLSX y confirme el mapeo campo por campo. El archivo permanece en el navegador hasta que solicite la vista previa.",
         "checks": [
           {
             "t": "Nombre y SKU mapeados",
@@ -1130,9 +1130,9 @@
       },
       {
         "n": "04",
-        "t": "Revisa el preview y confirma",
+        "t": "Revise la vista previa y confirme",
         "time": "Revisión obligatoria",
-        "d": "El servidor vuelve a validar cada fila y muestra cuáles están listas, duplicadas o inválidas. Solo las filas listas se guardan después de tu confirmación explícita; no existe una reversión del lote con un clic.",
+        "d": "El servidor vuelve a validar cada fila y muestra cuáles están listas, duplicadas o inválidas. Solo las filas listas se guardan después de su confirmación explícita; no existe una reversión del lote con un clic.",
         "checks": [
           {
             "t": "Duplicados e inválidos revisados",
@@ -1146,16 +1146,16 @@
       },
       {
         "n": "05",
-        "t": "Concilia y abre caja",
+        "t": "Concilie y abra caja",
         "time": "Cambio controlado",
-        "d": "Importa con el sistema anterior detenido para ese corte o registra cualquier venta posterior por separado. Luego haz un conteo físico, compara el stock inicial y completa una venta de prueba antes de adoptar Puntovivo como registro principal.",
+        "d": "Importe con el sistema anterior detenido para ese corte o registre cualquier venta posterior por separado. Luego haga un conteo físico, compare el stock inicial y complete una venta de prueba antes de adoptar Puntovivo como registro principal.",
         "checks": [
           {
             "t": "Conteo físico hecho en sede principal",
             "ok": true
           },
           {
-            "t": "Apertura con base definida por ti",
+            "t": "Apertura con base definida por usted",
             "ok": true
           },
           {
@@ -1236,42 +1236,42 @@
     ],
     "sampleKicker": "Formato propio",
     "sampleTitle": "Este es el formato genérico.",
-    "sampleDesc": "Una fila por producto, encabezados en la primera fila y hasta 2.000 filas de productos. Importa cada lote desde la sede donde debe quedar su stock inicial.",
+    "sampleDesc": "Una fila por producto, encabezados en la primera fila y hasta 2.000 filas de productos. Importe cada lote desde la sede donde debe quedar su stock inicial.",
     "sampleTab1": "catalogo.csv",
     "sampleTab2": "stock-sede-centro.csv",
     "sampleTab3": "stock-sede-norte.csv",
     "sampleDownload": "Descargar plantilla",
-    "sampleFootA": "¿IVA cero? Deja la columna en",
-    "sampleFootB": ". Para exentos usa",
+    "sampleFootA": "¿IVA cero? Deje la columna en",
+    "sampleFootB": ". Para exentos use",
     "faqKicker": "Preguntas frecuentes",
     "faqTitle": "Lo que preguntan antes de empezar.",
     "faq": [
       {
         "q": "¿Cuánto demora migrar una sola sede?",
-        "a": "No hay una duración garantizada. Depende de la limpieza del archivo, la cantidad de lotes de 2.000 productos, los duplicados y el conteo físico. Haz primero una vista previa y reserva un corte controlado."
+        "a": "No hay una duración garantizada. Depende de la limpieza del archivo, la cantidad de lotes de 2.000 productos, los duplicados y el conteo físico. Haga primero una vista previa y reserve un corte controlado."
       },
       {
         "q": "¿Tengo que parar de vender mientras migro?",
-        "a": "Planea un corte controlado. La exportación es una fotografía en el tiempo: si continúas vendiendo en el sistema anterior después de exportar, debes conciliar esas ventas antes de adoptar Puntovivo como registro principal."
+        "a": "Planee un corte controlado. La exportación es una fotografía en el tiempo: si continúa vendiendo en el sistema anterior después de exportar, debe conciliar esas ventas antes de adoptar Puntovivo como registro principal."
       },
       {
         "q": "¿Y si mi catálogo supera 2.000 productos?",
-        "a": "Divide el archivo en lotes de hasta 2.000 productos y revisa cada vista previa. El asistente no divide archivos automáticamente en la versión actual."
+        "a": "Divida el archivo en lotes de hasta 2.000 productos y revise cada vista previa. El asistente no divide archivos automáticamente en la versión actual."
       },
       {
         "q": "¿Qué pasa con el histórico de ventas?",
-        "a": "El histórico de ventas no se importa. Conserva los reportes del sistema anterior según tus obligaciones contables y comienza el nuevo registro en Puntovivo desde el corte acordado."
+        "a": "El histórico de ventas no se importa. Conserve los reportes del sistema anterior según sus obligaciones contables y comience el nuevo registro en Puntovivo desde el corte acordado."
       }
     ],
-    "ctaKicker": "¿Dudas con tu archivo?",
-    "ctaTitle": "¿Tu catálogo no encaja en el formato?",
-    "ctaDesc": "Si tu export tiene una estructura rara, abre un issue en GitHub con un ejemplo (sin datos sensibles) y lo revisamos en abierto.",
+    "ctaKicker": "¿Dudas con su archivo?",
+    "ctaTitle": "¿Su catálogo no encaja en el formato?",
+    "ctaDesc": "Si su exportación tiene una estructura distinta, abra un issue en GitHub con un ejemplo (sin datos sensibles) y lo revisamos en abierto.",
     "ctaSchedule": "Preguntar en GitHub",
     "ctaRead": "Leer guía completa"
   },
   "seguridad": {
     "kicker": "Seguridad",
-    "title": "Seguridad que puedes leer en el código.",
+    "title": "Seguridad que puede leer en el código.",
     "lead": "Nada de esta página es marketing: cada afirmación corresponde a un control que vive en el repositorio abierto, y las afirmaciones clave las verifica la suite de pruebas del sitio contra el código.",
     "crumbInicio": "Inicio",
     "crumbEmpresa": "Empresa",
@@ -1313,9 +1313,9 @@
         ]
       },
       {
-        "h": "Reporta una vulnerabilidad",
+        "h": "Reporte una vulnerabilidad",
         "bullets": [
-          "Abre un aviso privado en GitHub (pestaña Security → Report a vulnerability) o escríbenos al correo de la página de contacto.",
+          "Abra un aviso privado en GitHub (pestaña Security → Report a vulnerability) o escríbanos al correo de la página de contacto.",
           "Responde una persona, no un bot; el detalle del proceso vive en el documento de seguridad del repositorio."
         ]
       }
@@ -1326,7 +1326,7 @@
   "estado": {
     "kicker": "Estado",
     "title": "Qué está construido y qué falta, sin adornos.",
-    "lead": "Este proyecto se construye en abierto. Aquí está la foto honesta: lo que ya puedes ejecutar hoy y las condiciones externas que faltan antes de recomendarlo en producción.",
+    "lead": "Este proyecto se construye en abierto. Aquí está la foto honesta: lo que ya puede ejecutar hoy y las condiciones externas que faltan antes de recomendarlo en producción.",
     "crumbInicio": "Inicio",
     "crumbEmpresa": "Empresa",
     "crumbEstado": "Estado",
@@ -1337,11 +1337,11 @@
     "pending": [
       {
         "h": "Certificación DIAN",
-        "p": "El motor fiscal (numeración, CUFE, clasificación por línea) está construido, pero la habilitación ante la DIAN con set de pruebas es un trámite externo que aún no se ha completado. Hasta entonces, Puntovivo no emite factura electrónica con validez legal."
+        "p": "El motor fiscal (numeración, CUFE/CUDE, XML UBL 2.1, firmador XAdES-EPES y transporte SOAP con contingencia tipo 08) está construido, pero la habilitación ante la DIAN con set de pruebas es un trámite externo que aún no se ha completado. Hasta entonces, Puntovivo no emite factura electrónica con validez legal."
       },
       {
         "h": "Firma de código en Windows",
-        "p": "Los paquetes de Windows aún no van firmados. Mientras tanto, ninguna actualización se instala en silencio en Windows: cada una requiere tu acción explícita."
+        "p": "Los paquetes de Windows aún no van firmados. Mientras tanto, ninguna actualización se instala en silencio en Windows: cada una requiere su acción explícita."
       },
       {
         "h": "Hardware físico representativo",
@@ -1349,17 +1349,17 @@
       },
       {
         "h": "Piloto observado",
-        "p": "Antes de recomendar producción, un comercio real debe operar con acompañamiento. Si quieres ser ese piloto, escríbenos."
+        "p": "Antes de recomendar producción, un comercio real debe operar con acompañamiento. Si desea ser ese piloto, escríbanos."
       }
     ],
     "honestTitle": "¿Puedo usarlo hoy?",
-    "honestDesc": "Sí, para operar caja, inventario y compras en un negocio que no necesite factura electrónica certificada todavía. Es open source: puedes leer exactamente qué hace antes de confiarle tu operación.",
+    "honestDesc": "Sí, para operar caja, inventario y compras en un negocio que no necesite factura electrónica certificada todavía. Es open source: puede leer exactamente qué hace antes de confiarle su operación.",
     "sourceNote": "Esta página refleja el estado público del repositorio; la fuente de verdad es docs/PROJECT-STATUS.md."
   },
   "releases": {
     "kicker": "Versiones",
     "title": "Cada versión, con sus notas.",
-    "lead": "Las versiones se publican en GitHub con notas de cambios. Esta página las lista cuando tu navegador puede consultarlas; si no, el historial completo siempre vive en GitHub.",
+    "lead": "Las versiones se publican en GitHub con notas de cambios. Esta página las lista cuando su navegador puede consultarlas; si no, el historial completo siempre vive en GitHub.",
     "crumbInicio": "Inicio",
     "crumbRecursos": "Recursos",
     "crumbReleases": "Versiones",
@@ -1372,7 +1372,7 @@
   "shots": {
     "kicker": "La consola por dentro",
     "title": "Seis pantallas, ningún render.",
-    "desc": "Capturas reales de la consola corriendo contra un catálogo colombiano de demostración. Los precios, los consecutivos y los saldos que ves salieron del mismo código que puedes ejecutar hoy.",
+    "desc": "Capturas reales de la consola corriendo contra un catálogo colombiano de demostración. Los precios, los consecutivos y los saldos que ve salieron del mismo código que puede ejecutar hoy.",
     "items": {
       "dashboard": {
         "title": "Centro de mando",

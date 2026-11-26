@@ -186,8 +186,12 @@ describe('ColombiaMockAdapter.issue', () => {
         buyer: { ...base.buyer, taxId: '800.123.456-5' },
       })
     );
-    expect(result.xmlRef).toContain('<cbc:CompanyID>900373115</cbc:CompanyID>');
-    expect(result.xmlRef).toContain('<cbc:CompanyID>800123456</cbc:CompanyID>');
+    expect(result.xmlRef).toContain(
+      'schemeAgencyID="195" schemeAgencyName="CO, DIAN (Dirección de Impuestos y Aduanas Nacionales)" schemeID="3" schemeName="31">900373115</cbc:CompanyID>'
+    );
+    expect(result.xmlRef).toContain(
+      'schemeAgencyID="195" schemeAgencyName="CO, DIAN (Dirección de Impuestos y Aduanas Nacionales)" schemeID="5" schemeName="31">800123456</cbc:CompanyID>'
+    );
     expect(result.xmlRef).not.toContain('900100200');
   });
 
@@ -288,7 +292,8 @@ describe('ColombiaMockAdapter.issue', () => {
         ],
       })
     );
-    expect(result.xmlRef?.match(/<cac:TaxSubtotal>/g)).toHaveLength(2);
+    // Header TaxTotal + InvoiceLine TaxTotal each carry IVA (01) and INC (04) TaxSubtotals.
+    expect(result.xmlRef?.match(/<cac:TaxSubtotal>/g)).toHaveLength(4);
     expect(result.xmlRef).toContain('<cbc:ID>01</cbc:ID><cbc:Name>IVA</cbc:Name>');
     expect(result.xmlRef).toContain('<cbc:ID>04</cbc:ID><cbc:Name>INC</cbc:Name>');
     expect(result.xmlRef).toContain('<cbc:TaxAmount currencyID="COP">8.00</cbc:TaxAmount>');
@@ -303,7 +308,8 @@ describe('ColombiaMockAdapter.issue', () => {
       })
     );
 
-    expect(result.xmlRef?.match(/<cac:TaxSubtotal>/g)).toHaveLength(1);
+    // Header TaxTotal + InvoiceLine TaxTotal each carry one legacy IVA TaxSubtotal.
+    expect(result.xmlRef?.match(/<cac:TaxSubtotal>/g)).toHaveLength(2);
     expect(result.xmlRef).toContain('<cbc:TaxAmount currencyID="COP">19.00</cbc:TaxAmount>');
     expect(result.xmlRef).toContain('<cbc:ID>01</cbc:ID><cbc:Name>IVA</cbc:Name>');
   });
