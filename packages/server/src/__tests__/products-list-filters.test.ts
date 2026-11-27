@@ -3,7 +3,13 @@ import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { inventoryBalances, products, sites, users } from '../db/schema.js';
+import {
+  inventoryBalances,
+  productBundleComponents,
+  products,
+  sites,
+  users,
+} from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -181,6 +187,15 @@ describe('products.list filters', () => {
         },
       ])
       .run();
+    db.insert(productBundleComponents)
+      .values({
+        id: nanoid(),
+        tenantId,
+        bundleProductId: parentId,
+        componentProductId: healthyId,
+        quantity: 2,
+      })
+      .run();
 
     const hiddenCostFields = {
       cost: null,
@@ -210,6 +225,9 @@ describe('products.list filters', () => {
 
       const scanned = await caller.products.lookupByBarcode({ barcode });
       expect(scanned?.product).toMatchObject(hiddenCostFields);
+
+      const components = await caller.products.getBundleComponents({ productId: parentId });
+      expect(components[0]?.unitCost).toBeNull();
     }
 
     for (const role of ['admin', 'manager'] as const) {
@@ -227,6 +245,9 @@ describe('products.list filters', () => {
 
       const scanned = await caller.products.lookupByBarcode({ barcode });
       expect(scanned?.product).toMatchObject({ cost: 50, initialCost: 48, marginPercent1: 50 });
+
+      const components = await caller.products.getBundleComponents({ productId: parentId });
+      expect(components[0]?.unitCost).toBe(50);
     }
   });
 });

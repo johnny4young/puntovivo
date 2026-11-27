@@ -286,8 +286,6 @@ async function persistProduct(
           profile: input.pharmacy,
           now,
         });
-      }
-      if (input.pharmacy) {
         writeAuditLog({
           tx,
           tenantId: ctx.tenantId,
@@ -299,8 +297,6 @@ async function persistProduct(
           after: input.pharmacy,
           operationId: ctx.envelope?.operationId,
         });
-      }
-      if (input.pharmacy) {
         enqueueSyncInTransaction(
           {
             db: tx,

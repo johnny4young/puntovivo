@@ -331,9 +331,11 @@ export const productQueryProcedures = {
     }),
 
   /** Read the physical stock components attached to a combo/kit product. */
-  getBundleComponents: tenantProcedure
-    .input(getBundleComponentsInput)
-    .query(({ ctx, input }) => getBundleComponents(ctx.db, ctx.tenantId, input.productId)),
+  getBundleComponents: tenantProcedure.input(getBundleComponentsInput).query(({ ctx, input }) => {
+    const components = getBundleComponents(ctx.db, ctx.tenantId, input.productId);
+    if (canViewProductCost(ctx.user?.role)) return components;
+    return components.map(component => ({ ...component, unitCost: null as number | null }));
+  }),
 
   /**
    * Search products by name, SKU or barcode

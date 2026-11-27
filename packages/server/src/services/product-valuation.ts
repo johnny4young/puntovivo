@@ -1,5 +1,6 @@
 /** Tenant-wide exact pools retain the existing global (not site-average) cost policy. */
 import type Database from 'better-sqlite3';
+import { rawSqliteClient } from '../db/raw-client.js';
 import { inventoryValueGuard } from './inventory-value-errors.js';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
@@ -24,8 +25,8 @@ interface ValuationPreparedStatements {
 const valuationStmtCache = new WeakMap<Database.Database, ValuationPreparedStatements>();
 
 function getValuationStatements(db: DatabaseInstance): ValuationPreparedStatements | null {
-  const client = (db as unknown as { $client?: Database.Database }).$client;
-  if (!client || typeof client.prepare !== 'function') return null;
+  const client = rawSqliteClient(db);
+  if (!client) return null;
   let cached = valuationStmtCache.get(client);
   if (!cached) {
     cached = {

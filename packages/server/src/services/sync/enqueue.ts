@@ -32,6 +32,7 @@
  */
 
 import type Database from 'better-sqlite3';
+import { rawSqliteClient } from '../../db/raw-client.js';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
@@ -44,8 +45,8 @@ interface SyncProbeStatements {
 const syncProbeStmtCache = new WeakMap<Database.Database, SyncProbeStatements>();
 
 function getSyncProbeStatements(db: DatabaseInstance): SyncProbeStatements | null {
-  const client = (db as unknown as { $client?: Database.Database }).$client;
-  if (!client || typeof client.prepare !== 'function') return null;
+  const client = rawSqliteClient(db);
+  if (!client) return null;
   let cached = syncProbeStmtCache.get(client);
   if (!cached) {
     cached = {

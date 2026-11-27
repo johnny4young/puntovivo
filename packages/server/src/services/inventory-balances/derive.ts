@@ -25,6 +25,7 @@
  */
 
 import type Database from 'better-sqlite3';
+import { rawSqliteClient } from '../../db/raw-client.js';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { inventoryBalances, productStockTotals } from '../../db/schema.js';
@@ -32,8 +33,8 @@ import { inventoryBalances, productStockTotals } from '../../db/schema.js';
 const stockTotalStmtCache = new WeakMap<Database.Database, Database.Statement>();
 
 function getPreparedStockTotalStmt(db: DatabaseInstance): Database.Statement | null {
-  const client = (db as unknown as { $client?: Database.Database }).$client;
-  if (!client || typeof client.prepare !== 'function') return null;
+  const client = rawSqliteClient(db);
+  if (!client) return null;
   let stmt = stockTotalStmtCache.get(client);
   if (!stmt) {
     stmt = client.prepare(

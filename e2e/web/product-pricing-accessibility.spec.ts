@@ -126,7 +126,7 @@ test('products reads redact cost and margin for cashier and flag at-minimum stoc
     procedure: string,
     sku: string
   ) => {
-    let matched: Record<string, unknown> | null = null;
+    let matched = null as Record<string, unknown> | null;
     await page.waitForResponse(async res => {
       if (!res.url().includes('/api/trpc/') || !res.url().includes(procedure) || !res.ok()) {
         return false;
