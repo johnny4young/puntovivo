@@ -1,4 +1,4 @@
-import { and, eq, gt, isNotNull, lt, ne, type SQL } from 'drizzle-orm';
+import { and, eq, gt, isNotNull, ne, type SQL } from 'drizzle-orm';
 import { resolveTierUnitPrice, type PriceTier } from '@puntovivo/shared/price-tier';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
 import type { DatabaseInstance } from '../../db/index.js';
@@ -22,6 +22,44 @@ export function pharmacyEquivalenceKey(value: string | null | undefined): string
   return key || null;
 }
 
+/**
+ * Resolve dose/unit count per commercial pack from explicit `dosesPerPack` or
+ * standard Colombian/LATAM presentation strings ("Caja x 30 tabletas",
+ * "Blíster × 10", "Frasco por 24 cápsulas"). Ignores mass/volume units (mg, ml).
+ */
+export function resolveDosesPerPack(
+  explicitDoses: number | null | undefined,
+  presentation: string | null | undefined
+): number | null {
+  if (typeof explicitDoses === 'number' && Number.isInteger(explicitDoses) && explicitDoses > 0) {
+    return explicitDoses;
+  }
+  if (!presentation) return null;
+  const normalized = presentation
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .toLocaleLowerCase('en-US');
+
+  const countUnits =
+    '(?:tabletas?|tabs?|capsulas?|caps?|comprimidos?|grageas?|sobres?|ampollas?|viales?|unidades?|dosis|blisters?|supositorios?|ovulos?|parches?)';
+  // 1) Explicit pack multiplier ("x 30 tabletas", "×10", "por 24 capsulas")
+  const packMatch = new RegExp(
+    `(?:\\b(?:x|por)\\s*|×\\s*)(\\d{1,4})(?!\\s*(?:mg|mcg|ug|g|kg|ml|l|cc|ui|%))(?:\\s*${countUnits})?`,
+    'i'
+  ).exec(normalized);
+  if (packMatch) {
+    const parsed = Number.parseInt(packMatch[1]!, 10);
+    if (parsed > 0 && parsed <= 10_000) return parsed;
+  }
+  // 2) Direct count phrase ("30 tabletas", "10 capsulas")
+  const directMatch = new RegExp(`\\b(\\d{1,4})\\s*${countUnits}\\b`, 'i').exec(normalized);
+  if (directMatch) {
+    const parsed = Number.parseInt(directMatch[1]!, 10);
+    if (parsed > 0 && parsed <= 10_000) return parsed;
+  }
+  return null;
+}
+
 interface AlternativesScope {
   tenantId: string;
   siteId: string;
@@ -43,6 +81,7 @@ function selectMedicines(db: DatabaseInstance, tenantId: string, where: SQL | un
       concentration: pharmacyProductProfiles.concentration,
       dosageForm: pharmacyProductProfiles.dosageForm,
       presentation: pharmacyProductProfiles.presentation,
+      dosesPerPack: pharmacyProductProfiles.dosesPerPack,
       manufacturer: pharmacyProductProfiles.manufacturer,
       classification: pharmacyProductProfiles.classification,
       sanitaryRegistration: pharmacyProductProfiles.sanitaryRegistration,
@@ -72,10 +111,10 @@ function tierPrice(row: MedicineRow, tier: PriceTier): number {
 }
 
 /**
- * Cheaper medicines with the same active ingredient, concentration, dosage form
- * and presentation, no stricter class, that the site can sell right now, biggest saving first. Controlled,
- * policy-blocked or out-of-stock products are never suggested; recalls reach
- * this through lot status, like checkout.
+ * Cheaper equivalents with the same active ingredient, concentration and dosage
+ * form, no stricter class, that the site can sell right now. Compares exact
+ * same presentations directly AND cross-presentations (e.g. Caja x 30 vs
+ * Blíster x 10) by cost per dose whenever both carry a known dose count.
  */
 export function listPharmacyGenericAlternatives(
   db: DatabaseInstance,
@@ -95,20 +134,22 @@ export function listPharmacyGenericAlternatives(
   const ingredient = keyOf(source.activeIngredient);
   const concentration = keyOf(source.concentration);
   const dosageForm = keyOf(source.dosageForm);
-  // Same pack, so the saving compares like for like.
   const presentation = keyOf(source.presentation);
+  const sourceDoses = resolveDosesPerPack(source.dosesPerPack, source.presentation);
   const tier = input.priceTier;
   const sourcePrice = tierPrice(source, tier);
   if (
     !ingredient ||
     !concentration ||
     !dosageForm ||
-    !presentation ||
+    (!presentation && !sourceDoses) ||
     source.classification === 'controlled' ||
     !(sourcePrice > 0)
   ) {
     return { sourcePrice, items: [] };
   }
+
+  const sourcePricePerDose = sourceDoses ? roundMoney(sourcePrice / sourceDoses) : null;
 
   const decisions = new Map<PharmacyClassification, ReturnType<typeof resolvePharmacyPolicy>>();
   const policyAllows = (row: MedicineRow) => {
@@ -124,7 +165,19 @@ export function listPharmacyGenericAlternatives(
     return pharmacyProductPolicyBlockCode(decision, row, scope.clock.businessDate) === null;
   };
 
-  const candidates = selectMedicines(
+  interface EvaluatedCandidate {
+    row: MedicineRow;
+    price: number;
+    savings: number;
+    dosesPerPack: number | null;
+    pricePerDose: number | null;
+    sourceDosesPerPack: number | null;
+    sourcePricePerDose: number | null;
+    savingsPerDose: number | null;
+    comparisonMode: 'same_presentation' | 'per_dose';
+  }
+
+  const candidates: EvaluatedCandidate[] = selectMedicines(
     db,
     scope.tenantId,
     and(
@@ -133,27 +186,79 @@ export function listPharmacyGenericAlternatives(
       ne(products.catalogType, 'variant_parent'),
       eq(products.currencyCode, source.currencyCode),
       gt(products.price, 0),
-      // Tiers 2 and 3 can undercut tier 1, so only tier 1 bounds the scan.
-      tier === 1 ? lt(products.price, sourcePrice) : undefined,
       isNotNull(pharmacyProductProfiles.activeIngredient),
       isNotNull(pharmacyProductProfiles.concentration),
       isNotNull(pharmacyProductProfiles.dosageForm),
-      isNotNull(pharmacyProductProfiles.presentation),
       // Never a stricter class than the source: an OTC sale must not turn into a prescription one.
       source.classification === 'otc'
         ? eq(pharmacyProductProfiles.classification, 'otc')
         : ne(pharmacyProductProfiles.classification, 'controlled')
     )
-  ).flatMap(row => {
+  ).flatMap((row): EvaluatedCandidate[] => {
+    if (
+      keyOf(row.activeIngredient) !== ingredient ||
+      keyOf(row.concentration) !== concentration ||
+      keyOf(row.dosageForm) !== dosageForm ||
+      !policyAllows(row)
+    ) {
+      return [];
+    }
+
     const price = tierPrice(row, tier);
-    const matches =
-      price < sourcePrice &&
-      keyOf(row.activeIngredient) === ingredient &&
-      keyOf(row.concentration) === concentration &&
-      keyOf(row.dosageForm) === dosageForm &&
-      keyOf(row.presentation) === presentation &&
-      policyAllows(row);
-    return matches ? [{ row, price }] : [];
+    const candidatePresentation = keyOf(row.presentation);
+    const candidateDoses = resolveDosesPerPack(row.dosesPerPack, row.presentation);
+    const pricePerDose = candidateDoses ? roundMoney(price / candidateDoses) : null;
+
+    if (presentation && candidatePresentation === presentation) {
+      if (!(price < sourcePrice)) return [];
+      const savings = roundMoney(sourcePrice - price);
+      const savingsPerDose =
+        sourcePricePerDose !== null && pricePerDose !== null
+          ? roundMoney(sourcePricePerDose - pricePerDose)
+          : null;
+      return [
+        {
+          row,
+          price,
+          savings,
+          dosesPerPack: candidateDoses,
+          pricePerDose,
+          sourceDosesPerPack: sourceDoses,
+          sourcePricePerDose,
+          savingsPerDose,
+          comparisonMode: 'same_presentation' as const,
+        },
+      ];
+    }
+
+    // Cross-presentation comparison (e.g. Caja x 30 vs Blíster x 10) requires valid dose counts on both
+    if (
+      sourceDoses &&
+      candidateDoses &&
+      sourcePricePerDose !== null &&
+      pricePerDose !== null &&
+      price / candidateDoses < sourcePrice / sourceDoses - 0.005
+    ) {
+      const exactSavingPerDose = sourcePrice / sourceDoses - price / candidateDoses;
+      const savingsPerDose = roundMoney(exactSavingPerDose);
+      const savings = roundMoney(exactSavingPerDose * candidateDoses);
+      if (!(savings > 0) || !(savingsPerDose > 0)) return [];
+      return [
+        {
+          row,
+          price,
+          savings,
+          dosesPerPack: candidateDoses,
+          pricePerDose,
+          sourceDosesPerPack: sourceDoses,
+          sourcePricePerDose,
+          savingsPerDose,
+          comparisonMode: 'per_dose' as const,
+        },
+      ];
+    }
+
+    return [];
   });
   if (candidates.length === 0) return { sourcePrice, items: [] };
 
@@ -170,26 +275,39 @@ export function listPharmacyGenericAlternatives(
     lotsByProduct.set(lot.productId, list);
   }
 
-  const items = candidates.flatMap(({ row, price }) => {
-    const lots = lotsByProduct.get(row.productId);
+  const items = candidates.flatMap(candidate => {
+    const lots = lotsByProduct.get(candidate.row.productId);
     if (!lots) return [];
     return [
       {
-        productId: row.productId,
-        name: row.name,
-        sku: row.sku,
-        price,
-        savings: roundMoney(sourcePrice - price),
-        classification: row.classification,
-        genericName: row.genericName,
-        manufacturer: row.manufacturer,
-        concentration: row.concentration,
-        presentation: row.presentation,
+        productId: candidate.row.productId,
+        name: candidate.row.name,
+        sku: candidate.row.sku,
+        price: candidate.price,
+        savings: candidate.savings,
+        dosesPerPack: candidate.dosesPerPack,
+        pricePerDose: candidate.pricePerDose,
+        sourceDosesPerPack: candidate.sourceDosesPerPack,
+        sourcePricePerDose: candidate.sourcePricePerDose,
+        savingsPerDose: candidate.savingsPerDose,
+        comparisonMode: candidate.comparisonMode,
+        classification: candidate.row.classification,
+        genericName: candidate.row.genericName,
+        manufacturer: candidate.row.manufacturer,
+        concentration: candidate.row.concentration,
+        presentation: candidate.row.presentation,
         siteStock: roundQuantity(lots.reduce((total, lot) => total + lot.onHand, 0)),
         nextLot: { lotNumber: lots[0]!.lotNumber, expiresAt: lots[0]!.expiresAt },
       },
     ];
   });
-  items.sort((a, b) => b.savings - a.savings || a.name.localeCompare(b.name));
+  items.sort((a, b) => {
+    if (a.comparisonMode === 'same_presentation' && b.comparisonMode === 'same_presentation') {
+      return b.savings - a.savings || a.name.localeCompare(b.name);
+    }
+    const aRate = a.savingsPerDose ?? a.savings;
+    const bRate = b.savingsPerDose ?? b.savings;
+    return bRate - aRate || b.savings - a.savings || a.name.localeCompare(b.name);
+  });
   return { sourcePrice, items: items.slice(0, input.limit) };
 }

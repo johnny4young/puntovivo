@@ -42,11 +42,13 @@ export function assertPharmacyProductPolicy(args: {
   countryCode: string;
   businessDate: string;
   customerId: string | null;
+  fneAuthorized?: boolean;
 }): PharmacyPolicyDecision {
   const decision = resolvePharmacyPolicy(
     args.countryCode,
     args.businessDate,
-    args.profile.classification
+    args.profile.classification,
+    args.fneAuthorized ? { fneAuthorized: true } : undefined
   );
   const blockCode = pharmacyProductPolicyBlockCode(decision, args.profile, args.businessDate);
   if (blockCode) {

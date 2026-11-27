@@ -528,6 +528,14 @@ export const auditLogActionEnum = [
   'pharmacy.recall.close',
   'pharmacy.lot.transition',
   'pharmacy.lot.destroy',
+  'pharmacy.lot.fractionate',
+  'pharmacy.environmental_log.record',
+  'pharmacy.invima.import',
+  'pharmacy.fne_authorization.create',
+  'pharmacy.fne_authorization.revoke',
+  'pharmacy.fne.dispense',
+  'pharmacy.customer_allergy.create',
+  'pharmacy.customer_allergy.delete',
   // an admin ran a non-destructive readiness drill against the
   // latest scheduled snapshot. Metadata records pass/fail plus bounded
   // tenant-scoped count deltas; no filesystem path or encryption key.
@@ -681,6 +689,12 @@ export const auditLogResourceTypeEnum = [
   'pharmacy_product_profile',
   'pharmacy_prescription_evidence',
   'pharmacy_recall',
+  'pharmacy_lot_fractionation',
+  'pharmacy_environmental_log',
+  'pharmacy_invima_catalog',
+  'pharmacy_fne_authorization',
+  'pharmacy_fne_ledger',
+  'pharmacy_customer_allergy',
   'inventory_lot',
   // scheduler-owned encrypted snapshot targeted by a restore drill.
   'backup_snapshot',

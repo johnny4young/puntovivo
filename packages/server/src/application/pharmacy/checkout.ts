@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   customers,
+  pharmacyCustomerAllergies,
   pharmacyDispensations,
   pharmacyPrescriptionEvidence,
   pharmacyProfessionalAuthorizations,
@@ -39,6 +40,8 @@ import {
   inspectPharmacyAuthorizationSnapshot,
   type PharmacyAuthorizationSnapshot,
 } from './authorizations.js';
+import { appendFneLedgerEntry, findEffectiveFneAuthorization } from './fne.js';
+import { pharmacyEquivalenceKey } from './generic-alternatives.js';
 
 const roundQuantity = (value: number) => Math.round(value * 1_000_000_000) / 1_000_000_000;
 
@@ -75,6 +78,8 @@ export async function getPharmacyCheckoutRequirements(
           .select({
             productId: products.id,
             productName: products.name,
+            activeIngredient: pharmacyProductProfiles.activeIngredient,
+            genericName: pharmacyProductProfiles.genericName,
             classification: pharmacyProductProfiles.classification,
             sanitaryRegistration: pharmacyProductProfiles.sanitaryRegistration,
             registrationExpiresAt: pharmacyProductProfiles.registrationExpiresAt,
@@ -128,11 +133,20 @@ export async function getPharmacyCheckoutRequirements(
       )
     : false;
 
+  const fneAuthorization = findEffectiveFneAuthorization(db, {
+    tenantId,
+    siteId,
+    countryCode: clock.countryCode,
+    businessDate: clock.businessDate,
+  });
+  const fneEnabled = fneAuthorization !== null;
+
   const requirementContexts = profiles.map(profile => {
     const decision = resolvePharmacyPolicy(
       clock.countryCode,
       clock.businessDate,
-      profile.classification
+      profile.classification,
+      fneEnabled ? { fneAuthorized: true } : undefined
     );
     const customerId = customerIsValid ? (input.customerId ?? null) : null;
     const blockCode =
@@ -456,9 +470,97 @@ export async function getPharmacyCheckoutRequirements(
       reapprovalEvidence: reapprovalByProduct.get(profile.productId) ?? [],
     };
   });
+  // Basic clinical safety alerts: active-ingredient duplicity across cart lines
+  // and registered customer allergies matching any medicine in the cart.
+  type PharmacySafetyAlert =
+    | {
+        kind: 'duplicate_active_ingredient';
+        severity: 'warning';
+        activeIngredient: string;
+        productIds: string[];
+        productNames: string[];
+      }
+    | {
+        kind: 'customer_allergy';
+        severity: 'mild' | 'moderate' | 'severe';
+        activeIngredient: string;
+        productId: string;
+        productName: string;
+        notes: string | null;
+      };
+  const safetyAlerts: PharmacySafetyAlert[] = [];
+  const ingredientGroups = new Map<
+    string,
+    { label: string; productIds: string[]; productNames: string[] }
+  >();
+  for (const profile of profiles) {
+    const key = pharmacyEquivalenceKey(profile.activeIngredient);
+    if (!key || !profile.activeIngredient) continue;
+    const group = ingredientGroups.get(key) ?? {
+      label: profile.activeIngredient,
+      productIds: [],
+      productNames: [],
+    };
+    group.productIds.push(profile.productId);
+    group.productNames.push(profile.productName);
+    ingredientGroups.set(key, group);
+  }
+  for (const group of ingredientGroups.values()) {
+    if (group.productIds.length >= 2) {
+      safetyAlerts.push({
+        kind: 'duplicate_active_ingredient',
+        severity: 'warning',
+        activeIngredient: group.label,
+        productIds: group.productIds,
+        productNames: group.productNames,
+      });
+    }
+  }
+  if (customerIsValid && input.customerId && profiles.length > 0) {
+    const allergies = db
+      .select({
+        activeIngredient: pharmacyCustomerAllergies.activeIngredient,
+        activeIngredientNormalized: pharmacyCustomerAllergies.activeIngredientNormalized,
+        severity: pharmacyCustomerAllergies.severity,
+        notes: pharmacyCustomerAllergies.notes,
+      })
+      .from(pharmacyCustomerAllergies)
+      .where(
+        and(
+          eq(pharmacyCustomerAllergies.tenantId, tenantId),
+          eq(pharmacyCustomerAllergies.customerId, input.customerId)
+        )
+      )
+      .all();
+    for (const allergy of allergies) {
+      for (const profile of profiles) {
+        const ingKey = pharmacyEquivalenceKey(profile.activeIngredient);
+        const genKey = pharmacyEquivalenceKey(profile.genericName);
+        const matches =
+          (ingKey !== null &&
+            (ingKey === allergy.activeIngredientNormalized ||
+              ingKey.includes(allergy.activeIngredientNormalized))) ||
+          (genKey !== null &&
+            (genKey === allergy.activeIngredientNormalized ||
+              genKey.includes(allergy.activeIngredientNormalized)));
+        if (matches) {
+          safetyAlerts.push({
+            kind: 'customer_allergy',
+            severity: allergy.severity,
+            activeIngredient: allergy.activeIngredient,
+            productId: profile.productId,
+            productName: profile.productName,
+            notes: allergy.notes,
+          });
+        }
+      }
+    }
+  }
+
   return {
     countryCode: clock.countryCode,
     businessDate: clock.businessDate,
+    fneEnabled,
     customerValid: input.customerId ? customerIsValid : null,
     canApproveEvidence:
       requirementContexts.some(
@@ -472,6 +574,7 @@ export async function getPharmacyCheckoutRequirements(
         businessDate: clock.businessDate,
       }) !== null,
     requirements,
+    safetyAlerts,
     ready: requirements.every(
       requirement =>
         requirement.blockedErrorCode === null &&
@@ -594,13 +697,22 @@ export function allocatePharmacyEvidenceForSale(
     saleItemId: string;
     productId: string;
     evidenceId: string;
+    referenceDigest: string;
     authorizationId: string;
-    classification: 'prescription';
+    classification: 'prescription' | 'controlled';
     policyVersion: string;
     quantity: number;
   }> = [];
   const evidenceTotals = new Map<string, number>();
   const usedEvidence = new Set<string>();
+  const fneAuthorization = medicineLines.some(l => l.classification === 'controlled')
+    ? findEffectiveFneAuthorization(db, {
+        tenantId: ctx.tenantId,
+        siteId: ctx.siteId,
+        countryCode: args.countryCode,
+        businessDate: args.businessDate,
+      })
+    : null;
 
   for (const line of medicineLines) {
     const decision = assertPharmacyProductPolicy({
@@ -608,6 +720,7 @@ export function allocatePharmacyEvidenceForSale(
       countryCode: args.countryCode,
       businessDate: args.businessDate,
       customerId: sale.customerId,
+      fneAuthorized: fneAuthorization !== null,
     });
     const baseQuantity = roundQuantity(line.quantity * line.unitEquivalence);
     if (!Number.isFinite(baseQuantity) || baseQuantity <= 0) {
@@ -728,8 +841,9 @@ export function allocatePharmacyEvidenceForSale(
         saleItemId: line.saleItemId,
         productId: line.productId,
         evidenceId: evidence.id,
+        referenceDigest: evidence.referenceDigest,
         authorizationId: authorization.id,
-        classification: 'prescription',
+        classification: line.classification === 'controlled' ? 'controlled' : 'prescription',
         policyVersion: decision.policyVersion,
         quantity,
       });
@@ -835,12 +949,54 @@ export function allocatePharmacyEvidenceForSale(
       })
       .run();
     dispensationIds.push(id);
+    if (allocation.classification === 'controlled') {
+      const ledgerId = appendFneLedgerEntry(db, {
+        tenantId: ctx.tenantId,
+        siteId: ctx.siteId,
+        productId: allocation.productId,
+        businessDate: args.businessDate,
+        movementType: 'dispensation',
+        quantityDelta: -allocation.quantity,
+        fneAuthorizationId: fneAuthorization?.id ?? null,
+        saleId: args.saleId,
+        evidenceId: allocation.evidenceId,
+        retainedFormulaDigest: allocation.referenceDigest,
+        actorId: ctx.actorId,
+        occurredAt: args.nowIso,
+      });
+      writeAuditLog({
+        tx: db,
+        tenantId: ctx.tenantId,
+        actorId: ctx.actorId,
+        action: 'pharmacy.fne.dispense',
+        resourceType: 'pharmacy_fne_ledger',
+        resourceId: ledgerId,
+        after: {
+          saleId: args.saleId,
+          productId: allocation.productId,
+          evidenceId: allocation.evidenceId,
+          fneAuthorizationId: fneAuthorization?.id ?? null,
+          quantity: allocation.quantity,
+          businessDate: args.businessDate,
+        },
+        operationId: ctx.envelope?.operationId,
+      });
+    }
+    const syncAllocation = {
+      saleItemId: allocation.saleItemId,
+      productId: allocation.productId,
+      evidenceId: allocation.evidenceId,
+      authorizationId: allocation.authorizationId,
+      classification: allocation.classification,
+      policyVersion: allocation.policyVersion,
+      quantity: allocation.quantity,
+    };
     syncOutboxIds.push(
       enqueueSyncInTransaction(saleSyncContext(db, ctx), {
         entityType: 'pharmacy_dispensations',
         entityId: id,
         operation: 'create',
-        data: { id, saleId: args.saleId, ...allocation, businessDate: args.businessDate },
+        data: { id, saleId: args.saleId, ...syncAllocation, businessDate: args.businessDate },
       }).id
     );
   }

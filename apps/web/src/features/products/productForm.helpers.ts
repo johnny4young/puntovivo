@@ -49,6 +49,8 @@ export function createDefaultValues(pharmacyEnabled = false): ProductFormValues 
       dosageForm: '',
       administrationRoute: '',
       presentation: '',
+      dosesPerPack: '',
+      cumCode: '',
       manufacturer: '',
       authorizationHolder: '',
       sanitaryRegistration: '',
@@ -130,6 +132,9 @@ export function mapProductToForm(
       dosageForm: product.pharmacy?.dosageForm ?? '',
       administrationRoute: product.pharmacy?.administrationRoute ?? '',
       presentation: product.pharmacy?.presentation ?? '',
+      dosesPerPack:
+        product.pharmacy?.dosesPerPack != null ? String(product.pharmacy.dosesPerPack) : '',
+      cumCode: product.pharmacy?.cumCode ?? '',
       manufacturer: product.pharmacy?.manufacturer ?? '',
       authorizationHolder: product.pharmacy?.authorizationHolder ?? '',
       sanitaryRegistration: product.pharmacy?.sanitaryRegistration ?? '',

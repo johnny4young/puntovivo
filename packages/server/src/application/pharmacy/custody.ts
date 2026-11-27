@@ -24,6 +24,7 @@ import {
 import { writeInventoryLotEvent } from '../../services/pharmacy/lot-events.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import type { DestroyPharmacyLotInput } from '../../trpc/schemas/pharmacy.js';
+import { appendFneLedgerEntry, findEffectiveFneAuthorization } from './fne.js';
 import { pharmacySyncContext, type CriticalPharmacyContext } from './types.js';
 
 /** Destroy an exact medicine quantity while stock, lot and ledgers commit together. */
@@ -42,7 +43,9 @@ export async function destroyPharmacyLot(
           id: inventoryLots.id,
           siteId: inventoryLots.siteId,
           productId: inventoryLots.productId,
+          lotNumber: inventoryLots.lotNumber,
           onHand: inventoryLots.onHand,
+          classification: pharmacyProductProfiles.classification,
         })
         .from(inventoryLots)
         .innerJoin(
@@ -172,6 +175,28 @@ export async function destroyPharmacyLot(
         actorId: ctx.user.id,
         occurredAt: clock.nowIso,
       });
+      if (lot.classification === 'controlled') {
+        const fneAuth = findEffectiveFneAuthorization(tx, {
+          tenantId: ctx.tenantId,
+          siteId: lot.siteId,
+          countryCode: clock.countryCode,
+          businessDate: clock.businessDate,
+        });
+        appendFneLedgerEntry(tx, {
+          tenantId: ctx.tenantId,
+          siteId: lot.siteId,
+          productId: lot.productId,
+          lotId: lot.id,
+          lotNumber: lot.lotNumber,
+          businessDate: clock.businessDate,
+          movementType: 'destruction',
+          quantityDelta: -input.quantity,
+          fneAuthorizationId: fneAuth?.id ?? null,
+          actorId: ctx.user.id,
+          notes: input.reason,
+          occurredAt: clock.nowIso,
+        });
+      }
       writeAuditLog({
         tx,
         tenantId: ctx.tenantId,

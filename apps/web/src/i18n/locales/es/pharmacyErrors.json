@@ -28,6 +28,13 @@
     "PHARMACY_RECALL_NO_LOTS": "Ningún lote de esta organización coincide con este retiro.",
     "PHARMACY_RECALL_NOT_FOUND": "No se encontró este retiro.",
     "PHARMACY_RECALL_ACTIVE": "Este lote está incluido en un retiro activo y no puede liberarse.",
-    "PHARMACY_LOT_STATE_INVALID": "Este lote no puede pasar del estado actual al estado solicitado."
+    "PHARMACY_LOT_STATE_INVALID": "Este lote no puede pasar del estado actual al estado solicitado.",
+    "PHARMACY_FRACTIONATION_INVALID": "El fraccionamiento requiere dos presentaciones activas del mismo medicamento (principio activo, concentración, forma farmacéutica y registro sanitario) en la sede activa.",
+    "PHARMACY_ENVIRONMENTAL_INVALID": "Verifique los rangos de temperatura y registre la humedad relativa para lecturas de ambiente (Res. 1403/2007).",
+    "PHARMACY_INVIMA_IMPORT_INVALID": "El archivo INVIMA / CUM no contiene filas válidas. Verifique las columnas de CUM, producto, principio activo y registro sanitario.",
+    "PHARMACY_FNE_AUTHORIZATION_NOT_FOUND": "No se encontró la resolución FNE solicitada.",
+    "PHARMACY_FNE_AUTHORIZATION_DUPLICATE": "Ya existe una resolución FNE activa con ese mismo número.",
+    "PHARMACY_ALLERGY_DUPLICATE": "Este principio activo ya está registrado en las alergias del cliente.",
+    "PHARMACY_ALLERGY_NOT_FOUND": "No se encontró el registro de alergia del cliente."
   }
 }

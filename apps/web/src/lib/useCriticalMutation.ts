@@ -176,7 +176,11 @@ export type CriticalCommandPath =
   | 'pharmacy.createRecall'
   | 'pharmacy.closeRecall'
   | 'pharmacy.transitionLot'
-  | 'pharmacy.destroyLot';
+  | 'pharmacy.destroyLot'
+  | 'pharmacy.fractionateLot'
+  | 'pharmacy.recordEnvironmentalLog'
+  | 'pharmacy.createFneAuthorization'
+  | 'pharmacy.revokeFneAuthorization';
 
 /**
  * Recursively project router inputs / outputs through a dotted path. Most

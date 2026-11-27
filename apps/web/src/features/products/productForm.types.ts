@@ -70,6 +70,8 @@ export interface PharmacyProductFormValues {
   dosageForm: string;
   administrationRoute: string;
   presentation: string;
+  dosesPerPack: string;
+  cumCode: string;
   manufacturer: string;
   authorizationHolder: string;
   sanitaryRegistration: string;

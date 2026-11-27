@@ -28,7 +28,7 @@ describe('inventory value storage boundary', () => {
       column.name === 'kind' && table === 'inventory_count_identities'
         ? 'lots'
         : column.type === 'TEXT'
-          ? 'fixture'
+          ? `fixture_${column.name}`
           : 1
     );
     target

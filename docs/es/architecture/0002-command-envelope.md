@@ -340,6 +340,10 @@ Consulta [conciliación explícita y costo operativo](0029-attendance-reconcilia
 - `pharmacy.closeRecall`
 - `pharmacy.transitionLot`
 - `pharmacy.destroyLot`
+- `pharmacy.fractionateLot`
+- `pharmacy.recordEnvironmentalLog`
+- `pharmacy.createFneAuthorization`
+- `pharmacy.revokeFneAuthorization`
 
 **Prevención de pérdidas**
 

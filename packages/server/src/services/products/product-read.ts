@@ -93,6 +93,8 @@ export const productSelection = {
     dosageForm: pharmacyProductProfiles.dosageForm,
     administrationRoute: pharmacyProductProfiles.administrationRoute,
     presentation: pharmacyProductProfiles.presentation,
+    dosesPerPack: pharmacyProductProfiles.dosesPerPack,
+    cumCode: pharmacyProductProfiles.cumCode,
     manufacturer: pharmacyProductProfiles.manufacturer,
     authorizationHolder: pharmacyProductProfiles.authorizationHolder,
     sanitaryRegistration: pharmacyProductProfiles.sanitaryRegistration,

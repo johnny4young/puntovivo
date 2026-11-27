@@ -1,7 +1,15 @@
 /** Zod contracts for pharmacy policy, evidence, authorization and recall workflows. */
 
 import { z } from 'zod';
-import { pharmacyRecallScopeEnum, pharmacyEvidenceStatusEnum } from '../../db/schema.js';
+import {
+  pharmacyAllergySeverityEnum,
+  pharmacyClassificationEnum,
+  pharmacyEnvironmentalPeriodEnum,
+  pharmacyEnvironmentalZoneEnum,
+  pharmacyEvidenceStatusEnum,
+  pharmacyInvimaStatusEnum,
+  pharmacyRecallScopeEnum,
+} from '../../db/schema.js';
 import { paginationInput } from './common.js';
 
 const calendarDay = z.iso.date({ error: 'Expected a valid YYYY-MM-DD calendar day' });
@@ -162,6 +170,166 @@ export const destroyPharmacyLotInput = z
   })
   .strict();
 
+// --- Band 6B: Regulated lot fractionation (box -> blister -> tablet) ---
+
+export const fractionatePharmacyLotInput = z
+  .object({
+    sourceLotId: z.string().min(1),
+    targetProductId: z.string().min(1),
+    sourceQuantity: positivePharmacyQuantity,
+    targetQuantity: positivePharmacyQuantity,
+    reason: boundedReason,
+  })
+  .strict();
+
+export const listPharmacyFractionationsInput = paginationInput
+  .extend({
+    siteId: z.string().min(1).optional(),
+  })
+  .strict();
+
+// --- Band 6B: Daily temperature & humidity logbook (Res. 1403/2007 CO) ---
+
+export const recordPharmacyEnvironmentalLogInput = z
+  .object({
+    siteId: z.string().min(1).optional(),
+    businessDate: calendarDay.optional(),
+    period: z.enum(pharmacyEnvironmentalPeriodEnum),
+    zone: z.enum(pharmacyEnvironmentalZoneEnum),
+    temperatureC: z.number().finite().min(-40).max(80),
+    humidityPercent: z.number().finite().min(0).max(100).nullable().optional(),
+    minTempC: z.number().finite().min(-40).max(80).optional(),
+    maxTempC: z.number().finite().min(-40).max(80).optional(),
+    maxHumidityPercent: z.number().finite().min(0).max(100).nullable().optional(),
+    correctiveAction: z.string().trim().max(500).nullable().optional(),
+    instrumentCode: z.string().trim().max(120).nullable().optional(),
+    notes: z.string().trim().max(500).nullable().optional(),
+  })
+  .strict();
+
+export const listPharmacyEnvironmentalLogsInput = paginationInput
+  .extend({
+    siteId: z.string().min(1).optional(),
+    fromDate: calendarDay.optional(),
+    toDate: calendarDay.optional(),
+    zone: z.enum(pharmacyEnvironmentalZoneEnum).optional(),
+    onlyDeviations: z.boolean().optional(),
+  })
+  .strict();
+
+export const getPharmacyEnvironmentalReportInput = z
+  .object({
+    siteId: z.string().min(1).optional(),
+    fromDate: calendarDay,
+    toDate: calendarDay,
+    zone: z.enum(pharmacyEnvironmentalZoneEnum).optional(),
+  })
+  .strict()
+  .refine(value => value.toDate >= value.fromDate, {
+    message: 'End date cannot be before start date',
+    path: ['toDate'],
+  });
+
+// --- Band 6B: Official INVIMA / CUM catalog importer ---
+
+export const invimaCatalogRowInput = z
+  .object({
+    cumCode: z.string().trim().min(2).max(80),
+    productName: z.string().trim().min(1).max(255),
+    activeIngredient: z.string().trim().min(1).max(255),
+    concentration: z.string().trim().max(120).nullable().optional(),
+    dosageForm: z.string().trim().max(120).nullable().optional(),
+    administrationRoute: z.string().trim().max(120).nullable().optional(),
+    presentation: z.string().trim().max(255).nullable().optional(),
+    dosesPerPack: z.number().int().positive().max(10_000).nullable().optional(),
+    manufacturer: z.string().trim().max(255).nullable().optional(),
+    authorizationHolder: z.string().trim().max(255).nullable().optional(),
+    sanitaryRegistration: z.string().trim().min(2).max(160),
+    registrationStatus: z.enum(pharmacyInvimaStatusEnum).optional(),
+    registrationExpiresAt: calendarDay.nullable().optional(),
+    classification: z.enum(pharmacyClassificationEnum).optional(),
+  })
+  .strict();
+
+export const importPharmacyInvimaCatalogInput = z
+  .object({
+    csvText: z.string().min(1).max(2_000_000).optional(),
+    rows: z.array(invimaCatalogRowInput).max(2_000).optional(),
+    syncMatchingProducts: z.boolean().default(false),
+  })
+  .strict()
+  .refine(value => Boolean(value.csvText?.trim()) || (value.rows && value.rows.length > 0), {
+    message: 'Provide csvText or at least one INVIMA catalog row',
+  });
+
+export const searchPharmacyInvimaCatalogInput = paginationInput
+  .extend({
+    search: z.string().trim().max(160).optional(),
+    status: z.enum(pharmacyInvimaStatusEnum).optional(),
+  })
+  .strict();
+
+// --- Band 6B: Controlled medicines (FNE Colombia — Res. 1478/2006) ---
+
+export const createPharmacyFneAuthorizationInput = z
+  .object({
+    siteId: z.string().min(1).nullable().optional(),
+    countryCode,
+    resolutionNumber: z.string().trim().min(3).max(160),
+    issuingAuthority: z.string().trim().min(3).max(200),
+    responsibleUserId: z.string().min(1),
+    validFrom: calendarDay,
+    validUntil: calendarDay.nullable().optional(),
+  })
+  .strict()
+  .refine(value => !value.validUntil || value.validUntil >= value.validFrom, {
+    message: 'FNE authorization end date cannot be before its start date',
+    path: ['validUntil'],
+  });
+
+export const revokePharmacyFneAuthorizationInput = z
+  .object({ id: z.string().min(1), reason: boundedReason })
+  .strict();
+
+export const listPharmacyFneAuthorizationsInput = paginationInput
+  .extend({
+    siteId: z.string().min(1).optional(),
+    activeOnly: z.boolean().default(true),
+  })
+  .strict();
+
+const yearMonth = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Expected YYYY-MM period');
+
+export const getPharmacyFneMonthlyReportInput = z
+  .object({
+    siteId: z.string().min(1).optional(),
+    month: yearMonth,
+  })
+  .strict();
+
+// --- Band 6B: Patient allergies ---
+
+export const listPharmacyCustomerAllergiesInput = z
+  .object({
+    customerId: z.string().min(1),
+  })
+  .strict();
+
+export const addPharmacyCustomerAllergyInput = z
+  .object({
+    customerId: z.string().min(1),
+    activeIngredient: z.string().trim().min(2).max(200),
+    severity: z.enum(pharmacyAllergySeverityEnum).default('moderate'),
+    notes: z.string().trim().max(400).nullable().optional(),
+  })
+  .strict();
+
+export const removePharmacyCustomerAllergyInput = z
+  .object({
+    id: z.string().min(1),
+  })
+  .strict();
+
 export type CreatePharmacyAuthorizationInput = z.infer<typeof createPharmacyAuthorizationInput>;
 export type RecordPharmacyEvidenceInput = z.infer<typeof recordPharmacyEvidenceInput>;
 export type PharmacyCheckoutRequirementsInput = z.infer<typeof pharmacyCheckoutRequirementsInput>;
@@ -169,3 +337,25 @@ export type PharmacyGenericAlternativesInput = z.infer<typeof pharmacyGenericAlt
 export type CreatePharmacyRecallInput = z.infer<typeof createPharmacyRecallInput>;
 export type TransitionPharmacyLotInput = z.infer<typeof transitionPharmacyLotInput>;
 export type DestroyPharmacyLotInput = z.infer<typeof destroyPharmacyLotInput>;
+export type FractionatePharmacyLotInput = z.infer<typeof fractionatePharmacyLotInput>;
+export type ListPharmacyFractionationsInput = z.infer<typeof listPharmacyFractionationsInput>;
+export type RecordPharmacyEnvironmentalLogInput = z.infer<
+  typeof recordPharmacyEnvironmentalLogInput
+>;
+export type ListPharmacyEnvironmentalLogsInput = z.infer<typeof listPharmacyEnvironmentalLogsInput>;
+export type GetPharmacyEnvironmentalReportInput = z.infer<
+  typeof getPharmacyEnvironmentalReportInput
+>;
+export type ImportPharmacyInvimaCatalogInput = z.infer<typeof importPharmacyInvimaCatalogInput>;
+export type SearchPharmacyInvimaCatalogInput = z.infer<typeof searchPharmacyInvimaCatalogInput>;
+export type CreatePharmacyFneAuthorizationInput = z.infer<
+  typeof createPharmacyFneAuthorizationInput
+>;
+export type RevokePharmacyFneAuthorizationInput = z.infer<
+  typeof revokePharmacyFneAuthorizationInput
+>;
+export type ListPharmacyFneAuthorizationsInput = z.infer<typeof listPharmacyFneAuthorizationsInput>;
+export type GetPharmacyFneMonthlyReportInput = z.infer<typeof getPharmacyFneMonthlyReportInput>;
+export type ListPharmacyCustomerAllergiesInput = z.infer<typeof listPharmacyCustomerAllergiesInput>;
+export type AddPharmacyCustomerAllergyInput = z.infer<typeof addPharmacyCustomerAllergyInput>;
+export type RemovePharmacyCustomerAllergyInput = z.infer<typeof removePharmacyCustomerAllergyInput>;

@@ -28,6 +28,13 @@
     "PHARMACY_RECALL_NO_LOTS": "No batches from this business match this recall.",
     "PHARMACY_RECALL_NOT_FOUND": "This recall could not be found.",
     "PHARMACY_RECALL_ACTIVE": "This batch is covered by an active recall and cannot be released.",
-    "PHARMACY_LOT_STATE_INVALID": "This batch cannot move to the requested state from its current state."
+    "PHARMACY_LOT_STATE_INVALID": "This batch cannot move to the requested state from its current state.",
+    "PHARMACY_FRACTIONATION_INVALID": "Fractionation requires two active SKUs of the same medicine (active ingredient, strength, dosage form, and sanitary registration) at the operating site.",
+    "PHARMACY_ENVIRONMENTAL_INVALID": "Verify temperature bounds and include relative humidity for ambient readings (Res. 1403/2007).",
+    "PHARMACY_INVIMA_IMPORT_INVALID": "The INVIMA / CUM file contains no valid rows. Verify CUM, product, active ingredient, and sanitary registration columns.",
+    "PHARMACY_FNE_AUTHORIZATION_NOT_FOUND": "The requested FNE resolution could not be found.",
+    "PHARMACY_FNE_AUTHORIZATION_DUPLICATE": "An active FNE resolution with this number already exists.",
+    "PHARMACY_ALLERGY_DUPLICATE": "This active ingredient is already recorded in the customer's allergies.",
+    "PHARMACY_ALLERGY_NOT_FOUND": "The customer allergy record could not be found."
   }
 }

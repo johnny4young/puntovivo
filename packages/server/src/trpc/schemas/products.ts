@@ -70,6 +70,8 @@ export const pharmacyProductProfileInput = z
     dosageForm: optionalPharmacyText(120),
     administrationRoute: optionalPharmacyText(120),
     presentation: optionalPharmacyText(255),
+    dosesPerPack: z.number().int().positive().max(10_000).nullable().optional(),
+    cumCode: optionalPharmacyText(80),
     manufacturer: optionalPharmacyText(255),
     authorizationHolder: optionalPharmacyText(255),
     sanitaryRegistration: optionalPharmacyText(160),

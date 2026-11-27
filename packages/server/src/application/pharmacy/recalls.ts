@@ -5,6 +5,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import {
   customers,
   inventoryLots,
+  pharmacyLotFractionations,
   pharmacyProductProfiles,
   pharmacyRecallLots,
   pharmacyRecalls,
@@ -124,6 +125,29 @@ function expandTransferLotLineage(
 
       for (const edge of edges) {
         for (const lotId of [edge.sourceLotId, edge.destinationLotId]) {
+          if (lotId && !known.has(lotId)) candidates.add(lotId);
+        }
+      }
+
+      // Propagate recalls bidirectionally across regulated lot fractionations (box <-> blister/tablet).
+      const fractionationEdges = db
+        .select({
+          sourceLotId: pharmacyLotFractionations.sourceLotId,
+          targetLotId: pharmacyLotFractionations.targetLotId,
+        })
+        .from(pharmacyLotFractionations)
+        .where(
+          and(
+            eq(pharmacyLotFractionations.tenantId, tenantId),
+            or(
+              inArray(pharmacyLotFractionations.sourceLotId, batch),
+              inArray(pharmacyLotFractionations.targetLotId, batch)
+            )
+          )
+        )
+        .all();
+      for (const edge of fractionationEdges) {
+        for (const lotId of [edge.sourceLotId, edge.targetLotId]) {
           if (lotId && !known.has(lotId)) candidates.add(lotId);
         }
       }

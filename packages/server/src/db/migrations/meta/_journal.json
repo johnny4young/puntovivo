@@ -792,6 +792,13 @@
       "when": 1795726609980,
       "tag": "0112_restaurant_ops_comandas_bom",
       "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "6",
+      "when": 1795787572884,
+      "tag": "0113_pharmacy_ops_band6b",
+      "breakpoints": true
     }
   ]
 }
