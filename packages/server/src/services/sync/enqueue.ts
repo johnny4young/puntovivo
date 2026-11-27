@@ -31,9 +31,35 @@
  * @module services/sync/enqueue
  */
 
+import type Database from 'better-sqlite3';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
+
+interface SyncProbeStatements {
+  pharmacyProfile: Database.Statement;
+  inventoryLotProduct: Database.Statement;
+}
+
+const syncProbeStmtCache = new WeakMap<Database.Database, SyncProbeStatements>();
+
+function getSyncProbeStatements(db: DatabaseInstance): SyncProbeStatements | null {
+  const client = (db as unknown as { $client?: Database.Database }).$client;
+  if (!client || typeof client.prepare !== 'function') return null;
+  let cached = syncProbeStmtCache.get(client);
+  if (!cached) {
+    cached = {
+      pharmacyProfile: client.prepare(
+        'SELECT product_id FROM pharmacy_product_profiles WHERE tenant_id = ? AND product_id = ?'
+      ),
+      inventoryLotProduct: client.prepare(
+        'SELECT product_id AS productId FROM inventory_lots WHERE tenant_id = ? AND id = ?'
+      ),
+    };
+    syncProbeStmtCache.set(client, cached);
+  }
+  return cached;
+}
 import {
   operationEvents,
   inventoryLots,
@@ -147,15 +173,19 @@ export function resolveSyncOutboxStatus(
   if (resolveSyncTransportPolicy(entityType) === 'local_only') return 'local_only';
   if (!isLocalOnlyAggregateRoot(entityType)) return 'queued';
 
+  const stmts = getSyncProbeStatements(db);
+
   // The question is always about a PRODUCT, but the row is not always one. A
   // lot is governed by the product it belongs to, so resolve that first.
   let productId: string | null = entityId;
   if (entityType === 'inventory_lots') {
-    const lot = db
-      .select({ productId: inventoryLots.productId })
-      .from(inventoryLots)
-      .where(and(eq(inventoryLots.tenantId, tenantId), eq(inventoryLots.id, entityId)))
-      .get();
+    const lot = stmts
+      ? (stmts.inventoryLotProduct.get(tenantId, entityId) as { productId: string } | undefined)
+      : db
+          .select({ productId: inventoryLots.productId })
+          .from(inventoryLots)
+          .where(and(eq(inventoryLots.tenantId, tenantId), eq(inventoryLots.id, entityId)))
+          .get();
     // Fail closed. A lot whose product cannot be resolved is held back rather
     // than shipped: the cost of retaining a row is local, the cost of
     // replicating a regulated one without its policy is not.
@@ -163,16 +193,18 @@ export function resolveSyncOutboxStatus(
     if (productId === null) return 'local_only';
   }
 
-  const regulatedExtension = db
-    .select({ productId: pharmacyProductProfiles.productId })
-    .from(pharmacyProductProfiles)
-    .where(
-      and(
-        eq(pharmacyProductProfiles.tenantId, tenantId),
-        eq(pharmacyProductProfiles.productId, productId)
-      )
-    )
-    .get();
+  const regulatedExtension = stmts
+    ? stmts.pharmacyProfile.get(tenantId, productId)
+    : db
+        .select({ productId: pharmacyProductProfiles.productId })
+        .from(pharmacyProductProfiles)
+        .where(
+          and(
+            eq(pharmacyProductProfiles.tenantId, tenantId),
+            eq(pharmacyProductProfiles.productId, productId)
+          )
+        )
+        .get();
   return regulatedExtension ? 'local_only' : 'queued';
 }
 

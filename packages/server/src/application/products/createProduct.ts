@@ -4,7 +4,7 @@ import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
-import { inventoryMovements, products, sites } from '../../db/schema.js';
+import { inventoryMovements, products, sites, type TaxKind } from '../../db/schema.js';
 import { resolveTenantCurrency } from '../../lib/currency.js';
 import { roundMoney } from '../../lib/money.js';
 import { resolveFractionPolicy } from '../../services/fraction-policy.js';
@@ -28,6 +28,7 @@ import {
   resolveProviderAssignments,
   resolveTaxRate,
   resolveUnitAssignments,
+  validateUnitAssignments,
 } from '../../services/products/mutation-helpers.js';
 import { getProductWithRelations } from '../../services/products/product-read.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
@@ -44,10 +45,22 @@ import {
   replacePharmacyProductProfile,
 } from '../../services/pharmacy/product-profile.js';
 
+/**
+ * Tenant-scoped catalog snapshot reused across rows of a single launch-migration
+ * product import so bulk creation avoids repeating identical `units`, `vat_rates`,
+ * and `tenants` lookups on every row while enforcing identical validation rules.
+ */
+export interface ProductImportCache {
+  defaultUnitId: string;
+  activeUnitIds: ReadonlySet<string>;
+  vatRatesById: ReadonlyMap<string, { id: string; rate: number; kind: TaxKind }>;
+  currencyCode: string;
+}
+
 async function persistProduct(
   ctx: ProductMutationContext,
   input: CreateProductInput,
-  options: { auditCreate: boolean }
+  options: { auditCreate: boolean; importCache?: ProductImportCache }
 ) {
   assertCreateLotTrackingPolicy({ tracksLots: input.tracksLots, stock: input.stock });
   assertCreateStockTrackingPolicy({
@@ -65,17 +78,19 @@ async function persistProduct(
 
   assertGs1CheckDigit(input.barcode);
 
-  const existingSku = await ctx.db
-    .select({ id: products.id })
-    .from(products)
-    .where(and(eq(products.tenantId, ctx.tenantId), eq(products.sku, input.sku)))
-    .get();
+  if (!options.importCache) {
+    const existingSku = await ctx.db
+      .select({ id: products.id })
+      .from(products)
+      .where(and(eq(products.tenantId, ctx.tenantId), eq(products.sku, input.sku)))
+      .get();
 
-  if (existingSku) {
-    throw new TRPCError({
-      code: 'CONFLICT',
-      message: 'A product with this SKU already exists',
-    });
+    if (existingSku) {
+      throw new TRPCError({
+        code: 'CONFLICT',
+        message: 'A product with this SKU already exists',
+      });
+    }
   }
 
   const now = new Date().toISOString();
@@ -92,13 +107,42 @@ async function persistProduct(
     marginAmount3: input.marginAmount3,
   });
   const id = nanoid();
-  const resolvedUnitAssignments = await resolveUnitAssignments(
-    ctx.db,
-    ctx.tenantId,
-    input.unitAssignments ??
-      (await getDefaultUnitAssignments(ctx.db, ctx.tenantId, normalizedPricing.price)),
-    input.barcode
-  );
+  let resolvedUnitAssignments;
+  if (options.importCache) {
+    const rawAssignments = input.unitAssignments ?? [
+      {
+        unitId: options.importCache.defaultUnitId,
+        equivalence: 1,
+        price: normalizedPricing.price,
+        price2: 0,
+        price3: 0,
+        isBase: true,
+      },
+    ];
+    validateUnitAssignments(rawAssignments, input.barcode);
+    for (const assignment of rawAssignments) {
+      if (!options.importCache.activeUnitIds.has(assignment.unitId)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'One of the selected units was not found or is inactive',
+        });
+      }
+    }
+    resolvedUnitAssignments = rawAssignments.map(assignment => ({
+      ...assignment,
+      price: roundMoney(assignment.price),
+      price2: roundMoney(assignment.price2),
+      price3: roundMoney(assignment.price3),
+    }));
+  } else {
+    resolvedUnitAssignments = await resolveUnitAssignments(
+      ctx.db,
+      ctx.tenantId,
+      input.unitAssignments ??
+        (await getDefaultUnitAssignments(ctx.db, ctx.tenantId, normalizedPricing.price)),
+      input.barcode
+    );
+  }
   assertCreateSerialTrackingPolicy({
     tracksSerials: input.tracksSerials,
     tracksLots: input.tracksLots,
@@ -117,7 +161,31 @@ async function persistProduct(
         normalizedProviderState.providerAssignments
       )
     : [];
-  const resolvedTax = await resolveTaxRate(ctx.db, ctx.tenantId, input.vatRateId, input.taxRate);
+  let resolvedTax;
+  if (options.importCache) {
+    if (!input.vatRateId) {
+      resolvedTax = {
+        vatRateId: null,
+        taxRate: input.taxRate ?? 0,
+        taxKind: 'iva' as TaxKind,
+      };
+    } else {
+      const vatRate = options.importCache.vatRatesById.get(input.vatRateId);
+      if (!vatRate) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Selected VAT rate was not found',
+        });
+      }
+      resolvedTax = {
+        vatRateId: vatRate.id,
+        taxRate: vatRate.rate,
+        taxKind: vatRate.kind,
+      };
+    }
+  } else {
+    resolvedTax = await resolveTaxRate(ctx.db, ctx.tenantId, input.vatRateId, input.taxRate);
+  }
   const resolvedTaxComponents = input.taxComponents
     ? await resolveTaxComponentInputs(ctx.db, ctx.tenantId, input.taxComponents)
     : [legacyComponent(resolvedTax)];
@@ -134,7 +202,8 @@ async function persistProduct(
   // imported product priced in USD can live inside a COP tenant.
   // Default to the tenant currency; future input schemas can add
   // an explicit override for the import-product flow.
-  const productCurrencyCode = resolveTenantCurrency(ctx.db, ctx.tenantId);
+  const productCurrencyCode =
+    options.importCache?.currencyCode ?? resolveTenantCurrency(ctx.db, ctx.tenantId);
 
   const openingMovementId = input.stock > 0 ? nanoid() : null;
   // Opening stock with only a cost typed must still carry inventory value.
@@ -206,14 +275,18 @@ async function persistProduct(
         });
       }
 
-      replaceUnitAssignments(tx, id, resolvedUnitAssignments, now);
-      replaceProductTaxComponents(tx, ctx.tenantId, id, resolvedTaxComponents, now);
-      replacePharmacyProductProfile(tx, {
-        tenantId: ctx.tenantId,
-        productId: id,
-        profile: input.pharmacy ?? null,
-        now,
+      replaceUnitAssignments(tx, id, resolvedUnitAssignments, now, { skipDelete: true });
+      replaceProductTaxComponents(tx, ctx.tenantId, id, resolvedTaxComponents, now, {
+        skipDelete: true,
       });
+      if (input.pharmacy) {
+        replacePharmacyProductProfile(tx, {
+          tenantId: ctx.tenantId,
+          productId: id,
+          profile: input.pharmacy,
+          now,
+        });
+      }
       if (input.pharmacy) {
         writeAuditLog({
           tx,
@@ -390,7 +463,11 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
  */
 export async function createProductForImport(
   ctx: ProductMutationContext,
-  input: CreateProductInput
+  input: CreateProductInput,
+  importCache?: ProductImportCache
 ) {
-  return persistProduct(ctx, input, { auditCreate: false });
+  return persistProduct(ctx, input, {
+    auditCreate: false,
+    ...(importCache ? { importCache } : {}),
+  });
 }

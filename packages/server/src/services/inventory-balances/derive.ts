@@ -24,9 +24,25 @@
  * @module services/inventory-balances/derive
  */
 
+import type Database from 'better-sqlite3';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { inventoryBalances, productStockTotals } from '../../db/schema.js';
+
+const stockTotalStmtCache = new WeakMap<Database.Database, Database.Statement>();
+
+function getPreparedStockTotalStmt(db: DatabaseInstance): Database.Statement | null {
+  const client = (db as unknown as { $client?: Database.Database }).$client;
+  if (!client || typeof client.prepare !== 'function') return null;
+  let stmt = stockTotalStmtCache.get(client);
+  if (!stmt) {
+    stmt = client.prepare(
+      'SELECT total FROM product_stock_totals WHERE tenant_id = ? AND product_id = ?'
+    );
+    stockTotalStmtCache.set(client, stmt);
+  }
+  return stmt;
+}
 
 /**
  * Scalar subquery: the materialized total for the outer `products` row,
@@ -67,6 +83,11 @@ export function getProductStockTotal(
   tenantId: string,
   productId: string
 ): number {
+  const stmt = getPreparedStockTotalStmt(db);
+  if (stmt) {
+    const row = stmt.get(tenantId, productId) as { total: number } | undefined;
+    return row?.total ?? 0;
+  }
   const row = db
     .select({ total: productStockTotals.total })
     .from(productStockTotals)

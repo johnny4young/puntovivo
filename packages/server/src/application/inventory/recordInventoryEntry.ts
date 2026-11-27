@@ -36,13 +36,19 @@ import {
 } from './helpers.js';
 import type { InventoryContext } from './types.js';
 
-export async function recordInventoryEntry(ctx: InventoryContext, input: RecordEntryInput) {
-  // Fast tenant-scoped preflight for useful errors. Product policy, unit,
-  // site and balances are deliberately resolved again under the SQLite writer
+async function persistInventoryEntry(
+  ctx: InventoryContext,
+  input: RecordEntryInput,
+  options: { runPreflight: boolean; hydrateResult: boolean }
+) {
+  // Fast tenant-scoped preflight for interactive callers. Product policy, unit,
+  // site and balances are always resolved again under the SQLite writer
   // reservation below so a physical count cannot apply a tenant-wide delta to
   // a different site's stock or race another inventory writer.
-  await getProductForInventory(ctx.db, ctx.tenantId, input.productId);
-  await getProductUnitAssignment(ctx.db, input.productId, input.unitId);
+  if (options.runPreflight) {
+    await getProductForInventory(ctx.db, ctx.tenantId, input.productId);
+    await getProductUnitAssignment(ctx.db, input.productId, input.unitId);
+  }
   const cost = roundMoney(input.cost);
   const now = new Date().toISOString();
   const entryId = nanoid();
@@ -91,8 +97,14 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
         resolvedAssignment.equivalence
       );
 
-      const primarySiteIdForEntry = getPrimarySiteId(tx, ctx.tenantId);
-      const entrySiteId = ctx.siteId ?? primarySiteIdForEntry;
+      let primarySiteIdForEntry: string | null | undefined;
+      const resolvePrimarySiteId = () => {
+        if (primarySiteIdForEntry === undefined) {
+          primarySiteIdForEntry = getPrimarySiteId(tx, ctx.tenantId);
+        }
+        return primarySiteIdForEntry;
+      };
+      const entrySiteId = ctx.siteId ?? resolvePrimarySiteId();
       if (!entrySiteId) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -124,7 +136,8 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
         )
         .get();
       const currentSiteStock =
-        currentSiteBalance?.onHand ?? (entrySiteId === primarySiteIdForEntry ? previousStock : 0);
+        currentSiteBalance?.onHand ??
+        (previousStock !== 0 && entrySiteId === resolvePrimarySiteId() ? previousStock : 0);
       stockDelta =
         input.mode === 'initial' ? normalizedQuantity : normalizedQuantity - currentSiteStock;
       newStock = previousStock + stockDelta;
@@ -297,6 +310,10 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
     { behavior: 'immediate' }
   );
 
+  if (!options.hydrateResult) {
+    return null;
+  }
+
   const created = await ctx.db
     .select({
       id: initialInventory.id,
@@ -330,4 +347,20 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
     .get();
 
   return created!;
+}
+
+export async function recordInventoryEntry(ctx: InventoryContext, input: RecordEntryInput) {
+  return (await persistInventoryEntry(ctx, input, { runPreflight: true, hydrateResult: true }))!;
+}
+
+/**
+ * Bulk-import entry point sharing every transactional validation, valuation,
+ * audit, and outbox write with {@link recordInventoryEntry} without repeating
+ * pre-transaction lookups or hydrating an unused display row per imported item.
+ */
+export async function recordInventoryEntryForImport(
+  ctx: InventoryContext,
+  input: RecordEntryInput
+): Promise<void> {
+  await persistInventoryEntry(ctx, input, { runPreflight: false, hydrateResult: false });
 }

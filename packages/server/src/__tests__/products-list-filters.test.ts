@@ -13,7 +13,7 @@ let userId: string;
 let siteId: string;
 const now = () => new Date().toISOString();
 
-function callerAs(role: 'admin' | 'cashier') {
+function callerAs(role: 'admin' | 'manager' | 'cashier' | 'viewer') {
   const context = {
     req: {
       server: server.app,
@@ -127,5 +127,106 @@ describe('products.list filters', () => {
     );
 
     expect(found).toContain(healthyId);
+  });
+
+  it('redacts cost and margin fields for non-privileged roles across all product read procedures', async () => {
+    const db = getDatabase();
+    const barcode = '7709998887770';
+    db.update(products)
+      .set({
+        barcode,
+        initialCost: 48,
+        marginPercent1: 50,
+        marginPercent2: 40,
+        marginPercent3: 30,
+        marginAmount1: 50,
+        marginAmount2: 40,
+        marginAmount3: 30,
+      })
+      .where(eq(products.id, healthyId))
+      .run();
+
+    const parentId = nanoid();
+    const variantId = nanoid();
+    db.insert(products)
+      .values([
+        {
+          id: parentId,
+          tenantId,
+          name: 'Matrix Parent',
+          sku: `MP-${parentId.slice(0, 6)}`,
+          catalogType: 'variant_parent',
+          price: 100,
+          cost: 55,
+          initialCost: 55,
+          marginPercent1: 45,
+          marginAmount1: 45,
+          createdAt: now(),
+          updatedAt: now(),
+        },
+        {
+          id: variantId,
+          tenantId,
+          name: 'Matrix Child',
+          sku: `MC-${variantId.slice(0, 6)}`,
+          catalogType: 'variant',
+          variantParentId: parentId,
+          price: 100,
+          cost: 55,
+          initialCost: 55,
+          marginPercent1: 45,
+          marginAmount1: 45,
+          createdAt: now(),
+          updatedAt: now(),
+        },
+      ])
+      .run();
+
+    const hiddenCostFields = {
+      cost: null,
+      initialCost: null,
+      marginPercent1: null,
+      marginPercent2: null,
+      marginPercent3: null,
+      marginAmount1: null,
+      marginAmount2: null,
+      marginAmount3: null,
+    };
+
+    for (const role of ['cashier', 'viewer'] as const) {
+      const caller = callerAs(role);
+      const listed = await caller.products.list({ page: 1, perPage: 200 });
+      expect(listed.items.find(item => item.id === healthyId)).toMatchObject(hiddenCostFields);
+
+      const byId = await caller.products.getById({ id: healthyId });
+      expect(byId).toMatchObject(hiddenCostFields);
+
+      const matrix = await caller.products.getVariantMatrix({ parentProductId: parentId });
+      expect(matrix.parent).toMatchObject(hiddenCostFields);
+      expect(matrix.variants[0]).toMatchObject(hiddenCostFields);
+
+      const searched = await caller.products.search({ q: 'Healthy', limit: 20 });
+      expect(searched.items.find(item => item.id === healthyId)).toMatchObject(hiddenCostFields);
+
+      const scanned = await caller.products.lookupByBarcode({ barcode });
+      expect(scanned?.product).toMatchObject(hiddenCostFields);
+    }
+
+    for (const role of ['admin', 'manager'] as const) {
+      const caller = callerAs(role);
+      const listed = await caller.products.list({ page: 1, perPage: 200 });
+      expect(listed.items.find(item => item.id === healthyId)).toMatchObject({
+        cost: 50,
+        initialCost: 48,
+        marginPercent1: 50,
+        marginAmount1: 50,
+      });
+
+      const byId = await caller.products.getById({ id: healthyId });
+      expect(byId).toMatchObject({ cost: 50, initialCost: 48, marginPercent1: 50 });
+
+      const scanned = await caller.products.lookupByBarcode({ barcode });
+      expect(scanned?.product).toMatchObject({ cost: 50, initialCost: 48, marginPercent1: 50 });
+    }
   });
 });
