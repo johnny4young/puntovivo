@@ -106,6 +106,8 @@ export function ProductPharmacyTab({
               <InvimaCatalogAutofill
                 formBundle={formBundle}
                 registrationLocked={registrationLocked}
+                classificationRelaxationLocked={classificationRelaxationLocked}
+                existingClassification={existingClassification}
               />
             ) : null}
             <div className="grid gap-4 md:grid-cols-2">
@@ -360,9 +362,13 @@ export function ProductPharmacyTab({
 function InvimaCatalogAutofill({
   formBundle,
   registrationLocked,
+  classificationRelaxationLocked,
+  existingClassification,
 }: {
   formBundle: UseProductFormReturn;
   registrationLocked: boolean;
+  classificationRelaxationLocked: boolean;
+  existingClassification?: PharmacyProductProfile['classification'] | undefined;
 }) {
   const { t } = useTranslation(['pharmacy']);
   const { form } = formBundle;
@@ -450,6 +456,17 @@ function InvimaCatalogAutofill({
                   if (entry.authorizationHolder) {
                     form.setValue('pharmacy.authorizationHolder', entry.authorizationHolder, {
                       shouldDirty: true,
+                    });
+                  }
+                  if (
+                    !classificationRelaxationLocked ||
+                    existingClassification === undefined ||
+                    CLASSIFICATION_RANK[entry.classification] >=
+                      CLASSIFICATION_RANK[existingClassification]
+                  ) {
+                    form.setValue('pharmacy.classification', entry.classification, {
+                      shouldDirty: true,
+                      shouldValidate: true,
                     });
                   }
                   setInvimaSearch('');

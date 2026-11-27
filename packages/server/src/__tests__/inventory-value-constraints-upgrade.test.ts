@@ -76,7 +76,7 @@ describe('inventory constraint migration preservation', () => {
         expect(current.prepare(`SELECT count(*) AS n FROM "${name}"`).get(), name).toEqual(count);
       expect(
         current.prepare("SELECT name FROM sqlite_master WHERE type='trigger' ORDER BY name").all()
-      ).toEqual(originalTriggers);
+      ).toEqual(expect.arrayContaining(originalTriggers));
       expect(
         current.prepare('SELECT product_id FROM sale_items WHERE id=?').get('constraint-line')
       ).toEqual({ product_id: 'alpha' });

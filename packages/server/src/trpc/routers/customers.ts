@@ -15,7 +15,7 @@
  */
 
 import { TRPCError } from '@trpc/server';
-import { asc, eq, and, sql, like, or } from 'drizzle-orm';
+import { asc, eq, and, sql, like, or, inArray } from 'drizzle-orm';
 import { createCustomer } from '../../application/customers/index.js';
 import { assertVersionedWriteApplied } from '../../lib/optimisticVersion.js';
 import { router } from '../init.js';
@@ -28,6 +28,7 @@ import {
   customers,
   identificationTypes,
   personTypes,
+  pharmacyCustomerAllergies,
   regimeTypes,
   syncOutbox,
 } from '../../db/schema.js';
@@ -203,14 +204,43 @@ export const customersRouter = router({
             });
           }
 
+          const allergyIds = tx
+            .select({ id: pharmacyCustomerAllergies.id })
+            .from(pharmacyCustomerAllergies)
+            .where(
+              and(
+                eq(pharmacyCustomerAllergies.tenantId, ctx.tenantId),
+                eq(pharmacyCustomerAllergies.customerId, input.id)
+              )
+            )
+            .all()
+            .map(row => row.id);
+          if (allergyIds.length > 0) {
+            tx.delete(pharmacyCustomerAllergies)
+              .where(
+                and(
+                  eq(pharmacyCustomerAllergies.tenantId, ctx.tenantId),
+                  eq(pharmacyCustomerAllergies.customerId, input.id)
+                )
+              )
+              .run();
+          }
+
           const customerAuditIds = tx
             .select({ id: auditLogs.id })
             .from(auditLogs)
             .where(
               and(
                 eq(auditLogs.tenantId, ctx.tenantId),
-                eq(auditLogs.resourceType, 'customer'),
-                eq(auditLogs.resourceId, input.id)
+                or(
+                  and(eq(auditLogs.resourceType, 'customer'), eq(auditLogs.resourceId, input.id)),
+                  allergyIds.length > 0
+                    ? and(
+                        eq(auditLogs.resourceType, 'pharmacy_customer_allergy'),
+                        inArray(auditLogs.resourceId, allergyIds)
+                      )
+                    : undefined
+                )
               )
             )
             .all()

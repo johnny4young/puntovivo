@@ -6,7 +6,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { Badge, Button } from '@/components/ui';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
-import { escapeHtml, printHtmlDocument } from '@/lib/receiptDocumentPrint';
+import { AUTO_PRINT_SCRIPT, escapeHtml, printHtmlDocument } from '@/lib/receiptDocumentPrint';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 
@@ -55,9 +55,10 @@ export function PharmacyFnePanel({
     page: 1,
     perPage: 20,
   });
+  const validMonth = /^\d{4}-\d{2}$/.test(month);
   const monthlyReportQuery = trpc.pharmacy.getFneMonthlyReport.useQuery(
     { siteId: currentSite?.id ?? undefined, month },
-    { enabled: !!currentSite?.id }
+    { enabled: !!currentSite?.id && validMonth }
   );
   const allergiesQuery = trpc.pharmacy.listCustomerAllergies.useQuery(
     { customerId },
@@ -112,34 +113,44 @@ export function PharmacyFnePanel({
     const report = monthlyReportQuery.data;
     if (!report) return;
     const rowsHtml = report.summary
-      .map(
-        s => `<tr>
+      .map(s => {
+        const netReturns = s.returns - (s.supplierReturns ?? 0);
+        return `<tr>
           <td>${escapeHtml(s.name)} (${escapeHtml(s.sku)})</td>
           <td>${escapeHtml(s.sanitaryRegistration ?? '—')}</td>
           <td>${s.openingBalance}</td>
           <td>${s.receipts}</td>
           <td>${s.dispensations}</td>
+          <td>${netReturns}</td>
+          <td>${s.fractionationsNet}</td>
           <td>${s.destructions}</td>
           <td>${s.closingBalance}</td>
-        </tr>`
-      )
+        </tr>`;
+      })
       .join('');
-    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Reporte Mensual FNE ${escapeHtml(report.month)}</title>
-      <style>body{font-family:system-ui,sans-serif;padding:20px;color:#111}h1{font-size:18px;margin:0 0 6px}p{margin:2px 0;font-size:12px}
-      table{width:100%;border-collapse:collapse;margin-top:14px;font-size:12px}th,td{border:1px solid #cbd5e1;padding:6px;text-align:left}th{background:#f1f5f9}</style>
-      </head><body>
-      <h1>Reporte Mensual de Medicamentos de Control Especial (Res. 1478/2006)</h1>
-      <p>Sede: ${escapeHtml(report.siteName)} · Periodo: ${escapeHtml(report.month)}${report.activeAuthorization ? ` · Resolución FNE: ${escapeHtml(report.activeAuthorization.resolutionNumber)}` : ''}</p>
-      <table><thead><tr><th>Medicamento</th><th>Registro</th><th>Inicial</th><th>Entradas</th><th>Dispensaciones</th><th>Destrucciones</th><th>Saldo final</th></tr></thead><tbody>${rowsHtml}</tbody></table>
-      </body></html>`;
-    await printHtmlDocument({
-      buildHtml: () => html,
-      createError: (_code, message) => new Error(message),
-      desktopBridgeFailedMessage: t('pharmacy:fne.toast.error'),
-      unknownErrorMessage: t('pharmacy:fne.toast.error'),
-      cancelledDialogIsSuccess: true,
-      windowFeatures: 'noopener,noreferrer,width=900,height=720',
-    });
+    try {
+      await printHtmlDocument({
+        buildHtml: ({ autoPrint }) =>
+          `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(t('pharmacy:fne.reportTitle'))} ${escapeHtml(report.month)}</title>
+          <style>body{font-family:system-ui,sans-serif;padding:20px;color:#111}h1{font-size:18px;margin:0 0 6px}p{margin:2px 0;font-size:12px}
+          table{width:100%;border-collapse:collapse;margin-top:14px;font-size:12px}th,td{border:1px solid #cbd5e1;padding:6px;text-align:left}th{background:#f1f5f9}</style>
+          </head><body>
+          <h1>${escapeHtml(t('pharmacy:fne.reportTitle'))} (Res. 1478/2006)</h1>
+          <p>${escapeHtml(report.siteName)} · ${escapeHtml(report.month)}${report.activeAuthorization ? ` · ${escapeHtml(report.activeAuthorization.resolutionNumber)}` : ''}</p>
+          <table><thead><tr><th>${escapeHtml(t('pharmacy:fne.columns.medicine'))}</th><th>${escapeHtml(t('pharmacy:fne.columns.registration'))}</th><th>${escapeHtml(t('pharmacy:fne.columns.opening'))}</th><th>${escapeHtml(t('pharmacy:fne.columns.receipts'))}</th><th>${escapeHtml(t('pharmacy:fne.columns.dispensations'))}</th><th>${escapeHtml(t('pharmacy:fne.columns.returns'))}</th><th>${escapeHtml(t('pharmacy:fne.columns.fractionations'))}</th><th>${escapeHtml(t('pharmacy:fne.columns.destructions'))}</th><th>${escapeHtml(t('pharmacy:fne.columns.closing'))}</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+          ${autoPrint ? AUTO_PRINT_SCRIPT : ''}</body></html>`,
+        createError: (_code, message) => new Error(message),
+        desktopBridgeFailedMessage: t('pharmacy:fne.toast.error'),
+        unknownErrorMessage: t('pharmacy:fne.toast.error'),
+        cancelledDialogIsSuccess: true,
+        windowFeatures: 'noopener,noreferrer,width=960,height=720',
+      });
+    } catch (err) {
+      toast.error({
+        title: t('pharmacy:fne.toast.error'),
+        description: err instanceof Error ? err.message : undefined,
+      });
+    }
   }
 
   return (
@@ -235,8 +246,10 @@ export function PharmacyFnePanel({
                 data-testid="pharmacy-fne-register"
                 disabled={
                   resolutionNumber.trim().length < 3 ||
+                  issuingAuthority.trim().length < 3 ||
                   !responsibleUserId ||
                   !validFrom ||
+                  Boolean(validUntil && validUntil < validFrom) ||
                   createFne.isPending
                 }
                 onClick={() =>
@@ -281,7 +294,7 @@ export function PharmacyFnePanel({
                       onClick={() =>
                         revokeFne.mutate({
                           id: auth.id,
-                          reason: 'Revocación administrativa de resolución FNE',
+                          reason: t('pharmacy:fne.defaultRevokeReason'),
                         })
                       }
                     >
@@ -452,6 +465,8 @@ export function PharmacyFnePanel({
                   <th className="py-2 pr-3">{t('pharmacy:fne.columns.opening')}</th>
                   <th className="py-2 pr-3">{t('pharmacy:fne.columns.receipts')}</th>
                   <th className="py-2 pr-3">{t('pharmacy:fne.columns.dispensations')}</th>
+                  <th className="py-2 pr-3">{t('pharmacy:fne.columns.returns')}</th>
+                  <th className="py-2 pr-3">{t('pharmacy:fne.columns.fractionations')}</th>
                   <th className="py-2 pr-3">{t('pharmacy:fne.columns.destructions')}</th>
                   <th className="py-2">{t('pharmacy:fne.columns.closing')}</th>
                 </tr>
@@ -468,6 +483,10 @@ export function PharmacyFnePanel({
                     <td className="py-2.5 pr-3 font-mono">{row.openingBalance}</td>
                     <td className="py-2.5 pr-3 font-mono">{row.receipts}</td>
                     <td className="py-2.5 pr-3 font-mono">{row.dispensations}</td>
+                    <td className="py-2.5 pr-3 font-mono">
+                      {row.returns - (row.supplierReturns ?? 0)}
+                    </td>
+                    <td className="py-2.5 pr-3 font-mono">{row.fractionationsNet}</td>
                     <td className="py-2.5 pr-3 font-mono">{row.destructions}</td>
                     <td className="py-2.5 font-mono font-semibold">{row.closingBalance}</td>
                   </tr>

@@ -253,7 +253,7 @@
       "prescription": "Prescription",
       "controlled": "Controlled"
     },
-    "controlledBlocked": "Controlled medicines remain blocked from sale until a legally reviewed country policy explicitly enables them.",
+    "controlledBlocked": "Controlled medicines require an active FNE resolution and retained formula with buyer identification before any sale can proceed.",
     "prescriptionNotice": "Checkout requires an identified customer, valid prescription evidence, and approval by a currently authorized professional.",
     "sections": {
       "identity": {
@@ -437,6 +437,7 @@
     "toast": {
       "imported": "INVIMA catalog imported",
       "summary": "{{inserted}} inserted · {{updated}} updated · {{linked}} products linked",
+      "fileTooLarge": "CSV file exceeds the 2 MB import batch limit",
       "error": "Unable to import INVIMA catalog"
     }
   },
@@ -449,6 +450,7 @@
     "responsible": "Responsible pharmacist",
     "registerAuth": "Enable FNE resolution",
     "revokeAuth": "Revoke resolution",
+    "defaultRevokeReason": "Administrative FNE resolution revocation",
     "reportTitle": "Official FNE ledger & monthly report",
     "month": "Report month",
     "printReport": "Print FNE monthly report",
@@ -469,9 +471,12 @@
     },
     "columns": {
       "medicine": "Controlled medicine",
+      "registration": "Registration",
       "opening": "Opening",
       "receipts": "Receipts",
       "dispensations": "Dispensations",
+      "returns": "Returns",
+      "fractionations": "Fractionations",
       "destructions": "Destructions",
       "closing": "Closing"
     },

@@ -11,12 +11,25 @@ import {
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { normalizeSanitaryRegistration } from '../../services/pharmacy/product-profile.js';
-import type {
-  ImportPharmacyInvimaCatalogInput,
-  SearchPharmacyInvimaCatalogInput,
+import {
+  invimaCatalogRowInput,
+  type ImportPharmacyInvimaCatalogInput,
+  type SearchPharmacyInvimaCatalogInput,
 } from '../../trpc/schemas/pharmacy.js';
-import { resolveDosesPerPack } from './generic-alternatives.js';
+import { pharmacyEquivalenceKey, resolveDosesPerPack } from './generic-alternatives.js';
 import { clampPharmacyPage } from './types.js';
+
+const MAX_INVIMA_IMPORT_ROWS = 2_000;
+
+function sanitizeCsvTextField(value: string, maxLen: number): string {
+  return value
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^[=+\-@]+/, '')
+    .trim()
+    .slice(0, maxLen);
+}
 
 export interface ParsedInvimaEntry {
   cumCode: string;
@@ -48,21 +61,30 @@ export function normalizeCumCode(value: string): string {
   return value.normalize('NFKC').trim().replace(/\s+/g, '').toLocaleUpperCase('en-US');
 }
 
+function isValidIsoCalendarDate(candidate: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return false;
+  const parsed = new Date(`${candidate}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === candidate;
+}
+
 function normalizeInvimaDate(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const trimmed = raw.trim();
   if (!trimmed) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return isValidIsoCalendarDate(trimmed) ? trimmed : null;
+  }
   const isoPrefix = /^(\d{4}-\d{2}-\d{2})[T ]/.exec(trimmed);
-  if (isoPrefix) return isoPrefix[1]!;
+  if (isoPrefix) {
+    return isValidIsoCalendarDate(isoPrefix[1]!) ? isoPrefix[1]! : null;
+  }
   const dmy = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(trimmed);
   if (dmy) {
     const day = dmy[1]!.padStart(2, '0');
     const month = dmy[2]!.padStart(2, '0');
     const year = dmy[3]!;
     const candidate = `${year}-${month}-${day}`;
-    const parsed = new Date(`${candidate}T00:00:00Z`);
-    if (!Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === candidate) {
+    if (isValidIsoCalendarDate(candidate)) {
       return candidate;
     }
   }
@@ -101,6 +123,39 @@ function normalizeInvimaClassification(raw: string | null | undefined): Pharmacy
   return 'otc';
 }
 
+function splitRfc4180Rows(text: string): string[] {
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const rows: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < normalized.length; i += 1) {
+    const ch = normalized[i]!;
+    if (ch === '"') {
+      current += ch;
+      if (inQuotes && normalized[i + 1] === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === '\n' && !inQuotes) {
+      if (current.trim().length > 0) rows.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  if (inQuotes) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PHARMACY_INVIMA_IMPORT_INVALID',
+      message: 'Malformed INVIMA CSV: unclosed double quote',
+    });
+  }
+  if (current.trim().length > 0) rows.push(current);
+  return rows;
+}
+
 function splitDelimitedLine(line: string, delimiter: string): string[] {
   const fields: string[] = [];
   let current = '';
@@ -129,17 +184,19 @@ function splitDelimitedLine(line: string, delimiter: string): string[] {
  * Parse official Colombia Datos Abiertos / INVIMA CUM CSV or semicolon-delimited text.
  */
 export function parseInvimaCsv(csvText: string): ParsedInvimaEntry[] {
-  const rawLines = csvText
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .split('\n')
-    .map(l => l.trim())
-    .filter(l => l.length > 0);
+  const rawLines = splitRfc4180Rows(csvText);
   if (rawLines.length < 2) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'PHARMACY_INVIMA_IMPORT_INVALID',
       message: 'INVIMA CSV must contain a header row and at least one medicine row',
+    });
+  }
+  if (rawLines.length - 1 > MAX_INVIMA_IMPORT_ROWS) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PHARMACY_INVIMA_IMPORT_INVALID',
+      message: `INVIMA CSV exceeds the ${MAX_INVIMA_IMPORT_ROWS}-row import limit per batch`,
     });
   }
 
@@ -203,46 +260,56 @@ export function parseInvimaCsv(csvText: string): ParsedInvimaEntry[] {
     const cols = splitDelimitedLine(rawLines[i]!, delimiter);
     const val = (idx: number) => (idx >= 0 ? (cols[idx]?.trim() ?? '') : '');
 
-    let cumCode = val(idxCum);
+    let cumCode = sanitizeCsvTextField(val(idxCum), 80);
     if (!cumCode && idxExpediente >= 0) {
-      const exp = val(idxExpediente);
-      const cons = val(idxConsecutivo);
-      cumCode = cons ? `${exp}-${cons.padStart(2, '0')}` : exp;
+      const exp = sanitizeCsvTextField(val(idxExpediente), 60);
+      const cons = sanitizeCsvTextField(val(idxConsecutivo), 16);
+      if (exp) {
+        cumCode = cons ? `${exp}-${cons.padStart(2, '0')}` : exp;
+      }
     }
-    const productName = val(idxProduct);
-    const activeIngredient = val(idxIngredient);
-    const sanitaryRegistration = val(idxReg);
+    const productName = sanitizeCsvTextField(val(idxProduct), 255);
+    const activeIngredient = sanitizeCsvTextField(val(idxIngredient), 255);
+    const sanitaryRegistration = sanitizeCsvTextField(val(idxReg), 160);
     if (!cumCode || !productName || !activeIngredient || !sanitaryRegistration) continue;
 
-    let concentration = val(idxConcentration) || null;
+    let concentration = sanitizeCsvTextField(val(idxConcentration), 160) || null;
     if (!concentration && idxCantidad >= 0 && val(idxCantidad)) {
-      const qty = val(idxCantidad);
-      const unit = val(idxUnidad);
-      concentration = unit ? `${qty} ${unit}` : qty;
+      const qty = sanitizeCsvTextField(val(idxCantidad), 80);
+      const unit = sanitizeCsvTextField(val(idxUnidad), 75);
+      concentration = qty ? (unit ? `${qty} ${unit}` : qty) : null;
     }
 
-    const presentation = val(idxPresentation) || null;
+    const presentation = sanitizeCsvTextField(val(idxPresentation), 160) || null;
     const explicitDosesRaw = Number(val(idxDoses));
     const explicitDoses =
-      Number.isInteger(explicitDosesRaw) && explicitDosesRaw > 0 ? explicitDosesRaw : null;
+      Number.isInteger(explicitDosesRaw) && explicitDosesRaw > 0 && explicitDosesRaw <= 10_000
+        ? explicitDosesRaw
+        : null;
     const dosesPerPack = resolveDosesPerPack(explicitDoses, presentation);
 
-    entries.push({
+    const candidateRow = {
       cumCode,
       productName,
       activeIngredient,
       concentration,
-      dosageForm: val(idxDosageForm) || null,
-      administrationRoute: val(idxRoute) || null,
+      dosageForm: sanitizeCsvTextField(val(idxDosageForm), 120) || null,
+      administrationRoute: sanitizeCsvTextField(val(idxRoute), 120) || null,
       presentation,
       dosesPerPack,
-      manufacturer: val(idxManufacturer) || val(idxHolder) || null,
-      authorizationHolder: val(idxHolder) || null,
+      manufacturer:
+        sanitizeCsvTextField(val(idxManufacturer), 255) ||
+        sanitizeCsvTextField(val(idxHolder), 255) ||
+        null,
+      authorizationHolder: sanitizeCsvTextField(val(idxHolder), 255) || null,
       sanitaryRegistration,
       registrationStatus: normalizeInvimaStatus(val(idxStatus)),
       registrationExpiresAt: normalizeInvimaDate(val(idxExpiry)),
       classification: normalizeInvimaClassification(val(idxClass)),
-    });
+    };
+    const checked = invimaCatalogRowInput.safeParse(candidateRow);
+    if (!checked.success) continue;
+    entries.push(candidateRow);
   }
 
   if (entries.length === 0) {
@@ -295,13 +362,15 @@ export function importPharmacyInvimaCatalog(
     tx => {
       let inserted = 0;
       let updated = 0;
-      let linkedProducts = 0;
+      const linkedProductIds = new Set<string>();
 
       for (const row of parsedRows) {
-        const cumNormalized = normalizeCumCode(row.cumCode);
-        const sanitaryRegistrationNormalized = normalizeSanitaryRegistration(
-          row.sanitaryRegistration
-        );
+        const sanitizedProductName = sanitizeCsvTextField(row.productName, 255);
+        const sanitizedIngredient = sanitizeCsvTextField(row.activeIngredient, 255);
+        const cumCode = sanitizeCsvTextField(row.cumCode, 80);
+        const cumNormalized = normalizeCumCode(cumCode);
+        const sanitaryRegistration = sanitizeCsvTextField(row.sanitaryRegistration, 160);
+        const sanitaryRegistrationNormalized = normalizeSanitaryRegistration(sanitaryRegistration);
         const existing = tx
           .select({ id: pharmacyInvimaCatalog.id })
           .from(pharmacyInvimaCatalog)
@@ -316,9 +385,9 @@ export function importPharmacyInvimaCatalog(
         if (existing) {
           tx.update(pharmacyInvimaCatalog)
             .set({
-              cumCode: row.cumCode,
-              productName: row.productName,
-              activeIngredient: row.activeIngredient,
+              cumCode,
+              productName: sanitizedProductName,
+              activeIngredient: sanitizedIngredient,
               concentration: row.concentration,
               dosageForm: row.dosageForm,
               administrationRoute: row.administrationRoute,
@@ -326,7 +395,7 @@ export function importPharmacyInvimaCatalog(
               dosesPerPack: row.dosesPerPack,
               manufacturer: row.manufacturer,
               authorizationHolder: row.authorizationHolder,
-              sanitaryRegistration: row.sanitaryRegistration,
+              sanitaryRegistration,
               sanitaryRegistrationNormalized,
               registrationStatus: row.registrationStatus,
               registrationExpiresAt: row.registrationExpiresAt,
@@ -346,10 +415,10 @@ export function importPharmacyInvimaCatalog(
             .values({
               id: nanoid(),
               tenantId: ctx.tenantId,
-              cumCode: row.cumCode,
+              cumCode,
               cumNormalized,
-              productName: row.productName,
-              activeIngredient: row.activeIngredient,
+              productName: sanitizedProductName,
+              activeIngredient: sanitizedIngredient,
               concentration: row.concentration,
               dosageForm: row.dosageForm,
               administrationRoute: row.administrationRoute,
@@ -357,7 +426,7 @@ export function importPharmacyInvimaCatalog(
               dosesPerPack: row.dosesPerPack,
               manufacturer: row.manufacturer,
               authorizationHolder: row.authorizationHolder,
-              sanitaryRegistration: row.sanitaryRegistration,
+              sanitaryRegistration,
               sanitaryRegistrationNormalized,
               registrationStatus: row.registrationStatus,
               registrationExpiresAt: row.registrationExpiresAt,
@@ -370,19 +439,21 @@ export function importPharmacyInvimaCatalog(
         }
 
         if (input.syncMatchingProducts) {
-          const updatedProfiles = tx
-            .update(pharmacyProductProfiles)
-            .set({
-              cumCode: row.cumCode,
-              registrationExpiresAt: row.registrationExpiresAt,
-              ...(row.dosesPerPack !== null ? { dosesPerPack: row.dosesPerPack } : {}),
-              updatedAt: now,
+          const candidates = tx
+            .select({
+              productId: pharmacyProductProfiles.productId,
+              cumCode: pharmacyProductProfiles.cumCode,
+              presentation: pharmacyProductProfiles.presentation,
+              dosesPerPack: pharmacyProductProfiles.dosesPerPack,
+              sanitaryRegistrationNormalized:
+                pharmacyProductProfiles.sanitaryRegistrationNormalized,
             })
+            .from(pharmacyProductProfiles)
             .where(
               and(
                 eq(pharmacyProductProfiles.tenantId, ctx.tenantId),
                 or(
-                  eq(pharmacyProductProfiles.cumCode, row.cumCode),
+                  eq(pharmacyProductProfiles.cumCode, cumCode),
                   eq(
                     pharmacyProductProfiles.sanitaryRegistrationNormalized,
                     sanitaryRegistrationNormalized
@@ -390,10 +461,54 @@ export function importPharmacyInvimaCatalog(
                 )
               )
             )
-            .run();
-          linkedProducts += updatedProfiles.changes;
+            .all();
+
+          const sameRegCount = candidates.filter(
+            c => c.sanitaryRegistrationNormalized === sanitaryRegistrationNormalized
+          ).length;
+          const rowPresKey = pharmacyEquivalenceKey(row.presentation);
+
+          for (const candidate of candidates) {
+            const candidateCumNorm = candidate.cumCode ? normalizeCumCode(candidate.cumCode) : null;
+            // Never overwrite a sibling SKU that already owns a different CUM code
+            if (candidateCumNorm !== null && candidateCumNorm !== cumNormalized) {
+              continue;
+            }
+            const exactCumMatch = candidateCumNorm === cumNormalized;
+            const unambiguousRegMatch =
+              candidateCumNorm === null &&
+              (sameRegCount === 1 ||
+                (rowPresKey !== null &&
+                  pharmacyEquivalenceKey(candidate.presentation) === rowPresKey));
+
+            if (!exactCumMatch && !unambiguousRegMatch) {
+              continue;
+            }
+
+            tx.update(pharmacyProductProfiles)
+              .set({
+                cumCode,
+                ...(row.registrationExpiresAt !== null
+                  ? { registrationExpiresAt: row.registrationExpiresAt }
+                  : {}),
+                ...(candidate.dosesPerPack === null && row.dosesPerPack !== null
+                  ? { dosesPerPack: row.dosesPerPack }
+                  : {}),
+                updatedAt: now,
+              })
+              .where(
+                and(
+                  eq(pharmacyProductProfiles.productId, candidate.productId),
+                  eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
+                )
+              )
+              .run();
+            linkedProductIds.add(candidate.productId);
+          }
         }
       }
+
+      const linkedProducts = linkedProductIds.size;
 
       writeAuditLog({
         tx,
@@ -427,18 +542,19 @@ export function searchPharmacyInvimaCatalog(
   input: SearchPharmacyInvimaCatalogInput
 ) {
   const q = input.search?.trim();
-  const pattern = q ? `%${q.toLowerCase()}%` : null;
+  const escaped = q ? q.toLowerCase().replace(/[\\%_]/g, '\\$&') : null;
+  const pattern = escaped ? `%${escaped}%` : null;
 
   const where = and(
     eq(pharmacyInvimaCatalog.tenantId, tenantId),
     input.status ? eq(pharmacyInvimaCatalog.registrationStatus, input.status) : undefined,
     pattern
       ? or(
-          sql`lower(${pharmacyInvimaCatalog.cumCode}) like ${pattern}`,
-          sql`lower(${pharmacyInvimaCatalog.sanitaryRegistration}) like ${pattern}`,
-          sql`lower(${pharmacyInvimaCatalog.productName}) like ${pattern}`,
-          sql`lower(${pharmacyInvimaCatalog.activeIngredient}) like ${pattern}`,
-          sql`lower(coalesce(${pharmacyInvimaCatalog.authorizationHolder}, '')) like ${pattern}`
+          sql`lower(${pharmacyInvimaCatalog.cumCode}) like ${pattern} escape '\\'`,
+          sql`lower(${pharmacyInvimaCatalog.sanitaryRegistration}) like ${pattern} escape '\\'`,
+          sql`lower(${pharmacyInvimaCatalog.productName}) like ${pattern} escape '\\'`,
+          sql`lower(${pharmacyInvimaCatalog.activeIngredient}) like ${pattern} escape '\\'`,
+          sql`lower(coalesce(${pharmacyInvimaCatalog.authorizationHolder}, '')) like ${pattern} escape '\\'`
         )
       : undefined
   );

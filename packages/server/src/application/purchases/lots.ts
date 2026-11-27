@@ -28,6 +28,7 @@ import {
   applyRecallCustodyOverlays,
   findActiveRecallOverlaysForLot,
 } from '../../services/pharmacy/transfer-custody.js';
+import { recordControlledStockMovementInFneLedger } from '../pharmacy/fne.js';
 import type { EnqueueSyncContext } from '../../services/sync/enqueue.js';
 import type { ResolvedPurchaseItem, ResolvedPurchaseReturnItem } from './types.js';
 
@@ -136,6 +137,19 @@ export function receivePurchaseItemLots(
           }),
         };
       }
+      recordControlledStockMovementInFneLedger(tx, {
+        tenantId: input.tenantId,
+        siteId: input.siteId,
+        productId: input.productId,
+        lotId: lot.lotId,
+        lotNumber: receipt.lotNumber,
+        businessDate: input.businessDate,
+        movementType: 'receipt',
+        quantityDelta: receipt.baseQuantity,
+        actorId: input.actorId,
+        notes: receipt.notes ?? `Purchase ${input.purchaseNumber}`,
+        occurredAt: input.now,
+      });
     }
     lotIds.push(lot.lotId);
   }
@@ -214,6 +228,19 @@ export function returnPurchaseItemLots(
         referenceType: 'purchase_return_item',
         referenceId: input.purchaseReturnItemId,
         actorId: input.actorId,
+        occurredAt: input.now,
+      });
+      recordControlledStockMovementInFneLedger(tx, {
+        tenantId: input.tenantId,
+        siteId: input.siteId,
+        productId: input.productId,
+        lotId: consumedLot.lotId,
+        lotNumber: consumedLot.lotNumber,
+        businessDate: input.businessDate,
+        movementType: 'supplier_return',
+        quantityDelta: -allocation.baseQuantity,
+        actorId: input.actorId,
+        notes: 'Purchase return to supplier',
         occurredAt: input.now,
       });
     }
@@ -319,6 +346,19 @@ export function voidPurchaseItemLots(
         referenceType: 'purchase_item',
         referenceId: input.purchaseItemId,
         actorId: input.actorId,
+        occurredAt: input.now,
+      });
+      recordControlledStockMovementInFneLedger(tx, {
+        tenantId: input.tenantId,
+        siteId: input.siteId,
+        productId: input.productId,
+        lotId: lot.lotId,
+        lotNumber: lot.lotNumber,
+        businessDate: input.businessDate,
+        movementType: 'supplier_return',
+        quantityDelta: -lot.quantity,
+        actorId: input.actorId,
+        notes: 'Purchase receipt voided',
         occurredAt: input.now,
       });
     }

@@ -3,9 +3,9 @@ import type { ProductFormValues } from './ProductFormModal';
 const nullableText = (value: string) => value.trim() || null;
 const nullablePositiveInt = (value: string) => {
   const trimmed = value.trim();
-  if (!trimmed) return null;
+  if (!trimmed || !/^\d+$/.test(trimmed)) return null;
   const parsed = Number.parseInt(trimmed, 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  return Number.isInteger(parsed) && parsed > 0 && parsed <= 10_000 ? parsed : null;
 };
 
 /** Build the regulated profile only when a product actually enables it. */

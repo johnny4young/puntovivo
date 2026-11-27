@@ -35,10 +35,14 @@ keeping regulated aggregates local until that contract exists.
   units had valid prior custody; a future guided adoption must quarantine and
   verify exact lots before release.
 - `PharmacyPolicy` is effective by country, business date, and classification.
-  Colombia v1 permits OTC, requires a valid customer, prescription evidence,
-  and an effective professional approval for prescription medicines, and keeps
-  controlled medicines disabled. Countries without a reviewed adapter permit
-  OTC only; prescription and controlled sales fail closed.
+  Colombia permits OTC, requires a valid customer, prescription evidence, and
+  an effective professional approval for prescription medicines, and keeps
+  controlled medicines disabled by default until an active FNE resolution
+  (`pharmacy_fne_authorizations` backed by an effective pharmacist credential)
+  is registered for the site, at which point retained-formula buyer
+  identification and `pharmacy_fne_ledger` custody apply. Countries without a
+  reviewed adapter permit OTC only; prescription and controlled sales fail
+  closed.
 - Calendar validity uses the tenant's server-resolved IANA business date. Every
   regulated write revalidates the locale version, effective country/timezone,
   and current local date after reserving SQLite's immediate writer, so a
@@ -97,8 +101,11 @@ keeping regulated aggregates local until that contract exists.
   still covers the lot.
 - Purchases, supplier returns, transfers, sale returns, voids, and exact lot
   operations preserve non-sellable state and provenance. Ordinary retail
-  transformations reject medicines until a separately reviewed regulated
-  preparation workflow exists.
+  transformations reject medicines; regulated pack-to-blister/tablet conversion
+  flows exclusively through `pharmacy_lot_fractionations`, preserving physical
+  lot number, expiry, sanitary registration, cent-exact carrying value, and
+  bidirectional recall lineage. Daily Res. 1403 environmental readings record
+  into append-only `pharmacy_environmental_logs`.
 
 ### Read, UI, search, and replication boundaries
 
@@ -115,8 +122,9 @@ keeping regulated aggregates local until that contract exists.
   separately.
 - `pharmacy.genericAlternatives` is an advisory read for any sales role. For
   one medicine it lists cheaper medicines with the same active ingredient,
-  concentration, dosage form and presentation (compared without case, accents,
-  spacing or decimal separator; a missing field never matches), no stricter
+  concentration, and dosage form (matching identical presentations directly and
+  cross-presentations by rounded per-dose price when both carry known
+  `doses_per_pack`), no stricter
   class than the source, at the requested price tier and the same currency, with
   the saving, sellable site stock and the FEFO lot. It suggests only products
   the effective policy allows today, through the same product-policy predicate

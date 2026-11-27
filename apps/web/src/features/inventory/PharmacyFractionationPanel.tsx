@@ -62,6 +62,7 @@ export function PharmacyFractionationPanel() {
         utils.inventory.listBalancesBySite.invalidate(),
         utils.inventory.listMovements.invalidate(),
         utils.pharmacy.listFractionations.invalidate(),
+        utils.pharmacy.getFneMonthlyReport.invalidate(),
       ]);
       setSourceQuantity('1');
       setTargetQuantity('');

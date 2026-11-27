@@ -253,7 +253,7 @@
       "prescription": "Con prescripción",
       "controlled": "Controlado"
     },
-    "controlledBlocked": "Los medicamentos controlados permanecen bloqueados para la venta hasta que una política nacional con revisión legal los habilite expresamente.",
+    "controlledBlocked": "Los medicamentos controlados exigen una resolución FNE vigente y fórmula retenida con identificación del comprador antes de autorizar cualquier venta.",
     "prescriptionNotice": "El cobro exige un cliente identificado, evidencia de prescripción vigente y aprobación de un profesional autorizado en la fecha.",
     "sections": {
       "identity": {
@@ -437,6 +437,7 @@
     "toast": {
       "imported": "Catálogo INVIMA importado",
       "summary": "{{inserted}} nuevos · {{updated}} actualizados · {{linked}} productos vinculados",
+      "fileTooLarge": "El archivo supera el límite de 2 MB por lote de importación",
       "error": "No se pudo importar el catálogo INVIMA"
     }
   },
@@ -449,6 +450,7 @@
     "responsible": "Químico farmacéutico / Regente responsable",
     "registerAuth": "Habilitar resolución FNE",
     "revokeAuth": "Revocar resolución",
+    "defaultRevokeReason": "Revocación administrativa de resolución FNE",
     "reportTitle": "Libro oficial y reporte mensual FNE",
     "month": "Mes del reporte",
     "printReport": "Imprimir reporte mensual FNE",
@@ -469,9 +471,12 @@
     },
     "columns": {
       "medicine": "Medicamento controlado",
+      "registration": "Registro",
       "opening": "Saldo inicial",
       "receipts": "Entradas",
       "dispensations": "Dispensaciones",
+      "returns": "Devoluciones",
+      "fractionations": "Fraccionamiento",
       "destructions": "Destrucciones",
       "closing": "Saldo final"
     },

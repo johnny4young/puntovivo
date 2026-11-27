@@ -604,6 +604,8 @@ function StatefulSalePharmacyEvidenceSection({
                 effectiveReference.trim().length < 2 ||
                 effectivePrescriberName.trim().length < 2 ||
                 effectivePrescriberCredential.trim().length < 2 ||
+                (selectedRequirement.classification === 'controlled' &&
+                  effectiveBuyerDocument.trim().length < 3) ||
                 !authorizedQuantityValid ||
                 !evidenceDatesValid
               }

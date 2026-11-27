@@ -6,7 +6,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { Badge, Button } from '@/components/ui';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
-import { escapeHtml, printHtmlDocument } from '@/lib/receiptDocumentPrint';
+import { AUTO_PRINT_SCRIPT, escapeHtml, printHtmlDocument } from '@/lib/receiptDocumentPrint';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 
@@ -32,6 +32,11 @@ export function PharmacyEnvironmentalPanel({ businessDate }: PharmacyEnvironment
   const [toDate, setToDate] = useState(businessDate);
   const [onlyDeviations, setOnlyDeviations] = useState(false);
 
+  const validDateRange =
+    /^\d{4}-\d{2}-\d{2}$/.test(fromDate) &&
+    /^\d{4}-\d{2}-\d{2}$/.test(toDate) &&
+    fromDate <= toDate;
+
   const logsQuery = trpc.pharmacy.listEnvironmentalLogs.useQuery(
     {
       siteId: currentSite?.id ?? undefined,
@@ -41,7 +46,7 @@ export function PharmacyEnvironmentalPanel({ businessDate }: PharmacyEnvironment
       page: 1,
       perPage: 50,
     },
-    { enabled: !!currentSite?.id }
+    { enabled: !!currentSite?.id && validDateRange }
   );
 
   const reportQuery = trpc.pharmacy.getEnvironmentalReport.useQuery(
@@ -50,7 +55,7 @@ export function PharmacyEnvironmentalPanel({ businessDate }: PharmacyEnvironment
       fromDate,
       toDate,
     },
-    { enabled: !!currentSite?.id }
+    { enabled: !!currentSite?.id && validDateRange }
   );
 
   const recordLog = useCriticalMutation('pharmacy.recordEnvironmentalLog', {
@@ -99,32 +104,39 @@ export function PharmacyEnvironmentalPanel({ businessDate }: PharmacyEnvironment
     const rowsHtml = report.readings
       .map(
         r => `<tr>
-          <td>${escapeHtml(r.businessDate)} (${r.period === 'morning' ? 'AM' : 'PM'})</td>
-          <td>${r.zone === 'ambient' ? 'Ambiente' : 'Nevera'}</td>
-          <td>${r.temperatureC.toFixed(1)} °C${r.humidityPercent !== null ? ` / ${r.humidityPercent.toFixed(0)}% HR` : ''}</td>
-          <td>${r.isOutOfRange ? 'FUERA DE RANGO' : 'OK'}</td>
+          <td>${escapeHtml(r.businessDate)} (${escapeHtml(t(`pharmacy:environmental.periods.${r.period}`))})</td>
+          <td>${escapeHtml(r.zone === 'ambient' ? t('pharmacy:environmental.summaryAmbient') : t('pharmacy:environmental.summaryRefrigerator'))}</td>
+          <td>${r.temperatureC.toFixed(1)} °C${r.humidityPercent !== null ? ` / ${r.humidityPercent.toFixed(0)}%` : ''}</td>
+          <td>${escapeHtml(r.isOutOfRange ? t('pharmacy:environmental.outOfRange') : t('pharmacy:environmental.inRange'))}</td>
           <td>${escapeHtml(r.correctiveAction ?? '—')}</td>
           <td>${escapeHtml(r.recordedByName)}</td>
         </tr>`
       )
       .join('');
-    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Bitácora Ambiental Res. 1403/2007</title>
-      <style>body{font-family:system-ui,sans-serif;padding:20px;color:#111}h1{font-size:18px;margin:0 0 6px}p{margin:2px 0;font-size:12px}
-      table{width:100%;border-collapse:collapse;margin-top:14px;font-size:12px}th,td{border:1px solid #cbd5e1;padding:6px;text-align:left}th{background:#f1f5f9}</style>
-      </head><body>
-      <h1>Bitácora de Temperatura y Humedad Relativa — ${escapeHtml(report.standard)}</h1>
-      <p>Sede: ${escapeHtml(report.siteName)}${report.companyName ? ` · ${escapeHtml(report.companyName)}` : ''}${report.companyTaxId ? ` · NIT ${escapeHtml(report.companyTaxId)}` : ''}</p>
-      <p>Periodo: ${escapeHtml(report.fromDate)} a ${escapeHtml(report.toDate)} · Lecturas: ${report.totalReadings} · Desviaciones: ${report.deviationCount}</p>
-      <table><thead><tr><th>Fecha / Jornada</th><th>Área</th><th>Lectura</th><th>Estado</th><th>Acción correctiva</th><th>Responsable</th></tr></thead><tbody>${rowsHtml}</tbody></table>
-      </body></html>`;
-    await printHtmlDocument({
-      buildHtml: () => html,
-      createError: (_code, message) => new Error(message),
-      desktopBridgeFailedMessage: t('pharmacy:environmental.toast.error'),
-      unknownErrorMessage: t('pharmacy:environmental.toast.error'),
-      cancelledDialogIsSuccess: true,
-      windowFeatures: 'noopener,noreferrer,width=900,height=720',
-    });
+    try {
+      await printHtmlDocument({
+        buildHtml: ({ autoPrint }) =>
+          `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(t('pharmacy:environmental.title'))}</title>
+          <style>body{font-family:system-ui,sans-serif;padding:20px;color:#111}h1{font-size:18px;margin:0 0 6px}p{margin:2px 0;font-size:12px}
+          table{width:100%;border-collapse:collapse;margin-top:14px;font-size:12px}th,td{border:1px solid #cbd5e1;padding:6px;text-align:left}th{background:#f1f5f9}</style>
+          </head><body>
+          <h1>${escapeHtml(t('pharmacy:environmental.title'))} — ${escapeHtml(report.standard)}</h1>
+          <p>${escapeHtml(report.siteName)}${report.companyName ? ` · ${escapeHtml(report.companyName)}` : ''}${report.companyTaxId ? ` · ${escapeHtml(report.companyTaxId)}` : ''}</p>
+          <p>${escapeHtml(report.fromDate)} → ${escapeHtml(report.toDate)} · ${escapeHtml(t('pharmacy:environmental.summaryTotal'))}: ${report.totalReadings} · ${escapeHtml(t('pharmacy:environmental.summaryDeviations'))}: ${report.deviationCount}</p>
+          <table><thead><tr><th>${escapeHtml(t('pharmacy:environmental.columns.date'))}</th><th>${escapeHtml(t('pharmacy:environmental.columns.zone'))}</th><th>${escapeHtml(t('pharmacy:environmental.columns.reading'))}</th><th>${escapeHtml(t('pharmacy:environmental.columns.status'))}</th><th>${escapeHtml(t('pharmacy:environmental.columns.action'))}</th><th>${escapeHtml(t('pharmacy:fractionation.columns.actor'))}</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+          ${autoPrint ? AUTO_PRINT_SCRIPT : ''}</body></html>`,
+        createError: (_code, message) => new Error(message),
+        desktopBridgeFailedMessage: t('pharmacy:environmental.toast.error'),
+        unknownErrorMessage: t('pharmacy:environmental.toast.error'),
+        cancelledDialogIsSuccess: true,
+        windowFeatures: 'noopener,noreferrer,width=900,height=720',
+      });
+    } catch (err) {
+      toast.error({
+        title: t('pharmacy:environmental.toast.error'),
+        description: err instanceof Error ? err.message : undefined,
+      });
+    }
   }
 
   return (

@@ -335,7 +335,7 @@ export const pharmacyRouter = router({
     .mutation(({ ctx, input }) =>
       addPharmacyCustomerAllergy(ctx.db, { tenantId: ctx.tenantId, actorId: ctx.user!.id }, input)
     ),
-  removeCustomerAllergy: cashierManagerOrAdminProcedure
+  removeCustomerAllergy: managerOrAdminProcedure
     .input(removePharmacyCustomerAllergyInput)
     .mutation(({ ctx, input }) =>
       removePharmacyCustomerAllergy(

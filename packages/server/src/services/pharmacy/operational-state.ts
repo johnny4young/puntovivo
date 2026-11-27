@@ -2,8 +2,10 @@ import { eq } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import {
+  pharmacyCustomerAllergies,
   pharmacyEnvironmentalLogs,
   pharmacyFneAuthorizations,
+  pharmacyFneLedger,
   pharmacyInvimaCatalog,
   pharmacyLotFractionations,
   pharmacyPrescriptionEvidence,
@@ -76,6 +78,16 @@ export function hasPharmacyOperationalData(db: DatabaseInstance, tenantId: strin
       .select({ id: pharmacyLotFractionations.id })
       .from(pharmacyLotFractionations)
       .where(eq(pharmacyLotFractionations.tenantId, tenantId))
+      .get() !== undefined ||
+    db
+      .select({ id: pharmacyFneLedger.id })
+      .from(pharmacyFneLedger)
+      .where(eq(pharmacyFneLedger.tenantId, tenantId))
+      .get() !== undefined ||
+    db
+      .select({ id: pharmacyCustomerAllergies.id })
+      .from(pharmacyCustomerAllergies)
+      .where(eq(pharmacyCustomerAllergies.tenantId, tenantId))
       .get() !== undefined
   );
 }

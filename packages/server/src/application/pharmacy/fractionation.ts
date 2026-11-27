@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
 
@@ -28,6 +28,7 @@ import {
   isLotExpiredAt,
   receiveInventoryLot,
 } from '../../services/inventory-lots/index.js';
+import { writeInventoryLotEvent } from '../../services/pharmacy/lot-events.js';
 import { toInventoryCents } from '../../services/inventory-valuation.js';
 import {
   assertTenantBusinessClockCurrent,
@@ -55,6 +56,15 @@ export async function fractionatePharmacyLot(
   ctx: CriticalPharmacyContext,
   input: FractionatePharmacyLotInput
 ) {
+  const unitsPerSource = roundQuantity(input.targetQuantity / input.sourceQuantity, 6);
+  if (!Number.isFinite(unitsPerSource) || !(unitsPerSource > 0)) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PHARMACY_FRACTIONATION_INVALID',
+      message: 'Fractionation ratio (targetQuantity / sourceQuantity) is out of range',
+    });
+  }
+
   const clock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
   const fractionationId = nanoid();
   const sourceMovementId = nanoid();
@@ -253,20 +263,22 @@ export async function fractionatePharmacyLot(
         });
       }
       if (
-        sourceProfile.sanitaryRegistrationNormalized &&
-        targetProfile.sanitaryRegistrationNormalized &&
+        !sourceProfile.sanitaryRegistrationNormalized ||
+        !targetProfile.sanitaryRegistrationNormalized ||
         sourceProfile.sanitaryRegistrationNormalized !==
           targetProfile.sanitaryRegistrationNormalized
       ) {
         throwServerError({
           trpcCode: 'BAD_REQUEST',
           errorCode: 'PHARMACY_FRACTIONATION_INVALID',
-          message: 'Source and target SKUs must share the same sanitary registration',
+          message: 'Source and target SKUs must carry the same non-empty sanitary registration',
         });
       }
       if (
-        sourceProfile.registrationExpiresAt &&
-        isCalendarDateExpired(sourceProfile.registrationExpiresAt, clock.businessDate)
+        (sourceProfile.registrationExpiresAt &&
+          isCalendarDateExpired(sourceProfile.registrationExpiresAt, clock.businessDate)) ||
+        (targetProfile.registrationExpiresAt &&
+          isCalendarDateExpired(targetProfile.registrationExpiresAt, clock.businessDate))
       ) {
         throwServerError({
           trpcCode: 'CONFLICT',
@@ -275,13 +287,94 @@ export async function fractionatePharmacyLot(
         });
       }
       if (
-        CLASSIFICATION_RANK[targetProfile.classification] <
+        CLASSIFICATION_RANK[targetProfile.classification] !==
         CLASSIFICATION_RANK[sourceProfile.classification]
       ) {
         throwServerError({
           trpcCode: 'BAD_REQUEST',
           errorCode: 'PHARMACY_FRACTIONATION_INVALID',
-          message: 'Target SKU cannot relax the regulatory classification of the source medicine',
+          message: 'Source and target SKUs must share the same regulatory classification',
+        });
+      }
+
+      // Preventive product / sanitary-registration recall check across both SKUs
+      const activeScopeRecall = tx
+        .select({ id: pharmacyRecalls.id })
+        .from(pharmacyRecalls)
+        .where(
+          and(
+            eq(pharmacyRecalls.tenantId, ctx.tenantId),
+            eq(pharmacyRecalls.status, 'active'),
+            or(
+              and(
+                eq(pharmacyRecalls.scopeType, 'product'),
+                inArray(pharmacyRecalls.productId, [sourceLot.productId, targetProfile.productId])
+              ),
+              and(
+                eq(pharmacyRecalls.scopeType, 'sanitary_registration'),
+                eq(
+                  pharmacyRecalls.sanitaryRegistration,
+                  sourceProfile.sanitaryRegistrationNormalized
+                )
+              )
+            )
+          )
+        )
+        .get();
+      if (activeScopeRecall) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'PHARMACY_RECALL_ACTIVE',
+          message: 'Cannot fractionate into or from a medicine covered by an active recall',
+          details: { recallId: activeScopeRecall.id },
+        });
+      }
+
+      // Guard against merging into an existing quarantined / recalled / expired target lot
+      const existingTargetLot = tx
+        .select({ id: inventoryLots.id, status: inventoryLots.status })
+        .from(inventoryLots)
+        .where(
+          and(
+            eq(inventoryLots.tenantId, ctx.tenantId),
+            eq(inventoryLots.siteId, sourceLot.siteId),
+            eq(inventoryLots.productId, targetProfile.productId),
+            eq(inventoryLots.lotNumber, sourceLot.lotNumber)
+          )
+        )
+        .get();
+      if (
+        existingTargetLot &&
+        (existingTargetLot.status === 'recalled' ||
+          existingTargetLot.status === 'quarantined' ||
+          existingTargetLot.status === 'expired')
+      ) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode:
+            existingTargetLot.status === 'recalled'
+              ? 'PHARMACY_RECALL_ACTIVE'
+              : 'PHARMACY_LOT_STATE_INVALID',
+          message:
+            'Target lot is in a non-sellable custody state and cannot receive fractionated stock',
+          details: { targetLotId: existingTargetLot.id, status: existingTargetLot.status },
+        });
+      }
+
+      const fneAuth =
+        sourceProfile.classification === 'controlled'
+          ? findEffectiveFneAuthorization(tx, {
+              tenantId: ctx.tenantId,
+              siteId: sourceLot.siteId,
+              countryCode: clock.countryCode,
+              businessDate: clock.businessDate,
+            })
+          : null;
+      if (sourceProfile.classification === 'controlled' && !fneAuth) {
+        throwServerError({
+          trpcCode: 'FORBIDDEN',
+          errorCode: 'PHARMACY_CONTROLLED_NOT_ENABLED',
+          message: 'Controlled medicines require an active FNE authorization before fractionation',
         });
       }
 
@@ -296,10 +389,13 @@ export async function fractionatePharmacyLot(
           )
         )
         .get();
+      const previousSourceStock = getProductStockTotal(tx, ctx.tenantId, sourceLot.productId);
+      const previousTargetStock = getProductStockTotal(tx, ctx.tenantId, targetProfile.productId);
       if (
         !sourceBalance ||
         !Number.isFinite(sourceBalance.onHand) ||
-        sourceBalance.onHand + QUANTITY_EPSILON < input.sourceQuantity
+        sourceBalance.onHand + QUANTITY_EPSILON < input.sourceQuantity ||
+        previousSourceStock + QUANTITY_EPSILON < input.sourceQuantity
       ) {
         throwServerError({
           trpcCode: 'CONFLICT',
@@ -308,8 +404,7 @@ export async function fractionatePharmacyLot(
         });
       }
 
-      const previousSourceStock = getProductStockTotal(tx, ctx.tenantId, sourceLot.productId);
-      const previousTargetStock = getProductStockTotal(tx, ctx.tenantId, targetProfile.productId);
+      const sync = pharmacySyncContext(ctx, tx);
 
       // 1. Consume exact source lot quantity (cent-exact totalCost)
       const [consumed] = consumeExactInventoryLots(tx, {
@@ -338,28 +433,27 @@ export async function fractionatePharmacyLot(
       });
 
       const transferredValueCents = toInventoryCents(consumed.totalCost);
-      const newSourceStock = roundQuantity(previousSourceStock - input.sourceQuantity, 12);
+      const newSourceStock = getProductStockTotal(tx, ctx.tenantId, sourceLot.productId);
 
-      tx.insert(inventoryMovements)
-        .values({
-          id: sourceMovementId,
-          tenantId: ctx.tenantId,
-          productId: sourceLot.productId,
-          siteId: sourceLot.siteId,
-          type: 'transformation',
-          inventoryValueDeltaCents: -transferredValueCents,
-          cogsValueDeltaCents: 0,
-          quantity: input.sourceQuantity,
-          previousStock: previousSourceStock,
-          newStock: newSourceStock,
-          reference: `pharmacy-fractionation:${fractionationId}`,
-          notes: input.reason,
-          createdBy: ctx.user.id,
-          syncStatus: 'pending',
-          syncVersion: 1,
-          createdAt: clock.nowIso,
-        })
-        .run();
+      const sourceMovementRow = {
+        id: sourceMovementId,
+        tenantId: ctx.tenantId,
+        productId: sourceLot.productId,
+        siteId: sourceLot.siteId,
+        type: 'transformation' as const,
+        inventoryValueDeltaCents: -transferredValueCents,
+        cogsValueDeltaCents: -transferredValueCents,
+        quantity: -input.sourceQuantity,
+        previousStock: previousSourceStock,
+        newStock: newSourceStock,
+        reference: `pharmacy-fractionation:${fractionationId}`,
+        notes: input.reason,
+        createdBy: ctx.user.id,
+        syncStatus: 'pending' as const,
+        syncVersion: 1,
+        createdAt: clock.nowIso,
+      };
+      tx.insert(inventoryMovements).values(sourceMovementRow).run();
 
       // 2. Receive exact target lot preserving lotNumber, expiresAt, and cent-exact totalCost
       const targetUnitCost = roundMoney(consumed.totalCost / input.targetQuantity);
@@ -385,30 +479,44 @@ export async function fractionatePharmacyLot(
         delta: input.targetQuantity,
         now: clock.nowIso,
       });
-      const newTargetStock = roundQuantity(previousTargetStock + input.targetQuantity, 12);
+      const newTargetStock = getProductStockTotal(tx, ctx.tenantId, targetProfile.productId);
 
-      tx.insert(inventoryMovements)
-        .values({
-          id: targetMovementId,
-          tenantId: ctx.tenantId,
-          productId: targetProfile.productId,
-          siteId: sourceLot.siteId,
-          type: 'transformation',
-          inventoryValueDeltaCents: transferredValueCents,
-          cogsValueDeltaCents: 0,
-          quantity: input.targetQuantity,
-          previousStock: previousTargetStock,
-          newStock: newTargetStock,
-          reference: `pharmacy-fractionation:${fractionationId}`,
-          notes: input.reason,
-          createdBy: ctx.user.id,
-          syncStatus: 'pending',
-          syncVersion: 1,
-          createdAt: clock.nowIso,
-        })
-        .run();
+      const targetMovementRow = {
+        id: targetMovementId,
+        tenantId: ctx.tenantId,
+        productId: targetProfile.productId,
+        siteId: sourceLot.siteId,
+        type: 'transformation' as const,
+        inventoryValueDeltaCents: transferredValueCents,
+        cogsValueDeltaCents: transferredValueCents,
+        quantity: input.targetQuantity,
+        previousStock: previousTargetStock,
+        newStock: newTargetStock,
+        reference: `pharmacy-fractionation:${fractionationId}`,
+        notes: input.reason,
+        createdBy: ctx.user.id,
+        syncStatus: 'pending' as const,
+        syncVersion: 1,
+        createdAt: clock.nowIso,
+      };
+      tx.insert(inventoryMovements).values(targetMovementRow).run();
 
-      const unitsPerSource = roundQuantity(input.targetQuantity / input.sourceQuantity, 6);
+      writeInventoryLotEvent(tx, sync, {
+        tenantId: ctx.tenantId,
+        siteId: sourceLot.siteId,
+        productId: targetProfile.productId,
+        lotId: receivedTarget.lotId,
+        eventType: 'activation',
+        previousStatus: receivedTarget.previousStatus,
+        nextStatus: receivedTarget.status,
+        quantitySnapshot: receivedTarget.onHand,
+        reason: input.reason,
+        referenceType: 'pharmacy_lot_fractionation',
+        referenceId: fractionationId,
+        actorId: ctx.user.id,
+        occurredAt: clock.nowIso,
+      });
+
       const sanitaryRegistration =
         sourceProfile.sanitaryRegistration ?? targetProfile.sanitaryRegistration ?? null;
 
@@ -439,16 +547,7 @@ export async function fractionatePharmacyLot(
         .run();
 
       // Mirror into FNE controlled-substances ledger when controlled
-      if (
-        sourceProfile.classification === 'controlled' ||
-        targetProfile.classification === 'controlled'
-      ) {
-        const fneAuth = findEffectiveFneAuthorization(tx, {
-          tenantId: ctx.tenantId,
-          siteId: sourceLot.siteId,
-          countryCode: clock.countryCode,
-          businessDate: clock.businessDate,
-        });
+      if (sourceProfile.classification === 'controlled') {
         appendFneLedgerEntry(tx, {
           tenantId: ctx.tenantId,
           siteId: sourceLot.siteId,
@@ -458,7 +557,7 @@ export async function fractionatePharmacyLot(
           businessDate: clock.businessDate,
           movementType: 'fractionation_out',
           quantityDelta: -input.sourceQuantity,
-          fneAuthorizationId: fneAuth?.id ?? null,
+          fneAuthorizationId: fneAuth!.id,
           actorId: ctx.user.id,
           notes: input.reason,
           occurredAt: clock.nowIso,
@@ -472,7 +571,7 @@ export async function fractionatePharmacyLot(
           businessDate: clock.businessDate,
           movementType: 'fractionation_in',
           quantityDelta: input.targetQuantity,
-          fneAuthorizationId: fneAuth?.id ?? null,
+          fneAuthorizationId: fneAuth!.id,
           actorId: ctx.user.id,
           notes: input.reason,
           occurredAt: clock.nowIso,
@@ -510,24 +609,42 @@ export async function fractionatePharmacyLot(
         operationId: ctx.envelope.operationId,
       });
 
-      const sync = pharmacySyncContext(ctx, tx);
+      const updatedSourceLot = tx
+        .select()
+        .from(inventoryLots)
+        .where(and(eq(inventoryLots.id, sourceLot.id), eq(inventoryLots.tenantId, ctx.tenantId)))
+        .get()!;
+      const updatedTargetLot = tx
+        .select()
+        .from(inventoryLots)
+        .where(
+          and(eq(inventoryLots.id, receivedTarget.lotId), eq(inventoryLots.tenantId, ctx.tenantId))
+        )
+        .get()!;
+
       enqueueSyncInTransaction(sync, {
         entityType: 'inventory_lots',
         entityId: sourceLot.id,
         operation: 'update',
-        data: { id: sourceLot.id, onHand: consumed.newOnHand, status: consumed.status },
+        data: updatedSourceLot,
       });
       enqueueSyncInTransaction(sync, {
         entityType: 'inventory_lots',
         entityId: receivedTarget.lotId,
         operation: receivedTarget.created ? 'create' : 'update',
-        data: {
-          id: receivedTarget.lotId,
-          onHand: receivedTarget.onHand,
-          status: receivedTarget.status,
-          lotNumber: sourceLot.lotNumber,
-          expiresAt: sourceLot.expiresAt,
-        },
+        data: updatedTargetLot,
+      });
+      enqueueSyncInTransaction(sync, {
+        entityType: 'inventory_movements',
+        entityId: sourceMovementId,
+        operation: 'create',
+        data: sourceMovementRow,
+      });
+      enqueueSyncInTransaction(sync, {
+        entityType: 'inventory_movements',
+        entityId: targetMovementId,
+        operation: 'create',
+        data: targetMovementRow,
       });
 
       const result = {

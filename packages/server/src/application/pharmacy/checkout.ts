@@ -4,12 +4,14 @@ import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   customers,
+  inventoryLots,
   pharmacyCustomerAllergies,
   pharmacyDispensations,
   pharmacyPrescriptionEvidence,
   pharmacyProfessionalAuthorizations,
   pharmacyProductProfiles,
   products,
+  saleItemLots,
   saleItems,
   sales,
   users,
@@ -41,6 +43,7 @@ import {
   type PharmacyAuthorizationSnapshot,
 } from './authorizations.js';
 import { appendFneLedgerEntry, findEffectiveFneAuthorization } from './fne.js';
+import { matchesAllergyIngredient } from './allergies.js';
 import { pharmacyEquivalenceKey } from './generic-alternatives.js';
 
 const roundQuantity = (value: number) => Math.round(value * 1_000_000_000) / 1_000_000_000;
@@ -486,7 +489,6 @@ export async function getPharmacyCheckoutRequirements(
         activeIngredient: string;
         productId: string;
         productName: string;
-        notes: string | null;
       };
   const safetyAlerts: PharmacySafetyAlert[] = [];
   const ingredientGroups = new Map<
@@ -522,7 +524,6 @@ export async function getPharmacyCheckoutRequirements(
         activeIngredient: pharmacyCustomerAllergies.activeIngredient,
         activeIngredientNormalized: pharmacyCustomerAllergies.activeIngredientNormalized,
         severity: pharmacyCustomerAllergies.severity,
-        notes: pharmacyCustomerAllergies.notes,
       })
       .from(pharmacyCustomerAllergies)
       .where(
@@ -534,15 +535,17 @@ export async function getPharmacyCheckoutRequirements(
       .all();
     for (const allergy of allergies) {
       for (const profile of profiles) {
-        const ingKey = pharmacyEquivalenceKey(profile.activeIngredient);
-        const genKey = pharmacyEquivalenceKey(profile.genericName);
         const matches =
-          (ingKey !== null &&
-            (ingKey === allergy.activeIngredientNormalized ||
-              ingKey.includes(allergy.activeIngredientNormalized))) ||
-          (genKey !== null &&
-            (genKey === allergy.activeIngredientNormalized ||
-              genKey.includes(allergy.activeIngredientNormalized)));
+          matchesAllergyIngredient(
+            profile.activeIngredient,
+            allergy.activeIngredient,
+            allergy.activeIngredientNormalized
+          ) ||
+          matchesAllergyIngredient(
+            profile.genericName,
+            allergy.activeIngredient,
+            allergy.activeIngredientNormalized
+          );
         if (matches) {
           safetyAlerts.push({
             kind: 'customer_allergy',
@@ -550,7 +553,6 @@ export async function getPharmacyCheckoutRequirements(
             activeIngredient: allergy.activeIngredient,
             productId: profile.productId,
             productName: profile.productName,
-            notes: allergy.notes,
           });
         }
       }
@@ -950,10 +952,34 @@ export function allocatePharmacyEvidenceForSale(
       .run();
     dispensationIds.push(id);
     if (allocation.classification === 'controlled') {
+      const consumedLots = db
+        .select({
+          lotId: saleItemLots.lotId,
+          lotNumber: inventoryLots.lotNumber,
+        })
+        .from(saleItemLots)
+        .innerJoin(
+          inventoryLots,
+          and(eq(inventoryLots.id, saleItemLots.lotId), eq(inventoryLots.tenantId, ctx.tenantId))
+        )
+        .where(
+          and(
+            eq(saleItemLots.tenantId, ctx.tenantId),
+            eq(saleItemLots.saleItemId, allocation.saleItemId)
+          )
+        )
+        .all();
+      const lotId = consumedLots.length === 1 ? consumedLots[0]!.lotId : null;
+      const lotNumber =
+        consumedLots.length > 0
+          ? [...new Set(consumedLots.map(l => l.lotNumber))].join(', ')
+          : null;
       const ledgerId = appendFneLedgerEntry(db, {
         tenantId: ctx.tenantId,
         siteId: ctx.siteId,
         productId: allocation.productId,
+        lotId,
+        lotNumber,
         businessDate: args.businessDate,
         movementType: 'dispensation',
         quantityDelta: -allocation.quantity,

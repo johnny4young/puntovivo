@@ -246,6 +246,12 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'pharmacy_product_profile',
   'pharmacy_prescription_evidence',
   'pharmacy_recall',
+  'pharmacy_lot_fractionation',
+  'pharmacy_environmental_log',
+  'pharmacy_invima_catalog',
+  'pharmacy_fne_authorization',
+  'pharmacy_fne_ledger',
+  'pharmacy_customer_allergy',
   'inventory_lot',
   // scheduler-owned encrypted snapshots.
   'backup_snapshot',

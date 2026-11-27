@@ -12,6 +12,74 @@ import type {
   RemovePharmacyCustomerAllergyInput,
 } from '../../trpc/schemas/pharmacy.js';
 
+const PHARMACY_SALT_MODIFIERS = new Set([
+  'sodico',
+  'sodica',
+  'potasico',
+  'potasica',
+  'calcico',
+  'calcica',
+  'magnesico',
+  'magnesica',
+  'trihidrato',
+  'dihidrato',
+  'monohidrato',
+  'hemihidrato',
+  'anhidro',
+  'anhidra',
+  'clorhidrato',
+  'hidrocloruro',
+  'hcl',
+  'bromhidrato',
+  'maleato',
+  'tartrato',
+  'succinato',
+  'besilato',
+  'mesilato',
+  'fosfato',
+  'acetato',
+  'citrato',
+  'fumarato',
+  'valerato',
+  'propionato',
+  'dipropionato',
+  'de',
+  'del',
+]);
+
+function extractIngredientBaseTokens(value: string | null | undefined): string[] {
+  if (!value) return [];
+  const clean = value.normalize('NFKD').replace(/\p{M}/gu, '').toLocaleLowerCase('en-US');
+  const words = clean.split(/[^a-z0-9]+/).filter(w => w.length >= 3);
+  const base = words.filter(w => !PHARMACY_SALT_MODIFIERS.has(w));
+  return base.length > 0 ? base : words;
+}
+
+/**
+ * Symmetric salt-aware active-ingredient matcher: matches exact normalized keys
+ * or shared base INN component tokens (e.g. "Amoxicilina trihidrato" <-> "Amoxicilina",
+ * "Diclofenaco sódico" <-> "Diclofenaco potásico") without substring false-positives
+ * like "Sulfa" matching "Sulfato ferroso".
+ */
+export function matchesAllergyIngredient(
+  medicineIngredient: string | null | undefined,
+  allergyIngredient: string,
+  allergyNormalized: string
+): boolean {
+  const medKey = pharmacyEquivalenceKey(medicineIngredient);
+  if (!medKey) return false;
+  if (medKey === allergyNormalized) return true;
+  const medTokens = extractIngredientBaseTokens(medicineIngredient);
+  const allergyTokens = extractIngredientBaseTokens(allergyIngredient);
+  if (medTokens.length === 0 || allergyTokens.length === 0) return false;
+  const medBasePhrase = medTokens.join(' ');
+  const allergyBasePhrase = allergyTokens.join(' ');
+  if (medBasePhrase === allergyBasePhrase) return true;
+  // Combo products ("Amoxicilina + Ácido clavulánico"): match when every base token of the allergy appears as a whole token
+  if (allergyTokens.every(tok => tok.length >= 4 && medTokens.includes(tok))) return true;
+  return false;
+}
+
 export function listPharmacyCustomerAllergies(
   db: DatabaseInstance,
   tenantId: string,
@@ -20,7 +88,13 @@ export function listPharmacyCustomerAllergies(
   const customer = db
     .select({ id: customers.id })
     .from(customers)
-    .where(and(eq(customers.id, input.customerId), eq(customers.tenantId, tenantId)))
+    .where(
+      and(
+        eq(customers.id, input.customerId),
+        eq(customers.tenantId, tenantId),
+        eq(customers.privacyStatus, 'active')
+      )
+    )
     .get();
   if (!customer) {
     return { items: [] };
@@ -157,6 +231,7 @@ export function removePharmacyCustomerAllergy(
         .select({
           id: pharmacyCustomerAllergies.id,
           customerId: pharmacyCustomerAllergies.customerId,
+          severity: pharmacyCustomerAllergies.severity,
         })
         .from(pharmacyCustomerAllergies)
         .where(
@@ -190,7 +265,7 @@ export function removePharmacyCustomerAllergy(
         action: 'pharmacy.customer_allergy.delete',
         resourceType: 'pharmacy_customer_allergy',
         resourceId: existing.id,
-        before: { customerId: existing.customerId },
+        before: { customerId: existing.customerId, severity: existing.severity },
       });
 
       return { id: existing.id, removed: true };

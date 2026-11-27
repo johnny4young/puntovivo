@@ -103,8 +103,11 @@ CREATE TABLE `pharmacy_fne_ledger` (
 	FOREIGN KEY (`sale_id`) REFERENCES `sales`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`evidence_id`) REFERENCES `pharmacy_prescription_evidence`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`actor_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "chk_pharmacy_fne_ledger_quantity_delta_finite_quantity" CHECK("pharmacy_fne_ledger"."quantity_delta" IS NULL OR (typeof("pharmacy_fne_ledger"."quantity_delta") IN ('integer', 'real') AND "pharmacy_fne_ledger"."quantity_delta" BETWEEN -1.7976931348623157e308 AND 1.7976931348623157e308)),
+	CONSTRAINT "chk_pharmacy_fne_ledger_balance_after_finite_quantity" CHECK("pharmacy_fne_ledger"."balance_after" IS NULL OR (typeof("pharmacy_fne_ledger"."balance_after") IN ('integer', 'real') AND "pharmacy_fne_ledger"."balance_after" BETWEEN -1.7976931348623157e308 AND 1.7976931348623157e308)),
 	CONSTRAINT "chk_pharmacy_fne_ledger_date" CHECK(length("pharmacy_fne_ledger"."business_date") = 10 and date("pharmacy_fne_ledger"."business_date") = "pharmacy_fne_ledger"."business_date"),
-	CONSTRAINT "chk_pharmacy_fne_ledger_type" CHECK("pharmacy_fne_ledger"."movement_type" in ('receipt', 'dispensation', 'return', 'destruction', 'fractionation_out', 'fractionation_in')),
+	CONSTRAINT "chk_pharmacy_fne_ledger_type" CHECK("pharmacy_fne_ledger"."movement_type" in ('receipt', 'supplier_return', 'dispensation', 'return', 'destruction', 'fractionation_out', 'fractionation_in')),
+	CONSTRAINT "chk_pharmacy_fne_ledger_sign" CHECK(("pharmacy_fne_ledger"."movement_type" in ('receipt', 'return', 'fractionation_in') and "pharmacy_fne_ledger"."quantity_delta" > 0) or ("pharmacy_fne_ledger"."movement_type" in ('dispensation', 'supplier_return', 'destruction', 'fractionation_out') and "pharmacy_fne_ledger"."quantity_delta" < 0)),
 	CONSTRAINT "chk_pharmacy_fne_ledger_balance" CHECK("pharmacy_fne_ledger"."balance_after" >= 0)
 );
 --> statement-breakpoint
@@ -169,8 +172,13 @@ CREATE TABLE `pharmacy_lot_fractionations` (
 	FOREIGN KEY (`source_lot_id`) REFERENCES `inventory_lots`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`target_product_id`) REFERENCES `products`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`target_lot_id`) REFERENCES `inventory_lots`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`source_movement_id`) REFERENCES `inventory_movements`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`target_movement_id`) REFERENCES `inventory_movements`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`actor_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,
 	CONSTRAINT "chk_pharmacy_lot_fractionations_transferred_value_cents_safe_integer" CHECK("pharmacy_lot_fractionations"."transferred_value_cents" IS NULL OR (typeof("pharmacy_lot_fractionations"."transferred_value_cents") = 'integer' AND "pharmacy_lot_fractionations"."transferred_value_cents" BETWEEN 0 AND 9007199254740991)),
+	CONSTRAINT "chk_pharmacy_lot_fractionations_source_quantity_finite_quantity" CHECK("pharmacy_lot_fractionations"."source_quantity" IS NULL OR (typeof("pharmacy_lot_fractionations"."source_quantity") IN ('integer', 'real') AND "pharmacy_lot_fractionations"."source_quantity" BETWEEN -1.7976931348623157e308 AND 1.7976931348623157e308)),
+	CONSTRAINT "chk_pharmacy_lot_fractionations_target_quantity_finite_quantity" CHECK("pharmacy_lot_fractionations"."target_quantity" IS NULL OR (typeof("pharmacy_lot_fractionations"."target_quantity") IN ('integer', 'real') AND "pharmacy_lot_fractionations"."target_quantity" BETWEEN -1.7976931348623157e308 AND 1.7976931348623157e308)),
+	CONSTRAINT "chk_pharmacy_lot_fractionations_units_per_source_finite_quantity" CHECK("pharmacy_lot_fractionations"."units_per_source" IS NULL OR (typeof("pharmacy_lot_fractionations"."units_per_source") IN ('integer', 'real') AND "pharmacy_lot_fractionations"."units_per_source" BETWEEN -1.7976931348623157e308 AND 1.7976931348623157e308)),
 	CONSTRAINT "chk_pharmacy_fractionation_qty_pos" CHECK("pharmacy_lot_fractionations"."source_quantity" > 0 and "pharmacy_lot_fractionations"."target_quantity" > 0 and "pharmacy_lot_fractionations"."units_per_source" > 0),
 	CONSTRAINT "chk_pharmacy_fractionation_distinct_products" CHECK("pharmacy_lot_fractionations"."source_product_id" <> "pharmacy_lot_fractionations"."target_product_id")
 );
@@ -178,6 +186,36 @@ CREATE TABLE `pharmacy_lot_fractionations` (
 CREATE INDEX `idx_pharmacy_fractionations_tenant_site` ON `pharmacy_lot_fractionations` (`tenant_id`,`site_id`,`occurred_at`);--> statement-breakpoint
 CREATE INDEX `idx_pharmacy_fractionations_source_lot` ON `pharmacy_lot_fractionations` (`tenant_id`,`source_lot_id`);--> statement-breakpoint
 CREATE INDEX `idx_pharmacy_fractionations_target_lot` ON `pharmacy_lot_fractionations` (`tenant_id`,`target_lot_id`);--> statement-breakpoint
-ALTER TABLE `pharmacy_product_profiles` ADD `doses_per_pack` integer;--> statement-breakpoint
+ALTER TABLE `pharmacy_product_profiles` ADD `doses_per_pack` integer CHECK (`doses_per_pack` IS NULL OR (typeof(`doses_per_pack`) = 'integer' AND `doses_per_pack` > 0 AND `doses_per_pack` <= 10000));--> statement-breakpoint
 ALTER TABLE `pharmacy_product_profiles` ADD `cum_code` text;--> statement-breakpoint
-CREATE INDEX `idx_pharmacy_profiles_cum` ON `pharmacy_product_profiles` (`tenant_id`,`cum_code`);
+CREATE INDEX `idx_pharmacy_profiles_cum` ON `pharmacy_product_profiles` (`tenant_id`,`cum_code`);--> statement-breakpoint
+CREATE TRIGGER IF NOT EXISTS `trg_pharmacy_fne_ledger_no_update`
+BEFORE UPDATE ON `pharmacy_fne_ledger`
+BEGIN
+	SELECT RAISE(ABORT, 'pharmacy_fne_ledger rows are immutable');
+END;--> statement-breakpoint
+CREATE TRIGGER IF NOT EXISTS `trg_pharmacy_fne_ledger_no_delete`
+BEFORE DELETE ON `pharmacy_fne_ledger`
+BEGIN
+	SELECT RAISE(ABORT, 'pharmacy_fne_ledger rows are immutable');
+END;--> statement-breakpoint
+CREATE TRIGGER IF NOT EXISTS `trg_pharmacy_environmental_logs_no_update`
+BEFORE UPDATE ON `pharmacy_environmental_logs`
+BEGIN
+	SELECT RAISE(ABORT, 'pharmacy_environmental_logs rows are immutable');
+END;--> statement-breakpoint
+CREATE TRIGGER IF NOT EXISTS `trg_pharmacy_environmental_logs_no_delete`
+BEFORE DELETE ON `pharmacy_environmental_logs`
+BEGIN
+	SELECT RAISE(ABORT, 'pharmacy_environmental_logs rows are immutable');
+END;--> statement-breakpoint
+CREATE TRIGGER IF NOT EXISTS `trg_pharmacy_lot_fractionations_no_update`
+BEFORE UPDATE ON `pharmacy_lot_fractionations`
+BEGIN
+	SELECT RAISE(ABORT, 'pharmacy_lot_fractionations rows are immutable');
+END;--> statement-breakpoint
+CREATE TRIGGER IF NOT EXISTS `trg_pharmacy_lot_fractionations_no_delete`
+BEFORE DELETE ON `pharmacy_lot_fractionations`
+BEGIN
+	SELECT RAISE(ABORT, 'pharmacy_lot_fractionations rows are immutable');
+END;

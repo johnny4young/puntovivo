@@ -24,6 +24,7 @@ import { relations, sql } from 'drizzle-orm';
 import { nowIso, sqliteNow, lotStatusEnum } from './base.js';
 import { inventoryValueChecks } from './value-checks.js';
 import { customers } from './customers.js';
+import { inventoryMovements } from './inventory/core.js';
 import { inventoryLots } from './inventory/lots.js';
 import { products } from './products.js';
 import { providers } from './catalogs.js';
@@ -72,6 +73,7 @@ export type PharmacyInvimaStatus = (typeof pharmacyInvimaStatusEnum)[number];
 
 export const pharmacyFneMovementTypeEnum = [
   'receipt',
+  'supplier_return',
   'dispensation',
   'return',
   'destruction',
@@ -489,8 +491,12 @@ export const pharmacyLotFractionations = sqliteTable(
     expiresAt: text('expires_at'),
     sanitaryRegistration: text('sanitary_registration'),
     transferredValueCents: integer('transferred_value_cents').notNull(),
-    sourceMovementId: text('source_movement_id').notNull(),
-    targetMovementId: text('target_movement_id').notNull(),
+    sourceMovementId: text('source_movement_id')
+      .notNull()
+      .references(() => inventoryMovements.id),
+    targetMovementId: text('target_movement_id')
+      .notNull()
+      .references(() => inventoryMovements.id),
     reason: text('reason').notNull(),
     actorId: text('actor_id')
       .notNull()
@@ -502,6 +508,7 @@ export const pharmacyLotFractionations = sqliteTable(
     ...inventoryValueChecks('pharmacy_lot_fractionations', {
       cents: [table.transferredValueCents],
       nonnegative: [table.transferredValueCents],
+      quantities: [table.sourceQuantity, table.targetQuantity, table.unitsPerSource],
     }),
     index('idx_pharmacy_fractionations_tenant_site').on(
       table.tenantId,
@@ -722,6 +729,10 @@ export const pharmacyFneLedger = sqliteTable(
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('pharmacy_fne_ledger', {
+      cents: [],
+      quantities: [table.quantityDelta, table.balanceAfter],
+    }),
     index('idx_pharmacy_fne_ledger_tenant_date').on(
       table.tenantId,
       table.siteId,
@@ -739,7 +750,11 @@ export const pharmacyFneLedger = sqliteTable(
     ),
     check(
       'chk_pharmacy_fne_ledger_type',
-      sql`${table.movementType} in ('receipt', 'dispensation', 'return', 'destruction', 'fractionation_out', 'fractionation_in')`
+      sql`${table.movementType} in ('receipt', 'supplier_return', 'dispensation', 'return', 'destruction', 'fractionation_out', 'fractionation_in')`
+    ),
+    check(
+      'chk_pharmacy_fne_ledger_sign',
+      sql`(${table.movementType} in ('receipt', 'return', 'fractionation_in') and ${table.quantityDelta} > 0) or (${table.movementType} in ('dispensation', 'supplier_return', 'destruction', 'fractionation_out') and ${table.quantityDelta} < 0)`
     ),
     check('chk_pharmacy_fne_ledger_balance', sql`${table.balanceAfter} >= 0`),
   ]

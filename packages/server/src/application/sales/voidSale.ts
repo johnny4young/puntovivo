@@ -28,9 +28,11 @@ import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   cashSessions,
+  inventoryLots,
   loyaltyAccounts,
   loyaltyMovements,
   operationEvents,
+  saleItemLots,
   saleItems,
   salePayments,
   sales,
@@ -53,6 +55,7 @@ import { resolveFiscalDocumentSnapshot } from '../../services/fiscal/orchestrato
 import { createModuleLogger } from '../../logging/logger.js';
 import { buildVoidedSaleNotes, getPersistedCashContribution } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
+import { recordControlledStockMovementInFneLedger } from '../pharmacy/fne.js';
 import { reverseBundleComponentsInTransaction } from '../../services/product-bundles.js';
 import { reverseModifierBomInTransaction } from '../../services/restaurant/modifier-bom.js';
 import { broadcastSaleRetracted, materializeCommittedFiscalIntent } from './fiscalPostHook.js';
@@ -386,6 +389,39 @@ export async function voidSale(
           // the exact lot that left custody on the completed sale.
           preserveProvenance: true,
         }).lotIds;
+
+        const voidedLotRows = tx
+          .select({
+            productId: saleItems.productId,
+            lotId: saleItemLots.lotId,
+            lotNumber: inventoryLots.lotNumber,
+            quantity: saleItemLots.quantity,
+            siteId: inventoryLots.siteId,
+          })
+          .from(saleItemLots)
+          .innerJoin(saleItems, eq(saleItemLots.saleItemId, saleItems.id))
+          .innerJoin(
+            inventoryLots,
+            and(eq(inventoryLots.id, saleItemLots.lotId), eq(inventoryLots.tenantId, ctx.tenantId))
+          )
+          .where(and(eq(saleItemLots.tenantId, ctx.tenantId), eq(saleItems.saleId, input.id)))
+          .all();
+        for (const row of voidedLotRows) {
+          recordControlledStockMovementInFneLedger(tx, {
+            tenantId: ctx.tenantId,
+            siteId: row.siteId,
+            productId: row.productId,
+            lotId: row.lotId,
+            lotNumber: row.lotNumber,
+            businessDate: businessClock.businessDate,
+            movementType: 'return',
+            quantityDelta: row.quantity,
+            saleId: input.id,
+            actorId: ctx.user.id,
+            notes: input.reason ?? `Void sale ${existing.saleNumber}`,
+            occurredAt: now,
+          });
+        }
         transitionSaleSerials(tx as unknown as typeof ctx.db, {
           tenantId: ctx.tenantId,
           saleItemIds: saleLineItems.map(item => item.id),

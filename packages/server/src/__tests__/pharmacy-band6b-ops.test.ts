@@ -8,13 +8,18 @@ import {
   cashSessions,
   inventoryBalances,
   inventoryLots,
+  inventoryMovements,
   pharmacyFneLedger,
   pharmacyProductProfiles,
+  providers,
   sites,
+  syncOutbox,
   tenantLocaleSettings,
+  tenants,
   units,
   users,
 } from '../db/schema.js';
+import { resolveDosesPerPack } from '../application/pharmacy/generic-alternatives.js';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { resolveTenantBusinessClock } from '../services/pharmacy/business-clock.js';
@@ -681,10 +686,632 @@ describe('Band 6B — Pharmacy operational closure (Colombia)', () => {
       ])
     );
 
-    await caller('cashier').pharmacy.removeCustomerAllergy({ id: allergy.id });
+    await expect(
+      caller('cashier').pharmacy.removeCustomerAllergy({ id: allergy.id })
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await caller('manager').pharmacy.removeCustomerAllergy({ id: allergy.id });
     const afterRemove = await caller('cashier').pharmacy.listCustomerAllergies({
       customerId: customer.id,
     });
     expect(afterRemove.items).toHaveLength(0);
+  });
+
+  it('6B.6 enforces FNE credential site-scope, controlled fractionation gate, purchase/return/void ledger completeness, sequential balanceAfter, and historical month balances', async () => {
+    const db = getDatabase();
+    const otherSitePharmacistId = `u-fne-other-${nanoid(6)}`;
+    await db.insert(users).values({
+      id: otherSitePharmacistId,
+      tenantId,
+      email: `qf-sur-${nanoid(4)}@localhost`,
+      passwordHash: 'hash',
+      name: 'QF Solo Sucursal Sur',
+      role: 'manager',
+      isActive: true,
+    });
+    await caller('admin').pharmacy.createAuthorization({
+      userId: otherSitePharmacistId,
+      siteId: otherSiteId,
+      countryCode: 'CO',
+      credentialType: 'Químico Farmacéutico',
+      credential: `QF-SUR-${nanoid(6)}`,
+      validFrom: businessDate,
+    });
+
+    // Cross-site pharmacist credential cannot authorize FNE at main site
+    await expect(
+      caller('admin').pharmacy.createFneAuthorization({
+        siteId,
+        countryCode: 'CO',
+        resolutionNumber: `RES-CROSS-${nanoid(6)}`,
+        issuingAuthority: 'Fondo Nacional de Estupefacientes',
+        responsibleUserId: otherSitePharmacistId,
+        validFrom: businessDate,
+      })
+    ).rejects.toThrow(/PHARMACY_AUTHORIZATION_NOT_EFFECTIVE|professional authorization/i);
+
+    const sharedReg = `INVIMA-2026M-FNE-${nanoid(6)}`;
+    const ctrlBox = await createMedicine({
+      name: 'Morfina Caja x 10 ampollas',
+      price: 50_000,
+      cost: 20_000,
+      activeIngredient: 'Morfina clorhidrato',
+      concentration: '10 mg/ml',
+      dosageForm: 'Solución inyectable',
+      presentation: 'Caja x 10 ampollas',
+      dosesPerPack: 10,
+      sanitaryRegistration: sharedReg,
+      classification: 'controlled',
+    });
+    const ctrlAmp = await createMedicine({
+      name: 'Morfina Ampolla x 1 unidad',
+      price: 6_000,
+      cost: 2_000,
+      activeIngredient: 'Morfina clorhidrato',
+      concentration: '10 mg/ml',
+      dosageForm: 'Solución inyectable',
+      presentation: '1 ampolla',
+      dosesPerPack: 1,
+      sanitaryRegistration: sharedReg,
+      classification: 'controlled',
+    });
+
+    // Controlled fractionation fails closed while no FNE authorization is active
+    const preLot = await caller('manager').inventoryLots.receive({
+      siteId,
+      productId: ctrlBox.id,
+      lotNumber: `L-CTRL-LOCK-${nanoid(4)}`,
+      expiresAt: addCalendarDays(businessDate, 365),
+      quantity: 1,
+      unitCost: 20_000,
+    });
+    await expect(
+      caller('manager').pharmacy.fractionateLot({
+        sourceLotId: preLot.lotId,
+        targetProductId: ctrlAmp.id,
+        sourceQuantity: 1,
+        targetQuantity: 10,
+        reason: 'Intento sin FNE activo',
+      })
+    ).rejects.toThrow(/active FNE authorization|not enabled/i);
+
+    // Enable tenant-wide (siteId: null) FNE authorization backed by main pharmacist
+    const mainQfId = `u-fne-main-${nanoid(6)}`;
+    await db.insert(users).values({
+      id: mainQfId,
+      tenantId,
+      email: `qf-main-${nanoid(4)}@localhost`,
+      passwordHash: 'hash',
+      name: 'QF Global FNE',
+      role: 'manager',
+      isActive: true,
+    });
+    await caller('admin').pharmacy.createAuthorization({
+      userId: mainQfId,
+      siteId: null,
+      countryCode: 'CO',
+      credentialType: 'Químico Farmacéutico',
+      credential: `QF-GLB-${nanoid(6)}`,
+      validFrom: businessDate,
+    });
+    const globalFne = await caller('admin').pharmacy.createFneAuthorization({
+      siteId: null,
+      countryCode: 'CO',
+      resolutionNumber: `RES-GLB-${nanoid(6)}`,
+      issuingAuthority: 'Fondo Nacional de Estupefacientes',
+      responsibleUserId: mainQfId,
+      validFrom: businessDate,
+    });
+
+    // Tenant-wide FNE resolution is visible when listing for a specific site
+    const siteFneList = await caller('manager').pharmacy.listFneAuthorizations({
+      siteId,
+      activeOnly: true,
+      page: 1,
+      perPage: 20,
+    });
+    expect(siteFneList.items.some(a => a.id === globalFne.id)).toBe(true);
+
+    // Supplier purchase receipt -> writes 'receipt' to FNE ledger
+    const providerId = `prov-fne-${nanoid(6)}`;
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Distribuidora FNE S.A.S.',
+      isActive: true,
+    });
+    const trackedCtrl = await createMedicine({
+      name: 'Fentanilo Parche Caja x 5',
+      price: 40_000,
+      cost: 18_000,
+      activeIngredient: 'Fentanilo',
+      concentration: '25 mcg/h',
+      dosageForm: 'Parche transdérmico',
+      presentation: 'Caja x 5 parches',
+      dosesPerPack: 5,
+      classification: 'controlled',
+    });
+    const lotNumber = `L-PUR-FNE-${nanoid(4)}`;
+    const purchase = await caller('manager').purchases.create({
+      providerId,
+      notes: `FAC-FNE-${nanoid(5)}`,
+      items: [
+        {
+          productId: trackedCtrl.id,
+          unitId: baseUnitId,
+          quantity: 10,
+          costPerUnit: 18_000,
+          lotReceipts: [
+            {
+              lotNumber,
+              expiresAt: addCalendarDays(businessDate, 400),
+              baseQuantity: 10,
+            },
+          ],
+        },
+      ],
+    });
+    expect(purchase.id).toBeTruthy();
+
+    // Multi-prescription controlled sale (1 + 2 = 3 units) -> sequential balanceAfter [9, 7] & lotNumber
+    const patient = await caller('manager').customers.create({
+      name: 'Paciente Controlado Ciclo',
+      taxId: `CC-${nanoid(7)}`,
+    });
+    const qfCaller = () => appRouter.createCaller(fresh({ role: 'manager', userId: mainQfId }));
+    const ev1 = await qfCaller().pharmacy.recordEvidence({
+      productId: trackedCtrl.id,
+      customerId: patient.id,
+      reference: `FNE-MULT-1-${nanoid(5)}`,
+      prescriberName: 'Dra. Sofía Restrepo',
+      prescriberCredential: 'RM-99881',
+      buyerDocument: 'CC-77665544',
+      authorizedQuantity: 1,
+      validFrom: businessDate,
+      expiresAt: addCalendarDays(businessDate, 10),
+    });
+    await qfCaller().pharmacy.approveEvidence({ id: ev1.id });
+    const ev2 = await qfCaller().pharmacy.recordEvidence({
+      productId: trackedCtrl.id,
+      customerId: patient.id,
+      reference: `FNE-MULT-2-${nanoid(5)}`,
+      prescriberName: 'Dra. Sofía Restrepo',
+      prescriberCredential: 'RM-99881',
+      buyerDocument: 'CC-77665544',
+      authorizedQuantity: 2,
+      validFrom: businessDate,
+      expiresAt: addCalendarDays(businessDate, 10),
+    });
+    await qfCaller().pharmacy.approveEvidence({ id: ev2.id });
+
+    const multiSale = await caller('cashier').sales.create({
+      customerId: patient.id,
+      paymentMethod: 'cash',
+      pharmacyEvidenceIds: [ev1.id, ev2.id],
+      items: [{ productId: trackedCtrl.id, unitId: baseUnitId, quantity: 3, unitPrice: 40_000 }],
+    });
+    const multiSaleDetail = await caller('manager').sales.getById({ id: multiSale.id });
+    const saleItemId = multiSaleDetail.items[0]!.id;
+
+    // Return 1 unit from sale -> writes 'return' (+1, balanceAfter: 8)
+    await caller('manager').sales.returnSale({
+      id: multiSale.id,
+      reason: 'Devolución parcial auditada',
+      items: [{ saleItemId, quantity: 1 }],
+    });
+
+    const rowsAfterReturn = db
+      .select()
+      .from(pharmacyFneLedger)
+      .where(
+        and(
+          eq(pharmacyFneLedger.tenantId, tenantId),
+          eq(pharmacyFneLedger.productId, trackedCtrl.id)
+        )
+      )
+      .all();
+    expect(rowsAfterReturn.map(r => r.movementType)).toEqual([
+      'receipt',
+      'dispensation',
+      'dispensation',
+      'return',
+    ]);
+    expect(rowsAfterReturn.map(r => r.balanceAfter)).toEqual([10, 9, 7, 8]);
+    expect(rowsAfterReturn[1]?.lotNumber).toBe(lotNumber);
+
+    // Current month report reconciles and strips retainedFormulaDigest
+    const curMonth = businessDate.slice(0, 7);
+    const curReport = await caller('manager').pharmacy.getFneMonthlyReport({ month: curMonth });
+    const medSummary = curReport.summary.find(s => s.productId === trackedCtrl.id);
+    expect(medSummary).toMatchObject({
+      openingBalance: 0,
+      receipts: 10,
+      dispensations: 3,
+      returns: 1,
+      closingBalance: 8,
+    });
+    for (const entry of curReport.entries) {
+      expect('retainedFormulaDigest' in entry).toBe(false);
+    }
+
+    // Prior empty month reports 0 -> 0 instead of leaking today's live stock (8)
+    const [yr, mo] = curMonth.split('-').map(Number);
+    const prevMonth = mo === 1 ? `${yr! - 1}-12` : `${yr!}-${String(mo! - 1).padStart(2, '0')}`;
+    const prevReport = await caller('manager').pharmacy.getFneMonthlyReport({ month: prevMonth });
+    const prevSummary = prevReport.summary.find(s => s.productId === trackedCtrl.id);
+    expect(prevSummary).toMatchObject({
+      openingBalance: 0,
+      receipts: 0,
+      dispensations: 0,
+      returns: 0,
+      closingBalance: 0,
+    });
+
+    // Immutability trigger blocks UPDATE and DELETE on pharmacy_fne_ledger
+    expect(() =>
+      db
+        .update(pharmacyFneLedger)
+        .set({ notes: 'tamper' })
+        .where(eq(pharmacyFneLedger.id, rowsAfterReturn[0]!.id))
+        .run()
+    ).toThrow(/immutable/i);
+
+    await caller('admin').pharmacy.revokeFneAuthorization({
+      id: globalFne.id,
+      reason: 'Fin de prueba 6B.6',
+    });
+  });
+
+  it('6B.7 preserves COGS pool deltas, movement signs, outbox rows, preventive recall blocks, and multi-hop recall lineage', async () => {
+    const db = getDatabase();
+    const reg = `INVIMA-2026M-HOP-${nanoid(6)}`;
+    const box = await createMedicine({
+      name: 'Cetirizina Caja x 20',
+      price: 20_000,
+      cost: 10_000,
+      activeIngredient: 'Cetirizina',
+      concentration: '10 mg',
+      dosageForm: 'Tableta',
+      presentation: 'Caja x 20 tabletas',
+      dosesPerPack: 20,
+      sanitaryRegistration: reg,
+    });
+    const blister = await createMedicine({
+      name: 'Cetirizina Blíster x 10',
+      price: 11_000,
+      cost: 5_000,
+      activeIngredient: 'Cetirizina',
+      concentration: '10 mg',
+      dosageForm: 'Tableta',
+      presentation: 'Blíster x 10 tabletas',
+      dosesPerPack: 10,
+      sanitaryRegistration: reg,
+    });
+    const tablet = await createMedicine({
+      name: 'Cetirizina Unidad x 1',
+      price: 1_200,
+      cost: 500,
+      activeIngredient: 'Cetirizina',
+      concentration: '10 mg',
+      dosageForm: 'Tableta',
+      presentation: '1 tableta',
+      dosesPerPack: 1,
+      sanitaryRegistration: reg,
+    });
+
+    const boxLot = await caller('manager').inventoryLots.receive({
+      siteId,
+      productId: box.id,
+      lotNumber: `L-HOP-${nanoid(4)}`,
+      expiresAt: addCalendarDays(businessDate, 500),
+      quantity: 1,
+      unitCost: 10_000,
+    });
+
+    // Rejects underflow unitsPerSource cleanly with BAD_REQUEST instead of SQLite CHECK 500
+    await expect(
+      caller('manager').pharmacy.fractionateLot({
+        sourceLotId: boxLot.lotId,
+        targetProductId: blister.id,
+        sourceQuantity: 1,
+        targetQuantity: 1e-7,
+        reason: 'Underflow ratio test',
+      })
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+
+    // Hop 1: 1 Box -> 2 Blisters ($10,000 = 1,000,000 cents)
+    const hop1 = await caller('manager').pharmacy.fractionateLot({
+      sourceLotId: boxLot.lotId,
+      targetProductId: blister.id,
+      sourceQuantity: 1,
+      targetQuantity: 2,
+      reason: 'Apertura caja a blíster',
+    });
+
+    const srcMov = db
+      .select()
+      .from(inventoryMovements)
+      .where(
+        and(
+          eq(inventoryMovements.tenantId, tenantId),
+          eq(inventoryMovements.productId, box.id),
+          eq(inventoryMovements.type, 'transformation')
+        )
+      )
+      .get();
+    const tgtMov = db
+      .select()
+      .from(inventoryMovements)
+      .where(
+        and(
+          eq(inventoryMovements.tenantId, tenantId),
+          eq(inventoryMovements.productId, blister.id),
+          eq(inventoryMovements.type, 'transformation')
+        )
+      )
+      .get();
+    expect(srcMov).toMatchObject({
+      quantity: -1,
+      inventoryValueDeltaCents: -1_000_000,
+      cogsValueDeltaCents: -1_000_000,
+    });
+    expect(tgtMov).toMatchObject({
+      quantity: 2,
+      inventoryValueDeltaCents: 1_000_000,
+      cogsValueDeltaCents: 1_000_000,
+    });
+
+    const movOutbox = db
+      .select()
+      .from(syncOutbox)
+      .where(
+        and(eq(syncOutbox.tenantId, tenantId), eq(syncOutbox.entityType, 'inventory_movements'))
+      )
+      .all();
+    expect(movOutbox.some(o => o.entityId === srcMov!.id)).toBe(true);
+    expect(movOutbox.some(o => o.entityId === tgtMov!.id)).toBe(true);
+
+    // Hop 2: 1 Blister -> 10 Tablets; then recall on Tablet propagates back to Blister & Box
+    const hop2 = await caller('manager').pharmacy.fractionateLot({
+      sourceLotId: hop1.targetLotId,
+      targetProductId: tablet.id,
+      sourceQuantity: 1,
+      targetQuantity: 10,
+      reason: 'Apertura blíster a tableta',
+    });
+
+    await caller('manager').pharmacy.createRecall({
+      scopeType: 'lot',
+      lotId: hop2.targetLotId,
+      reason: 'Alerta sanitaria sobre tableta derivada',
+    });
+
+    const blisterAfterRecall = db
+      .select({ status: inventoryLots.status })
+      .from(inventoryLots)
+      .where(eq(inventoryLots.id, hop1.targetLotId))
+      .get();
+    expect(blisterAfterRecall?.status).toBe('recalled');
+  });
+
+  it('6B.8 handles Colombian multi-blister & UI dose parsing, conflicting Frasco doses, and INVIMA sibling SKUs / CSV limits', async () => {
+    const db = getDatabase();
+    expect(resolveDosesPerPack(null, 'CAJA POR 3 BLISTER POR 10 TABLETAS')).toBe(30);
+    expect(resolveDosesPerPack(null, 'Cápsula blanda x 25000 UI')).toBeNull();
+
+    // Two 'Frasco' presentations with different explicit doses: candidate is MORE expensive per dose ($1,000 vs $500)
+    const frasco60 = await createMedicine({
+      name: 'Jarabe Marca Frasco',
+      price: 30_000,
+      activeIngredient: 'Desloratadina',
+      concentration: '5 mg',
+      dosageForm: 'Tableta',
+      presentation: 'Frasco',
+      dosesPerPack: 60,
+    });
+    const frasco20 = await createMedicine({
+      name: 'Jarabe Genérico Frasco Pequeño',
+      price: 20_000,
+      activeIngredient: 'Desloratadina',
+      concentration: '5 mg',
+      dosageForm: 'Tableta',
+      presentation: 'Frasco',
+      dosesPerPack: 20,
+    });
+    await caller('manager').inventoryLots.receive({
+      siteId,
+      productId: frasco20.id,
+      lotNumber: `L-FR20-${nanoid(4)}`,
+      expiresAt: addCalendarDays(businessDate, 365),
+      quantity: 5,
+      unitCost: 8_000,
+    });
+    const frascoAlts = await caller('cashier').pharmacy.genericAlternatives({
+      productId: frasco60.id,
+      siteId,
+      priceTier: 1,
+    });
+    expect(frascoAlts.items).toEqual([]);
+
+    // INVIMA CSV with two CUM siblings sharing one sanitaryRegistration does NOT clobber each other's cumCode/dosesPerPack
+    const sharedInvima = `INVIMA 2026M-SIB${nanoid(4)}`;
+    const sibBox = await createMedicine({
+      name: 'Losartán Caja x 30',
+      price: 18_000,
+      activeIngredient: 'Losartán',
+      concentration: '50 mg',
+      dosageForm: 'Tableta',
+      presentation: 'Caja x 30 tabletas',
+      dosesPerPack: 30,
+      cumCode: '20010001-01',
+      sanitaryRegistration: sharedInvima,
+    });
+    const sibBlister = await createMedicine({
+      name: 'Losartán Blíster x 10',
+      price: 7_000,
+      activeIngredient: 'Losartán',
+      concentration: '50 mg',
+      dosageForm: 'Tableta',
+      presentation: 'Blíster x 10 tabletas',
+      dosesPerPack: 10,
+      cumCode: '20010001-02',
+      sanitaryRegistration: sharedInvima,
+    });
+
+    const csv = [
+      'expediente;consecutivocum;producto;titular;registrosanitario;fechavencimiento;estadoregistro;descripcioncomercial;principioactivo;concentracion;formafarmaceutica;condicionventa',
+      `20010001;01;"=LOSARTAN\n50 MG";LAB COL;${sharedInvima};2026-02-29;Vigente;CAJA POR 3 BLISTER POR 10 TABLETAS;LOSARTAN;50 mg;TABLETA;Con formula medica`,
+      `20010001;02;LOSARTAN 50 MG BLISTER;LAB COL;${sharedInvima};2030-05-15;Vigente;BLISTER POR 10 TABLETAS;LOSARTAN;50 mg;TABLETA;Con formula medica`,
+    ].join('\n');
+
+    const imp = await caller('manager').pharmacy.importInvimaCatalog({
+      csvText: csv,
+      syncMatchingProducts: true,
+    });
+    expect(imp.imported).toBe(2);
+
+    const pBox = db
+      .select()
+      .from(pharmacyProductProfiles)
+      .where(eq(pharmacyProductProfiles.productId, sibBox.id))
+      .get();
+    const pBlister = db
+      .select()
+      .from(pharmacyProductProfiles)
+      .where(eq(pharmacyProductProfiles.productId, sibBlister.id))
+      .get();
+    expect(pBox?.cumCode).toBe('20010001-01');
+    expect(pBox?.dosesPerPack).toBe(30);
+    expect(pBlister?.cumCode).toBe('20010001-02');
+    expect(pBlister?.dosesPerPack).toBe(10);
+
+    const importedFirst = await caller('cashier').pharmacy.searchInvimaCatalog({
+      search: '20010001-01',
+      page: 1,
+      perPage: 5,
+    });
+    expect(importedFirst.items[0]?.productName.startsWith('=')).toBe(false);
+    expect(importedFirst.items[0]?.registrationExpiresAt).toBeNull();
+  });
+
+  it('6B.9 matches salt-form allergies without leaking clinical notes, exports/scrubs allergies on DSAR anonymization, and isolates cross-tenant calls', async () => {
+    const db = getDatabase();
+    const cust = await caller('manager').customers.create({
+      name: 'Paciente Privacidad DSAR',
+      taxId: `CC-DSAR-${nanoid(6)}`,
+    });
+    const amox = await createMedicine({
+      name: 'Amoxicilina 500 mg Cápsula',
+      price: 12_000,
+      activeIngredient: 'Amoxicilina',
+      dosageForm: 'Cápsula',
+    });
+    const hierro = await createMedicine({
+      name: 'Sulfato Ferroso 300 mg',
+      price: 8_000,
+      activeIngredient: 'Sulfato ferroso',
+      dosageForm: 'Tableta',
+    });
+    await caller('manager').inventoryLots.receive({
+      siteId,
+      productId: hierro.id,
+      lotNumber: `L-FE-${nanoid(4)}`,
+      expiresAt: addCalendarDays(businessDate, 365),
+      quantity: 5,
+      unitCost: 3_000,
+    });
+
+    await caller('cashier').pharmacy.addCustomerAllergy({
+      customerId: cust.id,
+      activeIngredient: 'Amoxicilina trihidrato',
+      severity: 'severe',
+      notes: 'Dato clínico sensible confidencial',
+    });
+    await caller('cashier').pharmacy.addCustomerAllergy({
+      customerId: cust.id,
+      activeIngredient: 'Sulfa',
+      severity: 'moderate',
+    });
+
+    const preflight = await caller('cashier').pharmacy.checkoutRequirements({
+      customerId: cust.id,
+      items: [
+        { productId: amox.id, quantity: 1, unitEquivalence: 1 },
+        { productId: hierro.id, quantity: 1, unitEquivalence: 1 },
+      ],
+    });
+    const allergyAlerts = preflight.safetyAlerts.filter(a => a.kind === 'customer_allergy');
+    // Matches Amoxicilina via base INN, does NOT false-match Sulfato ferroso on 'Sulfa', and omits clinical notes
+    expect(allergyAlerts).toHaveLength(1);
+    expect(allergyAlerts[0]?.productId).toBe(amox.id);
+    expect('notes' in allergyAlerts[0]!).toBe(false);
+
+    // Complete a sale so disposePersonalData takes the 'anonymize' path
+    await caller('cashier').sales.create({
+      customerId: cust.id,
+      paymentMethod: 'cash',
+      items: [{ productId: hierro.id, unitId: baseUnitId, quantity: 1, unitPrice: 8_000 }],
+    });
+
+    const exported = await caller('admin').customers.exportPersonalData({ id: cust.id });
+    expect(exported.records.pharmacyCustomerAllergies).toHaveLength(2);
+
+    const custRow = db.select().from(users).where(eq(users.id, adminId)).get()!;
+    expect(custRow.id).toBe(adminId);
+    const currentCust = await caller('admin').customers.getById({ id: cust.id });
+    const disposed = await caller('admin').customers.disposePersonalData({
+      id: cust.id,
+      version: currentCust.version,
+      confirmation: 'Paciente Privacidad DSAR',
+    });
+    expect(disposed.disposition).toBe('anonymized');
+
+    const afterAnon = await caller('cashier').pharmacy.listCustomerAllergies({
+      customerId: cust.id,
+    });
+    expect(afterAnon.items).toEqual([]);
+
+    // Cross-tenant isolation: another tenant sees 0 INVIMA rows, 0 fractionations, and cannot access main site
+    const foreignTenantId = `t-b6b-foreign-${nanoid(6)}`;
+    const foreignUserId = `u-b6b-foreign-${nanoid(6)}`;
+    const foreignEmail = `foreign-${nanoid(5)}@localhost`;
+    await db
+      .insert(tenants)
+      .values({ id: foreignTenantId, name: 'Otra Droguería', slug: foreignTenantId });
+    await db.insert(users).values({
+      id: foreignUserId,
+      tenantId: foreignTenantId,
+      email: foreignEmail,
+      passwordHash: 'hash',
+      name: 'Admin Externo',
+      role: 'admin',
+      isActive: true,
+    });
+    const foreignDevice = await registerDeviceService(db, {
+      tenantId: foreignTenantId,
+      userId: foreignUserId,
+      kind: 'web',
+      name: 'foreign-device',
+    });
+    const foreignFresh = makeFreshContextFactory({
+      db,
+      serverApp: server.app,
+      tenantId: foreignTenantId,
+      userId: foreignUserId,
+      email: foreignEmail,
+      siteId: '',
+      deviceId: foreignDevice.deviceId,
+      defaultRole: 'admin',
+    });
+    const foreignCaller = appRouter.createCaller(foreignFresh());
+    const foreignInvima = await foreignCaller.pharmacy.searchInvimaCatalog({
+      page: 1,
+      perPage: 50,
+    });
+    expect(foreignInvima.items).toEqual([]);
+    const foreignFrac = await foreignCaller.pharmacy.listFractionations({ page: 1, perPage: 50 });
+    expect(foreignFrac.items).toEqual([]);
+    await expect(
+      foreignCaller.pharmacy.listEnvironmentalLogs({ siteId, page: 1, perPage: 20 })
+    ).rejects.toThrow();
   });
 });

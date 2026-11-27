@@ -60,6 +60,12 @@ describe('sync contract manifest', () => {
       'pharmacy_dispensations',
       'pharmacy_recalls',
       'pharmacy_recall_lots',
+      'pharmacy_lot_fractionations',
+      'pharmacy_environmental_logs',
+      'pharmacy_invima_catalog',
+      'pharmacy_fne_authorizations',
+      'pharmacy_fne_ledger',
+      'pharmacy_customer_allergies',
       'product_serials',
       'transfer_orders',
       'transfer_order_items',
@@ -80,6 +86,12 @@ describe('sync contract manifest', () => {
       'pharmacy_dispensations',
       'pharmacy_recalls',
       'pharmacy_recall_lots',
+      'pharmacy_lot_fractionations',
+      'pharmacy_environmental_logs',
+      'pharmacy_invima_catalog',
+      'pharmacy_fne_authorizations',
+      'pharmacy_fne_ledger',
+      'pharmacy_customer_allergies',
     ] as const;
     for (const entity of localOnly) {
       expect(resolveSyncTransportPolicy(entity)).toBe('local_only');

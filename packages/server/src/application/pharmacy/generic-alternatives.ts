@@ -31,7 +31,12 @@ export function resolveDosesPerPack(
   explicitDoses: number | null | undefined,
   presentation: string | null | undefined
 ): number | null {
-  if (typeof explicitDoses === 'number' && Number.isInteger(explicitDoses) && explicitDoses > 0) {
+  if (
+    typeof explicitDoses === 'number' &&
+    Number.isInteger(explicitDoses) &&
+    explicitDoses > 0 &&
+    explicitDoses <= 10_000
+  ) {
     return explicitDoses;
   }
   if (!presentation) return null;
@@ -40,11 +45,26 @@ export function resolveDosesPerPack(
     .replace(/\p{M}/gu, '')
     .toLocaleLowerCase('en-US');
 
+  const innerCountUnits =
+    '(?:tabletas?|tabs?|capsulas?|caps?|comprimidos?|grageas?|sobres?|ampollas?|viales?|unidades?|dosis|supositorios?|ovulos?|parches?)';
   const countUnits =
     '(?:tabletas?|tabs?|capsulas?|caps?|comprimidos?|grageas?|sobres?|ampollas?|viales?|unidades?|dosis|blisters?|supositorios?|ovulos?|parches?)';
+
+  // 0) Compound Colombian multi-pack ("caja por 3 blister por 10 tabletas", "2 blisters x 15 capsulas")
+  const compoundMatch = new RegExp(
+    `(?:\\b(?:x|por)\\s*|×\\s*|\\b)(\\d{1,3})(?!\\d)\\s*blisters?\\s*(?:(?:x|por)\\s*|×\\s*)(\\d{1,4})(?!\\d)(?!\\s*(?:mg|mcg|ug|g|kg|ml|l|cc|ui|%))(?:\\s*${innerCountUnits})?`,
+    'i'
+  ).exec(normalized);
+  if (compoundMatch) {
+    const outer = Number.parseInt(compoundMatch[1]!, 10);
+    const inner = Number.parseInt(compoundMatch[2]!, 10);
+    const total = outer * inner;
+    if (outer > 0 && inner > 0 && total <= 10_000) return total;
+  }
+
   // 1) Explicit pack multiplier ("x 30 tabletas", "×10", "por 24 capsulas")
   const packMatch = new RegExp(
-    `(?:\\b(?:x|por)\\s*|×\\s*)(\\d{1,4})(?!\\s*(?:mg|mcg|ug|g|kg|ml|l|cc|ui|%))(?:\\s*${countUnits})?`,
+    `(?:\\b(?:x|por)\\s*|×\\s*)(\\d{1,4})(?!\\d)(?!\\s*(?:mg|mcg|ug|g|kg|ml|l|cc|ui|%))(?:\\s*${countUnits})?`,
     'i'
   ).exec(normalized);
   if (packMatch) {
@@ -52,7 +72,7 @@ export function resolveDosesPerPack(
     if (parsed > 0 && parsed <= 10_000) return parsed;
   }
   // 2) Direct count phrase ("30 tabletas", "10 capsulas")
-  const directMatch = new RegExp(`\\b(\\d{1,4})\\s*${countUnits}\\b`, 'i').exec(normalized);
+  const directMatch = new RegExp(`\\b(\\d{1,4})(?!\\d)\\s*${countUnits}\\b`, 'i').exec(normalized);
   if (directMatch) {
     const parsed = Number.parseInt(directMatch[1]!, 10);
     if (parsed > 0 && parsed <= 10_000) return parsed;
@@ -209,13 +229,19 @@ export function listPharmacyGenericAlternatives(
     const candidateDoses = resolveDosesPerPack(row.dosesPerPack, row.presentation);
     const pricePerDose = candidateDoses ? roundMoney(price / candidateDoses) : null;
 
-    if (presentation && candidatePresentation === presentation) {
+    if (
+      presentation &&
+      candidatePresentation === presentation &&
+      (sourceDoses === null || candidateDoses === null || sourceDoses === candidateDoses)
+    ) {
       if (!(price < sourcePrice)) return [];
       const savings = roundMoney(sourcePrice - price);
-      const savingsPerDose =
+      const rawPerDoseSaving =
         sourcePricePerDose !== null && pricePerDose !== null
           ? roundMoney(sourcePricePerDose - pricePerDose)
           : null;
+      const savingsPerDose =
+        rawPerDoseSaving !== null && rawPerDoseSaving > 0 ? rawPerDoseSaving : null;
       return [
         {
           row,
@@ -237,11 +263,10 @@ export function listPharmacyGenericAlternatives(
       candidateDoses &&
       sourcePricePerDose !== null &&
       pricePerDose !== null &&
-      price / candidateDoses < sourcePrice / sourceDoses - 0.005
+      pricePerDose < sourcePricePerDose
     ) {
-      const exactSavingPerDose = sourcePrice / sourceDoses - price / candidateDoses;
-      const savingsPerDose = roundMoney(exactSavingPerDose);
-      const savings = roundMoney(exactSavingPerDose * candidateDoses);
+      const savingsPerDose = roundMoney(sourcePricePerDose - pricePerDose);
+      const savings = roundMoney(savingsPerDose * candidateDoses);
       if (!(savings > 0) || !(savingsPerDose > 0)) return [];
       return [
         {

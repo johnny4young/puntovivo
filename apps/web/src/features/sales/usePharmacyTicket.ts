@@ -31,7 +31,6 @@ export type PharmacySafetyAlert =
       activeIngredient: string;
       productId: string;
       productName: string;
-      notes: string | null;
     };
 
 export interface PharmacyTicket {
@@ -116,9 +115,10 @@ export function usePharmacyTicket(
       hasControlled,
       safetyAlerts: activeSafetyAlerts,
       hasNotices: customerNote !== null || hasControlled || activeSafetyAlerts.length > 0,
-      prescriptionLineCount: items.filter(
-        item => lines.get(item.productId)?.classification === 'prescription'
-      ).length,
+      prescriptionLineCount: items.filter(item => {
+        const cls = lines.get(item.productId)?.classification;
+        return cls === 'prescription' || (cls === 'controlled' && !hasControlled);
+      }).length,
     };
   }, [requirements, safetyAlerts, customerId, items]);
 }

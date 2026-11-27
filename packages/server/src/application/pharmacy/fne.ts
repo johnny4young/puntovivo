@@ -8,9 +8,9 @@ import {
   pharmacyFneAuthorizations,
   pharmacyFneLedger,
   pharmacyProductProfiles,
-  pharmacyProfessionalAuthorizations,
   products,
   sites,
+  tenantLocaleSettings,
   users,
   type PharmacyFneMovementType,
 } from '../../db/schema.js';
@@ -26,6 +26,7 @@ import type {
   ListPharmacyFneAuthorizationsInput,
   RevokePharmacyFneAuthorizationInput,
 } from '../../trpc/schemas/pharmacy.js';
+import { findEffectivePharmacyAuthorization } from './authorizations.js';
 import { clampPharmacyPage, type CriticalPharmacyContext } from './types.js';
 
 export interface ActiveFneAuthorization {
@@ -52,7 +53,7 @@ export function findEffectiveFneAuthorization(
     businessDate: string;
   }
 ): ActiveFneAuthorization | null {
-  const rows = db
+  const candidates = db
     .select({
       id: pharmacyFneAuthorizations.id,
       resolutionNumber: pharmacyFneAuthorizations.resolutionNumber,
@@ -69,20 +70,6 @@ export function findEffectiveFneAuthorization(
         eq(users.id, pharmacyFneAuthorizations.responsibleUserId),
         eq(users.tenantId, input.tenantId),
         eq(users.isActive, true)
-      )
-    )
-    .innerJoin(
-      pharmacyProfessionalAuthorizations,
-      and(
-        eq(pharmacyProfessionalAuthorizations.tenantId, input.tenantId),
-        eq(pharmacyProfessionalAuthorizations.userId, pharmacyFneAuthorizations.responsibleUserId),
-        eq(pharmacyProfessionalAuthorizations.countryCode, input.countryCode),
-        eq(pharmacyProfessionalAuthorizations.status, 'active'),
-        sql`${pharmacyProfessionalAuthorizations.validFrom} <= ${input.businessDate}`,
-        or(
-          isNull(pharmacyProfessionalAuthorizations.validUntil),
-          sql`${pharmacyProfessionalAuthorizations.validUntil} >= ${input.businessDate}`
-        )
       )
     )
     .where(
@@ -103,11 +90,28 @@ export function findEffectiveFneAuthorization(
           : isNull(pharmacyFneAuthorizations.siteId)
       )
     )
-    .orderBy(desc(pharmacyFneAuthorizations.createdAt))
-    .limit(1)
+    .orderBy(
+      desc(sql<number>`case when ${pharmacyFneAuthorizations.siteId} is null then 0 else 1 end`),
+      desc(pharmacyFneAuthorizations.validFrom),
+      desc(pharmacyFneAuthorizations.createdAt),
+      desc(pharmacyFneAuthorizations.id)
+    )
     .all();
 
-  return rows[0] ?? null;
+  for (const row of candidates) {
+    const effectiveScopeSiteId = input.siteId ?? row.siteId ?? null;
+    const profAuth = findEffectivePharmacyAuthorization(db, {
+      tenantId: input.tenantId,
+      userId: row.responsibleUserId,
+      siteId: effectiveScopeSiteId,
+      countryCode: input.countryCode,
+      businessDate: input.businessDate,
+    });
+    if (profAuth) {
+      return row;
+    }
+  }
+  return null;
 }
 
 export async function createPharmacyFneAuthorization(
@@ -120,6 +124,13 @@ export async function createPharmacyFneAuthorization(
   return ctx.db.transaction(
     tx => {
       assertTenantBusinessClockCurrent(tx, ctx.tenantId, clock);
+      if (input.countryCode !== clock.countryCode) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'PHARMACY_AUTHORIZATION_SUBJECT_INVALID',
+          message: 'FNE authorization country must match the tenant operating country',
+        });
+      }
       if (input.siteId) {
         const site = tx
           .select({ id: sites.id })
@@ -160,24 +171,21 @@ export async function createPharmacyFneAuthorization(
         });
       }
 
-      const hasProfAuth = tx
-        .select({ id: pharmacyProfessionalAuthorizations.id })
-        .from(pharmacyProfessionalAuthorizations)
-        .where(
-          and(
-            eq(pharmacyProfessionalAuthorizations.tenantId, ctx.tenantId),
-            eq(pharmacyProfessionalAuthorizations.userId, input.responsibleUserId),
-            eq(pharmacyProfessionalAuthorizations.countryCode, input.countryCode),
-            eq(pharmacyProfessionalAuthorizations.status, 'active')
-          )
-        )
-        .get();
+      const effectiveFromCheck =
+        input.validFrom > clock.businessDate ? input.validFrom : clock.businessDate;
+      const hasProfAuth = findEffectivePharmacyAuthorization(tx, {
+        tenantId: ctx.tenantId,
+        userId: input.responsibleUserId,
+        siteId: input.siteId ?? null,
+        countryCode: clock.countryCode,
+        businessDate: effectiveFromCheck,
+      });
       if (!hasProfAuth) {
         throwServerError({
           trpcCode: 'PRECONDITION_FAILED',
           errorCode: 'PHARMACY_AUTHORIZATION_NOT_EFFECTIVE',
           message:
-            'Responsible pharmacist must hold an active professional authorization before enabling FNE',
+            'Responsible pharmacist must hold an effective, authentic professional authorization for this site before enabling FNE',
         });
       }
 
@@ -326,7 +334,12 @@ export function listPharmacyFneAuthorizations(
   const where = and(
     eq(pharmacyFneAuthorizations.tenantId, tenantId),
     input.activeOnly ? eq(pharmacyFneAuthorizations.status, 'active') : undefined,
-    input.siteId ? eq(pharmacyFneAuthorizations.siteId, input.siteId) : undefined
+    input.siteId
+      ? or(
+          isNull(pharmacyFneAuthorizations.siteId),
+          eq(pharmacyFneAuthorizations.siteId, input.siteId)
+        )
+      : undefined
   );
 
   const totalRow = db
@@ -393,18 +406,41 @@ export function appendFneLedgerEntry(
     occurredAt: string;
   }
 ): string {
-  const balance = tx
-    .select({ onHand: inventoryBalances.onHand })
-    .from(inventoryBalances)
+  const normalizedDelta = roundQuantity(entry.quantityDelta, 12);
+  const prevRow = tx
+    .select({ balanceAfter: pharmacyFneLedger.balanceAfter })
+    .from(pharmacyFneLedger)
     .where(
       and(
-        eq(inventoryBalances.tenantId, entry.tenantId),
-        eq(inventoryBalances.siteId, entry.siteId),
-        eq(inventoryBalances.productId, entry.productId)
+        eq(pharmacyFneLedger.tenantId, entry.tenantId),
+        eq(pharmacyFneLedger.siteId, entry.siteId),
+        eq(pharmacyFneLedger.productId, entry.productId)
       )
     )
+    .orderBy(desc(sql`${pharmacyFneLedger}.rowid`))
+    .limit(1)
     .get();
-  const balanceAfter = Math.max(0, roundQuantity(balance?.onHand ?? 0, 12));
+
+  let balanceAfter: number;
+  if (prevRow !== undefined) {
+    balanceAfter = Math.max(0, roundQuantity(prevRow.balanceAfter + normalizedDelta, 12));
+  } else if (normalizedDelta > 0) {
+    balanceAfter = normalizedDelta;
+  } else {
+    const balance = tx
+      .select({ onHand: inventoryBalances.onHand })
+      .from(inventoryBalances)
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, entry.tenantId),
+          eq(inventoryBalances.siteId, entry.siteId),
+          eq(inventoryBalances.productId, entry.productId)
+        )
+      )
+      .get();
+    balanceAfter = Math.max(0, roundQuantity(balance?.onHand ?? 0, 12));
+  }
+
   const id = nanoid();
   tx.insert(pharmacyFneLedger)
     .values({
@@ -416,7 +452,7 @@ export function appendFneLedgerEntry(
       lotNumber: entry.lotNumber ?? null,
       businessDate: entry.businessDate,
       movementType: entry.movementType,
-      quantityDelta: roundQuantity(entry.quantityDelta, 12),
+      quantityDelta: normalizedDelta,
       balanceAfter,
       fneAuthorizationId: entry.fneAuthorizationId ?? null,
       saleId: entry.saleId ?? null,
@@ -429,6 +465,58 @@ export function appendFneLedgerEntry(
     })
     .run();
   return id;
+}
+
+/**
+ * Append an FNE ledger row iff `productId` carries a `'controlled'` pharmacy profile.
+ * Safe to invoke from purchase receipt/return/void and sale return/void transactions.
+ */
+export function recordControlledStockMovementInFneLedger(
+  tx: DatabaseInstance,
+  entry: {
+    tenantId: string;
+    siteId: string;
+    productId: string;
+    lotId?: string | null;
+    lotNumber?: string | null;
+    businessDate: string;
+    movementType: PharmacyFneMovementType;
+    quantityDelta: number;
+    saleId?: string | null;
+    actorId: string;
+    notes?: string | null;
+    occurredAt: string;
+  }
+): string | null {
+  const profile = tx
+    .select({ classification: pharmacyProductProfiles.classification })
+    .from(pharmacyProductProfiles)
+    .where(
+      and(
+        eq(pharmacyProductProfiles.tenantId, entry.tenantId),
+        eq(pharmacyProductProfiles.productId, entry.productId)
+      )
+    )
+    .get();
+  if (profile?.classification !== 'controlled') return null;
+
+  const locale = tx
+    .select({ countryCode: tenantLocaleSettings.countryCode })
+    .from(tenantLocaleSettings)
+    .where(eq(tenantLocaleSettings.tenantId, entry.tenantId))
+    .get();
+  const countryCode = (locale?.countryCode ?? 'CO').toUpperCase();
+  const fneAuth = findEffectiveFneAuthorization(tx, {
+    tenantId: entry.tenantId,
+    siteId: entry.siteId,
+    countryCode,
+    businessDate: entry.businessDate,
+  });
+
+  return appendFneLedgerEntry(tx, {
+    ...entry,
+    fneAuthorizationId: fneAuth?.id ?? null,
+  });
 }
 
 export async function getPharmacyFneMonthlyReport(
@@ -489,7 +577,7 @@ export async function getPharmacyFneMonthlyReport(
     .orderBy(asc(products.name))
     .all();
 
-  const entries = db
+  const rawEntries = db
     .select({
       id: pharmacyFneLedger.id,
       productId: pharmacyFneLedger.productId,
@@ -500,8 +588,6 @@ export async function getPharmacyFneMonthlyReport(
       movementType: pharmacyFneLedger.movementType,
       quantityDelta: pharmacyFneLedger.quantityDelta,
       balanceAfter: pharmacyFneLedger.balanceAfter,
-      saleId: pharmacyFneLedger.saleId,
-      evidenceId: pharmacyFneLedger.evidenceId,
       retainedFormulaDigest: pharmacyFneLedger.retainedFormulaDigest,
       actorName: users.name,
       notes: pharmacyFneLedger.notes,
@@ -521,8 +607,17 @@ export async function getPharmacyFneMonthlyReport(
         lte(pharmacyFneLedger.businessDate, toDate)
       )
     )
-    .orderBy(asc(pharmacyFneLedger.businessDate), asc(pharmacyFneLedger.occurredAt))
+    .orderBy(
+      asc(pharmacyFneLedger.businessDate),
+      asc(pharmacyFneLedger.occurredAt),
+      asc(sql`${pharmacyFneLedger}.rowid`)
+    )
     .all();
+
+  const entries = rawEntries.map(({ retainedFormulaDigest, ...publicEntry }) => ({
+    ...publicEntry,
+    hasRetainedFormula: Boolean(retainedFormulaDigest),
+  }));
 
   const priorRows = db
     .select({
@@ -544,6 +639,7 @@ export async function getPharmacyFneMonthlyReport(
   const summary = controlledProducts.map(med => {
     const medEntries = entries.filter(e => e.productId === med.productId);
     let receipts = 0;
+    let supplierReturns = 0;
     let dispensations = 0;
     let returns = 0;
     let destructions = 0;
@@ -551,6 +647,8 @@ export async function getPharmacyFneMonthlyReport(
     for (const row of medEntries) {
       if (row.movementType === 'receipt')
         receipts = roundQuantity(receipts + row.quantityDelta, 12);
+      else if (row.movementType === 'supplier_return')
+        supplierReturns = roundQuantity(supplierReturns + Math.abs(row.quantityDelta), 12);
       else if (row.movementType === 'dispensation')
         dispensations = roundQuantity(dispensations + Math.abs(row.quantityDelta), 12);
       else if (row.movementType === 'return')
@@ -561,13 +659,13 @@ export async function getPharmacyFneMonthlyReport(
     }
     const openingBalance = Math.max(0, roundQuantity(priorByProduct.get(med.productId) ?? 0, 12));
     const netMonth = roundQuantity(
-      receipts - dispensations + returns - destructions + fractionationsNet,
+      receipts - supplierReturns - dispensations + returns - destructions + fractionationsNet,
       12
     );
     const closingBalance =
       medEntries.length > 0
         ? medEntries[medEntries.length - 1]!.balanceAfter
-        : Math.max(0, roundQuantity(med.currentStock ?? openingBalance + netMonth, 12));
+        : Math.max(0, roundQuantity(openingBalance + netMonth, 12));
     return {
       productId: med.productId,
       name: med.name,
@@ -579,6 +677,7 @@ export async function getPharmacyFneMonthlyReport(
       cumCode: med.cumCode,
       openingBalance,
       receipts,
+      supplierReturns,
       dispensations,
       returns,
       destructions,

@@ -96,7 +96,6 @@ export function PharmacyTicketNotices({
                 ingredient: alert.activeIngredient,
                 product: alert.productName,
               })}
-              {alert.notes ? ` · ${alert.notes}` : ''}
             </span>
           </p>
         ) : (

@@ -79,6 +79,11 @@ export function PharmacyInvimaPanel() {
               onChange={async event => {
                 const file = event.target.files?.[0];
                 if (!file) return;
+                if (file.size > 2_000_000) {
+                  toast.error({ title: t('pharmacy:invima.toast.fileTooLarge') });
+                  event.target.value = '';
+                  return;
+                }
                 const text = await file.text();
                 setCsvText(text);
               }}
