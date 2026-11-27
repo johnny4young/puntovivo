@@ -82,7 +82,8 @@
     "checkLabelPlaceholder": "e.g. Patio group",
     "tableStateLoading": "Checking the open service for this table...",
     "tableStateError": "The table state could not be verified. Try again before opening a check.",
-    "generalParkOption": "No table · general parked sale"
+    "generalParkOption": "No table · general parked sale",
+    "roundCheck": "Round check"
   },
   "cart": {
     "empty": "No items yet.",
@@ -105,7 +106,8 @@
   "save": {
     "errorTitle": "The round could not be sent",
     "tableRequired": "Enter a table label before saving.",
-    "emptyCartHint": "Add at least one item before saving."
+    "emptyCartHint": "Add at least one item before saving.",
+    "roundCheckRequired": "Select the check that receives this round."
   },
   "tables": {
     "title": "Restaurant tables",
@@ -238,7 +240,37 @@
     "lineName": "{{quantity}} {{name}}",
     "moveTo": "Move {{name}} to check {{count}}",
     "charge": "Charge check {{count}}",
-    "errorTitle": "Could not split the bill"
+    "errorTitle": "Could not split the bill",
+    "equalSplitLabel": "Equal split (Total / N)",
+    "equalParts": "Parts",
+    "equalPerPerson": "Per person",
+    "equalApply": "Split in {{count}}",
+    "equalSuccess": "Check split into {{count}} equal parts.",
+    "shareDish": "Share",
+    "shareDishAria": "Share {{name}} across checks",
+    "shareDishTitle": "Split shared dish",
+    "shareDishParts": "Split across",
+    "shareDishConfirm": "Apply split",
+    "shareDishSuccess": "Dish split across {{count}} checks."
+  },
+  "precheck": {
+    "ctaLabel": "Precheck",
+    "title": "Precheck · {{table}}",
+    "nonFiscalBadge": "Not a fiscal invoice",
+    "subtotal": "Subtotal",
+    "taxes": "Taxes",
+    "discount": "Discount",
+    "serviceCharge": "Service charge",
+    "baseTotal": "Subtotal due",
+    "tipPercentLabel": "Voluntary tip (%)",
+    "suggestedTip": "Suggested tip ({{percent}}%)",
+    "totalWithTip": "Suggested total",
+    "print": "Print precheck",
+    "printing": "Sending...",
+    "printedOutbox": "Precheck sent to the thermal printer.",
+    "printedBrowser": "Precheck ready to print.",
+    "errorTitle": "Could not generate precheck",
+    "loading": "Generating precheck..."
   },
   "reservations": {
     "title": "Reservations",
@@ -312,7 +344,13 @@
     "selected": "Already selected",
     "saved": "Add-on saved",
     "custom": "Custom add-on",
-    "customAdd": "Add custom add-on"
+    "customAdd": "Add custom add-on",
+    "bomTitle": "Deducted ingredients (BOM)",
+    "bomAddProduct": "Search ingredient to add",
+    "bomQuantity": "Quantity",
+    "bomAdd": "Add ingredient",
+    "bomRemove": "Remove {{name}}",
+    "bomEmpty": "No linked ingredients."
   },
   "tabs": {
     "label": "Add-on catalog views",

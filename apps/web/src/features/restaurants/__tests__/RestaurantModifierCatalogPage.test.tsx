@@ -10,6 +10,7 @@ import { RestaurantModifierPicker } from '../RestaurantModifierPicker';
 
 const h = vi.hoisted(() => ({
   save: vi.fn(),
+  products: [] as Array<Record<string, unknown>>,
   refetch: vi.fn(),
   invalidate: vi.fn(),
   query: vi.fn(),
@@ -18,8 +19,19 @@ const h = vi.hoisted(() => ({
 vi.mock('@/features/tenant/TenantProvider', () => ({ useTenant: () => ({ currentSite: h.site }) }));
 vi.mock('@/lib/trpc', () => ({
   trpc: {
-    useUtils: () => ({ restaurantModifiers: { invalidate: h.invalidate } }),
-    restaurantModifiers: { list: { useQuery: h.query } },
+    useUtils: () => ({
+      restaurantModifiers: {
+        invalidate: h.invalidate,
+        getBomComponents: { invalidate: h.invalidate },
+      },
+    }),
+    restaurantModifiers: {
+      list: { useQuery: h.query },
+      getBomComponents: { useQuery: () => ({ data: [], isLoading: false }) },
+    },
+    products: {
+      list: { useQuery: () => ({ data: { items: h.products }, isLoading: false }) },
+    },
   },
 }));
 vi.mock('@/lib/useCriticalMutation', () => ({
@@ -145,5 +157,61 @@ describe('manager catalog and bounded picker', () => {
       expect.objectContaining({ offset: 25 }),
       expect.anything()
     );
+  });
+
+  it('persists staged BOM ingredients when the modal primary Save button is clicked and filters ineligible products', async () => {
+    h.products = [
+      {
+        id: 'ing-valid',
+        name: 'Cheddar',
+        sku: 'CHD',
+        tracksStock: true,
+        tracksLots: false,
+        tracksSerials: false,
+        catalogType: 'standard',
+      },
+      {
+        id: 'ing-lots',
+        name: 'Lot Milk',
+        sku: 'MLK',
+        tracksStock: true,
+        tracksLots: true,
+        tracksSerials: false,
+        catalogType: 'standard',
+      },
+      {
+        id: 'ing-nostock',
+        name: 'Delivery Fee',
+        sku: 'FEE',
+        tracksStock: false,
+        tracksLots: false,
+        tracksSerials: false,
+        catalogType: 'standard',
+      },
+    ];
+    render(<RestaurantModifierCatalogPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Cheese' }));
+    const dialog = screen.getByRole('dialog');
+    const bomSection = await within(dialog).findByTestId('modifier-bom-section');
+    const select = within(bomSection).getByTestId('modifier-bom-select');
+    expect(select).toHaveTextContent('Cheddar');
+    expect(select).not.toHaveTextContent('Lot Milk');
+    expect(select).not.toHaveTextContent('Delivery Fee');
+
+    fireEvent.change(select, { target: { value: 'ing-valid' } });
+    fireEvent.change(within(bomSection).getByTestId('modifier-bom-qty'), {
+      target: { value: '0.25' },
+    });
+    fireEvent.click(within(bomSection).getByTestId('modifier-bom-add'));
+
+    // The recipe travels in the same versioned modifier save.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(h.save).toHaveBeenCalledTimes(1));
+    expect(h.save.mock.calls[0]![0]).toMatchObject({
+      siteId: 'site-a',
+      id: 'cheese',
+      expectedVersion: 3,
+      bomComponents: [{ componentProductId: 'ing-valid', quantity: 0.25 }],
+    });
   });
 });

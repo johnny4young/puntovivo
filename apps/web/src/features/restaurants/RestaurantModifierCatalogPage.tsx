@@ -16,6 +16,13 @@ const RestaurantModifierGroupsPanel = lazy(() =>
     default: module.RestaurantModifierGroupsPanel,
   }))
 );
+import type { ModifierBomDraft } from './ModifierBomSection';
+
+const ModifierBomSection = lazy(() =>
+  import('./ModifierBomSection').then(module => ({
+    default: module.ModifierBomSection,
+  }))
+);
 const VIEWS = ['options', 'groups'] as const;
 
 /** Public projection has no employee ids or audit metadata. */
@@ -264,6 +271,7 @@ function CatalogForm({
   const [draft, setDraft] = useState(initial),
     [error, setError] = useState<string | null>(null);
   const busy = useRef(false),
+    bomDraft = useRef<ModifierBomDraft | null>(null),
     save = useCriticalMutation('restaurantModifiers.save');
   const utils = trpc.useUtils();
   return (
@@ -283,7 +291,11 @@ function CatalogForm({
           busy.current = true;
           setError(null);
           try {
-            await save.mutateAsync({ siteId, ...draft });
+            await save.mutateAsync({
+              siteId,
+              ...draft,
+              ...(bomDraft.current ? { bomComponents: bomDraft.current } : {}),
+            });
             await utils.restaurantModifiers.invalidate();
             onSaved();
           } catch (failure) {
@@ -352,6 +364,17 @@ function CatalogForm({
           </label>
           {!draft.isActive && (
             <p className="rounded-lg bg-surface-2 p-3 text-sm">{t('catalog.archiveHelp')}</p>
+          )}
+          {initial.id && (
+            <Suspense fallback={null}>
+              <ModifierBomSection
+                siteId={siteId}
+                catalogId={initial.id}
+                onDraftChange={next => {
+                  bomDraft.current = next;
+                }}
+              />
+            </Suspense>
           )}
           {error && (
             <div role="alert" className="space-y-2 text-sm text-danger-700">

@@ -68,6 +68,13 @@ export interface PromotionPricingLine {
     quantity: number;
     sellable: boolean;
   }[];
+  /** Frozen cent-conserved totals for a persisted draft line when no promotion applies. */
+  frozenDraftTotals?: {
+    lineBase: number;
+    lineTax: number;
+    lineTotal: number;
+    components: TaxComponentSnapshot[];
+  };
 }
 
 export interface AppliedPromotionSnapshot {
@@ -1123,13 +1130,16 @@ export function quotePromotions(
 
   for (const [lineIndex, { line, selected }] of selections.entries()) {
     let effectiveDiscountRate = normalizeRate(line.manualDiscountRate);
-    let before = calculateTaxComponentSnapshots({
-      components: line.taxComponents,
-      unitPrice: line.unitPrice,
-      quantity: line.quantity,
-      discountPercent: effectiveDiscountRate,
-      priceIncludesTax: args.priceIncludesTax,
-    });
+    let before =
+      selected.length === 0 && line.frozenDraftTotals
+        ? line.frozenDraftTotals
+        : calculateTaxComponentSnapshots({
+            components: line.taxComponents,
+            unitPrice: line.unitPrice,
+            quantity: line.quantity,
+            discountPercent: effectiveDiscountRate,
+            priceIncludesTax: args.priceIncludesTax,
+          });
     const applications: AppliedPromotionSnapshot[] = [];
     for (const [position, rule] of selected.entries()) {
       let ruleRatePct = rule.discountPct;

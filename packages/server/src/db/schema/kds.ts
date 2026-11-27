@@ -14,6 +14,16 @@ import { nowIso, sqliteNow } from './base.js';
 import { kdsOrders } from './realtime.js';
 import type { RestaurantModifierGroupKind } from './restaurant.js';
 
+/** Optional thermal printer routing bound to one kitchen preparation station. */
+export interface KdsStationPrinterConfig {
+  mode: 'none' | 'site_printer' | 'tcp';
+  host?: string | undefined;
+  port?: number | undefined;
+  paperWidth?: '58mm' | '80mm' | undefined;
+  characterSet?: 'cp437' | 'cp858' | 'cp850' | 'pc858_euro' | undefined;
+  copies?: number | undefined;
+}
+
 /** A site-local preparation destination, not proof of connected kitchen hardware. */
 export const kdsStations = sqliteTable(
   'kds_stations',
@@ -29,6 +39,9 @@ export const kdsStations = sqliteTable(
     name: text('name').notNull(),
     isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
     position: integer('position').notNull().default(0),
+    printerConfig: text('printer_config_json', {
+      mode: 'json',
+    }).$type<KdsStationPrinterConfig | null>(),
     version: integer('version').notNull().default(1),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),

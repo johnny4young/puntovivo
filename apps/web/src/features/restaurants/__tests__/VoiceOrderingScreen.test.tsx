@@ -1077,8 +1077,11 @@ describe('VoiceOrderingScreen', () => {
     });
     const view = renderScreen();
     selectTable();
-    // Regrouping checks is a manager override; a cashier never sees it.
-    expect(screen.queryByTestId('voice-ordering-split')).not.toBeInTheDocument();
+    // Waiters/cashiers can open the split sheet for equal and shared-dish splits, plus precheck.
+    expect(screen.getByTestId('voice-ordering-split')).toBeInTheDocument();
+    expect(screen.getByTestId('voice-ordering-precheck')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('voice-ordering-split'));
+    expect(await screen.findByTestId('split-sheet-stub')).toHaveTextContent('table-1 · Mesa 1');
     view.unmount();
 
     mockAuthRole = 'manager';
@@ -1166,6 +1169,43 @@ describe('VoiceOrderingScreen', () => {
     await waitFor(() =>
       expect(toastSuccess).toHaveBeenCalledWith({ title: 'Ronda 1 guardada · Mesa 1' })
     );
+  });
+
+  it('sends a round to the check the waiter picks once the table is split', async () => {
+    const parked = (id: string, label: string, version: number) => ({
+      id,
+      label,
+      saleNumber: `POS-${id}`,
+      version,
+      suspendedAt: '2026-11-21T19:05:00.000Z',
+      openedAt: '2026-11-21T19:00:00.000Z',
+      total: 10_000,
+      rounds: [],
+      lines: [],
+    });
+    restaurantTableStateMock.mockReturnValue({
+      data: {
+        service: { id: 'service-1', guestCount: 2 },
+        diners: [],
+        checks: [parked('c-1', 'Mesa 1 (1/2)', 3), parked('c-2', 'Mesa 1 (2/2)', 5)],
+      },
+      isLoading: false,
+      error: null,
+    });
+    renderScreen();
+    selectTable();
+    await addVoiceItem();
+    expect(screen.getByTestId('voice-ordering-save')).toBeDisabled();
+    expect(screen.getByTestId('voice-ordering-round-check-hint')).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('voice-ordering-round-check'), {
+      target: { value: 'c-2' },
+    });
+    fireEvent.click(screen.getByTestId('voice-ordering-save'));
+    await waitFor(() => expect(openCheckMutateAsync).toHaveBeenCalledTimes(1));
+    expect(openCheckMutateAsync.mock.calls[0]![0]).toMatchObject({
+      checkId: 'c-2',
+      expectedCheckVersion: 5,
+    });
   });
 
   it('preserves the round when the atomic command fails', async () => {

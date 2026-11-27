@@ -1,5 +1,22 @@
 /** Site-local kitchen configuration. Zero means create, never blind overwrite. */
 import { z } from 'zod';
+import { addEscPosTcpTargetIssues } from '../../services/peripherals/escpos/tcp-target-policy.js';
+
+export const kdsStationPrinterConfigInput = z
+  .object({
+    mode: z.enum(['none', 'site_printer', 'tcp']).default('none'),
+    host: z.string().trim().max(253).optional(),
+    port: z.number().int().min(1).max(65535).optional(),
+    paperWidth: z.enum(['58mm', '80mm']).default('80mm'),
+    characterSet: z.enum(['cp437', 'cp858', 'cp850', 'pc858_euro']).default('cp858'),
+    copies: z.number().int().min(1).max(3).default(1),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.mode === 'tcp') {
+      addEscPosTcpTargetIssues({ channel: 'tcp', host: value.host, port: value.port ?? 9100 }, ctx);
+    }
+  });
 
 export const kitchenSiteInput = z.object({ siteId: z.string().min(1).max(128) });
 export const saveKitchenStationInput = kitchenSiteInput.extend({
@@ -12,6 +29,7 @@ export const saveKitchenStationInput = kitchenSiteInput.extend({
   name: z.string().trim().min(1).max(120),
   isActive: z.boolean(),
   position: z.number().int().min(0).max(999),
+  printerConfig: kdsStationPrinterConfigInput.nullable().optional(),
   expectedVersion: z.number().int().nonnegative(),
 });
 export const kitchenTargetInput = kitchenSiteInput.extend({
