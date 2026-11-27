@@ -234,7 +234,7 @@ export const pharmacyRouter = router({
       destroyPharmacyLot(pharmacyContext(asCriticalCommandContext(ctx)), input)
     ),
 
-  // --- Band 6B: Regulated lot fractionation ---
+  // --- Regulated lot fractionation ---
   fractionateLot: criticalCommandManagerOrAdminProcedure
     .input(fractionatePharmacyLotInput)
     .mutation(({ ctx, input }) =>
@@ -247,7 +247,7 @@ export const pharmacyRouter = router({
       return listPharmacyFractionations(ctx.db, ctx.tenantId, input);
     }),
 
-  // --- Band 6B: Daily temperature & relative humidity logbook (Res. 1403/2007) ---
+  // --- Daily temperature & relative humidity logbook (Res. 1403/2007) ---
   recordEnvironmentalLog: criticalCommandCashierManagerOrAdminProcedure
     .input(recordPharmacyEnvironmentalLogInput)
     .mutation(async ({ ctx, input }) => {
@@ -283,7 +283,7 @@ export const pharmacyRouter = router({
       return getPharmacyEnvironmentalReport(ctx.db, ctx.tenantId, siteId, input);
     }),
 
-  // --- Band 6B: Official INVIMA / CUM catalog ---
+  // --- Official INVIMA / CUM catalog ---
   importInvimaCatalog: managerOrAdminProcedure
     .input(importPharmacyInvimaCatalogInput)
     .mutation(({ ctx, input }) =>
@@ -293,7 +293,7 @@ export const pharmacyRouter = router({
     .input(searchPharmacyInvimaCatalogInput)
     .query(({ ctx, input }) => searchPharmacyInvimaCatalog(ctx.db, ctx.tenantId, input)),
 
-  // --- Band 6B: Controlled medicines (FNE Colombia — Res. 1478/2006) ---
+  // --- Controlled medicines (FNE Colombia — Res. 1478/2006) ---
   listFneAuthorizations: managerOrAdminProcedure
     .input(listPharmacyFneAuthorizationsInput)
     .query(async ({ ctx, input }) => {
@@ -326,7 +326,7 @@ export const pharmacyRouter = router({
       return getPharmacyFneMonthlyReport(ctx.db, ctx.tenantId, siteId, input);
     }),
 
-  // --- Band 6B: Customer allergies ---
+  // --- Customer allergies ---
   listCustomerAllergies: cashierManagerOrAdminProcedure
     .input(listPharmacyCustomerAllergiesInput)
     .query(({ ctx, input }) => listPharmacyCustomerAllergies(ctx.db, ctx.tenantId, input)),

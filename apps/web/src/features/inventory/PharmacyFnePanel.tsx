@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BookOpenCheck, Printer, ShieldAlert, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 
 import { useToast } from '@/components/feedback/ToastProvider';
 import { Badge, Button } from '@/components/ui';
@@ -114,7 +115,7 @@ export function PharmacyFnePanel({
     if (!report) return;
     const rowsHtml = report.summary
       .map(s => {
-        const netReturns = s.returns - (s.supplierReturns ?? 0);
+        const netReturns = roundQuantity(s.returns - (s.supplierReturns ?? 0), 12);
         return `<tr>
           <td>${escapeHtml(s.name)} (${escapeHtml(s.sku)})</td>
           <td>${escapeHtml(s.sanitaryRegistration ?? '—')}</td>
@@ -484,7 +485,7 @@ export function PharmacyFnePanel({
                     <td className="py-2.5 pr-3 font-mono">{row.receipts}</td>
                     <td className="py-2.5 pr-3 font-mono">{row.dispensations}</td>
                     <td className="py-2.5 pr-3 font-mono">
-                      {row.returns - (row.supplierReturns ?? 0)}
+                      {roundQuantity(row.returns - (row.supplierReturns ?? 0), 12)}
                     </td>
                     <td className="py-2.5 pr-3 font-mono">{row.fractionationsNet}</td>
                     <td className="py-2.5 pr-3 font-mono">{row.destructions}</td>

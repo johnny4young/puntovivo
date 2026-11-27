@@ -46,7 +46,10 @@ import { reverseBundleComponentsInTransaction } from '../../services/product-bun
 import { reverseModifierBomInTransaction } from '../../services/restaurant/modifier-bom.js';
 import { broadcastSaleRetracted, materializeCommittedFiscalIntent } from './fiscalPostHook.js';
 import { restoreExactInventoryLot } from '../../services/inventory-lots/index.js';
-import { resolveTenantBusinessClock } from '../../services/pharmacy/business-clock.js';
+import {
+  assertTenantBusinessClockCurrent,
+  resolveTenantBusinessClock,
+} from '../../services/pharmacy/business-clock.js';
 import { recordControlledStockMovementInFneLedger } from '../pharmacy/fne.js';
 import { getOriginalSaleDocumentCufe } from './fiscal-policy.js';
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
@@ -970,6 +973,7 @@ export async function returnSale(
   try {
     ctx.db.transaction(
       tx => {
+        assertTenantBusinessClockCurrent(tx, ctx.tenantId, businessClock);
         const current = tx
           .select()
           .from(sales)

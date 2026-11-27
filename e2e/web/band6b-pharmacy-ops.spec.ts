@@ -219,8 +219,13 @@ test.describe('Band 6B — Pharmacy fractionation, per-dose generics, Res. 1403 
     await page.locator('#pharmacy-tab-invima').click();
     await expect(page.getByTestId('pharmacy-invima-panel')).toBeVisible({ timeout: 15_000 });
     await page.getByTestId('pharmacy-invima-load-sample').click();
+    const invimaCsv = page.getByTestId('pharmacy-invima-csv');
+    await invimaCsv.fill(
+      `${await invimaCsv.inputValue()}\n19994004;01;;LAB;INVIMA 2024M-0000001;;Vigente;;;;;;;`
+    );
     await page.getByTestId('pharmacy-invima-import').click();
     await expect(page.getByTestId('pharmacy-invima-row')).toHaveCount(3, { timeout: 15_000 });
+    await expect(page.getByText(/1 fila omitida por datos incompletos/)).toBeVisible();
 
     // 5. FNE tab -> register patient allergy to Loratadina
     await page.locator('#pharmacy-tab-fne').click();

@@ -436,6 +436,8 @@
     },
     "toast": {
       "imported": "INVIMA catalog imported",
+      "importedWithSkipped_one": "INVIMA catalog imported · {{count}} row skipped for incomplete data",
+      "importedWithSkipped_other": "INVIMA catalog imported · {{count}} rows skipped for incomplete data",
       "summary": "{{inserted}} inserted · {{updated}} updated · {{linked}} products linked",
       "fileTooLarge": "CSV file exceeds the 2 MB import batch limit",
       "error": "Unable to import INVIMA catalog"

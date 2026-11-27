@@ -239,7 +239,15 @@ export const customersRouter = router({
                         eq(auditLogs.resourceType, 'pharmacy_customer_allergy'),
                         inArray(auditLogs.resourceId, allergyIds)
                       )
-                    : undefined
+                    : undefined,
+                  // Allergies removed earlier are gone, but their audit rows still name the customer.
+                  and(
+                    eq(auditLogs.resourceType, 'pharmacy_customer_allergy'),
+                    or(
+                      sql`json_extract(${auditLogs.after}, '$.customerId') = ${input.id}`,
+                      sql`json_extract(${auditLogs.before}, '$.customerId') = ${input.id}`
+                    )
+                  )
                 )
               )
             )

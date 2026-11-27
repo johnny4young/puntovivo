@@ -209,9 +209,9 @@ vi.mock('@/lib/trpc', () => ({
                 sanitaryRegistration: 'INVIMA 2023M-99',
                 openingBalance: 2,
                 receipts: 5,
-                supplierReturns: 0,
+                supplierReturns: 0.1,
                 dispensations: 1,
-                returns: 1,
+                returns: 0.3,
                 fractionationsNet: -1,
                 destructions: 0,
                 closingBalance: 6,
@@ -309,6 +309,7 @@ describe('Band 6B — Pharmacy panels, register hints, and payload guards', () =
     );
     expect(screen.getByTestId('pharmacy-fne-panel')).toBeInTheDocument();
     expect(screen.getByText('Clonazepam 2 mg')).toBeInTheDocument();
+    expect(screen.getByText('0.2')).toBeInTheDocument();
     u4();
   });
 

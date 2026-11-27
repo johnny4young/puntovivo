@@ -436,6 +436,8 @@
     },
     "toast": {
       "imported": "Catálogo INVIMA importado",
+      "importedWithSkipped_one": "Catálogo INVIMA importado · {{count}} fila omitida por datos incompletos",
+      "importedWithSkipped_other": "Catálogo INVIMA importado · {{count}} filas omitidas por datos incompletos",
       "summary": "{{inserted}} nuevos · {{updated}} actualizados · {{linked}} productos vinculados",
       "fileTooLarge": "El archivo supera el límite de 2 MB por lote de importación",
       "error": "No se pudo importar el catálogo INVIMA"

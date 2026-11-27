@@ -11,6 +11,7 @@ import {
   inventoryMovements,
   pharmacyFneLedger,
   pharmacyProductProfiles,
+  products,
   providers,
   sites,
   syncOutbox,
@@ -465,14 +466,26 @@ describe('Band 6B — Pharmacy operational closure (Colombia)', () => {
       csvText: csv,
       syncMatchingProducts: true,
     });
-    expect(first).toEqual({ imported: 2, inserted: 2, updated: 0, linkedProducts: 1 });
+    expect(first).toEqual({ imported: 2, skipped: 0, inserted: 2, updated: 0, linkedProducts: 1 });
+    const readVersion = () =>
+      db.select({ version: products.version }).from(products).where(eq(products.id, med.id)).get()
+        ?.version;
+    const versionAfterLink = readVersion();
+    expect(versionAfterLink).toBeGreaterThan(med.version);
+
+    // An unchanged re-link must not invalidate open product editors
+    await caller('manager').pharmacy.importInvimaCatalog({
+      csvText: csv,
+      syncMatchingProducts: true,
+    });
+    expect(readVersion()).toBe(versionAfterLink);
 
     // Re-importing same CSV updates instead of duplicating
     const second = await caller('manager').pharmacy.importInvimaCatalog({
       csvText: csv,
       syncMatchingProducts: false,
     });
-    expect(second).toEqual({ imported: 2, inserted: 0, updated: 2, linkedProducts: 0 });
+    expect(second).toEqual({ imported: 2, skipped: 0, inserted: 0, updated: 2, linkedProducts: 0 });
 
     const updatedProfile = db
       .select({
@@ -1164,10 +1177,11 @@ describe('Band 6B — Pharmacy operational closure (Colombia)', () => {
     ].join('\n');
 
     const imp = await caller('manager').pharmacy.importInvimaCatalog({
-      csvText: csv,
+      csvText: `${csv}\n20010001;03;;LAB COL;${sharedInvima};2030-05-15;Vigente;;LOSARTAN;50 mg;TABLETA;Con formula medica\n`,
       syncMatchingProducts: true,
     });
     expect(imp.imported).toBe(2);
+    expect(imp.skipped).toBe(1);
 
     const pBox = db
       .select()
@@ -1231,6 +1245,12 @@ describe('Band 6B — Pharmacy operational closure (Colombia)', () => {
       activeIngredient: 'Sulfa',
       severity: 'moderate',
     });
+    const removedAllergy = await caller('cashier').pharmacy.addCustomerAllergy({
+      customerId: cust.id,
+      activeIngredient: 'Penicilina',
+      severity: 'mild',
+    });
+    await caller('manager').pharmacy.removeCustomerAllergy({ id: removedAllergy.id });
 
     const preflight = await caller('cashier').pharmacy.checkoutRequirements({
       customerId: cust.id,
@@ -1264,6 +1284,18 @@ describe('Band 6B — Pharmacy operational closure (Colombia)', () => {
       confirmation: 'Paciente Privacidad DSAR',
     });
     expect(disposed.disposition).toBe('anonymized');
+    const removedAllergyAudits = db
+      .select({ before: auditLogs.before, after: auditLogs.after })
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceType, 'pharmacy_customer_allergy'),
+          eq(auditLogs.resourceId, removedAllergy.id)
+        )
+      )
+      .all();
+    expect(removedAllergyAudits).toHaveLength(2);
+    expect(JSON.stringify(removedAllergyAudits)).not.toContain(cust.id);
 
     const afterAnon = await caller('cashier').pharmacy.listCustomerAllergies({
       customerId: cust.id,

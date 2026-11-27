@@ -46,7 +46,10 @@ export function PharmacyInvimaPanel() {
         utils.products.list.invalidate(),
       ]);
       toast.success({
-        title: t('pharmacy:invima.toast.imported'),
+        title:
+          data.skipped > 0
+            ? t('pharmacy:invima.toast.importedWithSkipped', { count: data.skipped })
+            : t('pharmacy:invima.toast.imported'),
         description: t('pharmacy:invima.toast.summary', {
           inserted: data.inserted,
           updated: data.updated,

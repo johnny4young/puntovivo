@@ -170,7 +170,7 @@ export const destroyPharmacyLotInput = z
   })
   .strict();
 
-// --- Band 6B: Regulated lot fractionation (box -> blister -> tablet) ---
+// --- Regulated lot fractionation (box -> blister -> tablet) ---
 
 export const fractionatePharmacyLotInput = z
   .object({
@@ -188,7 +188,7 @@ export const listPharmacyFractionationsInput = paginationInput
   })
   .strict();
 
-// --- Band 6B: Daily temperature & humidity logbook (Res. 1403/2007 CO) ---
+// --- Daily temperature & humidity logbook (Res. 1403/2007 CO) ---
 
 export const recordPharmacyEnvironmentalLogInput = z
   .object({
@@ -230,7 +230,7 @@ export const getPharmacyEnvironmentalReportInput = z
     path: ['toDate'],
   });
 
-// --- Band 6B: Official INVIMA / CUM catalog importer ---
+// --- Official INVIMA / CUM catalog importer ---
 
 export const invimaCatalogRowInput = z
   .object({
@@ -269,7 +269,7 @@ export const searchPharmacyInvimaCatalogInput = paginationInput
   })
   .strict();
 
-// --- Band 6B: Controlled medicines (FNE Colombia — Res. 1478/2006) ---
+// --- Controlled medicines (FNE Colombia — Res. 1478/2006) ---
 
 export const createPharmacyFneAuthorizationInput = z
   .object({
@@ -307,7 +307,7 @@ export const getPharmacyFneMonthlyReportInput = z
   })
   .strict();
 
-// --- Band 6B: Patient allergies ---
+// --- Patient allergies ---
 
 export const listPharmacyCustomerAllergiesInput = z
   .object({
