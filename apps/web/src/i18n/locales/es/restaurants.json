@@ -82,7 +82,8 @@
     "checkLabelPlaceholder": "p. ej. Grupo del patio",
     "tableStateLoading": "Verificando el servicio abierto de esta mesa...",
     "tableStateError": "No se pudo verificar el estado de la mesa. Intente de nuevo antes de abrir una cuenta.",
-    "generalParkOption": "Sin mesa · venta suspendida general"
+    "generalParkOption": "Sin mesa · venta suspendida general",
+    "roundCheck": "Cuenta de la ronda"
   },
   "cart": {
     "empty": "Aún no hay productos.",
@@ -105,7 +106,8 @@
   "save": {
     "errorTitle": "No se pudo enviar la ronda",
     "tableRequired": "Escriba el nombre de la mesa antes de guardar.",
-    "emptyCartHint": "Agregue al menos un producto antes de guardar."
+    "emptyCartHint": "Agregue al menos un producto antes de guardar.",
+    "roundCheckRequired": "Seleccione la cuenta que recibe esta ronda."
   },
   "tables": {
     "title": "Mesas del restaurante",
@@ -348,9 +350,7 @@
     "bomQuantity": "Cantidad",
     "bomAdd": "Agregar insumo",
     "bomRemove": "Quitar {{name}}",
-    "bomEmpty": "Sin insumos vinculados.",
-    "bomSave": "Guardar insumos",
-    "bomSaved": "Insumos actualizados."
+    "bomEmpty": "Sin insumos vinculados."
   },
   "tabs": {
     "label": "Vistas del catálogo de adicionales",

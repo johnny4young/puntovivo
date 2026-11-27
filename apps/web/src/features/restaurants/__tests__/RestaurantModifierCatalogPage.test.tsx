@@ -10,7 +10,6 @@ import { RestaurantModifierPicker } from '../RestaurantModifierPicker';
 
 const h = vi.hoisted(() => ({
   save: vi.fn(),
-  saveBom: vi.fn(),
   products: [] as Array<Record<string, unknown>>,
   refetch: vi.fn(),
   invalidate: vi.fn(),
@@ -29,20 +28,6 @@ vi.mock('@/lib/trpc', () => ({
     restaurantModifiers: {
       list: { useQuery: h.query },
       getBomComponents: { useQuery: () => ({ data: [], isLoading: false }) },
-      setBomComponents: {
-        useMutation: (opts?: { onSuccess?: (d: unknown) => unknown }) => ({
-          mutate: (input: unknown) => {
-            h.saveBom(input);
-            void opts?.onSuccess?.([]);
-          },
-          mutateAsync: async (input: unknown) => {
-            h.saveBom(input);
-            await opts?.onSuccess?.([]);
-            return [];
-          },
-          isPending: false,
-        }),
-      },
     },
     products: {
       list: { useQuery: () => ({ data: { items: h.products }, isLoading: false }) },
@@ -219,14 +204,14 @@ describe('manager catalog and bounded picker', () => {
     });
     fireEvent.click(within(bomSection).getByTestId('modifier-bom-add'));
 
-    // Click the modal's primary Save button WITHOUT clicking the inner Save ingredients button!
+    // The recipe travels in the same versioned modifier save.
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
-    await waitFor(() =>
-      expect(h.saveBom).toHaveBeenCalledWith({
-        siteId: 'site-a',
-        catalogId: 'cheese',
-        components: [{ componentProductId: 'ing-valid', quantity: 0.25 }],
-      })
-    );
+    await waitFor(() => expect(h.save).toHaveBeenCalledTimes(1));
+    expect(h.save.mock.calls[0]![0]).toMatchObject({
+      siteId: 'site-a',
+      id: 'cheese',
+      expectedVersion: 3,
+      bomComponents: [{ componentProductId: 'ing-valid', quantity: 0.25 }],
+    });
   });
 });

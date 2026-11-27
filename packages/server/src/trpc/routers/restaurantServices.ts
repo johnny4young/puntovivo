@@ -31,6 +31,7 @@ import {
   criticalCommandCashierManagerOrAdminProcedureWithModule,
   criticalCommandManagerOrAdminProcedureWithModule,
 } from '../middleware/criticalCommand.js';
+import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
 import { buildLifecycleContext } from './sales/helpers.js';
 import { addRestaurantRound } from '../../application/restaurant/add-round.js';
 import { regroupRestaurantChecksInTransaction } from '../../application/restaurant/regroup-checks.js';
@@ -182,7 +183,7 @@ export const restaurantServicesRouter = router({
       return result;
     }),
 
-  /** Non-fiscal precheck preview with editable suggested voluntary tip (Ley 1935/2018). */
+  /** Non-fiscal precheck preview with an editable suggested voluntary tip. */
   getPrecheck: restaurantStaffProcedure.input(getRestaurantPrecheckInput).query(({ ctx, input }) =>
     buildRestaurantPrecheck(ctx.db, {
       tenantId: ctx.tenantId,
@@ -195,9 +196,10 @@ export const restaurantServicesRouter = router({
   ),
 
   /** Print non-fiscal precheck without consuming a fiscal sequential or closing the sale. */
-  printPrecheck: restaurantStaffProcedure
+  printPrecheck: restaurantCommandProcedure
     .input(printRestaurantPrecheckInput)
     .mutation(({ ctx, input }) => {
+      const command = asCriticalCommandContext(ctx);
       const result = printRestaurantPrecheck(ctx.db, {
         tenantId: ctx.tenantId,
         callerSiteId: ctx.siteId,
@@ -206,6 +208,8 @@ export const restaurantServicesRouter = router({
         checkId: input.checkId,
         tipPercent: input.tipPercent,
         markBillRequested: input.markBillRequested,
+        operationId: command.envelope.operationId,
+        completeInTransaction: command.completeInTransaction,
       });
       if (result.printedVia === 'hardware_outbox') {
         void tickDefaultHardwareWorker(ctx.tenantId).catch(() => {});

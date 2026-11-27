@@ -3,7 +3,7 @@
  *
  * Strictly read-only with respect to `sales.status` and `sequentials`: never
  * consumes an invoice number and never closes the check. Includes the Colombian
- * Ley 1935 de 2018 voluntary tip disclosure and editable suggested tip rate.
+ * Voluntary tip disclosure (citing Ley 1935 de 2018 for Colombian tenants) and editable suggested tip rate.
  */
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -21,6 +21,7 @@ import {
   sales,
   sitePeripherals,
   sites,
+  tenantLocaleSettings,
   tenants,
   users,
 } from '../../db/schema.js';
@@ -390,8 +391,16 @@ export function buildRestaurantPrecheck(
   const totalWithTip = roundMoney(baseTotal + suggestedTipAmount);
   const currencyCode = checks[0]!.currencyCode ?? 'COP';
 
-  const voluntaryTipNoticeEs = `PROPINA VOLUNTARIA (Ley 1935 de 2018): Se sugiere una propina voluntaria del ${tipPercent}% (${formatMoneySimple(suggestedTipAmount, currencyCode)}). Usted puede aceptarla, modificarla o rechazarla.`;
-  const voluntaryTipNoticeEn = `VOLUNTARY TIP (Law 1935 of 2018): A suggested voluntary tip of ${tipPercent}% (${formatMoneySimple(suggestedTipAmount, currencyCode)}) is shown. You may accept, adjust, or decline it.`;
+  // The statute is Colombian; other countries get the same disclosure without the citation.
+  const isColombia =
+    (db
+      .select({ countryCode: tenantLocaleSettings.countryCode })
+      .from(tenantLocaleSettings)
+      .where(eq(tenantLocaleSettings.tenantId, args.tenantId))
+      .get()?.countryCode ?? 'CO') === 'CO';
+  const tipText = formatMoneySimple(suggestedTipAmount, currencyCode);
+  const voluntaryTipNoticeEs = `PROPINA VOLUNTARIA${isColombia ? ' (Ley 1935 de 2018)' : ''}: Se sugiere una propina voluntaria del ${tipPercent}% (${tipText}). Usted puede aceptarla, modificarla o rechazarla.`;
+  const voluntaryTipNoticeEn = `VOLUNTARY TIP${isColombia ? ' (Law 1935 of 2018)' : ''}: A suggested voluntary tip of ${tipPercent}% (${tipText}) is shown. You may accept, adjust, or decline it.`;
 
   const baseDoc = {
     isFiscalDocument: false as const,
@@ -447,6 +456,8 @@ export function printRestaurantPrecheck(
     checkId?: string | undefined;
     tipPercent?: number | undefined;
     markBillRequested?: boolean | undefined;
+    operationId: string;
+    completeInTransaction: (tx: DatabaseInstance, resultRef: unknown) => void;
   }
 ): {
   precheck: RestaurantPrecheckDocument;
@@ -563,10 +574,13 @@ export function printRestaurantPrecheck(
           printedVia,
           outboxId,
         },
+        operationId: args.operationId,
         metadata: { siteId: table.siteId, isFiscalDocument: false },
       });
 
-      return { precheck, printedVia, outboxId };
+      const result = { precheck, printedVia, outboxId };
+      args.completeInTransaction(tx, result);
+      return result;
     },
     { behavior: 'immediate' }
   );

@@ -107,10 +107,11 @@ Agregar uno exige ADR sustituto o modificación documentada aquí.
 - `sales.carryOver` (manager/admin deja una venta suspendida para el día siguiente)
 - `restaurantServices.openCheck` (servicio de mesa y borrador atómicos)
 - `restaurantServices.addRound` (agrega una ronda secuencial sobre una cuenta abierta existente)
+- `restaurantServices.printPrecheck` (impresión de la precuenta no fiscal, marca de cuenta solicitada y auditoría; un reintento se reproduce en lugar de imprimir dos veces)
 - `restaurantServices.regroupChecks` (manager/admin mueve líneas entre las cuentas abiertas de una mesa)
 - `restaurantServices.splitEqual` (división igualitaria `Total / N` entre cuentas pagables por mesero/cajero)
 - `restaurantServices.splitSharedLine` (división fraccionada de un plato compartido entre cuentas por mesero/cajero)
-- `restaurantModifiers.save` (CAS del catálogo de sede, auditoría e instantánea reproducible)
+- `restaurantModifiers.save` (CAS del catálogo de sede con su receta de insumos, auditoría e instantánea reproducible)
 - `restaurantModifiers.saveGroup` (CAS del grupo de modificadores de la sede con sus opciones y platos, auditoría e instantánea reproducible)
 
 **Sesiones de caja**

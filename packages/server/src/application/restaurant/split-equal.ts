@@ -2,7 +2,7 @@
  * Equal split (`Total / N`) and shared-dish fractional split for restaurant checks.
  *
  * Accessible to waiters/cashiers as well as managers/admins. Splits open draft
- * lines fractionally with exact cent conservation (`allocateCentsByWeights`),
+ * lines fractionally with exact conservation in payable units (`allocateMoneyCents`),
  * proportional tax/bundle/modifier-BOM snapshot splitting, and KDS dispatch
  * fencing (`route: 'exclude'` on newly minted fractional pieces) so already
  * cooked dishes are never re-fired to the kitchen.
@@ -31,7 +31,13 @@ import {
   sales,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { allocateCentsByWeights, roundMoney, tryMoneyToSafeCents } from '../../lib/money.js';
+import { resolveTenantCurrency } from '../../lib/currency.js';
+import {
+  allocateCentsByWeights,
+  payableDecimals,
+  roundMoney,
+  tryMoneyToSafeCents,
+} from '../../lib/money.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import { assertSalesNotExternallyBound } from '../external-orders/sale-binding.js';
@@ -87,6 +93,28 @@ function toCents(value: number): number {
 
 const fromCents = (cents: number): number => roundMoney(cents / 100);
 
+/** Cents in one payable unit: 100 for whole-unit currencies such as COP, CLP and PYG. */
+function payableUnitCents(tx: DatabaseInstance, tenantId: string, currencyCode: string | null) {
+  return (
+    10 ** Math.max(0, 2 - payableDecimals(currencyCode ?? resolveTenantCurrency(tx, tenantId)))
+  );
+}
+
+/**
+ * Split money by weight in whole payable units when the amount is one, so every
+ * check still rounds to the payable total the unsplit check would have charged.
+ */
+function allocateMoneyCents(
+  totalCents: number,
+  weights: readonly number[],
+  unitCents = 1
+): number[] {
+  const unit = unitCents > 1 && totalCents % unitCents === 0 ? unitCents : 1;
+  const shares = allocateCentsByWeights(totalCents / unit, weights);
+  if (!shares) invalidDraftSplit('Amounts could not be allocated across the checks');
+  return shares.map(share => share * unit);
+}
+
 function allocateIntegerEvenly(total: number, parts: number): number[] {
   const base = Math.trunc(total / parts);
   let remainder = total - base * parts;
@@ -114,6 +142,18 @@ function allocateQuantityEvenly(totalQty: number, parts: number): number[] {
     });
   }
   return shares.map(v => roundQuantity(v / 1_000_000, 6));
+}
+
+/** Stock snapshots keep their full precision, so a tiny share may round to zero. */
+function allocateSnapshotQuantity(totalQty: number, parts: number): number[] {
+  let decimals = 12;
+  while (decimals > 6 && !Number.isSafeInteger(Math.round(totalQty * 10 ** decimals))) {
+    decimals -= 1;
+  }
+  const factor = 10 ** decimals;
+  return allocateIntegerEvenly(Math.round(totalQty * factor), parts).map(v =>
+    roundQuantity(v / factor, decimals)
+  );
 }
 
 function rotateShares<T>(shares: readonly T[], offset: number): T[] {
@@ -183,6 +223,7 @@ function splitOneSaleItemAcrossTargets(
     sourceCheckLine: typeof restaurantCheckLines.$inferSelect;
     targets: readonly TargetCheckHandle[];
     lineIndex?: number;
+    unitCents: number;
   }
 ): void {
   const parts = args.targets.length;
@@ -190,11 +231,8 @@ function splitOneSaleItemAcrossTargets(
   const weights = Array.from({ length: parts }, () => 1);
 
   const quantities = rotateShares(allocateQuantityEvenly(args.sourceItem.quantity, parts), offset);
-  const rawTotalCents = allocateCentsByWeights(toCents(args.sourceItem.total), weights);
-  const rawTaxCents = allocateCentsByWeights(toCents(args.sourceItem.taxAmount), weights);
-  if (!rawTotalCents || !rawTaxCents) {
-    invalidDraftSplit('Line totals could not be allocated evenly');
-  }
+  const rawTotalCents = allocateMoneyCents(toCents(args.sourceItem.total), weights, args.unitCents);
+  const rawTaxCents = allocateMoneyCents(toCents(args.sourceItem.taxAmount), weights);
   const totalCents = rotateShares(rawTotalCents, offset);
   const invCostShares =
     args.sourceItem.inventoryCostCents !== null
@@ -218,7 +256,7 @@ function splitOneSaleItemAcrossTargets(
     .all();
 
   const componentTaxes = taxComponents.map((comp, compIdx) =>
-    rotateShares(allocateCentsByWeights(toCents(comp.taxAmount), weights)!, offset + compIdx)
+    rotateShares(allocateMoneyCents(toCents(comp.taxAmount), weights), offset + compIdx)
   );
   const taxCents =
     taxComponents.length > 0
@@ -232,10 +270,7 @@ function splitOneSaleItemAcrossTargets(
     const taxable =
       toCents(comp.taxableAmount) === sourceBaseCents
         ? totalCents.map((tot, idx) => tot - taxCents[idx]!)
-        : rotateShares(
-            allocateCentsByWeights(toCents(comp.taxableAmount), weights)!,
-            offset + compIdx
-          );
+        : rotateShares(allocateMoneyCents(toCents(comp.taxableAmount), weights), offset + compIdx);
     return { comp, taxable, tax: componentTaxes[compIdx]! };
   });
 
@@ -374,7 +409,7 @@ function splitOneSaleItemAcrossTargets(
   // Re-allocate bundle and modifier-BOM snapshots across all targets.
   const bundleAllocations = bundleSnapshots.map(snap => ({
     snap,
-    qty: allocateQuantityEvenly(snap.totalQuantityDeducted, parts),
+    qty: allocateSnapshotQuantity(snap.totalQuantityDeducted, parts),
     inv:
       snap.inventoryCostCents !== null
         ? allocateIntegerEvenly(snap.inventoryCostCents, parts)
@@ -383,7 +418,7 @@ function splitOneSaleItemAcrossTargets(
   }));
   const modBomAllocations = modifierBomSnapshots.map(snap => ({
     snap,
-    qty: allocateQuantityEvenly(snap.totalQuantityDeducted, parts),
+    qty: allocateSnapshotQuantity(snap.totalQuantityDeducted, parts),
     inv:
       snap.inventoryCostCents !== null
         ? allocateIntegerEvenly(snap.inventoryCostCents, parts)
@@ -910,6 +945,7 @@ export function splitRestaurantCheckEqualInTransaction(
     });
   }
 
+  const unitCents = payableUnitCents(tx, tenantId, sourceSale.currencyCode);
   for (const [lineIndex, item] of sourceItems.entries()) {
     const checkLine = checkLineBySaleItem.get(item.id)!;
     splitOneSaleItemAcrossTargets(tx, {
@@ -920,6 +956,7 @@ export function splitRestaurantCheckEqualInTransaction(
       sourceCheckLine: checkLine,
       targets,
       lineIndex,
+      unitCents,
     });
   }
 
@@ -927,12 +964,17 @@ export function splitRestaurantCheckEqualInTransaction(
   const totalPostGross = targetGrossCents.reduce((s, g) => s + g, 0);
   const headerWeights =
     totalPostGross > 0 ? targetGrossCents : Array.from({ length: args.parts }, () => 1);
-  const discountShares = allocateCentsByWeights(toCents(sourceSale.discountAmount), headerWeights)!;
-  const tipShares = allocateCentsByWeights(toCents(sourceSale.tipAmount), headerWeights)!;
-  const serviceShares = allocateCentsByWeights(
+  const discountShares = allocateMoneyCents(
+    toCents(sourceSale.discountAmount),
+    headerWeights,
+    unitCents
+  );
+  const tipShares = allocateMoneyCents(toCents(sourceSale.tipAmount), headerWeights, unitCents);
+  const serviceShares = allocateMoneyCents(
     toCents(sourceSale.serviceChargeAmount),
-    headerWeights
-  )!;
+    headerWeights,
+    unitCents
+  );
 
   const resultChecks: SplitChecksSummaryResult['checks'] = [];
   const syncContext = {
@@ -1329,6 +1371,9 @@ export function splitRestaurantSharedLineInTransaction(
     }
   }
 
+  const unitCents = payableUnitCents(tx, tenantId, sourceEntry.sale.currencyCode);
+  const preGrossBySale = new Map(targets.map(t => [t.saleId, readDraftGrossCents(tx, t.saleId)]));
+  preGrossBySale.set(sourceEntry.sale.id, readDraftGrossCents(tx, sourceEntry.sale.id));
   splitOneSaleItemAcrossTargets(tx, {
     tenantId,
     siteId: table.siteId,
@@ -1336,9 +1381,10 @@ export function splitRestaurantSharedLineInTransaction(
     sourceItem,
     sourceCheckLine,
     targets,
+    unitCents,
   });
 
-  // Recalculate headers for every touched check with proportional header adjustments and bump versions.
+  // Only the source check's discount, tip and service travel, by what it keeps and what each check received.
   const syncContext = {
     db: tx,
     tenantId,
@@ -1350,34 +1396,32 @@ export function splitRestaurantSharedLineInTransaction(
   const touchedSaleIds = touchedList.map(
     id => checkById.get(id)?.sale.id ?? createdById.get(id)!.saleId
   );
-  const postGrossCents = touchedSaleIds.map(sid => readDraftGrossCents(tx, sid));
-  const totalPostGross = postGrossCents.reduce((s, g) => s + g, 0);
-  const headerWeights =
-    totalPostGross > 0 ? postGrossCents : Array.from({ length: touchedList.length }, () => 1);
-  const pooledDiscountCents = touchedList.reduce(
-    (s, id) => s + toCents(checkById.get(id)?.sale.discountAmount ?? 0),
-    0
-  );
-  const pooledTipCents = touchedList.reduce(
-    (s, id) => s + toCents(checkById.get(id)?.sale.tipAmount ?? 0),
-    0
-  );
-  const pooledServiceCents = touchedList.reduce(
-    (s, id) => s + toCents(checkById.get(id)?.sale.serviceChargeAmount ?? 0),
-    0
-  );
-  const discountShares = allocateCentsByWeights(pooledDiscountCents, headerWeights)!;
-  const tipShares = allocateCentsByWeights(pooledTipCents, headerWeights)!;
-  const serviceShares = allocateCentsByWeights(pooledServiceCents, headerWeights)!;
+  const headerWeights = touchedSaleIds.map(sid => {
+    const post = readDraftGrossCents(tx, sid);
+    return sid === sourceEntry.sale.id ? post : Math.max(0, post - (preGrossBySale.get(sid) ?? 0));
+  });
+  const shareOf = (amount: number) => allocateMoneyCents(toCents(amount), headerWeights, unitCents);
+  const discountShares = shareOf(sourceEntry.sale.discountAmount);
+  const tipShares = shareOf(sourceEntry.sale.tipAmount);
+  const serviceShares = shareOf(sourceEntry.sale.serviceChargeAmount);
+  const keeps = (
+    checkId: string,
+    field: 'discountAmount' | 'tipAmount' | 'serviceChargeAmount'
+  ) => {
+    const entry = checkById.get(checkId);
+    return entry && checkId !== sourceEntry.check.id ? toCents(entry.sale[field]) : 0;
+  };
 
   const resultChecks: SplitChecksSummaryResult['checks'] = [];
 
   for (const [idx, checkId] of touchedList.entries()) {
     const existing = checkById.get(checkId);
     const created = createdById.get(checkId);
-    const discountAmount = fromCents(discountShares[idx]!);
-    const tipAmount = fromCents(tipShares[idx]!);
-    const serviceChargeAmount = fromCents(serviceShares[idx]!);
+    const discountAmount = fromCents(discountShares[idx]! + keeps(checkId, 'discountAmount'));
+    const tipAmount = fromCents(tipShares[idx]! + keeps(checkId, 'tipAmount'));
+    const serviceChargeAmount = fromCents(
+      serviceShares[idx]! + keeps(checkId, 'serviceChargeAmount')
+    );
     if (existing) {
       const syncVersion = (existing.sale.syncVersion ?? 0) + 1;
       const total = recalculateDraftHeaderFromLines(tx, {

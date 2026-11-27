@@ -144,10 +144,11 @@ Adding to this list requires a superseding ADR or a documented amendment here.
 - `sales.carryOver` (manager/admin leaves a parked draft for the next day)
 - `restaurantServices.openCheck` (atomic table service and sale draft)
 - `restaurantServices.addRound` (append sequential round onto an existing open check)
+- `restaurantServices.printPrecheck` (non-fiscal precheck print job, bill-requested mark and audit; a retry replays instead of printing twice)
 - `restaurantServices.regroupChecks` (manager/admin moves lines between a table's open checks)
 - `restaurantServices.splitEqual` (waiter/cashier equal split `Total / N` across payable checks)
 - `restaurantServices.splitSharedLine` (waiter/cashier fractional split of a shared dish across checks)
-- `restaurantModifiers.save` (site catalog CAS, audit and replay snapshot)
+- `restaurantModifiers.save` (site catalog CAS with its ingredient recipe, audit and replay snapshot)
 - `restaurantModifiers.saveGroup` (site modifier group CAS with its options and dishes, audit and replay snapshot)
 
 **Cash sessions**

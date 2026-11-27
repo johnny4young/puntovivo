@@ -16,6 +16,8 @@ const RestaurantModifierGroupsPanel = lazy(() =>
     default: module.RestaurantModifierGroupsPanel,
   }))
 );
+import type { ModifierBomDraft } from './ModifierBomSection';
+
 const ModifierBomSection = lazy(() =>
   import('./ModifierBomSection').then(module => ({
     default: module.ModifierBomSection,
@@ -269,7 +271,7 @@ function CatalogForm({
   const [draft, setDraft] = useState(initial),
     [error, setError] = useState<string | null>(null);
   const busy = useRef(false),
-    bomSavePendingRef = useRef<(() => Promise<void>) | null>(null),
+    bomDraft = useRef<ModifierBomDraft | null>(null),
     save = useCriticalMutation('restaurantModifiers.save');
   const utils = trpc.useUtils();
   return (
@@ -289,10 +291,11 @@ function CatalogForm({
           busy.current = true;
           setError(null);
           try {
-            if (bomSavePendingRef.current) {
-              await bomSavePendingRef.current();
-            }
-            await save.mutateAsync({ siteId, ...draft });
+            await save.mutateAsync({
+              siteId,
+              ...draft,
+              ...(bomDraft.current ? { bomComponents: bomDraft.current } : {}),
+            });
             await utils.restaurantModifiers.invalidate();
             onSaved();
           } catch (failure) {
@@ -367,7 +370,9 @@ function CatalogForm({
               <ModifierBomSection
                 siteId={siteId}
                 catalogId={initial.id}
-                savePendingRef={bomSavePendingRef}
+                onDraftChange={next => {
+                  bomDraft.current = next;
+                }}
               />
             </Suspense>
           )}

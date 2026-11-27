@@ -142,6 +142,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
   const reservationSelected =
     !!arrivedReservation && reservationSelection === reservationChoiceKey(arrivedReservation);
   const [checkLabel, setCheckLabel] = useState<string>('');
+  const [roundCheckId, setRoundCheckId] = useState<string>('');
   const lockedGuestCount = tableStateQuery.data?.service?.guestCount ?? null;
   const pickedTableGuestMaximum =
     tableCatalog.find(row => row.id === resolvedPickedTableId)?.seatCount ?? 200;
@@ -168,7 +169,17 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
     return null;
   })();
   const micDisabled = micDisabledReason !== null;
+  const openChecks = tableStateQuery.data?.checks ?? [];
+  // A check resumed on a register cannot take a round; after a split the waiter picks one.
+  const parkedChecks = openChecks.filter(check => check.suspendedAt !== null);
+  const activeOpenCheck =
+    parkedChecks.length > 1
+      ? (parkedChecks.find(check => check.id === roundCheckId) ?? null)
+      : (parkedChecks[0] ?? openChecks[0] ?? null);
+  const roundCheckMissing =
+    parkedChecks.length > 1 && activeOpenCheck === null && checkLabel.trim().length === 0;
   const saveDisabled =
+    roundCheckMissing ||
     !cashSession ||
     !useCatalogDropdown ||
     !resolvedPickedTableId ||
@@ -200,9 +211,6 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
     0
   );
   const roundNumber = sentRounds.length + 1;
-  const openChecks = tableStateQuery.data?.checks ?? [];
-  const activeOpenCheck =
-    openChecks.find(check => check.suspendedAt !== null) ?? openChecks[0] ?? null;
   // Equal split and shared-dish split are available to waiters/cashiers as well as managers.
   const canSplit =
     splitsBills &&
@@ -540,6 +548,23 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
             requested={openService.billRequestedAt !== null}
             disabled={isSaving}
           />
+          {parkedChecks.length > 1 && (
+            <select
+              className="input min-h-11 w-auto"
+              aria-label={t('restaurants:service.roundCheck')}
+              value={activeOpenCheck?.id ?? ''}
+              disabled={isSaving}
+              onChange={e => setRoundCheckId(e.target.value)}
+              data-testid="voice-ordering-round-check"
+            >
+              <option value="">{t('restaurants:service.roundCheck')}</option>
+              {parkedChecks.map(check => (
+                <option key={check.id} value={check.id}>
+                  {check.label ?? check.saleNumber}
+                </option>
+              ))}
+            </select>
+          )}
           {openChecks.length > 0 && (
             <button
               type="button"
@@ -669,6 +694,14 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
                     data-testid="voice-ordering-save-table-hint"
                   >
                     {t('restaurants:save.tableRequired')}
+                  </p>
+                )}
+                {roundCheckMissing && cartItems.length > 0 && (
+                  <p
+                    className="text-xs text-warning-700"
+                    data-testid="voice-ordering-round-check-hint"
+                  >
+                    {t('restaurants:save.roundCheckRequired')}
                   </p>
                 )}
                 {cartItems.length === 0 && tableLabel.trim().length > 0 && (

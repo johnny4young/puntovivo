@@ -22,6 +22,13 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
   useToast: () => ({ success: h.toastSuccess, error: h.toastError }),
 }));
 
+vi.mock('@/lib/useCriticalMutation', () => ({
+  useCriticalMutation: (_path: string, opts: typeof h.printOptions) => {
+    h.printOptions = opts;
+    return { mutate: h.printMutate, isPending: false };
+  },
+}));
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
@@ -30,12 +37,6 @@ vi.mock('@/lib/trpc', () => ({
     }),
     restaurantServices: {
       getPrecheck: { useQuery: h.getPrecheck },
-      printPrecheck: {
-        useMutation: (opts: typeof h.printOptions) => {
-          h.printOptions = opts;
-          return { mutate: h.printMutate, isPending: false };
-        },
-      },
     },
   },
 }));

@@ -82,7 +82,8 @@
     "checkLabelPlaceholder": "e.g. Patio group",
     "tableStateLoading": "Checking the open service for this table...",
     "tableStateError": "The table state could not be verified. Try again before opening a check.",
-    "generalParkOption": "No table · general parked sale"
+    "generalParkOption": "No table · general parked sale",
+    "roundCheck": "Round check"
   },
   "cart": {
     "empty": "No items yet.",
@@ -105,7 +106,8 @@
   "save": {
     "errorTitle": "The round could not be sent",
     "tableRequired": "Enter a table label before saving.",
-    "emptyCartHint": "Add at least one item before saving."
+    "emptyCartHint": "Add at least one item before saving.",
+    "roundCheckRequired": "Select the check that receives this round."
   },
   "tables": {
     "title": "Restaurant tables",
@@ -348,9 +350,7 @@
     "bomQuantity": "Quantity",
     "bomAdd": "Add ingredient",
     "bomRemove": "Remove {{name}}",
-    "bomEmpty": "No linked ingredients.",
-    "bomSave": "Save ingredients",
-    "bomSaved": "Ingredients updated."
+    "bomEmpty": "No linked ingredients."
   },
   "tabs": {
     "label": "Add-on catalog views",

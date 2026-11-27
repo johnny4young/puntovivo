@@ -82,6 +82,7 @@ export type CriticalCommandPath =
   | 'sales.carryOver'
   | 'restaurantServices.openCheck'
   | 'restaurantServices.addRound'
+  | 'restaurantServices.printPrecheck'
   | 'restaurantServices.regroupChecks'
   | 'restaurantServices.splitEqual'
   | 'restaurantServices.splitSharedLine'

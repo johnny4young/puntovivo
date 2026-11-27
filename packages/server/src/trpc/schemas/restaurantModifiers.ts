@@ -8,6 +8,7 @@ import { roundMoney } from '../../lib/money.js';
 
 export const MAX_ACTIVE_RESTAURANT_MODIFIERS = 500;
 const siteId = z.string().trim().min(1).max(128);
+const rowId = z.string().trim().min(1).max(128);
 export const listRestaurantModifiersInput = z
   .object({
     siteId,
@@ -17,6 +18,18 @@ export const listRestaurantModifiersInput = z
     offset: z.number().int().min(0).max(1_000_000).default(0),
   })
   .strict();
+
+/** A modifier's ingredient recipe; it is replaced as a whole by `restaurantModifiers.save`. */
+export const restaurantModifierBomComponentsInput = z
+  .array(
+    z
+      .object({
+        componentProductId: rowId,
+        quantity: z.number().finite().positive().max(1_000_000),
+      })
+      .strict()
+  )
+  .max(50);
 
 export const saveRestaurantModifierInput = z
   .object({
@@ -37,6 +50,7 @@ export const saveRestaurantModifierInput = z
     maxQuantity: z.number().int().min(1).max(20),
     requiresManager: z.boolean(),
     isActive: z.boolean(),
+    bomComponents: restaurantModifierBomComponentsInput.optional(),
   })
   .strict()
   .refine(
@@ -52,7 +66,6 @@ export const MAX_ACTIVE_RESTAURANT_MODIFIER_GROUPS = 100;
 export const MAX_RESTAURANT_GROUP_OPTIONS = 20;
 export const MAX_RESTAURANT_GROUP_PRODUCTS = 500;
 export const MAX_RESTAURANT_GROUPS_PER_PRODUCT = 8;
-const rowId = z.string().trim().min(1).max(128);
 
 export const listRestaurantModifierGroupsInput = z
   .object({ siteId, includeArchived: z.boolean().default(false) })
@@ -109,22 +122,5 @@ export const getRestaurantModifierBomInput = z
   .object({
     siteId,
     catalogId: rowId,
-  })
-  .strict();
-
-export const setRestaurantModifierBomInput = z
-  .object({
-    siteId,
-    catalogId: rowId,
-    components: z
-      .array(
-        z
-          .object({
-            componentProductId: rowId,
-            quantity: z.number().finite().positive().max(1_000_000),
-          })
-          .strict()
-      )
-      .max(50),
   })
   .strict();

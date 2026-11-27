@@ -2678,19 +2678,13 @@
   {
     "path": "restaurantModifiers.save",
     "kind": "mutation",
-    "input": "object{expectedVersion:integer[min=0,max=9007199254740990],id?:string[minLength=1,maxLength=128],isActive:boolean,maxQuantity:integer[min=1,max=20],name:string[minLength=1,maxLength=80],requiresManager:boolean,siteId:string[minLength=1,maxLength=128],unitPriceDelta:number[min=0,max=1000000000]}",
+    "input": "object{bomComponents?:array<object>[maxItems=50],expectedVersion:integer[min=0,max=9007199254740990],id?:string[minLength=1,maxLength=128],isActive:boolean,maxQuantity:integer[min=1,max=20],name:string[minLength=1,maxLength=80],requiresManager:boolean,siteId:string[minLength=1,maxLength=128],unitPriceDelta:number[min=0,max=1000000000]}",
     "output": "inferred"
   },
   {
     "path": "restaurantModifiers.saveGroup",
     "kind": "mutation",
     "input": "object{catalogIds:array<string[minLength=1,maxLength=128]>[minItems=1,maxItems=20],expectedVersion:integer[min=0,max=9007199254740990],id?:string[minLength=1,maxLength=128],isActive:boolean,kind:enum(\"choice\"|\"without\"|\"extra\"),maxSelections:integer[min=1,max=20],minSelections:integer[min=0,max=20],name:string[minLength=1,maxLength=80],productIds:array<string[minLength=1,maxLength=128]>[maxItems=500],selection:enum(\"single\"|\"multiple\"),siteId:string[minLength=1,maxLength=128]}",
-    "output": "inferred"
-  },
-  {
-    "path": "restaurantModifiers.setBomComponents",
-    "kind": "mutation",
-    "input": "object{catalogId:string[minLength=1,maxLength=128],components:array<object>[maxItems=50],siteId:string[minLength=1,maxLength=128]}",
     "output": "inferred"
   },
   {

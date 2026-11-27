@@ -1171,6 +1171,43 @@ describe('VoiceOrderingScreen', () => {
     );
   });
 
+  it('sends a round to the check the waiter picks once the table is split', async () => {
+    const parked = (id: string, label: string, version: number) => ({
+      id,
+      label,
+      saleNumber: `POS-${id}`,
+      version,
+      suspendedAt: '2026-11-21T19:05:00.000Z',
+      openedAt: '2026-11-21T19:00:00.000Z',
+      total: 10_000,
+      rounds: [],
+      lines: [],
+    });
+    restaurantTableStateMock.mockReturnValue({
+      data: {
+        service: { id: 'service-1', guestCount: 2 },
+        diners: [],
+        checks: [parked('c-1', 'Mesa 1 (1/2)', 3), parked('c-2', 'Mesa 1 (2/2)', 5)],
+      },
+      isLoading: false,
+      error: null,
+    });
+    renderScreen();
+    selectTable();
+    await addVoiceItem();
+    expect(screen.getByTestId('voice-ordering-save')).toBeDisabled();
+    expect(screen.getByTestId('voice-ordering-round-check-hint')).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('voice-ordering-round-check'), {
+      target: { value: 'c-2' },
+    });
+    fireEvent.click(screen.getByTestId('voice-ordering-save'));
+    await waitFor(() => expect(openCheckMutateAsync).toHaveBeenCalledTimes(1));
+    expect(openCheckMutateAsync.mock.calls[0]![0]).toMatchObject({
+      checkId: 'c-2',
+      expectedCheckVersion: 5,
+    });
+  });
+
   it('preserves the round when the atomic command fails', async () => {
     openCheckMutateAsync.mockRejectedValue(new Error('boom'));
     renderScreen();

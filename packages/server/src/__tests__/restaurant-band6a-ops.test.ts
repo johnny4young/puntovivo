@@ -7,7 +7,7 @@
  * 5. Modifier BOM ingredient deduction & reversal on discard/void/return.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -17,16 +17,19 @@ import {
   companies,
   hardwareOutbox,
   inventoryBalances,
+  kdsOrderLines,
   kdsOrders,
   productBundleComponents,
   products,
   restaurantTables,
+  saleItemModifierBomComponents,
   saleItemTaxComponents,
   saleItems,
   sales,
   sequentials,
   sitePeripherals,
   sites,
+  tenantLocaleSettings,
   tenants,
   unitXProduct,
   units,
@@ -319,6 +322,21 @@ describe('Band 6A — Restaurant operational closure', () => {
       .where(and(eq(kdsOrders.tenantId, tenantId), eq(kdsOrders.saleId, check1.saleId)))
       .all();
     expect(kitchenTickets).toHaveLength(3);
+    // Unnamed rounds store no language-specific label; the kitchen sees the round number.
+    expect(state3.checks[0]!.rounds.map(r => r.label)).toEqual([null, null, null]);
+    const kitchenRoundLabels = db
+      .select({ roundLabel: kdsOrderLines.roundLabel })
+      .from(kdsOrderLines)
+      .where(
+        inArray(
+          kdsOrderLines.orderId,
+          kitchenTickets.map(ticket => ticket.id)
+        )
+      )
+      .all()
+      .map(row => row.roundLabel)
+      .sort();
+    expect(kitchenRoundLabels).toEqual(['2', '3', null]);
   });
 
   it('6A.2 routes thermal comandas & void tickets per KDS station and blocks unsafe TCP targets', async () => {
@@ -468,6 +486,13 @@ describe('Band 6A — Restaurant operational closure', () => {
     expect(preview10.suggestedTipAmount).toBe(5000);
     expect(preview10.totalWithTip).toBe(55000);
     expect(preview10.voluntaryTipNoticeEs).toContain('Ley 1935 de 2018');
+    // The Colombian statute is cited only for Colombian tenants.
+    await db.insert(tenantLocaleSettings).values({ tenantId, countryCode: 'CL' });
+    const previewCl = await cashier().restaurantServices.getPrecheck({ tableId });
+    await db.delete(tenantLocaleSettings).where(eq(tenantLocaleSettings.tenantId, tenantId));
+    expect(previewCl.voluntaryTipNoticeEs).not.toContain('1935');
+    expect(previewCl.voluntaryTipNoticeEn).not.toContain('1935');
+    expect(previewCl.voluntaryTipNoticeEs).toContain('PROPINA VOLUNTARIA');
 
     const preview15 = await cashier().restaurantServices.getPrecheck({ tableId, tipPercent: 15 });
     expect(preview15.suggestedTipAmount).toBe(7500);
@@ -498,13 +523,25 @@ describe('Band 6A — Restaurant operational closure', () => {
       updatedAt: now,
     });
 
-    const printed = await cashier().restaurantServices.printPrecheck({
-      tableId,
-      tipPercent: 10,
-      markBillRequested: true,
-    });
+    const printCtx = fresh({ role: 'cashier' });
+    const printInput = { tableId, tipPercent: 10, markBillRequested: true };
+    const printed = await appRouter
+      .createCaller(printCtx)
+      .restaurantServices.printPrecheck(printInput);
     expect(printed.printedVia).toBe('hardware_outbox');
     expect(printed.outboxId).toBeTruthy();
+    // A retried request replays the first print instead of queueing another.
+    const replayed = await appRouter
+      .createCaller(printCtx)
+      .restaurantServices.printPrecheck(printInput);
+    expect(replayed.outboxId).toBe(printed.outboxId);
+    const precheckJobs = db
+      .select()
+      .from(hardwareOutbox)
+      .where(eq(hardwareOutbox.tenantId, tenantId))
+      .all()
+      .filter(row => (row.payload as { isPrecheck?: boolean }).isPrecheck);
+    expect(precheckJobs).toHaveLength(1);
 
     // Sale remains an open draft and sequential counter did NOT advance.
     const saleRow = db.select().from(sales).where(eq(sales.id, opened.id)).get()!;
@@ -560,7 +597,7 @@ describe('Band 6A — Restaurant operational closure', () => {
     });
 
     expect(splitRes.checks).toHaveLength(3);
-    expect(splitRes.checks.map(c => c.total)).toEqual([3333.34, 3333.33, 3333.33]);
+    expect(splitRes.checks.map(c => c.total)).toEqual([3334, 3333, 3333]);
     const totalSum = Number(splitRes.checks.reduce((s, c) => s + c.total, 0).toFixed(2));
     expect(totalSum).toBe(10000);
 
@@ -581,6 +618,16 @@ describe('Band 6A — Restaurant operational closure', () => {
       amountReceived: 3400,
     });
     expect(completed.status).toBe('completed');
+    let collected = completed.total;
+    for (const chk of splitRes.checks.slice(1)) {
+      await cashier().sales.resume({ saleId: chk.saleId });
+      const settled = await cashier().sales.completeDraft({
+        saleId: chk.saleId,
+        paymentMethod: 'card',
+      });
+      collected += settled.total;
+    }
+    expect(collected).toBe(10000);
 
     // Shared-dish split on a fresh table across 2 checks by cashier.
     const table2 = await createTable(`Mesa Compartido ${nanoid(4)}`);
@@ -628,6 +675,7 @@ describe('Band 6A — Restaurant operational closure', () => {
       maxQuantity: 3,
       requiresManager: false,
       isActive: true,
+      bomComponents: [{ componentProductId: cheeseIngredientId, quantity: 0.25 }],
     });
     const noOnion = await manager().restaurantModifiers.save({
       siteId,
@@ -637,6 +685,7 @@ describe('Band 6A — Restaurant operational closure', () => {
       maxQuantity: 1,
       requiresManager: false,
       isActive: true,
+      bomComponents: [{ componentProductId: onionIngredientId, quantity: 0.1 }],
     });
     const withoutGroup = await manager().restaurantModifiers.saveGroup({
       siteId,
@@ -649,17 +698,6 @@ describe('Band 6A — Restaurant operational closure', () => {
       isActive: true,
       catalogIds: [noOnion.id],
       productIds: [burgerId],
-    });
-
-    await manager().restaurantModifiers.setBomComponents({
-      siteId,
-      catalogId: extraCheese.id,
-      components: [{ componentProductId: cheeseIngredientId, quantity: 0.25 }],
-    });
-    await manager().restaurantModifiers.setBomComponents({
-      siteId,
-      catalogId: noOnion.id,
-      components: [{ componentProductId: onionIngredientId, quantity: 0.1 }],
     });
 
     const tableId = await createTable(`Mesa BOM ${nanoid(4)}`);
@@ -771,11 +809,7 @@ describe('Band 6A — Restaurant operational closure', () => {
       maxQuantity: 4,
       requiresManager: false,
       isActive: true,
-    });
-    await manager().restaurantModifiers.setBomComponents({
-      siteId,
-      catalogId: mod.id,
-      components: [{ componentProductId: cheeseId, quantity: 0.5 }],
+      bomComponents: [{ componentProductId: cheeseId, quantity: 0.5 }],
     });
 
     const tableDiscard = await createTable(`Mesa Val Discard ${nanoid(4)}`);
@@ -832,11 +866,7 @@ describe('Band 6A — Restaurant operational closure', () => {
       maxQuantity: 2,
       requiresManager: false,
       isActive: true,
-    });
-    await manager().restaurantModifiers.setBomComponents({
-      siteId,
-      catalogId: oddMod.id,
-      components: [{ componentProductId: oddCheeseId, quantity: 0.25 }],
+      bomComponents: [{ componentProductId: oddCheeseId, quantity: 0.25 }],
     });
 
     const tableRet = await createTable(`Mesa Val Ret ${nanoid(4)}`);
@@ -1162,24 +1192,28 @@ describe('Band 6A — Restaurant operational closure', () => {
     });
 
     // Site B modifier BOM is NOT readable when calling getBomComponents with Site A's siteId!
+    const ingB = await createProduct('Insumo Secreto', 500, 10);
+    const modBFields = {
+      siteId: siteBId,
+      name: `Secreto Sede B ${nanoid(4)}`,
+      unitPriceDelta: 1000,
+      maxQuantity: 2,
+      requiresManager: false,
+      isActive: true,
+    };
     const modB = await appRouter
       .createCaller(fresh({ role: 'manager', siteId: siteBId }))
       .restaurantModifiers.save({
-        siteId: siteBId,
+        ...modBFields,
         expectedVersion: 0,
-        name: `Secreto Sede B ${nanoid(4)}`,
-        unitPriceDelta: 1000,
-        maxQuantity: 2,
-        requiresManager: false,
-        isActive: true,
+        bomComponents: [{ componentProductId: ingB, quantity: 1 }],
       });
-    const ingB = await createProduct('Insumo Secreto', 500, 10);
-    await appRouter
-      .createCaller(fresh({ role: 'manager', siteId: siteBId }))
-      .restaurantModifiers.setBomComponents({
-        siteId: siteBId,
-        catalogId: modB.id,
-        components: [{ componentProductId: ingB, quantity: 1 }],
+    const saveModB = (bomComponents: Array<{ componentProductId: string; quantity: number }>) =>
+      appRouter.createCaller(fresh({ role: 'manager', siteId: siteBId })).restaurantModifiers.save({
+        ...modBFields,
+        id: modB.id,
+        expectedVersion: modB.version,
+        bomComponents,
       });
     const crossSiteRead = await cashier().restaurantModifiers.getBomComponents({
       siteId,
@@ -1194,15 +1228,7 @@ describe('Band 6A — Restaurant operational closure', () => {
 
     const stocklessId = await createProduct('Servicio No Stock', 1000, 0);
     await db.update(products).set({ tracksStock: false }).where(eq(products.id, stocklessId));
-    await expect(
-      appRouter
-        .createCaller(fresh({ role: 'manager', siteId: siteBId }))
-        .restaurantModifiers.setBomComponents({
-          siteId: siteBId,
-          catalogId: modB.id,
-          components: [{ componentProductId: stocklessId, quantity: 1 }],
-        })
-    ).rejects.toThrow();
+    await expect(saveModB([{ componentProductId: stocklessId, quantity: 1 }])).rejects.toThrow();
 
     const comboParentId = await createProduct('Combo Padre', 15000, 0);
     await db.update(products).set({ tracksStock: false }).where(eq(products.id, comboParentId));
@@ -1215,15 +1241,21 @@ describe('Band 6A — Restaurant operational closure', () => {
       createdAt: now,
       updatedAt: now,
     });
+    await expect(saveModB([{ componentProductId: comboParentId, quantity: 1 }])).rejects.toThrow();
+
+    // The recipe rides the modifier's version: a stale save changes neither.
     await expect(
-      appRouter
-        .createCaller(fresh({ role: 'manager', siteId: siteBId }))
-        .restaurantModifiers.setBomComponents({
-          siteId: siteBId,
-          catalogId: modB.id,
-          components: [{ componentProductId: comboParentId, quantity: 1 }],
-        })
+      appRouter.createCaller(fresh({ role: 'manager', siteId: siteBId })).restaurantModifiers.save({
+        ...modBFields,
+        id: modB.id,
+        expectedVersion: modB.version + 1,
+        bomComponents: [],
+      })
     ).rejects.toThrow();
+    const keptBom = await appRouter
+      .createCaller(fresh({ role: 'manager', siteId: siteBId }))
+      .restaurantModifiers.getBomComponents({ siteId: siteBId, catalogId: modB.id });
+    expect(keptBom.map(c => c.componentProductId)).toEqual([ingB]);
 
     // Null siteId (rejected x-site-id header) fails closed on restaurant table procedures!
     const tableClosed = await createTable(`Mesa NullSite ${nanoid(4)}`);
@@ -1380,6 +1412,58 @@ describe('Band 6A — Restaurant operational closure', () => {
     const discSum = Number(sharedDiscRes.checks.reduce((s, c) => s + c.total, 0).toFixed(2));
     expect(discSum).toBe(4500);
 
+    // Sharing a dish moves only the source check's header amounts; other checks keep theirs.
+    const tableKeep = await createTable(`Mesa SharedKeep ${nanoid(4)}`);
+    await cashier().restaurantServices.openCheck({
+      tableId: tableKeep,
+      guestCount: 2,
+      priceTier: 1,
+      diners: [],
+      items: [platter9k, drink1k].map((productId, i) => ({
+        productId,
+        unitId: baseUnitId,
+        quantity: 1,
+        unitPrice: i === 0 ? 9000 : 1000,
+        discount: 0,
+        taxRate: 0,
+        courseKey: 'main' as const,
+        modifiers: [],
+      })),
+    });
+    const stKeep = await cashier().restaurantServices.getTableState({ tableId: tableKeep });
+    const keepSplit = await cashier().restaurantServices.splitEqual({
+      tableId: tableKeep,
+      checkId: stKeep.checks[0]!.id,
+      expectedCheckVersion: stKeep.checks[0]!.version,
+      parts: 2,
+    });
+    const [checkA, checkB] = keepSplit.checks;
+    await db
+      .update(sales)
+      .set({ discountAmount: 1000, total: 4000 })
+      .where(eq(sales.id, checkA!.saleId));
+    await db
+      .update(sales)
+      .set({ tipAmount: 300, tipMethod: 'fixed', total: 5300 })
+      .where(eq(sales.id, checkB!.saleId));
+    const stKeep2 = await cashier().restaurantServices.getTableState({ tableId: tableKeep });
+    const pieceA = stKeep2.checks
+      .find(c => c.id === checkA!.checkId)!
+      .lines.find(l => l.total === 4500)!;
+    await cashier().restaurantServices.splitSharedLine({
+      tableId: tableKeep,
+      checks: stKeep2.checks.map(c => ({ checkId: c.id, version: c.version })),
+      saleItemId: pieceA.saleItemId,
+      targetCheckIds: [checkA!.checkId, checkB!.checkId],
+    });
+    const headerA = db.select().from(sales).where(eq(sales.id, checkA!.saleId)).get()!;
+    const headerB = db.select().from(sales).where(eq(sales.id, checkB!.saleId)).get()!;
+    expect(headerB.tipAmount).toBe(300);
+    expect(headerA.tipAmount).toBe(0);
+    expect(headerA.discountAmount + headerB.discountAmount).toBe(1000);
+    expect(headerA.discountAmount).toBe(550);
+    expect(headerA.total + headerB.total).toBe(9300);
+
     // Kitchen comanda formats timestamp in requested timezone (`America/Bogota` -> 18:30 from 23:30Z)!
     const doc = buildKitchenComandaDocument({
       stationName: 'Parrilla',
@@ -1392,5 +1476,79 @@ describe('Band 6A — Restaurant operational closure', () => {
     });
     expect(doc.lines.map(l => l.text).join('\n')).toContain('18:30');
     expect(doc.lines.map(l => l.text).join('\n')).toContain('(C1)');
+  });
+
+  it('6A.9 splits a tiny modifier ingredient deduction without losing or rejecting it', async () => {
+    const dishId = await createProduct(`Plato Especia ${nanoid(4)}`, 20000, 20);
+    const spiceId = await createProduct(`Especia ${nanoid(4)}`, 100, 10);
+    const pinch = await manager().restaurantModifiers.save({
+      siteId,
+      expectedVersion: 0,
+      name: `Pizca ${nanoid(4)}`,
+      unitPriceDelta: 0,
+      maxQuantity: 1,
+      requiresManager: false,
+      isActive: true,
+      bomComponents: [{ componentProductId: spiceId, quantity: 0.000001 }],
+    });
+    const tableId = await createTable(`Mesa Pizca ${nanoid(4)}`);
+    await cashier().restaurantServices.openCheck({
+      tableId,
+      guestCount: 2,
+      priceTier: 1,
+      diners: [],
+      items: [
+        {
+          productId: dishId,
+          unitId: baseUnitId,
+          quantity: 1,
+          unitPrice: 20000,
+          discount: 0,
+          taxRate: 0,
+          courseKey: 'main',
+          modifiers: [
+            {
+              catalogId: pinch.id,
+              catalogVersion: pinch.version,
+              name: pinch.name,
+              quantity: 1,
+              unitPriceDelta: 0,
+            },
+          ],
+        },
+      ],
+    });
+    const st = await cashier().restaurantServices.getTableState({ tableId });
+    const split = await cashier().restaurantServices.splitEqual({
+      tableId,
+      checkId: st.checks[0]!.id,
+      expectedCheckVersion: st.checks[0]!.version,
+      parts: 2,
+    });
+    const snapshots = db
+      .select()
+      .from(saleItemModifierBomComponents)
+      .where(
+        inArray(
+          saleItemModifierBomComponents.saleItemId,
+          db
+            .select({ id: saleItems.id })
+            .from(saleItems)
+            .where(
+              inArray(
+                saleItems.saleId,
+                split.checks.map(c => c.saleId)
+              )
+            )
+            .all()
+            .map(row => row.id)
+        )
+      )
+      .all();
+    expect(snapshots).toHaveLength(2);
+    expect(snapshots.reduce((sum, row) => sum + row.totalQuantityDeducted, 0)).toBeCloseTo(
+      0.000001,
+      12
+    );
   });
 });

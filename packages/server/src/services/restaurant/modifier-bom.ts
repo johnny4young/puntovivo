@@ -125,161 +125,143 @@ export function getModifierBomComponents(
     .all();
 }
 
-export function setModifierBomComponents(
-  db: DatabaseInstance,
+/**
+ * Replace a modifier's ingredient list inside the caller's catalog save, so the
+ * recipe rides the same version check, command envelope and transaction.
+ */
+export function replaceModifierBomInTransaction(
+  tx: DatabaseInstance,
   args: {
     tenantId: string;
     siteId: string;
     actorId: string;
     catalogId: string;
+    catalogName: string;
+    operationId: string;
     components: readonly ModifierBomComponentEntry[];
   }
-): ModifierBomComponentDetail[] {
+): void {
   const now = new Date().toISOString();
-  db.transaction(
-    tx => {
-      const catalog = tx
-        .select({ id: restaurantModifierCatalog.id, name: restaurantModifierCatalog.name })
-        .from(restaurantModifierCatalog)
+  const seen = new Set<string>();
+  for (const component of args.components) {
+    if (!(component.quantity > 0) || !Number.isFinite(component.quantity)) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Modifier ingredient quantity must be positive',
+      });
+    }
+    if (seen.has(component.componentProductId)) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Duplicate ingredient product in modifier recipe',
+      });
+    }
+    seen.add(component.componentProductId);
+  }
+
+  const componentIds = [...seen];
+  if (componentIds.length > 0) {
+    const componentRows = tx
+      .select({
+        id: products.id,
+        catalogType: products.catalogType,
+        tracksStock: products.tracksStock,
+        tracksLots: products.tracksLots,
+        tracksSerials: products.tracksSerials,
+      })
+      .from(products)
+      .where(and(eq(products.tenantId, args.tenantId), inArray(products.id, componentIds)))
+      .all();
+    if (componentRows.length !== componentIds.length) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'One or more modifier ingredients do not belong to this business',
+      });
+    }
+    const bundleParentIds = new Set(
+      tx
+        .select({ id: productBundleComponents.bundleProductId })
+        .from(productBundleComponents)
         .where(
           and(
-            eq(restaurantModifierCatalog.id, args.catalogId),
-            eq(restaurantModifierCatalog.tenantId, args.tenantId),
-            eq(restaurantModifierCatalog.siteId, args.siteId)
+            eq(productBundleComponents.tenantId, args.tenantId),
+            inArray(productBundleComponents.bundleProductId, componentIds)
           )
         )
-        .get();
-      if (!catalog) {
+        .all()
+        .map(r => r.id)
+    );
+    for (const row of componentRows) {
+      if (
+        !row.tracksStock ||
+        row.catalogType === 'variant_parent' ||
+        row.tracksLots ||
+        row.tracksSerials ||
+        bundleParentIds.has(row.id)
+      ) {
         throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Restaurant modifier not found at this site',
+          code: 'BAD_REQUEST',
+          message:
+            'Modifier ingredients must be standard stock products without lot, serial, or bundle custody',
         });
       }
+    }
+  }
 
-      const seen = new Set<string>();
-      for (const component of args.components) {
-        if (!(component.quantity > 0) || !Number.isFinite(component.quantity)) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'Modifier ingredient quantity must be positive',
-          });
-        }
-        if (seen.has(component.componentProductId)) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'Duplicate ingredient product in modifier recipe',
-          });
-        }
-        seen.add(component.componentProductId);
-      }
+  const before = tx
+    .select({
+      componentProductId: restaurantModifierBomComponents.componentProductId,
+      quantity: restaurantModifierBomComponents.quantity,
+    })
+    .from(restaurantModifierBomComponents)
+    .where(
+      and(
+        eq(restaurantModifierBomComponents.tenantId, args.tenantId),
+        eq(restaurantModifierBomComponents.catalogId, args.catalogId)
+      )
+    )
+    .all();
 
-      const componentIds = [...seen];
-      if (componentIds.length > 0) {
-        const componentRows = tx
-          .select({
-            id: products.id,
-            catalogType: products.catalogType,
-            tracksStock: products.tracksStock,
-            tracksLots: products.tracksLots,
-            tracksSerials: products.tracksSerials,
-          })
-          .from(products)
-          .where(and(eq(products.tenantId, args.tenantId), inArray(products.id, componentIds)))
-          .all();
-        if (componentRows.length !== componentIds.length) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'One or more modifier ingredients do not belong to this business',
-          });
-        }
-        const bundleParentIds = new Set(
-          tx
-            .select({ id: productBundleComponents.bundleProductId })
-            .from(productBundleComponents)
-            .where(
-              and(
-                eq(productBundleComponents.tenantId, args.tenantId),
-                inArray(productBundleComponents.bundleProductId, componentIds)
-              )
-            )
-            .all()
-            .map(r => r.id)
-        );
-        for (const row of componentRows) {
-          if (
-            !row.tracksStock ||
-            row.catalogType === 'variant_parent' ||
-            row.tracksLots ||
-            row.tracksSerials ||
-            bundleParentIds.has(row.id)
-          ) {
-            throw new TRPCError({
-              code: 'BAD_REQUEST',
-              message:
-                'Modifier ingredients must be standard stock products without lot, serial, or bundle custody',
-            });
-          }
-        }
-      }
+  tx.delete(restaurantModifierBomComponents)
+    .where(
+      and(
+        eq(restaurantModifierBomComponents.tenantId, args.tenantId),
+        eq(restaurantModifierBomComponents.catalogId, args.catalogId)
+      )
+    )
+    .run();
 
-      const before = tx
-        .select({
-          componentProductId: restaurantModifierBomComponents.componentProductId,
-          quantity: restaurantModifierBomComponents.quantity,
-        })
-        .from(restaurantModifierBomComponents)
-        .where(
-          and(
-            eq(restaurantModifierBomComponents.tenantId, args.tenantId),
-            eq(restaurantModifierBomComponents.catalogId, args.catalogId)
-          )
-        )
-        .all();
-
-      tx.delete(restaurantModifierBomComponents)
-        .where(
-          and(
-            eq(restaurantModifierBomComponents.tenantId, args.tenantId),
-            eq(restaurantModifierBomComponents.catalogId, args.catalogId)
-          )
-        )
-        .run();
-
-      for (const component of args.components) {
-        tx.insert(restaurantModifierBomComponents)
-          .values({
-            id: nanoid(),
-            tenantId: args.tenantId,
-            catalogId: args.catalogId,
-            componentProductId: component.componentProductId,
-            quantity: roundQuantity(component.quantity, 6),
-            createdAt: now,
-            updatedAt: now,
-          })
-          .run();
-      }
-
-      writeAuditLog({
-        tx,
+  for (const component of args.components) {
+    tx.insert(restaurantModifierBomComponents)
+      .values({
+        id: nanoid(),
         tenantId: args.tenantId,
-        actorId: args.actorId,
-        action: 'restaurant_modifier.bom_updated',
-        resourceType: 'restaurant_modifier',
-        resourceId: args.catalogId,
-        before: { bomComponents: before },
-        after: {
-          bomComponents: args.components.map(c => ({
-            componentProductId: c.componentProductId,
-            quantity: roundQuantity(c.quantity, 6),
-          })),
-        },
-        metadata: { siteId: args.siteId, modifierName: catalog.name },
-      });
-    },
-    { behavior: 'immediate' }
-  );
+        catalogId: args.catalogId,
+        componentProductId: component.componentProductId,
+        quantity: roundQuantity(component.quantity, 6),
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+  }
 
-  return getModifierBomComponents(db, args.tenantId, args.siteId, args.catalogId);
+  writeAuditLog({
+    tx,
+    tenantId: args.tenantId,
+    actorId: args.actorId,
+    action: 'restaurant_modifier.bom_updated',
+    resourceType: 'restaurant_modifier',
+    resourceId: args.catalogId,
+    before: { bomComponents: before },
+    after: {
+      bomComponents: args.components.map(c => ({
+        componentProductId: c.componentProductId,
+        quantity: roundQuantity(c.quantity, 6),
+      })),
+    },
+    operationId: args.operationId,
+    metadata: { siteId: args.siteId, modifierName: args.catalogName },
+  });
 }
 
 export interface DeductModifierBomLine {

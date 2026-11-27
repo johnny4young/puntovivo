@@ -1,23 +1,23 @@
 /**
  * Compact BOM ingredient editor for a saved restaurant modifier option.
- * Self-contained with inline status so isolated modifier-catalog tests never depend on ToastProvider.
+ * Edits stay a draft; the modifier save sends them with its version check.
  */
-import { useEffect, useState, type MutableRefObject } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Trash2 } from 'lucide-react';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { trpc } from '@/lib/trpc';
-import { translateServerError } from '@/lib/translateServerError';
+
+export type ModifierBomDraft = Array<{ componentProductId: string; quantity: number }>;
 
 interface ModifierBomSectionProps {
   siteId: string;
   catalogId: string;
-  savePendingRef?: MutableRefObject<(() => Promise<void>) | null> | undefined;
+  onDraftChange: (draft: ModifierBomDraft) => void;
 }
 
-export function ModifierBomSection({ siteId, catalogId, savePendingRef }: ModifierBomSectionProps) {
-  const { t } = useTranslation(['restaurants', 'common', 'errors']);
-  const utils = trpc.useUtils();
+export function ModifierBomSection({ siteId, catalogId, onDraftChange }: ModifierBomSectionProps) {
+  const { t } = useTranslation(['restaurants', 'common']);
   const bomQuery = trpc.restaurantModifiers.getBomComponents.useQuery(
     { siteId, catalogId },
     { enabled: Boolean(siteId && catalogId) }
@@ -31,27 +31,11 @@ export function ModifierBomSection({ siteId, catalogId, savePendingRef }: Modifi
     componentName: string;
     quantity: number;
   }> | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const productsQuery = trpc.products.list.useQuery(
     { siteId, search: debouncedSearch || undefined, page: 1, perPage: 20 },
     { enabled: Boolean(siteId) }
   );
-
-  const saveMutation = trpc.restaurantModifiers.setBomComponents.useMutation({
-    onSuccess: async saved => {
-      setDraft(null);
-      setErrorMessage(null);
-      setStatusMessage(t('restaurants:catalog.bomSaved'));
-      await utils.restaurantModifiers.getBomComponents.invalidate({ siteId, catalogId });
-      return saved;
-    },
-    onError: error => {
-      setStatusMessage(null);
-      setErrorMessage(translateServerError(error, t, t('errors:server.unknown')));
-    },
-  });
 
   const rows =
     draft ??
@@ -61,26 +45,12 @@ export function ModifierBomSection({ siteId, catalogId, savePendingRef }: Modifi
       quantity: item.quantity,
     }));
 
-  useEffect(() => {
-    if (!savePendingRef) return;
-    if (draft === null) {
-      savePendingRef.current = null;
-      return;
-    }
-    savePendingRef.current = async () => {
-      await saveMutation.mutateAsync({
-        siteId,
-        catalogId,
-        components: draft.map(item => ({
-          componentProductId: item.componentProductId,
-          quantity: item.quantity,
-        })),
-      });
-    };
-    return () => {
-      savePendingRef.current = null;
-    };
-  }, [catalogId, draft, saveMutation, savePendingRef, siteId]);
+  function updateDraft(next: NonNullable<typeof draft>) {
+    setDraft(next);
+    onDraftChange(
+      next.map(item => ({ componentProductId: item.componentProductId, quantity: item.quantity }))
+    );
+  }
 
   const candidates = (productsQuery.data?.items ?? []).filter(
     product =>
@@ -96,20 +66,16 @@ export function ModifierBomSection({ siteId, catalogId, savePendingRef }: Modifi
     if (!selectedProductId || !(qty > 0) || !Number.isFinite(qty)) return;
     const picked = (productsQuery.data?.items ?? []).find(p => p.id === selectedProductId);
     if (!picked) return;
-    setDraft([
+    updateDraft([
       ...rows,
       { componentProductId: picked.id, componentName: picked.name, quantity: qty },
     ]);
     setSelectedProductId('');
     setQuantity('1');
-    setStatusMessage(null);
-    setErrorMessage(null);
   }
 
   function handleRemove(componentProductId: string) {
-    setDraft(rows.filter(r => r.componentProductId !== componentProductId));
-    setStatusMessage(null);
-    setErrorMessage(null);
+    updateDraft(rows.filter(r => r.componentProductId !== componentProductId));
   }
 
   return (
@@ -194,44 +160,6 @@ export function ModifierBomSection({ siteId, catalogId, savePendingRef }: Modifi
           {t('restaurants:catalog.bomAdd')}
         </button>
       </div>
-
-      {statusMessage && (
-        <p
-          role="status"
-          className="text-xs font-medium text-success-700"
-          data-testid="modifier-bom-saved"
-        >
-          {statusMessage}
-        </p>
-      )}
-      {errorMessage && (
-        <p role="alert" className="text-xs text-danger-700">
-          {errorMessage}
-        </p>
-      )}
-
-      {draft !== null && (
-        <div className="flex justify-end">
-          <button
-            type="button"
-            className="btn-primary min-h-9 text-xs"
-            disabled={saveMutation.isPending}
-            onClick={() =>
-              saveMutation.mutate({
-                siteId,
-                catalogId,
-                components: draft.map(item => ({
-                  componentProductId: item.componentProductId,
-                  quantity: item.quantity,
-                })),
-              })
-            }
-            data-testid="modifier-bom-save"
-          >
-            {t('restaurants:catalog.bomSave')}
-          </button>
-        </div>
-      )}
     </section>
   );
 }

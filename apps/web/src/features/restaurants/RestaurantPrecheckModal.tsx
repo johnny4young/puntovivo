@@ -11,6 +11,7 @@ import { invalidateCommittedGroups, RESTAURANT_TABLE_INVALIDATIONS } from '@/lib
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { printHtmlDocument } from '@/lib/receiptDocumentPrint';
 import { trpc } from '@/lib/trpc';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatCurrency } from '@/lib/utils';
 
 const TIP_PRESETS = [0, 10, 15] as const;
@@ -100,7 +101,7 @@ export function RestaurantPrecheckModal({
     { enabled: tableId !== null }
   );
 
-  const printMutation = trpc.restaurantServices.printPrecheck.useMutation({
+  const printMutation = useCriticalMutation('restaurantServices.printPrecheck', {
     onSuccess: async result => {
       await invalidateCommittedGroups(utils, [...RESTAURANT_TABLE_INVALIDATIONS]);
       if (result.printedVia === 'hardware_outbox') {

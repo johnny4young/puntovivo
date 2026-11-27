@@ -848,7 +848,7 @@ export async function addRestaurantRound(
           tenantId,
           checkId: check.id,
           sequence: roundSequence,
-          label: input.roundLabel?.trim() || `Ronda ${roundSequence}`,
+          label: input.roundLabel?.trim() || null,
           status: 'submitted',
           submittedBy: ctx.user.id,
           submittedAt: now,

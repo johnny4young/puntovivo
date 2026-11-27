@@ -152,6 +152,7 @@ export const TRANSACTIONAL_COMPLETION_REQUIRED_KINDS = new Set([
   'purchases.void',
   'restaurantServices.openCheck',
   'restaurantServices.addRound',
+  'restaurantServices.printPrecheck',
   'restaurantServices.regroupChecks',
   'restaurantServices.splitEqual',
   'restaurantServices.splitSharedLine',

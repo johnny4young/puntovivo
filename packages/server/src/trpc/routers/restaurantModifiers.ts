@@ -7,10 +7,7 @@ import {
   restaurantModifierGroupsForProduct,
   saveRestaurantModifierGroup,
 } from '../../application/restaurant/modifier-groups.js';
-import {
-  getModifierBomComponents,
-  setModifierBomComponents,
-} from '../../services/restaurant/modifier-bom.js';
+import { getModifierBomComponents } from '../../services/restaurant/modifier-bom.js';
 import { router } from '../init.js';
 import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { createModuleGuard } from '../middleware/modules.js';
@@ -23,7 +20,6 @@ import {
   restaurantProductModifierGroupsInput,
   saveRestaurantModifierGroupInput,
   saveRestaurantModifierInput,
-  setRestaurantModifierBomInput,
 } from '../schemas/restaurantModifiers.js';
 
 /** Archived configuration is a manager view; cashiers only see what they can order. */
@@ -116,18 +112,5 @@ export const restaurantModifiersRouter = router({
     .query(async ({ ctx, input }) => {
       await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
       return getModifierBomComponents(ctx.db, ctx.tenantId, input.siteId, input.catalogId);
-    }),
-  setBomComponents: managerOrAdminProcedure
-    .use(createModuleGuard('dine-in'))
-    .input(setRestaurantModifierBomInput)
-    .mutation(async ({ ctx, input }) => {
-      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
-      return setModifierBomComponents(ctx.db, {
-        tenantId: ctx.tenantId,
-        siteId: input.siteId,
-        actorId: ctx.user!.id,
-        catalogId: input.catalogId,
-        components: input.components,
-      });
     }),
 });

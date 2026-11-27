@@ -47,6 +47,7 @@ function loadLines(tx: DatabaseInstance, scope: KdsWriteScope, saleId: string) {
       checkLineId: restaurantCheckLines.id,
       roundId: restaurantCheckLines.roundId,
       roundLabel: restaurantRounds.label,
+      roundSequence: restaurantRounds.sequence,
       courseKey: restaurantCourses.courseKey,
       dinerLabel: restaurantDiners.label,
       dinerSeatNumber: restaurantDiners.seatNumber,
@@ -234,7 +235,10 @@ export function submitKitchenSaleInTransaction(
         unitLabel: row.unitLabel,
         notes: row.notes,
         roundId: row.roundId,
-        roundLabel: row.roundLabel,
+        // Unnamed later rounds show their number; the clients translate the caption.
+        roundLabel:
+          row.roundLabel ??
+          (row.roundSequence != null && row.roundSequence > 1 ? String(row.roundSequence) : null),
         courseKey: row.courseKey,
         dinerLabel:
           row.dinerLabel ?? (row.dinerSeatNumber != null ? `C${row.dinerSeatNumber}` : null),
