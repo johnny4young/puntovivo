@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { getDatabase } from '../db/index.js';
@@ -968,6 +968,56 @@ describe('Band 6B — Pharmacy operational closure (Colombia)', () => {
         .run()
     ).toThrow(/immutable/i);
 
+    // A dispensation drawn from two lots writes one ledger row per lot
+    const earlyLot = await caller('manager').inventoryLots.receive({
+      siteId,
+      productId: trackedCtrl.id,
+      lotNumber: `L-EARLY-${nanoid(4)}`,
+      expiresAt: addCalendarDays(businessDate, 100),
+      quantity: 2,
+      unitCost: 18_000,
+    });
+    const ev3 = await qfCaller().pharmacy.recordEvidence({
+      productId: trackedCtrl.id,
+      customerId: patient.id,
+      reference: `FNE-MULTILOT-${nanoid(5)}`,
+      prescriberName: 'Dra. Sofía Restrepo',
+      prescriberCredential: 'RM-99881',
+      buyerDocument: 'CC-77665544',
+      authorizedQuantity: 3,
+      validFrom: businessDate,
+      expiresAt: addCalendarDays(businessDate, 10),
+    });
+    await qfCaller().pharmacy.approveEvidence({ id: ev3.id });
+    await caller('cashier').sales.create({
+      customerId: patient.id,
+      paymentMethod: 'cash',
+      pharmacyEvidenceIds: [ev3.id],
+      items: [{ productId: trackedCtrl.id, unitId: baseUnitId, quantity: 3, unitPrice: 40_000 }],
+    });
+    const multiLotRows = db
+      .select({
+        lotId: pharmacyFneLedger.lotId,
+        quantityDelta: pharmacyFneLedger.quantityDelta,
+        balanceAfter: pharmacyFneLedger.balanceAfter,
+        evidenceId: pharmacyFneLedger.evidenceId,
+      })
+      .from(pharmacyFneLedger)
+      .where(
+        and(
+          eq(pharmacyFneLedger.tenantId, tenantId),
+          eq(pharmacyFneLedger.productId, trackedCtrl.id)
+        )
+      )
+      .orderBy(sql`rowid`)
+      .all()
+      .slice(-2);
+    const firstLotId = rowsAfterReturn[0]!.lotId;
+    expect(multiLotRows).toEqual([
+      { lotId: earlyLot.lotId, quantityDelta: -2, balanceAfter: 8, evidenceId: ev3.id },
+      { lotId: firstLotId, quantityDelta: -1, balanceAfter: 7, evidenceId: ev3.id },
+    ]);
+
     await caller('admin').pharmacy.revokeFneAuthorization({
       id: globalFne.id,
       reason: 'Fin de prueba 6B.6',
@@ -1345,5 +1395,242 @@ describe('Band 6B — Pharmacy operational closure (Colombia)', () => {
     await expect(
       foreignCaller.pharmacy.listEnvironmentalLogs({ siteId, page: 1, perPage: 20 })
     ).rejects.toThrow();
+  });
+
+  it('6B.10 keeps the FNE book reconciled with lot stock across legacy stock, transfers and counts', async () => {
+    const db = getDatabase();
+    const ledger = (productId: string, atSite: string) =>
+      db
+        .select({
+          movementType: pharmacyFneLedger.movementType,
+          quantityDelta: pharmacyFneLedger.quantityDelta,
+          balanceAfter: pharmacyFneLedger.balanceAfter,
+        })
+        .from(pharmacyFneLedger)
+        .where(
+          and(
+            eq(pharmacyFneLedger.tenantId, tenantId),
+            eq(pharmacyFneLedger.siteId, atSite),
+            eq(pharmacyFneLedger.productId, productId)
+          )
+        )
+        .orderBy(sql`rowid`)
+        .all();
+
+    const ctrl = await createMedicine({
+      name: 'Clonazepam Caja x 30',
+      price: 30_000,
+      cost: 10_000,
+      activeIngredient: 'Clonazepam',
+      concentration: '2 mg',
+      presentation: 'Caja x 30 tabletas',
+      dosesPerPack: 30,
+      classification: 'controlled',
+    });
+
+    // Stock that predates the ledger opens the book instead of being ignored
+    const legacyLotId = `lot-legacy-${nanoid(6)}`;
+    await db.insert(inventoryLots).values({
+      id: legacyLotId,
+      tenantId,
+      siteId,
+      productId: ctrl.id,
+      lotNumber: `L-LEGACY-${nanoid(4)}`,
+      expiresAt: addCalendarDays(businessDate, 300),
+      onHand: 50,
+      unitCost: 10_000,
+    });
+    await caller('manager').inventoryLots.receive({
+      siteId,
+      productId: ctrl.id,
+      lotNumber: `L-NEW-${nanoid(4)}`,
+      expiresAt: addCalendarDays(businessDate, 400),
+      quantity: 10,
+      unitCost: 10_000,
+    });
+    expect(ledger(ctrl.id, siteId)).toEqual([
+      { movementType: 'opening_balance', quantityDelta: 50, balanceAfter: 50 },
+      { movementType: 'receipt', quantityDelta: 10, balanceAfter: 60 },
+    ]);
+
+    // An unledgered stock change surfaces as an explicit reconciliation row
+    await db.update(inventoryLots).set({ onHand: 45 }).where(eq(inventoryLots.id, legacyLotId));
+    await caller('manager').inventoryLots.receive({
+      siteId,
+      productId: ctrl.id,
+      lotNumber: `L-NEW2-${nanoid(4)}`,
+      expiresAt: addCalendarDays(businessDate, 420),
+      quantity: 5,
+      unitCost: 10_000,
+    });
+    expect(ledger(ctrl.id, siteId).slice(2)).toEqual([
+      { movementType: 'reconciliation', quantityDelta: -5, balanceAfter: 55 },
+      { movementType: 'receipt', quantityDelta: 5, balanceAfter: 60 },
+    ]);
+
+    // Transfers write transfer_out at origin and transfer_in at destination, and void reverses both
+    const transfer = await caller('manager').transfers.create({
+      fromSiteId: siteId,
+      toSiteId: otherSiteId,
+      items: [
+        { productId: ctrl.id, quantity: 8, lotAllocations: [{ lotId: legacyLotId, quantity: 8 }] },
+      ],
+    });
+    expect(ledger(ctrl.id, siteId).at(-1)).toEqual({
+      movementType: 'transfer_out',
+      quantityDelta: -8,
+      balanceAfter: 52,
+    });
+    expect(ledger(ctrl.id, otherSiteId)).toEqual([
+      { movementType: 'transfer_in', quantityDelta: 8, balanceAfter: 8 },
+    ]);
+    await caller('manager').transfers.void({ transferId: transfer.id, reason: 'Traslado errado' });
+    expect(ledger(ctrl.id, otherSiteId).at(-1)).toEqual({
+      movementType: 'transfer_out',
+      quantityDelta: -8,
+      balanceAfter: 0,
+    });
+    expect(ledger(ctrl.id, siteId).at(-1)).toEqual({
+      movementType: 'transfer_in',
+      quantityDelta: 8,
+      balanceAfter: 60,
+    });
+
+    const report = await caller('manager').pharmacy.getFneMonthlyReport({
+      month: businessDate.slice(0, 7),
+    });
+    expect(report.summary.find(row => row.productId === ctrl.id)).toMatchObject({
+      openingBalance: 50,
+      receipts: 15,
+      transfersNet: 0,
+      adjustmentsNet: -5,
+      closingBalance: 60,
+    });
+
+    // An approved count writes the lot difference as a count_adjustment
+    const counted = await createMedicine({
+      name: 'Alprazolam Caja x 30',
+      price: 20_000,
+      activeIngredient: 'Alprazolam',
+      concentration: '0.5 mg',
+      presentation: 'Caja x 30 tabletas',
+      dosesPerPack: 30,
+      classification: 'controlled',
+    });
+    const countedLotNumber = `L-COUNT-${nanoid(4)}`;
+    await caller('manager').inventoryLots.receive({
+      siteId,
+      productId: counted.id,
+      lotNumber: countedLotNumber,
+      expiresAt: addCalendarDays(businessDate, 300),
+      quantity: 10,
+      unitCost: 5_000,
+    });
+    const created = await caller('manager').inventory.createCountSession({
+      siteId,
+      productIds: [counted.id],
+    });
+    const saved = await caller('manager').inventory.saveCountSession({
+      id: created.id,
+      version: created.version,
+      lines: [
+        {
+          lineId: created.lines[0]!.id,
+          version: 0,
+          countedQuantity: 7,
+          identities: [{ code: countedLotNumber, quantity: 7 }],
+        },
+      ],
+    });
+    const submitted = await caller('manager').inventory.submitCountSession({
+      id: saved.id,
+      version: saved.version,
+    });
+    await caller('admin').inventory.approveCountSession({
+      id: submitted.id,
+      version: submitted.version,
+    });
+    expect(ledger(counted.id, siteId)).toEqual([
+      { movementType: 'receipt', quantityDelta: 10, balanceAfter: 10 },
+      { movementType: 'count_adjustment', quantityDelta: -3, balanceAfter: 7 },
+    ]);
+  });
+
+  it('6B.11 rejects dose-changing fractionation, client-side 1403 limits and registrations the INVIMA catalog deactivated', async () => {
+    const reg = `INVIMA-2026M-DOSE-${nanoid(6)}`;
+    const box = await createMedicine({
+      name: 'Loratadina Caja x 30',
+      price: 15_000,
+      activeIngredient: 'Loratadina',
+      concentration: '10 mg',
+      presentation: 'Caja x 30 tabletas',
+      dosesPerPack: 30,
+      sanitaryRegistration: reg,
+    });
+    const blister = await createMedicine({
+      name: 'Loratadina Blíster x 10',
+      price: 6_000,
+      activeIngredient: 'Loratadina',
+      concentration: '10 mg',
+      presentation: 'Blíster x 10 tabletas',
+      dosesPerPack: 10,
+      sanitaryRegistration: reg,
+    });
+    const boxLot = await caller('manager').inventoryLots.receive({
+      siteId,
+      productId: box.id,
+      lotNumber: `L-DOSE-${nanoid(4)}`,
+      expiresAt: addCalendarDays(businessDate, 300),
+      quantity: 2,
+      unitCost: 9_000,
+    });
+    await expect(
+      caller('manager').pharmacy.fractionateLot({
+        sourceLotId: boxLot.lotId,
+        targetProductId: blister.id,
+        sourceQuantity: 1,
+        targetQuantity: 100,
+        reason: 'Intento de crear dosis',
+      })
+    ).rejects.toThrow(/exactly the doses/i);
+
+    await expect(
+      caller('cashier').pharmacy.recordEnvironmentalLog({
+        period: 'morning',
+        zone: 'ambient',
+        temperatureC: 35,
+        humidityPercent: 50,
+        maxTempC: 40,
+      } as never)
+    ).rejects.toThrow();
+    await expect(
+      caller('cashier').pharmacy.recordEnvironmentalLog({
+        period: 'morning',
+        zone: 'ambient',
+        temperatureC: 35,
+        humidityPercent: 50,
+      })
+    ).rejects.toThrow(/corrective action/i);
+
+    const cum = `2099${nanoid(4).replace(/[^0-9]/g, '1')}`;
+    await caller('manager').pharmacy.importInvimaCatalog({
+      csvText: [
+        'expediente;consecutivocum;producto;titular;registrosanitario;fechavencimiento;estadoregistro;principioactivo;formafarmaceutica;condicionventa',
+        `${cum};1;LORATADINA 10 MG;LAB;${reg};31/12/2030;Cancelado;LORATADINA;TABLETA;Venta libre`,
+      ].join('\n'),
+      syncMatchingProducts: true,
+    });
+    const preflight = await caller('cashier').pharmacy.checkoutRequirements({
+      items: [{ productId: box.id, quantity: 1, unitEquivalence: 1 }],
+    });
+    expect(preflight.requirements[0]?.blockedErrorCode).toBe(
+      'PHARMACY_PRODUCT_REGISTRATION_INACTIVE'
+    );
+    await expect(
+      caller('cashier').sales.create({
+        paymentMethod: 'cash',
+        items: [{ productId: box.id, unitId: baseUnitId, quantity: 1, unitPrice: 15_000 }],
+      })
+    ).rejects.toThrow(/INVIMA catalog marks/i);
   });
 });

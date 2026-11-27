@@ -213,6 +213,8 @@ vi.mock('@/lib/trpc', () => ({
                 dispensations: 1,
                 returns: 0.3,
                 fractionationsNet: -1,
+                transfersNet: -4,
+                adjustmentsNet: 7,
                 destructions: 0,
                 closingBalance: 6,
               },
@@ -309,7 +311,11 @@ describe('Band 6B — Pharmacy panels, register hints, and payload guards', () =
     );
     expect(screen.getByTestId('pharmacy-fne-panel')).toBeInTheDocument();
     expect(screen.getByText('Clonazepam 2 mg')).toBeInTheDocument();
-    expect(screen.getByText('0.2')).toBeInTheDocument();
+    expect(screen.getByText('Supplier returns')).toBeInTheDocument();
+    expect(screen.getByText('0.1')).toBeInTheDocument();
+    expect(screen.getByText('0.3')).toBeInTheDocument();
+    expect(screen.getByText('-4')).toBeInTheDocument();
+    expect(screen.getByText('7')).toBeInTheDocument();
     u4();
   });
 

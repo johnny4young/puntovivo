@@ -193,14 +193,10 @@ export const listPharmacyFractionationsInput = paginationInput
 export const recordPharmacyEnvironmentalLogInput = z
   .object({
     siteId: z.string().min(1).optional(),
-    businessDate: calendarDay.optional(),
     period: z.enum(pharmacyEnvironmentalPeriodEnum),
     zone: z.enum(pharmacyEnvironmentalZoneEnum),
     temperatureC: z.number().finite().min(-40).max(80),
     humidityPercent: z.number().finite().min(0).max(100).nullable().optional(),
-    minTempC: z.number().finite().min(-40).max(80).optional(),
-    maxTempC: z.number().finite().min(-40).max(80).optional(),
-    maxHumidityPercent: z.number().finite().min(0).max(100).nullable().optional(),
     correctiveAction: z.string().trim().max(500).nullable().optional(),
     instrumentCode: z.string().trim().max(120).nullable().optional(),
     notes: z.string().trim().max(500).nullable().optional(),

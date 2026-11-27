@@ -5,6 +5,7 @@ import { roundQuantity } from '@puntovivo/shared/unit-math';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   inventoryBalances,
+  inventoryLots,
   pharmacyFneAuthorizations,
   pharmacyFneLedger,
   pharmacyProductProfiles,
@@ -386,137 +387,171 @@ export function listPharmacyFneAuthorizations(
   return { items, total, page, perPage };
 }
 
-export function appendFneLedgerEntry(
+export interface FneLedgerMovement {
+  lotId?: string | null;
+  lotNumber?: string | null;
+  movementType: PharmacyFneMovementType;
+  quantityDelta: number;
+  fneAuthorizationId?: string | null;
+  saleId?: string | null;
+  evidenceId?: string | null;
+  retainedFormulaDigest?: string | null;
+  notes?: string | null;
+}
+
+export interface FneLedgerScope {
+  tenantId: string;
+  siteId: string;
+  productId: string;
+  businessDate: string;
+  actorId: string;
+  occurredAt: string;
+}
+
+/**
+ * Append the movements of one product at one site, after their lot changes
+ * are applied in the same transaction. The balance before the batch is the
+ * live lot stock minus the batch; when it disagrees with the last row, an
+ * explicit opening_balance or reconciliation row records the difference.
+ */
+export function appendFneLedgerEntries(
   tx: DatabaseInstance,
-  entry: {
-    tenantId: string;
-    siteId: string;
-    productId: string;
-    lotId?: string | null;
-    lotNumber?: string | null;
-    businessDate: string;
-    movementType: PharmacyFneMovementType;
-    quantityDelta: number;
-    fneAuthorizationId?: string | null;
-    saleId?: string | null;
-    evidenceId?: string | null;
-    retainedFormulaDigest?: string | null;
-    actorId: string;
-    notes?: string | null;
-    occurredAt: string;
-  }
-): string {
-  const normalizedDelta = roundQuantity(entry.quantityDelta, 12);
+  scope: FneLedgerScope,
+  movements: readonly FneLedgerMovement[]
+): string[] {
+  if (movements.length === 0) return [];
+  const deltas = movements.map(row => roundQuantity(row.quantityDelta, 12));
+  const lotStock = tx
+    .select({ onHand: sql<number>`coalesce(sum(${inventoryLots.onHand}), 0)` })
+    .from(inventoryLots)
+    .where(
+      and(
+        eq(inventoryLots.tenantId, scope.tenantId),
+        eq(inventoryLots.siteId, scope.siteId),
+        eq(inventoryLots.productId, scope.productId)
+      )
+    )
+    .get();
+  const batchDelta = deltas.reduce((sum, delta) => roundQuantity(sum + delta, 12), 0);
+  const balanceBefore = roundQuantity(Number(lotStock?.onHand ?? 0) - batchDelta, 12);
   const prevRow = tx
     .select({ balanceAfter: pharmacyFneLedger.balanceAfter })
     .from(pharmacyFneLedger)
     .where(
       and(
-        eq(pharmacyFneLedger.tenantId, entry.tenantId),
-        eq(pharmacyFneLedger.siteId, entry.siteId),
-        eq(pharmacyFneLedger.productId, entry.productId)
+        eq(pharmacyFneLedger.tenantId, scope.tenantId),
+        eq(pharmacyFneLedger.siteId, scope.siteId),
+        eq(pharmacyFneLedger.productId, scope.productId)
       )
     )
     .orderBy(desc(sql`${pharmacyFneLedger}.rowid`))
     .limit(1)
     .get();
 
-  let balanceAfter: number;
-  if (prevRow !== undefined) {
-    balanceAfter = Math.max(0, roundQuantity(prevRow.balanceAfter + normalizedDelta, 12));
-  } else if (normalizedDelta > 0) {
-    balanceAfter = normalizedDelta;
-  } else {
-    const balance = tx
-      .select({ onHand: inventoryBalances.onHand })
-      .from(inventoryBalances)
-      .where(
-        and(
-          eq(inventoryBalances.tenantId, entry.tenantId),
-          eq(inventoryBalances.siteId, entry.siteId),
-          eq(inventoryBalances.productId, entry.productId)
-        )
-      )
-      .get();
-    balanceAfter = Math.max(0, roundQuantity(balance?.onHand ?? 0, 12));
+  const insertRow = (row: FneLedgerMovement, delta: number, balanceAfter: number) => {
+    const id = nanoid();
+    tx.insert(pharmacyFneLedger)
+      .values({
+        id,
+        tenantId: scope.tenantId,
+        siteId: scope.siteId,
+        productId: scope.productId,
+        lotId: row.lotId ?? null,
+        lotNumber: row.lotNumber ?? null,
+        businessDate: scope.businessDate,
+        movementType: row.movementType,
+        quantityDelta: delta,
+        balanceAfter,
+        fneAuthorizationId: row.fneAuthorizationId ?? null,
+        saleId: row.saleId ?? null,
+        evidenceId: row.evidenceId ?? null,
+        retainedFormulaDigest: row.retainedFormulaDigest ?? null,
+        actorId: scope.actorId,
+        notes: row.notes ?? null,
+        occurredAt: scope.occurredAt,
+        createdAt: scope.occurredAt,
+      })
+      .run();
+    return id;
+  };
+
+  const ledgerBefore = prevRow?.balanceAfter ?? 0;
+  const gap = roundQuantity(balanceBefore - ledgerBefore, 12);
+  if (gap !== 0) {
+    insertRow(
+      {
+        movementType: prevRow === undefined && gap > 0 ? 'opening_balance' : 'reconciliation',
+        quantityDelta: gap,
+        fneAuthorizationId: movements[0]!.fneAuthorizationId ?? null,
+      },
+      gap,
+      balanceBefore
+    );
   }
 
-  const id = nanoid();
-  tx.insert(pharmacyFneLedger)
-    .values({
-      id,
-      tenantId: entry.tenantId,
-      siteId: entry.siteId,
-      productId: entry.productId,
-      lotId: entry.lotId ?? null,
-      lotNumber: entry.lotNumber ?? null,
-      businessDate: entry.businessDate,
-      movementType: entry.movementType,
-      quantityDelta: normalizedDelta,
-      balanceAfter,
-      fneAuthorizationId: entry.fneAuthorizationId ?? null,
-      saleId: entry.saleId ?? null,
-      evidenceId: entry.evidenceId ?? null,
-      retainedFormulaDigest: entry.retainedFormulaDigest ?? null,
-      actorId: entry.actorId,
-      notes: entry.notes ?? null,
-      occurredAt: entry.occurredAt,
-      createdAt: entry.occurredAt,
-    })
-    .run();
-  return id;
+  let balance = balanceBefore;
+  return movements.map((row, index) => {
+    balance = roundQuantity(balance + deltas[index]!, 12);
+    return insertRow(row, deltas[index]!, balance);
+  });
+}
+
+/** Single-movement form; only for callers that change one lot per append. */
+export function appendFneLedgerEntry(
+  tx: DatabaseInstance,
+  entry: FneLedgerScope & FneLedgerMovement
+): string {
+  return appendFneLedgerEntries(tx, entry, [entry])[0]!;
 }
 
 /**
- * Append an FNE ledger row iff `productId` carries a `'controlled'` pharmacy profile.
- * Safe to invoke from purchase receipt/return/void and sale return/void transactions.
+ * Append FNE ledger rows iff `productId` carries a `'controlled'` pharmacy profile.
+ * Pass every movement of the product that the transaction already applied to its lots.
  */
-export function recordControlledStockMovementInFneLedger(
+export function recordControlledStockMovementsInFneLedger(
   tx: DatabaseInstance,
-  entry: {
-    tenantId: string;
-    siteId: string;
-    productId: string;
-    lotId?: string | null;
-    lotNumber?: string | null;
-    businessDate: string;
-    movementType: PharmacyFneMovementType;
-    quantityDelta: number;
-    saleId?: string | null;
-    actorId: string;
-    notes?: string | null;
-    occurredAt: string;
-  }
-): string | null {
+  scope: FneLedgerScope,
+  movements: readonly FneLedgerMovement[]
+): string[] {
+  if (movements.length === 0) return [];
   const profile = tx
     .select({ classification: pharmacyProductProfiles.classification })
     .from(pharmacyProductProfiles)
     .where(
       and(
-        eq(pharmacyProductProfiles.tenantId, entry.tenantId),
-        eq(pharmacyProductProfiles.productId, entry.productId)
+        eq(pharmacyProductProfiles.tenantId, scope.tenantId),
+        eq(pharmacyProductProfiles.productId, scope.productId)
       )
     )
     .get();
-  if (profile?.classification !== 'controlled') return null;
+  if (profile?.classification !== 'controlled') return [];
 
   const locale = tx
     .select({ countryCode: tenantLocaleSettings.countryCode })
     .from(tenantLocaleSettings)
-    .where(eq(tenantLocaleSettings.tenantId, entry.tenantId))
+    .where(eq(tenantLocaleSettings.tenantId, scope.tenantId))
     .get();
   const countryCode = (locale?.countryCode ?? 'CO').toUpperCase();
   const fneAuth = findEffectiveFneAuthorization(tx, {
-    tenantId: entry.tenantId,
-    siteId: entry.siteId,
+    tenantId: scope.tenantId,
+    siteId: scope.siteId,
     countryCode,
-    businessDate: entry.businessDate,
+    businessDate: scope.businessDate,
   });
 
-  return appendFneLedgerEntry(tx, {
-    ...entry,
-    fneAuthorizationId: fneAuth?.id ?? null,
-  });
+  return appendFneLedgerEntries(
+    tx,
+    scope,
+    movements.map(row => ({ ...row, fneAuthorizationId: fneAuth?.id ?? null }))
+  );
+}
+
+/** Single-movement form; only for callers that change one lot per append. */
+export function recordControlledStockMovementInFneLedger(
+  tx: DatabaseInstance,
+  entry: FneLedgerScope & FneLedgerMovement
+): string | null {
+  return recordControlledStockMovementsInFneLedger(tx, entry, [entry])[0] ?? null;
 }
 
 export async function getPharmacyFneMonthlyReport(
@@ -644,28 +679,61 @@ export async function getPharmacyFneMonthlyReport(
     let returns = 0;
     let destructions = 0;
     let fractionationsNet = 0;
+    let transfersNet = 0;
+    let adjustmentsNet = 0;
+    let openingInMonth = 0;
+    const add = (total: number, delta: number) => roundQuantity(total + delta, 12);
     for (const row of medEntries) {
-      if (row.movementType === 'receipt')
-        receipts = roundQuantity(receipts + row.quantityDelta, 12);
-      else if (row.movementType === 'supplier_return')
-        supplierReturns = roundQuantity(supplierReturns + Math.abs(row.quantityDelta), 12);
-      else if (row.movementType === 'dispensation')
-        dispensations = roundQuantity(dispensations + Math.abs(row.quantityDelta), 12);
-      else if (row.movementType === 'return')
-        returns = roundQuantity(returns + row.quantityDelta, 12);
-      else if (row.movementType === 'destruction')
-        destructions = roundQuantity(destructions + Math.abs(row.quantityDelta), 12);
-      else fractionationsNet = roundQuantity(fractionationsNet + row.quantityDelta, 12);
+      const delta = row.quantityDelta;
+      switch (row.movementType) {
+        case 'receipt':
+          receipts = add(receipts, delta);
+          break;
+        case 'supplier_return':
+          supplierReturns = add(supplierReturns, -delta);
+          break;
+        case 'dispensation':
+          dispensations = add(dispensations, -delta);
+          break;
+        case 'return':
+          returns = add(returns, delta);
+          break;
+        case 'destruction':
+          destructions = add(destructions, -delta);
+          break;
+        case 'fractionation_in':
+        case 'fractionation_out':
+          fractionationsNet = add(fractionationsNet, delta);
+          break;
+        case 'transfer_in':
+        case 'transfer_out':
+          transfersNet = add(transfersNet, delta);
+          break;
+        case 'opening_balance':
+          openingInMonth = add(openingInMonth, delta);
+          break;
+        case 'count_adjustment':
+        case 'reconciliation':
+          adjustmentsNet = add(adjustmentsNet, delta);
+          break;
+      }
     }
-    const openingBalance = Math.max(0, roundQuantity(priorByProduct.get(med.productId) ?? 0, 12));
-    const netMonth = roundQuantity(
-      receipts - supplierReturns - dispensations + returns - destructions + fractionationsNet,
+    const openingBalance = roundQuantity(
+      (priorByProduct.get(med.productId) ?? 0) + openingInMonth,
       12
     );
-    const closingBalance =
-      medEntries.length > 0
-        ? medEntries[medEntries.length - 1]!.balanceAfter
-        : Math.max(0, roundQuantity(openingBalance + netMonth, 12));
+    const closingBalance = roundQuantity(
+      openingBalance +
+        receipts -
+        supplierReturns -
+        dispensations +
+        returns -
+        destructions +
+        fractionationsNet +
+        transfersNet +
+        adjustmentsNet,
+      12
+    );
     return {
       productId: med.productId,
       name: med.name,
@@ -682,6 +750,8 @@ export async function getPharmacyFneMonthlyReport(
       returns,
       destructions,
       fractionationsNet,
+      transfersNet,
+      adjustmentsNet,
       closingBalance,
     };
   });

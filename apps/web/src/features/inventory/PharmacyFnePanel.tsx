@@ -1,15 +1,28 @@
 import { useState } from 'react';
 import { BookOpenCheck, Printer, ShieldAlert, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { roundQuantity } from '@puntovivo/shared/unit-math';
 
 import { useToast } from '@/components/feedback/ToastProvider';
 import { Badge, Button } from '@/components/ui';
 import { useTenant } from '@/features/tenant/TenantProvider';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { AUTO_PRINT_SCRIPT, escapeHtml, printHtmlDocument } from '@/lib/receiptDocumentPrint';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
+
+const FNE_QUANTITY_COLUMNS = [
+  { field: 'openingBalance', label: 'opening' },
+  { field: 'receipts', label: 'receipts' },
+  { field: 'supplierReturns', label: 'supplierReturns' },
+  { field: 'dispensations', label: 'dispensations' },
+  { field: 'returns', label: 'returns' },
+  { field: 'fractionationsNet', label: 'fractionations' },
+  { field: 'transfersNet', label: 'transfers' },
+  { field: 'adjustmentsNet', label: 'adjustments' },
+  { field: 'destructions', label: 'destructions' },
+  { field: 'closingBalance', label: 'closing' },
+] as const;
 
 interface PharmacyFnePanelProps {
   isAdmin: boolean;
@@ -49,7 +62,21 @@ export function PharmacyFnePanel({
     { page: 1, perPage: 100, isActive: true },
     { enabled: isAdmin }
   );
-  const customersQuery = trpc.customers.list.useQuery({ page: 1, perPage: 50 });
+  const [customerSearch, setCustomerSearch] = useState('');
+  const debouncedCustomerSearch = useDebouncedValue(customerSearch.trim(), 250);
+  const [selectedCustomer, setSelectedCustomer] = useState<{
+    id: string;
+    name: string;
+    taxId: string | null;
+  } | null>(null);
+  const customersQuery = trpc.customers.list.useQuery(
+    { page: 1, perPage: 20, isActive: true, search: debouncedCustomerSearch },
+    { enabled: debouncedCustomerSearch.length >= 2 }
+  );
+  const customerOptions = [
+    ...(selectedCustomer ? [selectedCustomer] : []),
+    ...(customersQuery.data?.items ?? []).filter(c => c.id !== selectedCustomer?.id),
+  ];
   const fneAuthsQuery = trpc.pharmacy.listFneAuthorizations.useQuery({
     siteId: currentSite?.id ?? undefined,
     activeOnly: false,
@@ -115,17 +142,10 @@ export function PharmacyFnePanel({
     if (!report) return;
     const rowsHtml = report.summary
       .map(s => {
-        const netReturns = roundQuantity(s.returns - (s.supplierReturns ?? 0), 12);
         return `<tr>
           <td>${escapeHtml(s.name)} (${escapeHtml(s.sku)})</td>
           <td>${escapeHtml(s.sanitaryRegistration ?? '—')}</td>
-          <td>${s.openingBalance}</td>
-          <td>${s.receipts}</td>
-          <td>${s.dispensations}</td>
-          <td>${netReturns}</td>
-          <td>${s.fractionationsNet}</td>
-          <td>${s.destructions}</td>
-          <td>${s.closingBalance}</td>
+          ${FNE_QUANTITY_COLUMNS.map(column => `<td>${s[column.field]}</td>`).join('')}
         </tr>`;
       })
       .join('');
@@ -138,7 +158,7 @@ export function PharmacyFnePanel({
           </head><body>
           <h1>${escapeHtml(t('pharmacy:fne.reportTitle'))} (Res. 1478/2006)</h1>
           <p>${escapeHtml(report.siteName)} · ${escapeHtml(report.month)}${report.activeAuthorization ? ` · ${escapeHtml(report.activeAuthorization.resolutionNumber)}` : ''}</p>
-          <table><thead><tr><th>${escapeHtml(t('pharmacy:fne.columns.medicine'))}</th><th>${escapeHtml(t('pharmacy:fne.columns.registration'))}</th><th>${escapeHtml(t('pharmacy:fne.columns.opening'))}</th><th>${escapeHtml(t('pharmacy:fne.columns.receipts'))}</th><th>${escapeHtml(t('pharmacy:fne.columns.dispensations'))}</th><th>${escapeHtml(t('pharmacy:fne.columns.returns'))}</th><th>${escapeHtml(t('pharmacy:fne.columns.fractionations'))}</th><th>${escapeHtml(t('pharmacy:fne.columns.destructions'))}</th><th>${escapeHtml(t('pharmacy:fne.columns.closing'))}</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+          <table><thead><tr><th>${escapeHtml(t('pharmacy:fne.columns.medicine'))}</th><th>${escapeHtml(t('pharmacy:fne.columns.registration'))}</th>${FNE_QUANTITY_COLUMNS.map(column => `<th>${escapeHtml(t(`pharmacy:fne.columns.${column.label}`))}</th>`).join('')}</tr></thead><tbody>${rowsHtml}</tbody></table>
           ${autoPrint ? AUTO_PRINT_SCRIPT : ''}</body></html>`,
         createError: (_code, message) => new Error(message),
         desktopBridgeFailedMessage: t('pharmacy:fne.toast.error'),
@@ -318,15 +338,27 @@ export function PharmacyFnePanel({
             <label className="label" htmlFor="pharmacy-allergy-customer">
               {t('pharmacy:fne.selectCustomer')}
             </label>
+            <input
+              type="search"
+              data-testid="pharmacy-allergy-customer-search"
+              className="pv-input mb-2"
+              value={customerSearch}
+              placeholder={t('pharmacy:fne.searchCustomer')}
+              aria-label={t('pharmacy:fne.searchCustomer')}
+              onChange={e => setCustomerSearch(e.target.value)}
+            />
             <select
               id="pharmacy-allergy-customer"
               data-testid="pharmacy-allergy-customer"
               className="pv-input"
               value={customerId}
-              onChange={e => setCustomerId(e.target.value)}
+              onChange={e => {
+                setCustomerId(e.target.value);
+                setSelectedCustomer(customerOptions.find(c => c.id === e.target.value) ?? null);
+              }}
             >
               <option value="">{t('pharmacy:fne.selectCustomerPlaceholder')}</option>
-              {(customersQuery.data?.items ?? []).map(c => (
+              {customerOptions.map(c => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                   {c.taxId ? ` · ${c.taxId}` : ''}
@@ -463,13 +495,11 @@ export function PharmacyFnePanel({
               <thead className="border-b border-secondary-200 text-xs uppercase text-secondary-500">
                 <tr>
                   <th className="py-2 pr-3">{t('pharmacy:fne.columns.medicine')}</th>
-                  <th className="py-2 pr-3">{t('pharmacy:fne.columns.opening')}</th>
-                  <th className="py-2 pr-3">{t('pharmacy:fne.columns.receipts')}</th>
-                  <th className="py-2 pr-3">{t('pharmacy:fne.columns.dispensations')}</th>
-                  <th className="py-2 pr-3">{t('pharmacy:fne.columns.returns')}</th>
-                  <th className="py-2 pr-3">{t('pharmacy:fne.columns.fractionations')}</th>
-                  <th className="py-2 pr-3">{t('pharmacy:fne.columns.destructions')}</th>
-                  <th className="py-2">{t('pharmacy:fne.columns.closing')}</th>
+                  {FNE_QUANTITY_COLUMNS.map(column => (
+                    <th key={column.field} className="py-2 pr-3">
+                      {t(`pharmacy:fne.columns.${column.label}`)}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-secondary-100">
@@ -481,15 +511,18 @@ export function PharmacyFnePanel({
                         {row.sanitaryRegistration ?? row.sku}
                       </span>
                     </td>
-                    <td className="py-2.5 pr-3 font-mono">{row.openingBalance}</td>
-                    <td className="py-2.5 pr-3 font-mono">{row.receipts}</td>
-                    <td className="py-2.5 pr-3 font-mono">{row.dispensations}</td>
-                    <td className="py-2.5 pr-3 font-mono">
-                      {roundQuantity(row.returns - (row.supplierReturns ?? 0), 12)}
-                    </td>
-                    <td className="py-2.5 pr-3 font-mono">{row.fractionationsNet}</td>
-                    <td className="py-2.5 pr-3 font-mono">{row.destructions}</td>
-                    <td className="py-2.5 font-mono font-semibold">{row.closingBalance}</td>
+                    {FNE_QUANTITY_COLUMNS.map(column => (
+                      <td
+                        key={column.field}
+                        className={
+                          column.field === 'closingBalance'
+                            ? 'py-2.5 pr-3 font-mono font-semibold'
+                            : 'py-2.5 pr-3 font-mono'
+                        }
+                      >
+                        {row[column.field]}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>

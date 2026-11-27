@@ -1,4 +1,4 @@
-import { and, asc, eq, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import type { DatabaseInstance } from '../../db/index.js';
@@ -576,6 +576,80 @@ export function importPharmacyInvimaCatalog(
     },
     { behavior: 'immediate' }
   );
+}
+
+const INACTIVE_INVIMA_STATUSES = new Set<PharmacyInvimaStatus>([
+  'vencido',
+  'cancelado',
+  'suspendido',
+]);
+
+/**
+ * Products whose imported INVIMA registration is expired, cancelled or suspended.
+ * Matches by CUM first; without a CUM, every catalog row of the registration must be inactive.
+ */
+export function findInactiveInvimaRegistrationProductIds(
+  db: DatabaseInstance,
+  tenantId: string,
+  profiles: ReadonlyArray<{
+    productId: string;
+    cumCode: string | null;
+    sanitaryRegistration: string | null;
+  }>
+): Set<string> {
+  const keyed = profiles.map(profile => ({
+    productId: profile.productId,
+    cum: profile.cumCode ? normalizeCumCode(profile.cumCode) : null,
+    registration: profile.sanitaryRegistration?.trim()
+      ? normalizeSanitaryRegistration(profile.sanitaryRegistration)
+      : null,
+  }));
+  const cums = [...new Set(keyed.flatMap(row => (row.cum ? [row.cum] : [])))];
+  const registrations = [
+    ...new Set(keyed.flatMap(row => (!row.cum && row.registration ? [row.registration] : []))),
+  ];
+  if (cums.length === 0 && registrations.length === 0) return new Set();
+
+  const catalogRows = db
+    .select({
+      cumNormalized: pharmacyInvimaCatalog.cumNormalized,
+      sanitaryRegistrationNormalized: pharmacyInvimaCatalog.sanitaryRegistrationNormalized,
+      registrationStatus: pharmacyInvimaCatalog.registrationStatus,
+    })
+    .from(pharmacyInvimaCatalog)
+    .where(
+      and(
+        eq(pharmacyInvimaCatalog.tenantId, tenantId),
+        or(
+          cums.length > 0 ? inArray(pharmacyInvimaCatalog.cumNormalized, cums) : undefined,
+          registrations.length > 0
+            ? inArray(pharmacyInvimaCatalog.sanitaryRegistrationNormalized, registrations)
+            : undefined
+        )
+      )
+    )
+    .all();
+  const statusByCum = new Map(catalogRows.map(row => [row.cumNormalized, row.registrationStatus]));
+  const statusesByRegistration = new Map<string, PharmacyInvimaStatus[]>();
+  for (const row of catalogRows) {
+    const statuses = statusesByRegistration.get(row.sanitaryRegistrationNormalized) ?? [];
+    statuses.push(row.registrationStatus);
+    statusesByRegistration.set(row.sanitaryRegistrationNormalized, statuses);
+  }
+
+  const inactive = new Set<string>();
+  for (const row of keyed) {
+    if (row.cum) {
+      const status = statusByCum.get(row.cum);
+      if (status && INACTIVE_INVIMA_STATUSES.has(status)) inactive.add(row.productId);
+    } else if (row.registration) {
+      const statuses = statusesByRegistration.get(row.registration) ?? [];
+      if (statuses.length > 0 && statuses.every(status => INACTIVE_INVIMA_STATUSES.has(status))) {
+        inactive.add(row.productId);
+      }
+    }
+  }
+  return inactive;
 }
 
 export function searchPharmacyInvimaCatalog(

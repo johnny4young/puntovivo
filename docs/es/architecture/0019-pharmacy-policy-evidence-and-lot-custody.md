@@ -37,6 +37,14 @@ presentar replicación parcial como completa.
   fórmula retenida con documento de comprador y custodia en
   `pharmacy_fne_ledger`. País sin adaptador revisado permite solo OTC;
   receta/controlados se rechazan.
+- Todo cambio de stock controlado (entrada, devolución a proveedor, dispensación
+  por lote, devolución o anulación de venta, traslado, conteo, fraccionamiento,
+  destrucción) se asienta en `pharmacy_fne_ledger` después de mover su lote. Un
+  saldo que no cuadra con el stock vivo de lotes nunca se recorta: la diferencia
+  queda como fila explícita `opening_balance` o `reconciliation`, y el reporte
+  mensual cierra en el stock físico.
+- Un registro sanitario que el catálogo INVIMA importado marca vencido,
+  cancelado o suspendido bloquea la venta igual que una fecha de registro vencida.
 - Validez usa día IANA del negocio resuelto en servidor. Toda escritura regulada
   revalida versión regional, país/zona y día bajo escritor inmediato: cambio
   regional concurrente o cruce de medianoche no confirma política vieja.
@@ -80,8 +88,10 @@ presentar replicación parcial como completa.
   no vendibilidad y procedencia. Transformación minorista rechaza medicamentos;
   la conversión regulada de empaque a blíster/tableta fluye exclusivamente por
   `pharmacy_lot_fractionations`, conservando lote físico, vencimiento, registro
-  sanitario, valor exacto en centavos y linaje bidireccional de retiros. Las
-  lecturas diarias Res. 1403 quedan en `pharmacy_environmental_logs` append-only.
+  sanitario, valor exacto en centavos y linaje bidireccional de retiros, y debe
+  conservar las dosis por empaque. Las lecturas diarias Res. 1403 quedan en
+  `pharmacy_environmental_logs` append-only para la fecha de negocio actual,
+  contra los límites del servidor, y una desviación exige acción correctiva.
 
 ### Límites de lectura, interfaz, búsqueda y replicación
 

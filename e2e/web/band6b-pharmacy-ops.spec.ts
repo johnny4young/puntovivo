@@ -1,12 +1,7 @@
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { expect, test } from '@playwright/test';
-import {
-  attachClientIssueTracker,
-  ensureLanguage,
-  expectNoClientIssues,
-  login,
-} from './support/app';
+import { attachClientIssueTracker, ensureLanguage, login } from './support/app';
 import { seedSurfaceGateScenario } from './support/db';
 
 function seedBand6bPharmacyScenario(seed: string) {
@@ -117,6 +112,42 @@ function seedBand6bPharmacyScenario(seed: string) {
         );
       }
 
+      // A controlled medicine so the FNE monthly report renders its columns
+      const controlledId = `prod-6b-ctrl-${suffix}`;
+      db.prepare(
+        `insert into products (
+          id, tenant_id, name, sku, price, price2, price3, cost, initial_cost,
+          tracks_stock, tracks_lots, tracks_serials, is_active, created_at, updated_at
+        ) values (?, ?, ?, ?, 20000, 20000, 20000, 8000, 8000, 1, 1, 0, 1, ?, ?)`
+      ).run(
+        controlledId,
+        scenario.tenantId,
+        `Clonazepam 2 mg ${suffix}`,
+        `CLO-${suffix}`,
+        now,
+        now
+      );
+      db.prepare(
+        `insert into unit_x_product (
+          id, product_id, unit_id, equivalence, price, is_base, created_at, updated_at
+        ) values (?, ?, ?, 1, 20000, 1, ?, ?)`
+      ).run(`uxp-${controlledId}`, controlledId, unitId, now, now);
+      db.prepare(
+        `insert into pharmacy_product_profiles (
+          product_id, tenant_id, active_ingredient, generic_name, concentration,
+          dosage_form, administration_route, presentation, doses_per_pack,
+          sanitary_registration, sanitary_registration_normalized, registration_expires_at,
+          classification, requires_cold_chain, created_at, updated_at
+        ) values (?, ?, 'Clonazepam', 'Clonazepam', '2 mg', 'Tableta', 'Oral', 'Caja x 30 tabletas', 30, ?, ?, '2029-12-31', 'controlled', 0, ?, ?)`
+      ).run(
+        controlledId,
+        scenario.tenantId,
+        `INVIMA CTRL ${suffix}`,
+        `INVIMA CTRL ${suffix}`.toUpperCase(),
+        now,
+        now
+      );
+
       // Seed active lot & site balance for box SKU
       db.prepare(
         `insert into inventory_lots (
@@ -208,6 +239,8 @@ test.describe('Band 6B — Pharmacy fractionation, per-dose generics, Res. 1403 
     await page.getByTestId('pharmacy-env-zone').selectOption('refrigerator');
     await page.getByTestId('pharmacy-env-temp').fill('10.2');
     await expect(page.getByTestId('pharmacy-env-out-of-range-alert')).toBeVisible();
+    await page.getByTestId('pharmacy-env-submit').click();
+    await expect(page.getByText(/Registre la acción correctiva/)).toBeVisible({ timeout: 15_000 });
     await page.getByTestId('pharmacy-env-action').fill('Traslado inmediato a nevera de respaldo');
     await page.getByTestId('pharmacy-env-submit').click();
     await expect(page.getByTestId('pharmacy-env-deviation-count')).toHaveText('1', {
@@ -218,11 +251,17 @@ test.describe('Band 6B — Pharmacy fractionation, per-dose generics, Res. 1403 
     // 4. INVIMA / CUM catalog importer
     await page.locator('#pharmacy-tab-invima').click();
     await expect(page.getByTestId('pharmacy-invima-panel')).toBeVisible({ timeout: 15_000 });
-    await page.getByTestId('pharmacy-invima-load-sample').click();
-    const invimaCsv = page.getByTestId('pharmacy-invima-csv');
-    await invimaCsv.fill(
-      `${await invimaCsv.inputValue()}\n19994004;01;;LAB;INVIMA 2024M-0000001;;Vigente;;;;;;;`
-    );
+    await page
+      .getByTestId('pharmacy-invima-csv')
+      .fill(
+        [
+          'expediente;consecutivocum;producto;titular;registrosanitario;fechavencimiento;estadoregistro;descripcioncomercial;principioactivo;cantidad;unidadmedida;formafarmaceutica;viaadministracion;condicionventa',
+          '19991001;01;ACETAMINOFEN 500 MG TABLETA;LAB E2E;INVIMA E2E-0001;31/12/2029;Vigente;CAJA X 30 TABLETAS;ACETAMINOFEN;500;mg;TABLETA;ORAL;Venta libre',
+          '19992002;01;AMOXICILINA 500 MG CAPSULA;LAB E2E;INVIMA E2E-0002;30/06/2030;Vigente;CAJA X 30 CAPSULAS;AMOXICILINA;500;mg;CAPSULA;ORAL;Venta con formula medica',
+          '19993003;01;CLONAZEPAM 2 MG TABLETA;LAB E2E;INVIMA E2E-0003;15/09/2028;Vigente;CAJA X 30 TABLETAS;CLONAZEPAM;2;mg;TABLETA;ORAL;Medicamento de control especial',
+          '19994004;01;;LAB E2E;INVIMA E2E-0004;;Vigente;;;;;;;',
+        ].join('\n')
+      );
     await page.getByTestId('pharmacy-invima-import').click();
     await expect(page.getByTestId('pharmacy-invima-row')).toHaveCount(3, { timeout: 15_000 });
     await expect(page.getByText(/1 fila omitida por datos incompletos/)).toBeVisible();
@@ -230,6 +269,17 @@ test.describe('Band 6B — Pharmacy fractionation, per-dose generics, Res. 1403 
     // 5. FNE tab -> register patient allergy to Loratadina
     await page.locator('#pharmacy-tab-fne').click();
     await expect(page.getByTestId('pharmacy-fne-panel')).toBeVisible({ timeout: 15_000 });
+    for (const header of ['Devoluciones a proveedor', 'Traslados', 'Ajustes']) {
+      await expect(
+        page.getByTestId('pharmacy-fne-panel').getByRole('columnheader', { name: header })
+      ).toBeVisible({ timeout: 15_000 });
+    }
+    await page.getByTestId('pharmacy-allergy-customer-search').fill(scenario.customerName);
+    await expect(
+      page
+        .getByTestId('pharmacy-allergy-customer')
+        .locator(`option[value="${scenario.customerId}"]`)
+    ).toHaveCount(1, { timeout: 15_000 });
     await page.getByTestId('pharmacy-allergy-customer').selectOption(scenario.customerId);
     await page.getByTestId('pharmacy-allergy-ingredient').fill('Loratadina');
     await page.getByTestId('pharmacy-allergy-add').click();
@@ -274,6 +324,10 @@ test.describe('Band 6B — Pharmacy fractionation, per-dose generics, Res. 1403 
     await customerOption.click();
     await expect(page.getByTestId('pharmacy-allergy-alert')).toBeVisible({ timeout: 15_000 });
 
-    await expectNoClientIssues(tracker);
+    // The only failed request is the deliberate out-of-range reading without a corrective action.
+    expect(tracker.getIssues()).toEqual([
+      expect.stringMatching(/^response:400 .*pharmacy\.recordEnvironmentalLog/),
+      'console:Failed to load resource: the server responded with a status of 400 (Bad Request)',
+    ]);
   });
 });

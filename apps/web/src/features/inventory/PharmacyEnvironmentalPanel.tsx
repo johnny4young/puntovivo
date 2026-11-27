@@ -262,7 +262,6 @@ export function PharmacyEnvironmentalPanel({ businessDate }: PharmacyEnvironment
             if (!canSubmit || !currentSite) return;
             recordLog.mutate({
               siteId: currentSite.id,
-              businessDate,
               period,
               zone,
               temperatureC: parsedTemp,

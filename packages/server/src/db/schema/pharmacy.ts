@@ -79,6 +79,11 @@ export const pharmacyFneMovementTypeEnum = [
   'destruction',
   'fractionation_out',
   'fractionation_in',
+  'transfer_out',
+  'transfer_in',
+  'count_adjustment',
+  'opening_balance',
+  'reconciliation',
 ] as const;
 export type PharmacyFneMovementType = (typeof pharmacyFneMovementTypeEnum)[number];
 
@@ -750,11 +755,11 @@ export const pharmacyFneLedger = sqliteTable(
     ),
     check(
       'chk_pharmacy_fne_ledger_type',
-      sql`${table.movementType} in ('receipt', 'supplier_return', 'dispensation', 'return', 'destruction', 'fractionation_out', 'fractionation_in')`
+      sql`${table.movementType} in ('receipt', 'supplier_return', 'dispensation', 'return', 'destruction', 'fractionation_out', 'fractionation_in', 'transfer_out', 'transfer_in', 'count_adjustment', 'opening_balance', 'reconciliation')`
     ),
     check(
       'chk_pharmacy_fne_ledger_sign',
-      sql`(${table.movementType} in ('receipt', 'return', 'fractionation_in') and ${table.quantityDelta} > 0) or (${table.movementType} in ('dispensation', 'supplier_return', 'destruction', 'fractionation_out') and ${table.quantityDelta} < 0)`
+      sql`(${table.movementType} in ('receipt', 'return', 'fractionation_in', 'transfer_in', 'opening_balance') and ${table.quantityDelta} > 0) or (${table.movementType} in ('dispensation', 'supplier_return', 'destruction', 'fractionation_out', 'transfer_out') and ${table.quantityDelta} < 0) or (${table.movementType} in ('count_adjustment', 'reconciliation') and ${table.quantityDelta} <> 0)`
     ),
     check('chk_pharmacy_fne_ledger_balance', sql`${table.balanceAfter} >= 0`),
   ]

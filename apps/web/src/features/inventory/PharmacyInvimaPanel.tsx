@@ -8,6 +8,7 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 
+// Fictitious registrations for local development only; never shipped in a production build.
 const SAMPLE_COLOMBIA_INVIMA_CSV = [
   'expediente;consecutivocum;producto;titular;registrosanitario;fechavencimiento;estadoregistro;descripcioncomercial;principioactivo;cantidad;unidadmedida;formafarmaceutica;viaadministracion;condicionventa',
   '19991001;01;ACETAMINOFEN 500 MG TABLETA;LABORATORIOS MK S.A.;INVIMA 2024M-0001234-R2;31/12/2029;Vigente;CAJA X 30 TABLETAS;ACETAMINOFEN;500;mg;TABLETA;ORAL;Venta libre',
@@ -29,7 +30,7 @@ export function PharmacyInvimaPanel() {
   const utils = trpc.useUtils();
 
   const [csvText, setCsvText] = useState('');
-  const [syncMatchingProducts, setSyncMatchingProducts] = useState(true);
+  const [syncMatchingProducts, setSyncMatchingProducts] = useState(false);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search.trim(), 200);
 
@@ -92,15 +93,17 @@ export function PharmacyInvimaPanel() {
               }}
             />
           </label>
-          <Button
-            type="button"
-            variant="outline"
-            size="compact"
-            data-testid="pharmacy-invima-load-sample"
-            onClick={() => setCsvText(SAMPLE_COLOMBIA_INVIMA_CSV)}
-          >
-            {t('pharmacy:invima.loadSample')}
-          </Button>
+          {import.meta.env.DEV && (
+            <Button
+              type="button"
+              variant="outline"
+              size="compact"
+              data-testid="pharmacy-invima-load-sample"
+              onClick={() => setCsvText(SAMPLE_COLOMBIA_INVIMA_CSV)}
+            >
+              {t('pharmacy:invima.loadSample')}
+            </Button>
+          )}
         </div>
 
         <div className="pv-field">

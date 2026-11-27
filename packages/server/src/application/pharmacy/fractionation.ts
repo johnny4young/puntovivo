@@ -41,7 +41,7 @@ import type {
   ListPharmacyFractionationsInput,
 } from '../../trpc/schemas/pharmacy.js';
 import { appendFneLedgerEntry, findEffectiveFneAuthorization } from './fne.js';
-import { pharmacyEquivalenceKey } from './generic-alternatives.js';
+import { pharmacyEquivalenceKey, resolveDosesPerPack } from './generic-alternatives.js';
 import { clampPharmacyPage, pharmacySyncContext, type CriticalPharmacyContext } from './types.js';
 
 const CLASSIFICATION_RANK = { otc: 0, prescription: 1, controlled: 2 } as const;
@@ -193,6 +193,8 @@ export async function fractionatePharmacyLot(
           sanitaryRegistrationNormalized: pharmacyProductProfiles.sanitaryRegistrationNormalized,
           registrationExpiresAt: pharmacyProductProfiles.registrationExpiresAt,
           classification: pharmacyProductProfiles.classification,
+          presentation: pharmacyProductProfiles.presentation,
+          dosesPerPack: pharmacyProductProfiles.dosesPerPack,
         })
         .from(products)
         .innerJoin(
@@ -260,6 +262,32 @@ export async function fractionatePharmacyLot(
           errorCode: 'PHARMACY_FRACTIONATION_INVALID',
           message:
             'Source and target SKUs must match in active ingredient, concentration, and dosage form',
+        });
+      }
+      const sourceDoses = resolveDosesPerPack(
+        sourceProfile.dosesPerPack,
+        sourceProfile.presentation
+      );
+      const targetDoses = resolveDosesPerPack(
+        targetProfile.dosesPerPack,
+        targetProfile.presentation
+      );
+      if (sourceDoses === null || targetDoses === null) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'PHARMACY_FRACTIONATION_DOSES_MISMATCH',
+          message: 'Source and target SKUs must declare their doses per pack to fractionate',
+        });
+      }
+      // Fractionation repackages doses; it can never create or lose them.
+      const sourceTotalDoses = roundQuantity(input.sourceQuantity * sourceDoses, 6);
+      const targetTotalDoses = roundQuantity(input.targetQuantity * targetDoses, 6);
+      if (Math.abs(sourceTotalDoses - targetTotalDoses) > QUANTITY_EPSILON) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'PHARMACY_FRACTIONATION_DOSES_MISMATCH',
+          message: 'Target quantity must hold exactly the doses of the source quantity',
+          details: { sourceTotalDoses, targetTotalDoses },
         });
       }
       if (

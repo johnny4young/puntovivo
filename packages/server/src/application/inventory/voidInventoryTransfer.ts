@@ -337,7 +337,8 @@ export function voidInventoryTransfer(
               productId: item.productId,
               wasInTransit,
               now,
-              ...(args.businessDate ? { businessDate: args.businessDate } : {}),
+              businessDate: args.businessDate,
+              actorId: args.voidedBy,
             })
           );
         } else if (originCredit > 0) {

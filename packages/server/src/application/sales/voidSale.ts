@@ -55,7 +55,7 @@ import { resolveFiscalDocumentSnapshot } from '../../services/fiscal/orchestrato
 import { createModuleLogger } from '../../logging/logger.js';
 import { buildVoidedSaleNotes, getPersistedCashContribution } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
-import { recordControlledStockMovementInFneLedger } from '../pharmacy/fne.js';
+import { recordControlledStockMovementsInFneLedger } from '../pharmacy/fne.js';
 import { reverseBundleComponentsInTransaction } from '../../services/product-bundles.js';
 import { reverseModifierBomInTransaction } from '../../services/restaurant/modifier-bom.js';
 import { broadcastSaleRetracted, materializeCommittedFiscalIntent } from './fiscalPostHook.js';
@@ -406,21 +406,31 @@ export async function voidSale(
           )
           .where(and(eq(saleItemLots.tenantId, ctx.tenantId), eq(saleItems.saleId, input.id)))
           .all();
+        const voidedByProduct = new Map<string, typeof voidedLotRows>();
         for (const row of voidedLotRows) {
-          recordControlledStockMovementInFneLedger(tx, {
-            tenantId: ctx.tenantId,
-            siteId: row.siteId,
-            productId: row.productId,
-            lotId: row.lotId,
-            lotNumber: row.lotNumber,
-            businessDate: businessClock.businessDate,
-            movementType: 'return',
-            quantityDelta: row.quantity,
-            saleId: input.id,
-            actorId: ctx.user.id,
-            notes: input.reason ?? `Void sale ${existing.saleNumber}`,
-            occurredAt: now,
-          });
+          const key = `${row.siteId}:${row.productId}`;
+          voidedByProduct.set(key, [...(voidedByProduct.get(key) ?? []), row]);
+        }
+        for (const rows of voidedByProduct.values()) {
+          recordControlledStockMovementsInFneLedger(
+            tx,
+            {
+              tenantId: ctx.tenantId,
+              siteId: rows[0]!.siteId,
+              productId: rows[0]!.productId,
+              businessDate: businessClock.businessDate,
+              actorId: ctx.user.id,
+              occurredAt: now,
+            },
+            rows.map(row => ({
+              lotId: row.lotId,
+              lotNumber: row.lotNumber,
+              movementType: 'return' as const,
+              quantityDelta: row.quantity,
+              saleId: input.id,
+              notes: input.reason ?? `Void sale ${existing.saleNumber}`,
+            }))
+          );
         }
         transitionSaleSerials(tx as unknown as typeof ctx.db, {
           tenantId: ctx.tenantId,

@@ -2072,7 +2072,7 @@
   {
     "path": "pharmacy.recordEnvironmentalLog",
     "kind": "mutation",
-    "input": "object{businessDate?:string[format=date],correctiveAction?:string[maxLength=500]|null,humidityPercent?:number[min=0,max=100]|null,instrumentCode?:string[maxLength=120]|null,maxHumidityPercent?:number[min=0,max=100]|null,maxTempC?:number[min=-40,max=80],minTempC?:number[min=-40,max=80],notes?:string[maxLength=500]|null,period:enum(\"morning\"|\"afternoon\"),siteId?:string[minLength=1],temperatureC:number[min=-40,max=80],zone:enum(\"ambient\"|\"refrigerator\")}",
+    "input": "object{correctiveAction?:string[maxLength=500]|null,humidityPercent?:number[min=0,max=100]|null,instrumentCode?:string[maxLength=120]|null,notes?:string[maxLength=500]|null,period:enum(\"morning\"|\"afternoon\"),siteId?:string[minLength=1],temperatureC:number[min=-40,max=80],zone:enum(\"ambient\"|\"refrigerator\")}",
     "output": "inferred"
   },
   {

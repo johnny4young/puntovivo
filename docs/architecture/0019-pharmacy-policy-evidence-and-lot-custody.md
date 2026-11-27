@@ -43,6 +43,14 @@ keeping regulated aggregates local until that contract exists.
   identification and `pharmacy_fne_ledger` custody apply. Countries without a
   reviewed adapter permit OTC only; prescription and controlled sales fail
   closed.
+- Every controlled stock change (receipt, supplier return, per-lot dispensation,
+  sale return or void, transfer, count, fractionation, destruction) appends to
+  `pharmacy_fne_ledger` after its lot change. A balance that disagrees with the
+  live lot stock is never clamped: the gap is written as an explicit
+  `opening_balance` or `reconciliation` row, so the monthly report closes on
+  physical stock.
+- A sanitary registration that the imported INVIMA catalog marks expired,
+  cancelled or suspended blocks the sale like an expired registration date.
 - Calendar validity uses the tenant's server-resolved IANA business date. Every
   regulated write revalidates the locale version, effective country/timezone,
   and current local date after reserving SQLite's immediate writer, so a
@@ -104,8 +112,10 @@ keeping regulated aggregates local until that contract exists.
   transformations reject medicines; regulated pack-to-blister/tablet conversion
   flows exclusively through `pharmacy_lot_fractionations`, preserving physical
   lot number, expiry, sanitary registration, cent-exact carrying value, and
-  bidirectional recall lineage. Daily Res. 1403 environmental readings record
-  into append-only `pharmacy_environmental_logs`.
+  bidirectional recall lineage, and it must conserve doses per pack. Daily Res.
+  1403 environmental readings record into append-only
+  `pharmacy_environmental_logs` for the current business date, against the
+  server's limits, and a deviation requires a corrective action.
 
 ### Read, UI, search, and replication boundaries
 

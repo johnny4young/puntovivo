@@ -65,21 +65,11 @@ export async function recordPharmacyEnvironmentalLog(
   }
 
   const clock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
-  const businessDate = input.businessDate ?? clock.businessDate;
-  const defaults = RES_1403_ENVIRONMENTAL_DEFAULTS[input.zone];
-  const minTempC = input.minTempC ?? defaults.minTempC;
-  const maxTempC = input.maxTempC ?? defaults.maxTempC;
-  const maxHumidityPercent =
-    input.maxHumidityPercent === undefined ? defaults.maxHumidityPercent : input.maxHumidityPercent;
+  // Readings are always for today and judged against the Res. 1403 limits, never client-supplied ones.
+  const businessDate = clock.businessDate;
+  const { minTempC, maxTempC, maxHumidityPercent } = RES_1403_ENVIRONMENTAL_DEFAULTS[input.zone];
   const humidityPercent = input.humidityPercent ?? null;
 
-  if (!(minTempC < maxTempC)) {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'PHARMACY_ENVIRONMENTAL_INVALID',
-      message: 'Minimum temperature must be strictly lower than maximum temperature',
-    });
-  }
   if (input.zone === 'ambient' && humidityPercent === null) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
@@ -95,6 +85,14 @@ export async function recordPharmacyEnvironmentalLog(
     maxTempC,
     maxHumidityPercent,
   });
+  if (evaluation.isOutOfRange && !input.correctiveAction) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PHARMACY_ENVIRONMENTAL_CORRECTIVE_ACTION_REQUIRED',
+      message: 'An out-of-range reading requires a corrective action',
+      details: { reasons: evaluation.reasons },
+    });
+  }
   const id = nanoid();
 
   return ctx.db.transaction(

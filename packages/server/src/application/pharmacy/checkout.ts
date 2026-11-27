@@ -42,7 +42,12 @@ import {
   inspectPharmacyAuthorizationSnapshot,
   type PharmacyAuthorizationSnapshot,
 } from './authorizations.js';
-import { appendFneLedgerEntry, findEffectiveFneAuthorization } from './fne.js';
+import {
+  appendFneLedgerEntries,
+  findEffectiveFneAuthorization,
+  type FneLedgerMovement,
+} from './fne.js';
+import { findInactiveInvimaRegistrationProductIds } from './invima-catalog.js';
 import { matchesAllergyIngredient } from './allergies.js';
 import { pharmacyEquivalenceKey } from './generic-alternatives.js';
 
@@ -86,6 +91,7 @@ export async function getPharmacyCheckoutRequirements(
             classification: pharmacyProductProfiles.classification,
             sanitaryRegistration: pharmacyProductProfiles.sanitaryRegistration,
             registrationExpiresAt: pharmacyProductProfiles.registrationExpiresAt,
+            cumCode: pharmacyProductProfiles.cumCode,
           })
           .from(products)
           .innerJoin(
@@ -103,7 +109,13 @@ export async function getPharmacyCheckoutRequirements(
             )
           )
           .all();
-  const profileByProduct = new Map(profileRows.map(profile => [profile.productId, profile]));
+  const inactiveRegistrations = findInactiveInvimaRegistrationProductIds(db, tenantId, profileRows);
+  const profileByProduct = new Map(
+    profileRows.map(profile => [
+      profile.productId,
+      { ...profile, registrationInactive: inactiveRegistrations.has(profile.productId) },
+    ])
+  );
   const profiles = productIds.flatMap(productId => {
     const profile = profileByProduct.get(productId);
     return profile ? [profile] : [];
@@ -640,6 +652,7 @@ export function allocatePharmacyEvidenceForSale(
       classification: pharmacyProductProfiles.classification,
       sanitaryRegistration: pharmacyProductProfiles.sanitaryRegistration,
       registrationExpiresAt: pharmacyProductProfiles.registrationExpiresAt,
+      cumCode: pharmacyProductProfiles.cumCode,
     })
     .from(saleItems)
     .innerJoin(products, eq(products.id, saleItems.productId))
@@ -652,10 +665,17 @@ export function allocatePharmacyEvidenceForSale(
     )
     .where(and(eq(saleItems.saleId, sale.id), eq(products.tenantId, ctx.tenantId)))
     .all();
-  const medicineLines = lines.filter(
-    (line): line is typeof line & { classification: 'otc' | 'prescription' | 'controlled' } =>
-      line.classification !== null
+  const inactiveRegistrations = findInactiveInvimaRegistrationProductIds(
+    db,
+    ctx.tenantId,
+    lines.filter(line => line.classification !== null)
   );
+  const medicineLines = lines
+    .filter(
+      (line): line is typeof line & { classification: 'otc' | 'prescription' | 'controlled' } =>
+        line.classification !== null
+    )
+    .map(line => ({ ...line, registrationInactive: inactiveRegistrations.has(line.productId) }));
 
   const selectedEvidence =
     args.evidenceIds.length === 0
@@ -931,6 +951,7 @@ export function allocatePharmacyEvidenceForSale(
   }
 
   const dispensationIds: string[] = [];
+  const controlledAllocations: typeof lineAllocations = [];
   for (const allocation of lineAllocations) {
     const id = nanoid();
     db.insert(pharmacyDispensations)
@@ -951,63 +972,7 @@ export function allocatePharmacyEvidenceForSale(
       })
       .run();
     dispensationIds.push(id);
-    if (allocation.classification === 'controlled') {
-      const consumedLots = db
-        .select({
-          lotId: saleItemLots.lotId,
-          lotNumber: inventoryLots.lotNumber,
-        })
-        .from(saleItemLots)
-        .innerJoin(
-          inventoryLots,
-          and(eq(inventoryLots.id, saleItemLots.lotId), eq(inventoryLots.tenantId, ctx.tenantId))
-        )
-        .where(
-          and(
-            eq(saleItemLots.tenantId, ctx.tenantId),
-            eq(saleItemLots.saleItemId, allocation.saleItemId)
-          )
-        )
-        .all();
-      const lotId = consumedLots.length === 1 ? consumedLots[0]!.lotId : null;
-      const lotNumber =
-        consumedLots.length > 0
-          ? [...new Set(consumedLots.map(l => l.lotNumber))].join(', ')
-          : null;
-      const ledgerId = appendFneLedgerEntry(db, {
-        tenantId: ctx.tenantId,
-        siteId: ctx.siteId,
-        productId: allocation.productId,
-        lotId,
-        lotNumber,
-        businessDate: args.businessDate,
-        movementType: 'dispensation',
-        quantityDelta: -allocation.quantity,
-        fneAuthorizationId: fneAuthorization?.id ?? null,
-        saleId: args.saleId,
-        evidenceId: allocation.evidenceId,
-        retainedFormulaDigest: allocation.referenceDigest,
-        actorId: ctx.actorId,
-        occurredAt: args.nowIso,
-      });
-      writeAuditLog({
-        tx: db,
-        tenantId: ctx.tenantId,
-        actorId: ctx.actorId,
-        action: 'pharmacy.fne.dispense',
-        resourceType: 'pharmacy_fne_ledger',
-        resourceId: ledgerId,
-        after: {
-          saleId: args.saleId,
-          productId: allocation.productId,
-          evidenceId: allocation.evidenceId,
-          fneAuthorizationId: fneAuthorization?.id ?? null,
-          quantity: allocation.quantity,
-          businessDate: args.businessDate,
-        },
-        operationId: ctx.envelope?.operationId,
-      });
-    }
+    if (allocation.classification === 'controlled') controlledAllocations.push(allocation);
     const syncAllocation = {
       saleItemId: allocation.saleItemId,
       productId: allocation.productId,
@@ -1026,5 +991,127 @@ export function allocatePharmacyEvidenceForSale(
       }).id
     );
   }
+  recordControlledDispensations(db, ctx, args, controlledAllocations, fneAuthorization?.id ?? null);
   return { dispensationIds, syncOutboxIds };
+}
+
+/** One FNE row per consumed lot, split across the evidence allocations of each sale line. */
+function recordControlledDispensations(
+  db: DatabaseInstance,
+  ctx: PharmacySaleSyncContext,
+  args: { saleId: string; businessDate: string; nowIso: string },
+  allocations: ReadonlyArray<{
+    saleItemId: string;
+    productId: string;
+    evidenceId: string;
+    referenceDigest: string;
+    quantity: number;
+  }>,
+  fneAuthorizationId: string | null
+): void {
+  if (allocations.length === 0) return;
+  const lotQueues = new Map<
+    string,
+    Array<{ lotId: string; lotNumber: string; quantity: number }>
+  >();
+  for (const saleItemId of new Set(allocations.map(a => a.saleItemId))) {
+    lotQueues.set(
+      saleItemId,
+      db
+        .select({
+          lotId: saleItemLots.lotId,
+          lotNumber: inventoryLots.lotNumber,
+          quantity: saleItemLots.quantity,
+        })
+        .from(saleItemLots)
+        .innerJoin(
+          inventoryLots,
+          and(eq(inventoryLots.id, saleItemLots.lotId), eq(inventoryLots.tenantId, ctx.tenantId))
+        )
+        .where(
+          and(eq(saleItemLots.tenantId, ctx.tenantId), eq(saleItemLots.saleItemId, saleItemId))
+        )
+        .orderBy(asc(sql`${saleItemLots}.rowid`))
+        .all()
+    );
+  }
+
+  const byProduct = new Map<
+    string,
+    Array<{ allocationIndex: number; movement: FneLedgerMovement }>
+  >();
+  allocations.forEach((allocation, allocationIndex) => {
+    const queue = lotQueues.get(allocation.saleItemId)!;
+    let remaining = allocation.quantity;
+    const push = (lotId: string | null, lotNumber: string | null, quantity: number) => {
+      const rows = byProduct.get(allocation.productId) ?? [];
+      rows.push({
+        allocationIndex,
+        movement: {
+          lotId,
+          lotNumber,
+          movementType: 'dispensation',
+          quantityDelta: -quantity,
+          fneAuthorizationId,
+          saleId: args.saleId,
+          evidenceId: allocation.evidenceId,
+          retainedFormulaDigest: allocation.referenceDigest,
+        },
+      });
+      byProduct.set(allocation.productId, rows);
+    };
+    while (remaining > QUANTITY_EPSILON && queue.length > 0) {
+      const lot = queue[0]!;
+      const taken = roundQuantity(Math.min(remaining, lot.quantity));
+      push(lot.lotId, lot.lotNumber, taken);
+      lot.quantity = roundQuantity(lot.quantity - taken);
+      if (lot.quantity <= QUANTITY_EPSILON) queue.shift();
+      remaining = roundQuantity(remaining - taken);
+    }
+    if (remaining > QUANTITY_EPSILON) push(null, null, remaining);
+  });
+
+  const ledgerIdsByAllocation = new Map<number, string[]>();
+  for (const [productId, rows] of byProduct) {
+    const ids = appendFneLedgerEntries(
+      db,
+      {
+        tenantId: ctx.tenantId,
+        siteId: ctx.siteId,
+        productId,
+        businessDate: args.businessDate,
+        actorId: ctx.actorId,
+        occurredAt: args.nowIso,
+      },
+      rows.map(row => row.movement)
+    );
+    rows.forEach((row, index) => {
+      ledgerIdsByAllocation.set(row.allocationIndex, [
+        ...(ledgerIdsByAllocation.get(row.allocationIndex) ?? []),
+        ids[index]!,
+      ]);
+    });
+  }
+
+  allocations.forEach((allocation, allocationIndex) => {
+    const ledgerIds = ledgerIdsByAllocation.get(allocationIndex) ?? [];
+    writeAuditLog({
+      tx: db,
+      tenantId: ctx.tenantId,
+      actorId: ctx.actorId,
+      action: 'pharmacy.fne.dispense',
+      resourceType: 'pharmacy_fne_ledger',
+      resourceId: ledgerIds[0]!,
+      after: {
+        saleId: args.saleId,
+        productId: allocation.productId,
+        evidenceId: allocation.evidenceId,
+        fneAuthorizationId,
+        quantity: allocation.quantity,
+        businessDate: args.businessDate,
+        ledgerEntryIds: ledgerIds,
+      },
+      operationId: ctx.envelope?.operationId,
+    });
+  });
 }
