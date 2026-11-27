@@ -43,6 +43,7 @@ interface PrecheckPrintDoc {
   subtotal: number;
   taxAmount: number;
   discountAmount: number;
+  serviceChargeAmount: number;
   baseTotal: number;
   tipPercent: number;
   suggestedTipAmount: number;
@@ -73,7 +74,7 @@ function buildPrecheckPrintHtml(
     .join('');
   const notice = options.isEnglish ? doc.voluntaryTipNoticeEn : doc.voluntaryTipNoticeEs;
   const script = options.autoPrint ? '<script>window.onload=()=>window.print();</script>' : '';
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(doc.tableName)}</title><style>body{font-family:ui-monospace,monospace;max-width:300px;margin:0 auto;padding:12px;color:#111;font-size:12px}.c{text-align:center}.b{font-weight:700}.hr{border-top:1px dashed #666;margin:8px 0}.row{display:flex;justify-content:space-between;gap:8px;margin:4px 0}.mods{font-size:11px;color:#444}</style></head><body><div class="c b">${escapeHtml(doc.tenantName)}</div><div class="c">${escapeHtml(doc.siteName)}</div><div class="hr"></div><div class="c b">${escapeHtml(options.labels.badge ?? '')}</div><div>${escapeHtml(doc.tableName)} · ${escapeHtml(doc.saleNumbers.join(', '))}</div><div class="hr"></div>${rowsHtml}<div class="hr"></div><div class="row"><span>${escapeHtml(options.labels.subtotal ?? '')}</span><span>${escapeHtml(formatCurrency(doc.subtotal))}</span></div>${doc.taxAmount > 0 ? `<div class="row"><span>${escapeHtml(options.labels.taxes ?? '')}</span><span>${escapeHtml(formatCurrency(doc.taxAmount))}</span></div>` : ''}${doc.discountAmount > 0 ? `<div class="row"><span>${escapeHtml(options.labels.discount ?? '')}</span><span>-${escapeHtml(formatCurrency(doc.discountAmount))}</span></div>` : ''}<div class="row b"><span>${escapeHtml(options.labels.baseTotal ?? '')}</span><span>${escapeHtml(formatCurrency(doc.baseTotal))}</span></div><div class="row"><span>${escapeHtml(options.labels.tip ?? '')}</span><span>${escapeHtml(formatCurrency(doc.suggestedTipAmount))}</span></div><div class="row b"><span>${escapeHtml(options.labels.totalWithTip ?? '')}</span><span>${escapeHtml(formatCurrency(doc.totalWithTip))}</span></div><div class="hr"></div><div class="c" style="font-size:11px">${escapeHtml(notice)}</div>${script}</body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(doc.tableName)}</title><style>body{font-family:ui-monospace,monospace;max-width:300px;margin:0 auto;padding:12px;color:#111;font-size:12px}.c{text-align:center}.b{font-weight:700}.hr{border-top:1px dashed #666;margin:8px 0}.row{display:flex;justify-content:space-between;gap:8px;margin:4px 0}.mods{font-size:11px;color:#444}</style></head><body><div class="c b">${escapeHtml(doc.tenantName)}</div><div class="c">${escapeHtml(doc.siteName)}</div><div class="hr"></div><div class="c b">${escapeHtml(options.labels.badge ?? '')}</div><div>${escapeHtml(doc.tableName)} · ${escapeHtml(doc.saleNumbers.join(', '))}</div><div class="hr"></div>${rowsHtml}<div class="hr"></div><div class="row"><span>${escapeHtml(options.labels.subtotal ?? '')}</span><span>${escapeHtml(formatCurrency(doc.subtotal))}</span></div>${doc.taxAmount > 0 ? `<div class="row"><span>${escapeHtml(options.labels.taxes ?? '')}</span><span>${escapeHtml(formatCurrency(doc.taxAmount))}</span></div>` : ''}${doc.discountAmount > 0 ? `<div class="row"><span>${escapeHtml(options.labels.discount ?? '')}</span><span>-${escapeHtml(formatCurrency(doc.discountAmount))}</span></div>` : ''}${doc.serviceChargeAmount > 0 ? `<div class="row"><span>${escapeHtml(options.labels.serviceCharge ?? '')}</span><span>${escapeHtml(formatCurrency(doc.serviceChargeAmount))}</span></div>` : ''}<div class="row b"><span>${escapeHtml(options.labels.baseTotal ?? '')}</span><span>${escapeHtml(formatCurrency(doc.baseTotal))}</span></div><div class="row"><span>${escapeHtml(options.labels.tip ?? '')}</span><span>${escapeHtml(formatCurrency(doc.suggestedTipAmount))}</span></div><div class="row b"><span>${escapeHtml(options.labels.totalWithTip ?? '')}</span><span>${escapeHtml(formatCurrency(doc.totalWithTip))}</span></div><div class="hr"></div><div class="c" style="font-size:11px">${escapeHtml(notice)}</div>${script}</body></html>`;
 }
 
 interface RestaurantPrecheckModalProps {
@@ -111,6 +112,7 @@ export function RestaurantPrecheckModal({
           subtotal: t('restaurants:precheck.subtotal'),
           taxes: t('restaurants:precheck.taxes'),
           discount: t('restaurants:precheck.discount'),
+          serviceCharge: t('restaurants:precheck.serviceCharge'),
           baseTotal: t('restaurants:precheck.baseTotal'),
           tip: t('restaurants:precheck.suggestedTip', { percent: result.precheck.tipPercent }),
           totalWithTip: t('restaurants:precheck.totalWithTip'),

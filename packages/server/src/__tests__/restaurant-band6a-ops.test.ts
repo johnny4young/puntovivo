@@ -21,6 +21,7 @@ import {
   productBundleComponents,
   products,
   restaurantTables,
+  saleItemTaxComponents,
   saleItems,
   sales,
   sequentials,
@@ -1086,6 +1087,44 @@ describe('Band 6A — Restaurant operational closure', () => {
       expectedCheckVersion: stTax.checks[0]!.version,
       parts: 2,
     });
+    // Every component of a split line keeps the line base as its taxable amount.
+    const tableTax3 = await createTable(`Mesa MultiTax3 ${nanoid(4)}`);
+    await cashier().restaurantServices.openCheck({
+      tableId: tableTax3,
+      guestCount: 3,
+      priceTier: 1,
+      diners: [],
+      items: [
+        {
+          productId: taxedDish,
+          unitId: fracUnitId,
+          quantity: 1,
+          unitPrice: 100.1,
+          discount: 0,
+          taxComponents: [{ vatRateId: vat1Id }, { vatRateId: vat2Id }],
+          courseKey: 'main',
+          modifiers: [],
+        },
+      ],
+    });
+    const stTax3 = await cashier().restaurantServices.getTableState({ tableId: tableTax3 });
+    const splitTax3 = await cashier().restaurantServices.splitEqual({
+      tableId: tableTax3,
+      checkId: stTax3.checks[0]!.id,
+      expectedCheckVersion: stTax3.checks[0]!.version,
+      parts: 3,
+    });
+    for (const chk of splitTax3.checks) {
+      const splitLine = db.select().from(saleItems).where(eq(saleItems.saleId, chk.saleId)).get()!;
+      const comps = db
+        .select()
+        .from(saleItemTaxComponents)
+        .where(eq(saleItemTaxComponents.saleItemId, splitLine.id))
+        .all();
+      expect(comps).toHaveLength(2);
+      const lineBase = Math.round((splitLine.total - splitLine.taxAmount) * 100);
+      for (const comp of comps) expect(Math.round(comp.taxableAmount * 100)).toBe(lineBase);
+    }
     for (const chk of splitTax.checks) {
       await cashier().sales.resume({ saleId: chk.saleId });
       const quote = await cashier().sales.quotePromotions({

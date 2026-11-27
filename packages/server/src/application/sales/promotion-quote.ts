@@ -12,6 +12,7 @@ import {
   tenants,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { roundMoney } from '../../lib/money.js';
 import { isLotExpiredAt } from '../../services/inventory-lots/index.js';
 import { parsePricingSettings } from '../../services/pricing-settings.js';
 import { quotePromotions, type PromotionPricingLine } from '../../services/promotions.js';
@@ -194,7 +195,7 @@ export function quotePersistedDraftPromotions(
   }
   const lines: PromotionPricingLine[] = rows.map(row => {
     const persistedComponents = componentsByItem.get(row.id);
-    const lineBase = Number((row.total - row.taxAmount).toFixed(2));
+    const lineBase = roundMoney(row.total - row.taxAmount);
     return {
       lineKey: `draft:${row.id}`,
       productId: row.productId,

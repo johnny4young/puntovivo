@@ -217,29 +217,27 @@ function splitOneSaleItemAcrossTargets(
     .orderBy(asc(saleItemTaxComponents.position))
     .all();
 
-  const taxComponentAllocations = taxComponents.map((comp, compIdx) => {
-    const tax = rotateShares(
-      allocateCentsByWeights(toCents(comp.taxAmount), weights)!,
-      offset + compIdx
-    );
-    const singleInclusive =
-      taxComponents.length === 1 &&
-      toCents(comp.taxableAmount) + toCents(comp.taxAmount) === toCents(args.sourceItem.total);
-    const taxable = singleInclusive
-      ? totalCents.map((tot, idx) => tot - tax[idx]!)
-      : rotateShares(
-          allocateCentsByWeights(toCents(comp.taxableAmount), weights)!,
-          offset + compIdx
-        );
-    return { comp, taxable, tax };
-  });
-
+  const componentTaxes = taxComponents.map((comp, compIdx) =>
+    rotateShares(allocateCentsByWeights(toCents(comp.taxAmount), weights)!, offset + compIdx)
+  );
   const taxCents =
-    taxComponentAllocations.length > 0
+    taxComponents.length > 0
       ? Array.from({ length: parts }, (_, idx) =>
-          taxComponentAllocations.reduce((sum, alloc) => sum + alloc.tax[idx]!, 0)
+          componentTaxes.reduce((sum, tax) => sum + tax[idx]!, 0)
         )
       : rotateShares(rawTaxCents, offset);
+  // Components priced on the line base must keep sharing it after the split.
+  const sourceBaseCents = toCents(args.sourceItem.total) - toCents(args.sourceItem.taxAmount);
+  const taxComponentAllocations = taxComponents.map((comp, compIdx) => {
+    const taxable =
+      toCents(comp.taxableAmount) === sourceBaseCents
+        ? totalCents.map((tot, idx) => tot - taxCents[idx]!)
+        : rotateShares(
+            allocateCentsByWeights(toCents(comp.taxableAmount), weights)!,
+            offset + compIdx
+          );
+    return { comp, taxable, tax: componentTaxes[compIdx]! };
+  });
 
   const bundleSnapshots = tx
     .select()

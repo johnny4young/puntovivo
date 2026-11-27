@@ -170,4 +170,19 @@ describe('RestaurantPrecheckModal', () => {
     });
     expect(h.printHtmlDocument).toHaveBeenCalledTimes(1);
   });
+
+  it('prints the service charge row in the browser fallback so the base total adds up', async () => {
+    await i18n.changeLanguage('en');
+    render(<RestaurantPrecheckModal tableId="t-1" tableName="Mesa 1" onClose={vi.fn()} />);
+    const data = h.getPrecheck.mock.results[0]!.value.data;
+    await h.printOptions.onSuccess?.({
+      precheck: { ...data, serviceChargeAmount: 5000, baseTotal: 55000 },
+      printedVia: 'browser',
+      outboxId: null,
+    });
+    const [opts] = h.printHtmlDocument.mock.calls[0] as [
+      { buildHtml: (o: { autoPrint: boolean }) => string },
+    ];
+    expect(opts.buildHtml({ autoPrint: false })).toContain('Service charge');
+  });
 });
