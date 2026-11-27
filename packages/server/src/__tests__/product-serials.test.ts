@@ -285,6 +285,20 @@ describe('serialized inventory receipt', () => {
     expect(getProductStockTotal(getDatabase(), tenantId, product.id)).toBe(0);
   });
 
+  it('hides serial purchase cost from roles without cost visibility', async () => {
+    const product = await createTrackedProduct('cost-redaction');
+    await receiveSerials(product.id, ['COST-REDACT-1'], 40);
+    const listInput = { siteId, productId: product.id, sellableOnly: true };
+
+    const cashierList = await appRouter
+      .createCaller(fresh({ role: 'cashier' }))
+      .productSerials.list(listInput);
+    expect(cashierList.items.map(item => item.unitCost)).toEqual([null]);
+
+    const adminList = await caller().productSerials.list(listInput);
+    expect(adminList.items.map(item => item.unitCost)).toEqual([40]);
+  });
+
   it('uses product-scoped serial identity and rejects a serial selected from another product', async () => {
     const first = await createTrackedProduct('identity-a');
     const second = await createTrackedProduct('identity-b');

@@ -1256,6 +1256,11 @@ describe('Band 6A — Restaurant operational closure', () => {
       .createCaller(fresh({ role: 'manager', siteId: siteBId }))
       .restaurantModifiers.getBomComponents({ siteId: siteBId, catalogId: modB.id });
     expect(keptBom.map(c => c.componentProductId)).toEqual([ingB]);
+    expect(keptBom[0]?.unitCost).toBe(250);
+    const cashierBom = await appRouter
+      .createCaller(fresh({ role: 'cashier', siteId: siteBId }))
+      .restaurantModifiers.getBomComponents({ siteId: siteBId, catalogId: modB.id });
+    expect(cashierBom.map(c => c.unitCost)).toEqual([null]);
 
     // Null siteId (rejected x-site-id header) fails closed on restaurant table procedures!
     const tableClosed = await createTable(`Mesa NullSite ${nanoid(4)}`);
