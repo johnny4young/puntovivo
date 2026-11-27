@@ -391,6 +391,10 @@ See
 - `pharmacy.closeRecall`
 - `pharmacy.transitionLot`
 - `pharmacy.destroyLot`
+- `pharmacy.fractionateLot`
+- `pharmacy.recordEnvironmentalLog`
+- `pharmacy.createFneAuthorization`
+- `pharmacy.revokeFneAuthorization`
 
 **Loss prevention**
 

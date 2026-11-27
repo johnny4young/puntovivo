@@ -14,8 +14,19 @@
   "generic": {
     "sameIngredient": "Genérico · mismo principio activo y concentración",
     "savings": "Le ahorra {{amount}} al cliente",
+    "savingsPerDose": "{{pricePerDose}} / dosis · ahorra {{saving}} / dosis",
+    "pricePerDose": "{{amount}} / dosis",
     "panelTitle": "Mismo principio activo, más económico",
     "choose": "Elegir {{name}}"
+  },
+  "safety": {
+    "duplicateIngredient": "Duplicidad de principio activo ({{ingredient}}): {{products}}",
+    "customerAllergy": "Alerta de alergia ({{severity}}) a {{ingredient}} en {{product}}",
+    "severity": {
+      "mild": "leve",
+      "moderate": "moderada",
+      "severe": "grave"
+    }
   },
   "line": {
     "ready": "Fórmula registrada · aprobó {{name}}",

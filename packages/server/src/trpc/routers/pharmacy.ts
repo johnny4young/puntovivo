@@ -1,22 +1,37 @@
-/** Pharmacy policy, prescription, authorization, recall and lot-state API. */
+/** Pharmacy policy, prescription, authorization, recall, fractionation, environmental, INVIMA and FNE API. */
 
 import {
+  addPharmacyCustomerAllergy,
   approvePharmacyEvidence,
   closePharmacyRecall,
   createPharmacyAuthorization,
+  createPharmacyFneAuthorization,
   createPharmacyRecall,
   destroyPharmacyLot,
+  findEffectiveFneAuthorization,
+  fractionatePharmacyLot,
   getPharmacyCheckoutRequirements,
-  inspectPharmacyApprovalCapability,
+  getPharmacyEnvironmentalReport,
+  getPharmacyFneMonthlyReport,
   getPharmacyRecall,
-  listPharmacyGenericAlternatives,
+  importPharmacyInvimaCatalog,
+  inspectPharmacyApprovalCapability,
   listPharmacyAuthorizations,
+  listPharmacyCustomerAllergies,
+  listPharmacyEnvironmentalLogs,
   listPharmacyEvidence,
+  listPharmacyFneAuthorizations,
+  listPharmacyFractionations,
+  listPharmacyGenericAlternatives,
   listPharmacyRecalls,
   listRecallAffectedSales,
+  recordPharmacyEnvironmentalLog,
   recordPharmacyEvidence,
+  removePharmacyCustomerAllergy,
   revokePharmacyAuthorization,
   revokePharmacyEvidence,
+  revokePharmacyFneAuthorization,
+  searchPharmacyInvimaCatalog,
   transitionPharmacyLot,
   type CriticalPharmacyContext,
 } from '../../application/pharmacy/index.js';
@@ -33,21 +48,35 @@ import {
 import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { ensureTenantSite } from '../middleware/tenantSite.js';
 import {
+  addPharmacyCustomerAllergyInput,
   approvePharmacyEvidenceInput,
   closePharmacyRecallInput,
   createPharmacyAuthorizationInput,
+  createPharmacyFneAuthorizationInput,
   createPharmacyRecallInput,
   destroyPharmacyLotInput,
+  fractionatePharmacyLotInput,
+  getPharmacyEnvironmentalReportInput,
+  getPharmacyFneMonthlyReportInput,
   getPharmacyRecallInput,
-  listPharmacyRecallAffectedSalesInput,
+  importPharmacyInvimaCatalogInput,
   listPharmacyAuthorizationsInput,
+  listPharmacyCustomerAllergiesInput,
+  listPharmacyEnvironmentalLogsInput,
   listPharmacyEvidenceInput,
+  listPharmacyFneAuthorizationsInput,
+  listPharmacyFractionationsInput,
+  listPharmacyRecallAffectedSalesInput,
   listPharmacyRecallsInput,
   pharmacyCheckoutRequirementsInput,
   pharmacyGenericAlternativesInput,
+  recordPharmacyEnvironmentalLogInput,
   recordPharmacyEvidenceInput,
+  removePharmacyCustomerAllergyInput,
   revokePharmacyAuthorizationInput,
   revokePharmacyEvidenceInput,
+  revokePharmacyFneAuthorizationInput,
+  searchPharmacyInvimaCatalogInput,
   transitionPharmacyLotInput,
 } from '../schemas/pharmacy.js';
 
@@ -75,11 +104,19 @@ export const pharmacyRouter = router({
       countryCode: clock.countryCode,
       businessDate: clock.businessDate,
     });
+    const activeFne = findEffectiveFneAuthorization(ctx.db, {
+      tenantId: ctx.tenantId,
+      siteId: ctx.siteId,
+      countryCode: clock.countryCode,
+      businessDate: clock.businessDate,
+    });
     return {
       countryCode: clock.countryCode,
       businessDate: clock.businessDate,
       canApproveEvidence: approvalCapability.authorization !== null,
       approvalCapabilityErrorCode: approvalCapability.errorCode,
+      fneEnabled: activeFne !== null,
+      fneResolutionNumber: activeFne?.resolutionNumber ?? null,
       hasOperationalData: hasPharmacyOperationalData(ctx.db, ctx.tenantId),
     };
   }),
@@ -195,5 +232,116 @@ export const pharmacyRouter = router({
     .input(destroyPharmacyLotInput)
     .mutation(({ ctx, input }) =>
       destroyPharmacyLot(pharmacyContext(asCriticalCommandContext(ctx)), input)
+    ),
+
+  // --- Regulated lot fractionation ---
+  fractionateLot: criticalCommandManagerOrAdminProcedure
+    .input(fractionatePharmacyLotInput)
+    .mutation(({ ctx, input }) =>
+      fractionatePharmacyLot(pharmacyContext(asCriticalCommandContext(ctx)), input)
+    ),
+  listFractionations: managerOrAdminProcedure
+    .input(listPharmacyFractionationsInput)
+    .query(async ({ ctx, input }) => {
+      if (input.siteId) await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return listPharmacyFractionations(ctx.db, ctx.tenantId, input);
+    }),
+
+  // --- Daily temperature & relative humidity logbook (Res. 1403/2007) ---
+  recordEnvironmentalLog: criticalCommandCashierManagerOrAdminProcedure
+    .input(recordPharmacyEnvironmentalLogInput)
+    .mutation(async ({ ctx, input }) => {
+      if (input.siteId) await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return recordPharmacyEnvironmentalLog(pharmacyContext(asCriticalCommandContext(ctx)), input);
+    }),
+  listEnvironmentalLogs: cashierManagerOrAdminProcedure
+    .input(listPharmacyEnvironmentalLogsInput)
+    .query(async ({ ctx, input }) => {
+      const siteId = input.siteId ?? ctx.siteId;
+      if (!siteId) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'CASH_SESSION_SITE_REQUIRED',
+          message: 'Select an active site before reading environmental logs',
+        });
+      }
+      if (input.siteId) await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return listPharmacyEnvironmentalLogs(ctx.db, ctx.tenantId, siteId, input);
+    }),
+  getEnvironmentalReport: managerOrAdminProcedure
+    .input(getPharmacyEnvironmentalReportInput)
+    .query(async ({ ctx, input }) => {
+      const siteId = input.siteId ?? ctx.siteId;
+      if (!siteId) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'CASH_SESSION_SITE_REQUIRED',
+          message: 'Select an active site before generating environmental report',
+        });
+      }
+      if (input.siteId) await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return getPharmacyEnvironmentalReport(ctx.db, ctx.tenantId, siteId, input);
+    }),
+
+  // --- Official INVIMA / CUM catalog ---
+  importInvimaCatalog: managerOrAdminProcedure
+    .input(importPharmacyInvimaCatalogInput)
+    .mutation(({ ctx, input }) =>
+      importPharmacyInvimaCatalog(ctx.db, { tenantId: ctx.tenantId, actorId: ctx.user!.id }, input)
+    ),
+  searchInvimaCatalog: cashierManagerOrAdminProcedure
+    .input(searchPharmacyInvimaCatalogInput)
+    .query(({ ctx, input }) => searchPharmacyInvimaCatalog(ctx.db, ctx.tenantId, input)),
+
+  // --- Controlled medicines (FNE Colombia — Res. 1478/2006) ---
+  listFneAuthorizations: managerOrAdminProcedure
+    .input(listPharmacyFneAuthorizationsInput)
+    .query(async ({ ctx, input }) => {
+      if (input.siteId) await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return listPharmacyFneAuthorizations(ctx.db, ctx.tenantId, input);
+    }),
+  createFneAuthorization: criticalCommandAdminProcedure
+    .input(createPharmacyFneAuthorizationInput)
+    .mutation(async ({ ctx, input }) => {
+      if (input.siteId) await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return createPharmacyFneAuthorization(pharmacyContext(asCriticalCommandContext(ctx)), input);
+    }),
+  revokeFneAuthorization: criticalCommandAdminProcedure
+    .input(revokePharmacyFneAuthorizationInput)
+    .mutation(({ ctx, input }) =>
+      revokePharmacyFneAuthorization(pharmacyContext(asCriticalCommandContext(ctx)), input)
+    ),
+  getFneMonthlyReport: managerOrAdminProcedure
+    .input(getPharmacyFneMonthlyReportInput)
+    .query(async ({ ctx, input }) => {
+      const siteId = input.siteId ?? ctx.siteId;
+      if (!siteId) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'CASH_SESSION_SITE_REQUIRED',
+          message: 'Select an active site before generating the FNE monthly report',
+        });
+      }
+      if (input.siteId) await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return getPharmacyFneMonthlyReport(ctx.db, ctx.tenantId, siteId, input);
+    }),
+
+  // --- Customer allergies ---
+  listCustomerAllergies: cashierManagerOrAdminProcedure
+    .input(listPharmacyCustomerAllergiesInput)
+    .query(({ ctx, input }) => listPharmacyCustomerAllergies(ctx.db, ctx.tenantId, input)),
+  addCustomerAllergy: cashierManagerOrAdminProcedure
+    .input(addPharmacyCustomerAllergyInput)
+    .mutation(({ ctx, input }) =>
+      addPharmacyCustomerAllergy(ctx.db, { tenantId: ctx.tenantId, actorId: ctx.user!.id }, input)
+    ),
+  removeCustomerAllergy: managerOrAdminProcedure
+    .input(removePharmacyCustomerAllergyInput)
+    .mutation(({ ctx, input }) =>
+      removePharmacyCustomerAllergy(
+        ctx.db,
+        { tenantId: ctx.tenantId, actorId: ctx.user!.id },
+        input
+      )
     ),
 });

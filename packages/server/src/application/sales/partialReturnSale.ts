@@ -46,6 +46,11 @@ import { reverseBundleComponentsInTransaction } from '../../services/product-bun
 import { reverseModifierBomInTransaction } from '../../services/restaurant/modifier-bom.js';
 import { broadcastSaleRetracted, materializeCommittedFiscalIntent } from './fiscalPostHook.js';
 import { restoreExactInventoryLot } from '../../services/inventory-lots/index.js';
+import {
+  assertTenantBusinessClockCurrent,
+  resolveTenantBusinessClock,
+} from '../../services/pharmacy/business-clock.js';
+import { recordControlledStockMovementInFneLedger } from '../pharmacy/fne.js';
 import { getOriginalSaleDocumentCufe } from './fiscal-policy.js';
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
 import { getSaleRecord } from './sale-read.js';
@@ -272,8 +277,12 @@ function persistReturnLines(
   input: {
     tenantId: string;
     siteId: string | null;
+    saleId: string;
     returnId: string;
     plan: ReturnPlan;
+    actorId: string;
+    businessDate: string;
+    reason: string | null;
     now: string;
   }
 ): { restoredLotIds: string[]; returnedSerialIds: string[] } {
@@ -349,6 +358,20 @@ function persistReturnLines(
         unitCost: allocation.unitCost,
         totalCost: allocation.totalCost,
         now: input.now,
+      });
+      recordControlledStockMovementInFneLedger(tx, {
+        tenantId: input.tenantId,
+        siteId: lot.siteId,
+        productId: line.productId,
+        lotId: allocation.lotId,
+        lotNumber: lot.lotNumber,
+        businessDate: input.businessDate,
+        movementType: 'return',
+        quantityDelta: allocation.quantity,
+        saleId: input.saleId,
+        actorId: input.actorId,
+        notes: input.reason ?? 'Sale return',
+        occurredAt: input.now,
       });
       tx.insert(saleReturnItemLots)
         .values({
@@ -905,7 +928,8 @@ export async function returnSale(
     evaluation: lossPreventionEvaluation,
   });
 
-  const now = new Date().toISOString();
+  const businessClock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
+  const now = businessClock.nowIso;
   const returnId = nanoid();
   const preparedFiscalIntent =
     (previewPlan.refundAmount > 0 || previewPlan.grossRefundAmount > 0) && originalSaleSiteId
@@ -949,6 +973,7 @@ export async function returnSale(
   try {
     ctx.db.transaction(
       tx => {
+        assertTenantBusinessClockCurrent(tx, ctx.tenantId, businessClock);
         const current = tx
           .select()
           .from(sales)
@@ -1044,8 +1069,12 @@ export async function returnSale(
         const persisted = persistReturnLines(tx, {
           tenantId: ctx.tenantId,
           siteId: originalSaleSiteId,
+          saleId: input.id,
           returnId,
           plan: committedPlan,
+          actorId: ctx.user.id,
+          businessDate: businessClock.businessDate,
+          reason: input.reason ?? null,
           now,
         });
         restoredLotIds = persisted.restoredLotIds;

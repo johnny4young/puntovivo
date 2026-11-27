@@ -32,6 +32,7 @@ import {
   inspectPharmacyAuthorizationSnapshot,
   type PharmacyAuthorizationSnapshot,
 } from './authorizations.js';
+import { findEffectiveFneAuthorization } from './fne.js';
 import { clampPharmacyPage, pharmacySyncContext, type CriticalPharmacyContext } from './types.js';
 
 function requireEvidenceKey(): void {
@@ -135,13 +136,25 @@ export async function recordPharmacyEvidence(
           input.productId,
           input.customerId
         );
+        const fneAuthorized =
+          medicine.classification === 'controlled' &&
+          findEffectiveFneAuthorization(tx, {
+            tenantId: ctx.tenantId,
+            siteId: ctx.siteId,
+            countryCode: clock.countryCode,
+            businessDate: clock.businessDate,
+          }) !== null;
         const policy = assertPharmacyProductPolicy({
           profile: medicine,
           countryCode: clock.countryCode,
           businessDate: clock.businessDate,
           customerId: input.customerId,
+          fneAuthorized,
         });
-        if (!policy.evidenceRequired || medicine.classification !== 'prescription') {
+        if (
+          !policy.evidenceRequired ||
+          (medicine.classification !== 'prescription' && medicine.classification !== 'controlled')
+        ) {
           throwServerError({
             trpcCode: 'BAD_REQUEST',
             errorCode: 'PHARMACY_EVIDENCE_INVALID',
@@ -402,8 +415,21 @@ export function listPharmacyEvidence(
             status: authorizationStatus,
           }
         : null;
+    const fneAuthorized =
+      productClassification === 'controlled' &&
+      findEffectiveFneAuthorization(db, {
+        tenantId,
+        siteId: context.siteId,
+        countryCode: context.countryCode,
+        businessDate: context.businessDate,
+      }) !== null;
     const currentPolicy = productClassification
-      ? resolvePharmacyPolicy(context.countryCode, context.businessDate, productClassification)
+      ? resolvePharmacyPolicy(
+          context.countryCode,
+          context.businessDate,
+          productClassification,
+          fneAuthorized ? { fneAuthorized: true } : undefined
+        )
       : null;
     return {
       ...item,
@@ -525,11 +551,20 @@ export async function approvePharmacyEvidence(ctx: CriticalPharmacyContext, inpu
         evidence.productId,
         evidence.customerId
       );
+      const fneAuthorized =
+        medicine.classification === 'controlled' &&
+        findEffectiveFneAuthorization(tx, {
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+          countryCode: clock.countryCode,
+          businessDate: clock.businessDate,
+        }) !== null;
       const currentPolicy = assertPharmacyProductPolicy({
         profile: medicine,
         countryCode: clock.countryCode,
         businessDate: clock.businessDate,
         customerId: evidence.customerId,
+        fneAuthorized,
       });
       if (
         !currentPolicy.evidenceRequired ||

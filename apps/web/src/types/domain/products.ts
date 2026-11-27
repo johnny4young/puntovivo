@@ -90,6 +90,8 @@ export interface PharmacyProductProfile {
   dosageForm: string | null;
   administrationRoute: string | null;
   presentation: string | null;
+  dosesPerPack?: number | null;
+  cumCode?: string | null;
   manufacturer: string | null;
   authorizationHolder: string | null;
   sanitaryRegistration: string | null;

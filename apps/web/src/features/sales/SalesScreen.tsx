@@ -675,6 +675,7 @@ export function SalesScreen({
                     <PharmacyTicketNotices
                       customerNote={pharmacyTicket.customerNote}
                       hasControlled={pharmacyTicket.hasControlled}
+                      safetyAlerts={pharmacyTicket.safetyAlerts}
                       // The dock names the customer except on phones, where it is hidden.
                       customerName={isPhone ? ticketCustomerName : null}
                       onAssignCustomer={
