@@ -106,6 +106,50 @@ export const productSelection = {
 };
 
 /**
+ * Purchase-cost and margin columns exposed only to `admin` and `manager` roles.
+ * Non-privileged callers (`cashier`, `viewer`) receive `null` for all eight fields.
+ */
+export interface ProductCostFields {
+  cost: number | null;
+  initialCost: number | null;
+  marginPercent1: number | null;
+  marginPercent2: number | null;
+  marginPercent3: number | null;
+  marginAmount1: number | null;
+  marginAmount2: number | null;
+  marginAmount3: number | null;
+}
+
+/** Whether a tenant role may read purchase cost and margin figures on catalog rows. */
+export function canViewProductCost(role: string | undefined): boolean {
+  return role === 'admin' || role === 'manager';
+}
+
+/**
+ * Redact catalog purchase-cost and margin fields to `null` when the caller lacks
+ * cost-visibility privileges, preserving the shape for privileged roles.
+ */
+export function maskProductCostFields<T extends ProductCostFields>(
+  product: T,
+  role: string | undefined
+): Omit<T, keyof ProductCostFields> & ProductCostFields {
+  if (canViewProductCost(role)) {
+    return product;
+  }
+  return {
+    ...product,
+    cost: null,
+    initialCost: null,
+    marginPercent1: null,
+    marginPercent2: null,
+    marginPercent3: null,
+    marginAmount1: null,
+    marginAmount2: null,
+    marginAmount3: null,
+  };
+}
+
+/**
  * Denormalized unit-to-product assignment row as returned by the batch loader
  * (`getUnitAssignmentsByProductIds`) and the single-product hydration. Joins
  * `unitXProduct` with `units`, so `unitName` / `unitAbbreviation` are nullable

@@ -142,7 +142,7 @@ export const productsColumns = (
         return <span className="text-secondary-400">{i18next.t('products:table.service')}</span>;
       }
       const { stock, minStock } = row.original;
-      const isLow = stock < minStock;
+      const isLow = stock <= minStock;
       const fill =
         minStock > 0
           ? Math.max(6, Math.min(100, Math.round((stock / minStock) * 50)))

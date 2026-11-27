@@ -8,6 +8,7 @@ import {
   saveRestaurantModifierGroup,
 } from '../../application/restaurant/modifier-groups.js';
 import { getModifierBomComponents } from '../../services/restaurant/modifier-bom.js';
+import { canViewProductCost } from '../../services/products/product-read.js';
 import { router } from '../init.js';
 import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { createModuleGuard } from '../middleware/modules.js';
@@ -111,6 +112,13 @@ export const restaurantModifiersRouter = router({
     .input(getRestaurantModifierBomInput)
     .query(async ({ ctx, input }) => {
       await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
-      return getModifierBomComponents(ctx.db, ctx.tenantId, input.siteId, input.catalogId);
+      const components = getModifierBomComponents(
+        ctx.db,
+        ctx.tenantId,
+        input.siteId,
+        input.catalogId
+      );
+      if (canViewProductCost(ctx.user?.role)) return components;
+      return components.map(component => ({ ...component, unitCost: null as number | null }));
     }),
 });

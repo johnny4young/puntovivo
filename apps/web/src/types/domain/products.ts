@@ -16,13 +16,14 @@ export interface Product {
   price: number;
   price2: number;
   price3: number;
-  cost: number;
-  marginPercent1: number;
-  marginPercent2: number;
-  marginPercent3: number;
-  marginAmount1: number;
-  marginAmount2: number;
-  marginAmount3: number;
+  /** Redacted to `null` by the server for roles without cost visibility. */
+  cost: number | null;
+  marginPercent1: number | null;
+  marginPercent2: number | null;
+  marginPercent3: number | null;
+  marginAmount1: number | null;
+  marginAmount2: number | null;
+  marginAmount3: number | null;
   taxRate: number;
   // 'inc' = consumption tax line (denormalized from the vat rate).
   // Optional: rows cached before the column shipped lack it; absent = 'iva'.
@@ -33,7 +34,7 @@ export interface Product {
   locationId?: string | null | undefined;
   locationCode?: string | null | undefined;
   locationName?: string | null | undefined;
-  initialCost: number;
+  initialCost: number | null;
   stock: number;
   minStock: number;
   sellByFraction: boolean;

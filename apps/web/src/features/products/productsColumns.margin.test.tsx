@@ -75,3 +75,34 @@ describe('productsColumns margin column', () => {
     expect(badge.textContent).toBe(`${(pct as number).toFixed(1)}%`);
   });
 });
+
+describe('productsColumns stock low-threshold parity', () => {
+  function renderStockCell(stock: number, minStock: number) {
+    const column = buildColumns(null).find(
+      col => 'accessorKey' in col && col.accessorKey === 'stock'
+    );
+    expect(column).toBeDefined();
+    const Cell = column!.cell as (props: { row: { original: DisplayProduct } }) => ReactElement;
+    return render(
+      <Cell
+        row={{
+          original: {
+            ...product,
+            tracksStock: true,
+            stock,
+            minStock,
+          } as DisplayProduct,
+        }}
+      />
+    );
+  }
+
+  it('marks stock at or below minStock as low to match the server lowStock filter', () => {
+    const atMin = renderStockCell(5, 5);
+    expect(atMin.container.querySelector('.pv-stock')).toHaveClass('low');
+    atMin.unmount();
+
+    const aboveMin = renderStockCell(6, 5);
+    expect(aboveMin.container.querySelector('.pv-stock')).not.toHaveClass('low');
+  });
+});

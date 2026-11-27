@@ -1,4 +1,6 @@
 /** Tenant-wide exact pools retain the existing global (not site-average) cost policy. */
+import type Database from 'better-sqlite3';
+import { rawSqliteClient } from '../db/raw-client.js';
 import { inventoryValueGuard } from './inventory-value-errors.js';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
@@ -14,6 +16,37 @@ import {
   legacyInventoryValue,
   toInventoryCents,
 } from './inventory-valuation.js';
+
+interface ValuationPreparedStatements {
+  readValuation: Database.Statement;
+  readPoolCost: Database.Statement;
+}
+
+const valuationStmtCache = new WeakMap<Database.Database, ValuationPreparedStatements>();
+
+function getValuationStatements(db: DatabaseInstance): ValuationPreparedStatements | null {
+  const client = rawSqliteClient(db);
+  if (!client) return null;
+  let cached = valuationStmtCache.get(client);
+  if (!cached) {
+    cached = {
+      readValuation: client.prepare(
+        `SELECT initial_cost AS initialCost, cost, tracks_lots AS tracksLots,
+                tracks_serials AS tracksSerials, inventory_value_cents AS inventoryValueCents,
+                cogs_value_cents AS cogsValueCents, valuation_quantity AS valuationQuantity,
+                valuation_version AS valuationVersion
+         FROM products WHERE tenant_id = ? AND id = ?`
+      ),
+      readPoolCost: client.prepare(
+        `SELECT cost, initial_cost AS initialCost, inventory_value_cents AS inventoryValueCents,
+                cogs_value_cents AS cogsValueCents, valuation_quantity AS valuationQuantity
+         FROM products WHERE tenant_id = ? AND id = ?`
+      ),
+    };
+    valuationStmtCache.set(client, cached);
+  }
+  return cached;
+}
 
 /** Immutable pre-debit pool observation; physical quantity is always read from the rollup. */
 export interface ProductValuationState {
@@ -56,21 +89,35 @@ export function readProductValuation(
   productId: string
 ): ProductValuationState | null {
   return inventoryValueGuard(() => {
-    const row = db
-      .select({
-        initialCost: products.initialCost,
-        cost: products.cost,
-        tracksLots: products.tracksLots,
-        tracksSerials: products.tracksSerials,
-        inventoryValueCents: products.inventoryValueCents,
-        cogsValueCents: products.cogsValueCents,
-        valuationQuantity: products.valuationQuantity,
-        valuationVersion: products.valuationVersion,
-      })
-      .from(products)
-      .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)))
-      .get();
-    if (!row || row.tracksLots || row.tracksSerials) return null;
+    const stmts = getValuationStatements(db);
+    const row = stmts
+      ? (stmts.readValuation.get(tenantId, productId) as
+          | {
+              initialCost: number;
+              cost: number;
+              tracksLots: number | boolean;
+              tracksSerials: number | boolean;
+              inventoryValueCents: number | null;
+              cogsValueCents: number | null;
+              valuationQuantity: number | null;
+              valuationVersion: number;
+            }
+          | undefined)
+      : db
+          .select({
+            initialCost: products.initialCost,
+            cost: products.cost,
+            tracksLots: products.tracksLots,
+            tracksSerials: products.tracksSerials,
+            inventoryValueCents: products.inventoryValueCents,
+            cogsValueCents: products.cogsValueCents,
+            valuationQuantity: products.valuationQuantity,
+            valuationVersion: products.valuationVersion,
+          })
+          .from(products)
+          .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)))
+          .get();
+    if (!row || Boolean(row.tracksLots) || Boolean(row.tracksSerials)) return null;
     const quantity = roundQuantity(getProductStockTotal(db, tenantId, productId), 12);
     if (!Number.isFinite(quantity))
       throwServerError({
@@ -198,17 +245,28 @@ export function syncCatalogCostFromPools(
   productId: string,
   now: string
 ): void {
-  const row = db
-    .select({
-      cost: products.cost,
-      initialCost: products.initialCost,
-      inventoryValueCents: products.inventoryValueCents,
-      cogsValueCents: products.cogsValueCents,
-      valuationQuantity: products.valuationQuantity,
-    })
-    .from(products)
-    .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)))
-    .get();
+  const stmts = getValuationStatements(db);
+  const row = stmts
+    ? (stmts.readPoolCost.get(tenantId, productId) as
+        | {
+            cost: number;
+            initialCost: number;
+            inventoryValueCents: number | null;
+            cogsValueCents: number | null;
+            valuationQuantity: number | null;
+          }
+        | undefined)
+    : db
+        .select({
+          cost: products.cost,
+          initialCost: products.initialCost,
+          inventoryValueCents: products.inventoryValueCents,
+          cogsValueCents: products.cogsValueCents,
+          valuationQuantity: products.valuationQuantity,
+        })
+        .from(products)
+        .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)))
+        .get();
   if (
     !row ||
     row.inventoryValueCents === null ||

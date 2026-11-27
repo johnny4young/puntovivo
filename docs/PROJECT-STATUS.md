@@ -2,7 +2,7 @@
 
 **Language:** English · [Español](es/PROJECT-STATUS.md)
 
-> Updated: 2026-11-26. This is the public source of truth for shipped
+> Updated: 2026-11-27. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -25,8 +25,11 @@ The current validated candidate includes:
   redemption, voids, receipt reprints, credit sales, manager approval controls
   whose checkout requests show the approver the requester's discount limit, the
   sale's margin with and without the discount, and the customer's usual cadence
-  and discount, server-authoritative percentage promotions with explicit lifecycle and
-  frozen line evidence, and a
+  and discount, server-authoritative promotions supporting percentage,
+  fixed-amount, and buy-X-get-Y (`NxM`) rules with recurring day/hour schedules,
+  explicit lifecycle, and frozen line evidence, multi-SKU combo/kit bundles with
+  atomic component stock deduction and reversal, shelf/barcode label generation
+  (A4/Letter PDF sheets and thermal ZPL/TSPL output), and a
   human-controlled WhatsApp receipt handoff that renders text plus an optional
   local PNG without background delivery;
 - a cash charge that leads with the change: Exact and round-amount keys, an
@@ -165,7 +168,8 @@ The current validated candidate includes:
   Weight labels require a classified mass base unit, convert from kilograms to
   that unit, cannot silently resolve a packaging barcode, and accumulate
   successive weighed packages. Whole-package price labels retain different
-  encoded prices as distinct sale lines through suspend/resume. A cashier must
+  encoded prices as distinct sale lines through suspend/resume and support a
+  per-site configurable price divisor (whole-peso or cent scale labels). A cashier must
   consume a manager grant bound to the exact checkout before completing any
   off-catalog price; the checkout preflight rereads the current tenant catalog
   or frozen draft snapshots instead of trusting renderer metadata. Manager/admin
@@ -221,10 +225,16 @@ The current validated candidate includes:
   Waiter and Voice Ordering can edit up to twenty distinct modifiers per line,
   including quantities and per-unit surcharges, without merging customized plates. One
   table visit can expose every simultaneous check; the established guest count
-  and table capacity are enforced server-side. Completion, discard, a whole
-  unshared-service table move, and same-table check split keep sale and service
-  state aligned under serialized writes; implicit party splitting or merging
-  between tables fails closed. Settlement requires exact coverage of every
+  and table capacity are enforced server-side. Completion, discard, adding
+  subsequent rounds directly onto an open check, a whole unshared-service table
+  move, and same-table check splits (by item, equal parts, or shared dish,
+  accessible to cashiers and waiters) keep sale and service state aligned under
+  serialized writes; implicit party splitting or merging between tables fails
+  closed. Operators can print a non-fiscal precheck with suggested voluntary tip
+  and Ley 1935/2018 notice without advancing fiscal numbering, route station
+  thermal comandas (kitchen/bar) through the hardware outbox on round
+  submission, and deduct recipe and modifier bill-of-materials ingredients
+  automatically on completion. Settlement requires exact coverage of every
   frozen sale line, and splitting reconciles header adjustments, totals, and
   provisional payment rows without dividing loyalty or store-credit evidence.
   Price tier, stock, taxes, receipts, returns, cash session, and audit continue
@@ -277,12 +287,21 @@ The current validated candidate includes:
   dispensations, append-only lot-state events, quarantine, cold-chain incident,
   recall, release, destruction, supplier return, and affected-sale lookup.
   At the register, medicine search results and ticket lines show the FEFO lot,
-  near-expiry lots to sell first, the sale class and cheaper equivalents, and
-  each prescription line shows its approved evidence before Cobrar.
+  near-expiry lots to sell first, the sale class, per-dose generic equivalent
+  savings, customer allergy and duplicate active-ingredient cart alerts, and
+  each prescription or controlled line shows its approved evidence before Cobrar.
   Colombia v1 permits OTC and requires current customer, evidence, and an
-  effective authorized employee for prescription products. Controlled
-  medicines and prescription operation in countries without a reviewed adapter
-  fail closed. A still-valid prescription whose frozen professional approval
+  effective authorized employee for prescription products. Controlled medicines
+  remain fail-closed by default until an administrator records an active FNE
+  Resolution 1478/2006 authorization backed by a valid pharmacist; once enabled,
+  receipts, dispensations, returns, voids, transfers, counts, and fractionations
+  record immutable entries in a monthly printable FNE ledger. Pharmacies also
+  have regulated lot fractionation (box to blister to tablet) preserving batch,
+  expiry, sanitary registration, integer-cent valuation, and bidirectional recall
+  propagation, a daily Resolution 1403/2007 environmental temperature and humidity
+  logbook with printable inspection reports, an official INVIMA/CUM CSV catalog
+  importer, and DSAR-covered patient allergy records. Prescription operation in
+  countries without a reviewed adapter remains fail closed. A still-valid prescription whose frozen professional approval
   expires or is revoked stays blocked until an authorized employee explicitly
   re-approves the same sealed evidence. Purchases, transfers, returns, voids,
   and sale completion preserve non-sellable lot state and exact custody;
@@ -337,9 +356,11 @@ The current validated candidate includes:
   standalone deployments, encrypted backup bundles, scheduled snapshots,
   restore drills, a packaged-recovery rehearsal and evidence gate,
   S3-compatible cloud vault upload, and backup-protection attestation;
-- tenant and site isolation, audit logs, role guards, device registration,
-  local Authority Node modes, renewable Store Hub client sessions with
-  main-process credential custody, fixed-destination API transport, and
+- tenant and site isolation, audit logs, role guards (including server-side
+  catalog purchase-cost and margin redaction for non-privileged roles), device
+  registration, local Authority Node modes, device-scoped renewable Store Hub
+  client sessions with main-process credential custody (so revoking one terminal
+  never drops unrelated staff sessions), fixed-destination API transport, and
   Authorization-authenticated realtime with replay, reconnect, and active
   revocation checks; a durable sync kernel and operational health surfaces;
 - an installable, mobile-sized Companion for admin, manager, and viewer roles,
@@ -494,20 +515,21 @@ The current validated candidate includes:
   still requires an explicit replacement/adoption workflow, which is not yet
   supported. This is not a claim of unattended fiscal recovery or certification.
 - The pharmacy profile proves local software controls, not pharmaceutical
-  compliance. Country legal review, INVIMA or equivalent registry integration,
-  controlled-medicine authorization, electronic prescriptions, cold-chain
-  sensors, physical pharmacy hardware, and a supervised real-store pilot remain
-  external gates. Regulated aggregates remain local-only until sync can apply
-  product identity, policy, evidence, recall, and lot custody atomically.
+  compliance. Country legal review, live INVIMA or equivalent registry API
+  integration (beyond local CSV import), legal FNE audit sign-off, electronic
+  prescriptions, cold-chain hardware sensors, physical pharmacy hardware, and a
+  supervised real-store pilot remain external gates. Regulated aggregates remain
+  local-only until sync can apply product identity, policy, evidence, recall,
+  and lot custody atomically.
 - Durable kitchen notification is at least once and requires polling/reconnect;
-  a local broadcast acknowledgement is not proof of physical screen or printer
-  delivery. Managers configure versioned, site-local add-ons from the UI and
-  group them per dish (preparation, without, extras) with required and maximum
-  choices that orders must meet. The ordering screen opens one sheet per plate
-  with the diner, those groups, the course and a kitchen note, and lists the
-  table's sent rounds above the round being built. Each sent round opens its
-  own check on the table's service; adding a round to an existing check is not
-  built. Cashier surcharges require an exact active catalog reference
+  a local broadcast acknowledgement or queued station print command is not proof
+  of physical screen or printer delivery. Managers configure versioned,
+  site-local add-ons and modifier ingredient recipes from the UI and group them
+  per dish (preparation, without, extras) with required and maximum choices that
+  orders must meet. The ordering screen opens one sheet per plate with the diner,
+  those groups, the course and a kitchen note, lists the table's sent rounds
+  above the round being built, and can append additional rounds to an existing
+  open check or print a non-fiscal precheck. Cashier surcharges require an exact active catalog reference
   checked inside the sale transaction. Free-form instructions go in the plate's kitchen note, while custom
   charges and restricted add-ons require a manager/admin. Catalog edits and
   archival do not alter accepted orders. Reservation scheduling

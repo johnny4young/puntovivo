@@ -42,8 +42,10 @@ import { parseScan } from '../../../services/peripherals/barcode/parser.js';
 import { assertSaleQuantityAllowed } from '../../../services/fraction-policy.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import {
+  canViewProductCost,
   getProductWithRelations,
   getUnitAssignmentsByProductIds,
+  maskProductCostFields,
   productSelection,
 } from '../../../services/products/product-read.js';
 import { hasPharmacyProductProfiles } from '../../../services/pharmacy/operational-state.js';
@@ -141,10 +143,7 @@ export const productQueryProcedures = {
         sql`${productStockTotalSql} <= ${products.minStock}`
       );
     }
-    if (
-      maxMarginPercent !== undefined &&
-      (ctx.user?.role === 'admin' || ctx.user?.role === 'manager')
-    ) {
+    if (maxMarginPercent !== undefined && canViewProductCost(ctx.user?.role)) {
       conditions.push(
         sql`${products.price} > 0 and (${products.price} - ${products.cost}) * 100.0 / ${products.price} < ${maxMarginPercent}`
       );
@@ -189,7 +188,7 @@ export const productQueryProcedures = {
     const totalItems = countResult?.count ?? 0;
 
     return {
-      items,
+      items: items.map(item => maskProductCostFields(item, ctx.user?.role)),
       page,
       perPage,
       totalItems,
@@ -276,7 +275,10 @@ export const productQueryProcedures = {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
     }
 
-    return withSiteStock(ctx.db, ctx.tenantId, input.siteId, [product])[0]!;
+    return maskProductCostFields(
+      withSiteStock(ctx.db, ctx.tenantId, input.siteId, [product])[0]!,
+      ctx.user?.role
+    );
   }),
 
   /** Read a catalog-only parent and its tenant-scoped sellable children. */
@@ -321,13 +323,19 @@ export const productQueryProcedures = {
         return left.sku.localeCompare(right.sku);
       });
 
-      return { parent, axes, variants };
+      return {
+        parent: maskProductCostFields(parent, ctx.user?.role),
+        axes,
+        variants: variants.map(variant => maskProductCostFields(variant, ctx.user?.role)),
+      };
     }),
 
   /** Read the physical stock components attached to a combo/kit product. */
-  getBundleComponents: tenantProcedure
-    .input(getBundleComponentsInput)
-    .query(({ ctx, input }) => getBundleComponents(ctx.db, ctx.tenantId, input.productId)),
+  getBundleComponents: tenantProcedure.input(getBundleComponentsInput).query(({ ctx, input }) => {
+    const components = getBundleComponents(ctx.db, ctx.tenantId, input.productId);
+    if (canViewProductCost(ctx.user?.role)) return components;
+    return components.map(component => ({ ...component, unitCost: null as number | null }));
+  }),
 
   /**
    * Search products by name, SKU or barcode
@@ -497,18 +505,21 @@ export const productQueryProcedures = {
         const baseUnit =
           unitAssignments.find(assignment => assignment.isBase) ?? unitAssignments[0];
 
-        return {
-          ...item,
-          unitAssignments: unitAssignments.map(assignment => ({
-            ...assignment,
-            isBase: assignment.isBase ?? false,
-          })),
-          baseUnitId: baseUnit?.unitId ?? null,
-          baseUnitName: baseUnit?.unitName ?? null,
-          baseUnitAbbreviation: baseUnit?.unitAbbreviation ?? null,
-          baseUnitPrice: baseUnit?.price ?? item.price,
-          nextLot: nextLots?.get(item.id) ?? null,
-        };
+        return maskProductCostFields(
+          {
+            ...item,
+            unitAssignments: unitAssignments.map(assignment => ({
+              ...assignment,
+              isBase: assignment.isBase ?? false,
+            })),
+            baseUnitId: baseUnit?.unitId ?? null,
+            baseUnitName: baseUnit?.unitName ?? null,
+            baseUnitAbbreviation: baseUnit?.unitAbbreviation ?? null,
+            baseUnitPrice: baseUnit?.price ?? item.price,
+            nextLot: nextLots?.get(item.id) ?? null,
+          },
+          ctx.user?.role
+        );
       }),
     };
   }),
@@ -706,17 +717,20 @@ export const productQueryProcedures = {
       ? (unitAssignments.find(a => a.unitId === resolvedUnitId) ?? null)
       : null;
 
-    const product = {
-      ...withSiteStock(ctx.db, ctx.tenantId, input.siteId, [item])[0]!,
-      unitAssignments: unitAssignments.map(a => ({
-        ...a,
-        isBase: a.isBase ?? false,
-      })),
-      baseUnitId: baseUnit?.unitId ?? null,
-      baseUnitName: baseUnit?.unitName ?? null,
-      baseUnitAbbreviation: baseUnit?.unitAbbreviation ?? null,
-      baseUnitPrice: baseUnit?.price ?? item.price,
-    };
+    const product = maskProductCostFields(
+      {
+        ...withSiteStock(ctx.db, ctx.tenantId, input.siteId, [item])[0]!,
+        unitAssignments: unitAssignments.map(a => ({
+          ...a,
+          isBase: a.isBase ?? false,
+        })),
+        baseUnitId: baseUnit?.unitId ?? null,
+        baseUnitName: baseUnit?.unitName ?? null,
+        baseUnitAbbreviation: baseUnit?.unitAbbreviation ?? null,
+        baseUnitPrice: baseUnit?.price ?? item.price,
+      },
+      ctx.user?.role
+    );
 
     return {
       product,

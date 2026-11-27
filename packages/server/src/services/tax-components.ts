@@ -144,17 +144,20 @@ export function replaceProductTaxComponents(
   tenantId: string,
   productId: string,
   components: readonly TaxComponentDefinition[],
-  now: string
+  now: string,
+  options?: { skipDelete?: boolean }
 ): void {
   assertComponentCountAndUniqueness(components);
-  db.delete(productTaxComponents)
-    .where(
-      and(
-        eq(productTaxComponents.tenantId, tenantId),
-        eq(productTaxComponents.productId, productId)
+  if (!options?.skipDelete) {
+    db.delete(productTaxComponents)
+      .where(
+        and(
+          eq(productTaxComponents.tenantId, tenantId),
+          eq(productTaxComponents.productId, productId)
+        )
       )
-    )
-    .run();
+      .run();
+  }
   for (const [position, component] of components.entries()) {
     db.insert(productTaxComponents)
       .values({
