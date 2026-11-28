@@ -362,7 +362,7 @@ export async function signDayClose(
   const reportSnapshot = report as unknown as Record<string, unknown>;
   const reportHash = hashCanonicalInput(reportSnapshot);
   const locale = await resolveTenantLocale(db, input.tenantId);
-  const artifactPayload = renderDayClosePdf({
+  const artifactPayload = await renderDayClosePdf({
     tenantName: signer.tenantName,
     report,
     reportHash,

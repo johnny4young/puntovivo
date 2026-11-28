@@ -2,12 +2,16 @@ import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   DEFAULT_GS1_PREFIX_CONFIG,
+  DEFAULT_GS1_PRICE_DIVISOR,
   GS1_IN_STORE_PREFIXES,
+  GS1_PRICE_DIVISORS,
   GS1_SCHEMES,
   isGs1PrefixConfig,
+  isGs1PriceDivisor,
   type Gs1InStorePrefix,
   type Gs1PrefixConfig,
   type Gs1PrefixRole,
+  type Gs1PriceDivisor,
   type Gs1Scheme,
 } from '@puntovivo/shared/gs1';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
@@ -79,6 +83,7 @@ function defaultConfigFor(kind: PeripheralKind, driver: string): Record<string, 
       interCharGapMs: 30,
       endOfScan: 'enter',
       gs1Scheme: 'generic',
+      gs1PriceDivisor: DEFAULT_GS1_PRICE_DIVISOR,
       gs1Prefixes: {
         weight: [...DEFAULT_GS1_PREFIX_CONFIG.weight],
         price: [...DEFAULT_GS1_PREFIX_CONFIG.price],
@@ -98,6 +103,12 @@ function readGs1Prefixes(config: Record<string, unknown>): Gs1PrefixConfig | nul
   const value = config.gs1Prefixes;
   if (value === undefined) return DEFAULT_GS1_PREFIX_CONFIG;
   return isGs1PrefixConfig(value) ? value : null;
+}
+
+function readGs1PriceDivisor(config: Record<string, unknown>): Gs1PriceDivisor | null {
+  const value = config.gs1PriceDivisor;
+  if (value === undefined) return DEFAULT_GS1_PRICE_DIVISOR;
+  return isGs1PriceDivisor(value) ? value : null;
 }
 
 function roleForPrefix(prefix: Gs1InStorePrefix, config: Gs1PrefixConfig): Gs1PrefixRole | 'none' {
@@ -181,6 +192,7 @@ export function PeripheralForm({
   const showGs1Controls = kind === 'scanner' && driver === 'wedge';
   const gs1Scheme = parsedConfig ? readGs1Scheme(parsedConfig) : null;
   const gs1Prefixes = parsedConfig ? readGs1Prefixes(parsedConfig) : null;
+  const gs1PriceDivisor = parsedConfig ? readGs1PriceDivisor(parsedConfig) : null;
   const autoPrintChecked = showAutoPrintToggle && parsedConfig?.autoPrintOnComplete === true;
   const autoPrintToggleDisabled = isSaving || parsedConfig === null;
   const paperWidth = parsedConfig?.paperWidth ?? '80mm';
@@ -281,7 +293,9 @@ export function PeripheralForm({
     if (
       kind === 'scanner' &&
       driver === 'wedge' &&
-      (readGs1Scheme(parsedConfig) === null || readGs1Prefixes(parsedConfig) === null)
+      (readGs1Scheme(parsedConfig) === null ||
+        readGs1Prefixes(parsedConfig) === null ||
+        readGs1PriceDivisor(parsedConfig) === null)
     ) {
       setValidationError(t('fields.gs1.invalid'));
       return;
@@ -449,6 +463,34 @@ export function PeripheralForm({
               {GS1_SCHEMES.map(scheme => (
                 <option key={scheme} value={scheme}>
                   {t(`fields.gs1.schemes.${scheme}`)}
+                </option>
+              ))}
+            </select>
+
+            <label htmlFor="peripheral-gs1-price-divisor" className="label mt-3">
+              {t('fields.gs1.priceDivisor')}
+            </label>
+            <select
+              id="peripheral-gs1-price-divisor"
+              data-testid="peripheral-gs1-price-divisor"
+              className="input mt-1"
+              value={gs1PriceDivisor ?? ''}
+              disabled={
+                isSaving ||
+                parsedConfig === null ||
+                gs1PriceDivisor === null ||
+                gs1Scheme === 'none'
+              }
+              onChange={event => {
+                setValidationError(null);
+                updateParsedConfig({
+                  gs1PriceDivisor: Number(event.target.value) as Gs1PriceDivisor,
+                });
+              }}
+            >
+              {GS1_PRICE_DIVISORS.map(divisor => (
+                <option key={divisor} value={divisor}>
+                  {t(`fields.gs1.priceDivisors.${divisor}`)}
                 </option>
               ))}
             </select>

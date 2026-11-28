@@ -23,13 +23,16 @@ import { cancelExternalSale } from '../external-orders/sale-binding.js';
  */
 
 import { reconcileKitchenSaleInTransaction } from '../kds/sale-lifecycle.js';
+import { tickDefaultHardwareWorker } from '../../services/peripherals/hardware-worker.js';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   cashSessions,
+  inventoryLots,
   loyaltyAccounts,
   loyaltyMovements,
   operationEvents,
+  saleItemLots,
   saleItems,
   salePayments,
   sales,
@@ -52,6 +55,9 @@ import { resolveFiscalDocumentSnapshot } from '../../services/fiscal/orchestrato
 import { createModuleLogger } from '../../logging/logger.js';
 import { buildVoidedSaleNotes, getPersistedCashContribution } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
+import { recordControlledStockMovementsInFneLedger } from '../pharmacy/fne.js';
+import { reverseBundleComponentsInTransaction } from '../../services/product-bundles.js';
+import { reverseModifierBomInTransaction } from '../../services/restaurant/modifier-bom.js';
 import { broadcastSaleRetracted, materializeCommittedFiscalIntent } from './fiscalPostHook.js';
 import { restorePointsForVoid, revertPointsForSale } from '../../services/loyalty.js';
 import { restoreStoreCreditForVoid } from '../../services/store-credit.js';
@@ -346,6 +352,32 @@ export async function voidSale(
           productStockState,
           now,
         });
+        inventoryMovementIds.push(
+          ...reverseBundleComponentsInTransaction({
+            tx,
+            tenantId: ctx.tenantId,
+            siteId: originalSaleSiteId,
+            saleId: input.id,
+            saleNumber: existing.saleNumber,
+            reversalKind: 'void',
+            userId: ctx.user.id,
+            now,
+            itemFractions: saleLineItems.map(item => ({ saleItemId: item.id, fraction: 1 })),
+            productStockState,
+          }),
+          ...reverseModifierBomInTransaction({
+            tx,
+            tenantId: ctx.tenantId,
+            siteId: originalSaleSiteId,
+            saleId: input.id,
+            saleNumber: existing.saleNumber,
+            reversalKind: 'void',
+            userId: ctx.user.id,
+            now,
+            itemFractions: saleLineItems.map(item => ({ saleItemId: item.id, fraction: 1 })),
+            productStockState,
+          })
+        );
 
         // Auditoría 2026-07 — restore consumed lots on void.
         restoredLotIds = restoreLotsForSale(tx, {
@@ -357,6 +389,49 @@ export async function voidSale(
           // the exact lot that left custody on the completed sale.
           preserveProvenance: true,
         }).lotIds;
+
+        const voidedLotRows = tx
+          .select({
+            productId: saleItems.productId,
+            lotId: saleItemLots.lotId,
+            lotNumber: inventoryLots.lotNumber,
+            quantity: saleItemLots.quantity,
+            siteId: inventoryLots.siteId,
+          })
+          .from(saleItemLots)
+          .innerJoin(saleItems, eq(saleItemLots.saleItemId, saleItems.id))
+          .innerJoin(
+            inventoryLots,
+            and(eq(inventoryLots.id, saleItemLots.lotId), eq(inventoryLots.tenantId, ctx.tenantId))
+          )
+          .where(and(eq(saleItemLots.tenantId, ctx.tenantId), eq(saleItems.saleId, input.id)))
+          .all();
+        const voidedByProduct = new Map<string, typeof voidedLotRows>();
+        for (const row of voidedLotRows) {
+          const key = `${row.siteId}:${row.productId}`;
+          voidedByProduct.set(key, [...(voidedByProduct.get(key) ?? []), row]);
+        }
+        for (const rows of voidedByProduct.values()) {
+          recordControlledStockMovementsInFneLedger(
+            tx,
+            {
+              tenantId: ctx.tenantId,
+              siteId: rows[0]!.siteId,
+              productId: rows[0]!.productId,
+              businessDate: businessClock.businessDate,
+              actorId: ctx.user.id,
+              occurredAt: now,
+            },
+            rows.map(row => ({
+              lotId: row.lotId,
+              lotNumber: row.lotNumber,
+              movementType: 'return' as const,
+              quantityDelta: row.quantity,
+              saleId: input.id,
+              notes: input.reason ?? `Void sale ${existing.saleNumber}`,
+            }))
+          );
+        }
         transitionSaleSerials(tx as unknown as typeof ctx.db, {
           tenantId: ctx.tenantId,
           saleItemIds: saleLineItems.map(item => item.id),
@@ -661,6 +736,7 @@ export async function voidSale(
   // Retract the sale from the companion ticker; post-commit and
   // best-effort like every other hook here.
   broadcastSaleRetracted(ctx, { id: input.id, saleNumber: updated?.saleNumber ?? '' }, 'voided');
+  void tickDefaultHardwareWorker(ctx.tenantId).catch(() => {});
 
   return {
     sale: updated as VoidedSaleRecord,

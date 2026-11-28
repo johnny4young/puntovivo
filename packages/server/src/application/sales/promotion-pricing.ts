@@ -33,6 +33,7 @@ export async function quoteResolvedSalePromotions(
     headerDiscountAmount: number;
     nowIso?: string;
     businessDate?: string;
+    timezone?: string;
   }
 ): Promise<PromotionCheckoutQuote> {
   const pricing = await resolvePricingSettings(db, args.tenantId);
@@ -45,6 +46,7 @@ export async function quoteResolvedSalePromotions(
     headerDiscountAmount: args.headerDiscountAmount,
     ...(args.nowIso ? { nowIso: args.nowIso } : {}),
     ...(args.businessDate ? { businessDate: args.businessDate } : {}),
+    ...(args.timezone ? { timezone: args.timezone } : {}),
   });
 }
 

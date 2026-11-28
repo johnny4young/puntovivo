@@ -16,6 +16,10 @@ import {
   getAuthorityTopology,
   inferAuthorityRole,
 } from '../../services/devices/authority.js';
+import {
+  expireUnboundFamiliesForUsers,
+  revokeDeviceSessionsForDevice,
+} from '../../services/devices/deviceSessions.js';
 import { router } from '../init.js';
 import {
   adminProcedureWithModule,
@@ -67,6 +71,7 @@ export const authorityRouter = router({
           pairedSiteId: devices.pairedSiteId,
           isActive: devices.isActive,
           registeredByUserId: devices.registeredByUserId,
+          activeUserId: devices.activeUserId,
         })
         .from(devices)
         .where(and(eq(devices.tenantId, ctx.tenantId), eq(devices.id, input.deviceId)))
@@ -98,21 +103,39 @@ export const authorityRouter = router({
           .where(and(eq(devices.tenantId, ctx.tenantId), eq(devices.id, input.deviceId)))
           .run();
 
-        // bump the registering user's sessionVersion in the
-        // same transaction so every access + refresh token they hold
-        // fails verification on the next request. The current schema
-        // does not track session-per-device (no `device_sessions`
-        // table), so this is the closest proxy to "kick the device's
-        // owner out everywhere it is signed in". A finer-grained
-        // device-scoped revocation requires a session-binding table
-        // captured as a follow-up; out of scope for this slice.
-        tx.update(users)
-          .set({
-            sessionVersion: sql`${users.sessionVersion} + 1`,
-            updatedAt: nowIso,
-          })
-          .where(and(eq(users.tenantId, ctx.tenantId), eq(users.id, existing.registeredByUserId)))
-          .run();
+        // Revoke only the sessions bound to this hub client. Fall back to bumping
+        // the registering user's sessionVersion only for legacy unpaired devices.
+        const sessionRevocation = revokeDeviceSessionsForDevice(tx as unknown as typeof ctx.db, {
+          tenantId: ctx.tenantId,
+          deviceId: input.deviceId,
+          revokedByUserId: ctx.user!.id,
+          nowIso,
+        });
+        const expiredUnboundFamilies = expireUnboundFamiliesForUsers(
+          tx as unknown as typeof ctx.db,
+          {
+            tenantId: ctx.tenantId,
+            userIds: [
+              ...new Set(
+                [existing.registeredByUserId, existing.activeUserId].filter(
+                  (userId): userId is string => Boolean(userId)
+                )
+              ),
+            ],
+            ...(ctx.user!.familyId ? { keepFamilyId: ctx.user!.familyId } : {}),
+            nowIso,
+          }
+        );
+        const sessionVersionBumped = sessionRevocation.totalBoundSessions === 0;
+        if (sessionVersionBumped) {
+          tx.update(users)
+            .set({
+              sessionVersion: sql`${users.sessionVersion} + 1`,
+              updatedAt: nowIso,
+            })
+            .where(and(eq(users.tenantId, ctx.tenantId), eq(users.id, existing.registeredByUserId)))
+            .run();
+        }
 
         writeAuditLog({
           tx,
@@ -132,7 +155,9 @@ export const authorityRouter = router({
           metadata: {
             reason: 'authority_hub_client_revoke',
             registeredByUserId: existing.registeredByUserId,
-            sessionVersionBumped: true,
+            sessionVersionBumped,
+            revokedDeviceSessions: sessionRevocation.revokedCount,
+            expiredUnboundFamilies,
           },
         });
       });

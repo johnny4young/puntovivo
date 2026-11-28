@@ -7,6 +7,8 @@ export interface PharmacyPolicyProfile {
   classification: PharmacyClassification;
   sanitaryRegistration: string | null;
   registrationExpiresAt: string | null;
+  /** The imported INVIMA catalog marks the registration expired, cancelled or suspended. */
+  registrationInactive?: boolean;
 }
 
 /** Product-level policy verdict without the customer requirement; null means sellable. */
@@ -28,12 +30,15 @@ export function pharmacyProductPolicyBlockCode(
   ) {
     return 'PHARMACY_PRODUCT_REGISTRATION_EXPIRED';
   }
+  if (profile.registrationInactive) return 'PHARMACY_PRODUCT_REGISTRATION_INACTIVE';
   return null;
 }
 
 const BLOCK_MESSAGES: Partial<Record<ServerErrorCode, string>> = {
   PHARMACY_PRODUCT_REGISTRATION_REQUIRED: 'A sanitary registration is required',
   PHARMACY_PRODUCT_REGISTRATION_EXPIRED: 'The sanitary registration is expired',
+  PHARMACY_PRODUCT_REGISTRATION_INACTIVE:
+    'The INVIMA catalog marks this sanitary registration as expired, cancelled or suspended',
 };
 
 /** Fail-closed policy check shared by checkout and evidence registration. */
@@ -42,11 +47,13 @@ export function assertPharmacyProductPolicy(args: {
   countryCode: string;
   businessDate: string;
   customerId: string | null;
+  fneAuthorized?: boolean;
 }): PharmacyPolicyDecision {
   const decision = resolvePharmacyPolicy(
     args.countryCode,
     args.businessDate,
-    args.profile.classification
+    args.profile.classification,
+    args.fneAuthorized ? { fneAuthorized: true } : undefined
   );
   const blockCode = pharmacyProductPolicyBlockCode(decision, args.profile, args.businessDate);
   if (blockCode) {

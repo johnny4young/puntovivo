@@ -10,13 +10,13 @@
     "toggleHint": "Use IA para ordenar por significado una lista acotada de coincidencias textuales. Conserva la búsqueda literal cuando la IA está apagada.",
     "modeBadge": "Coincidencias textuales ordenadas por IA",
     "modeLiteral": "Coincidencia de texto literal",
-    "unavailable": "La búsqueda semántica necesita la IA activada y embeddings generados. Volviendo a búsqueda literal.",
+    "unavailable": "La búsqueda semántica necesita la IA activada y el índice de búsqueda generado. Volviendo a búsqueda literal.",
     "searching": "Buscando...",
     "noResults": "No se encontraron coincidencias híbridas para su consulta.",
     "regenerated_one": "Se generó embedding de {{count}} producto. La búsqueda semántica está lista.",
-    "regenerated_other": "Se generaron embeddings de {{count}} productos. La búsqueda semántica está lista.",
+    "regenerated_other": "Se actualizó el índice de búsqueda de {{count}} productos. La búsqueda semántica está lista.",
     "regenerateUnavailable": "No se puede regenerar: active la IA en Configuración de empresa y verifique que el proveedor seleccionado esté disponible.",
-    "regenerateError": "No se pudieron regenerar los embeddings"
+    "regenerateError": "No se pudo actualizar el índice de búsqueda"
   },
   "embeddingDrift": {
     "eyebrow": "Mantenimiento del catálogo",
@@ -207,7 +207,9 @@
       "serviceItemEnabledHelp": "Este ítem se vende sin validación de stock y nunca crea movimientos de inventario.",
       "serviceItemBlockedHelp": "Este producto todavía tiene stock. Déjelo en cero desde Inventario antes de convertirlo en servicio.",
       "serviceItemStockHelp": "Los ítems de servicio no manejan stock.",
-      "serviceItemStockError": "Un ítem de servicio no puede tener stock"
+      "serviceItemStockError": "Un ítem de servicio no puede tener stock",
+      "isReturnableContainer": "Envase retornable",
+      "returnableDepositAmount": "Depósito por envase"
     },
     "units": {
       "title": "Asignaciones de unidad",
@@ -335,6 +337,7 @@
     "selected_one": "{{count}} seleccionado",
     "selected_other": "{{count}} seleccionados",
     "moveCategory": "Mover a categoría",
+    "printLabels": "Etiquetas de góndola",
     "archive": "Archivar",
     "clear": "Limpiar",
     "selectRow": "Seleccionar {{name}}",

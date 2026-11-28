@@ -96,4 +96,25 @@ describe('AutoUpdateBanner', () => {
     expect(screen.queryByTestId('auto-update-banner')).not.toBeInTheDocument();
     expect(window.localStorage.getItem('puntovivo:auto-update-banner:dismissed:1.11.0')).toBe('1');
   });
+
+  it('updates live from main-process push events without polling every 30 s', async () => {
+    let pushListener: ((status: Record<string, unknown>) => void) | undefined;
+    const unsubscribe = vi.fn();
+    const electron = installElectron({ ...STATUS, state: 'idle', downloadedVersion: null });
+    electron.onAutoUpdateStatus = vi.fn(listener => {
+      pushListener = listener as (status: Record<string, unknown>) => void;
+      return unsubscribe;
+    });
+
+    const { unmount } = renderBanner();
+    await waitFor(() => expect(electron.getAutoUpdateStatus).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId('auto-update-banner')).not.toBeInTheDocument();
+
+    pushListener?.({ ...STATUS, installReady: true });
+    expect(await screen.findByRole('button', { name: /restart to install/i })).toBeEnabled();
+    expect(electron.getAutoUpdateStatus).toHaveBeenCalledTimes(1);
+
+    unmount();
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
 });

@@ -73,28 +73,30 @@ async function createProvider(name: string): Promise<string> {
 async function createProduct(name: string): Promise<string> {
   const id = nanoid();
   const now = new Date().toISOString();
-  await getDatabase().insert(products).values({
-    id,
-    tenantId,
-    name,
-    sku: `CON-${nanoid(6)}`,
-    price: 10,
-    price2: 10,
-    price3: 10,
-    cost: 10,
-    marginPercent1: 0,
-    marginPercent2: 0,
-    marginPercent3: 0,
-    marginAmount1: 0,
-    marginAmount2: 0,
-    marginAmount3: 0,
-    taxRate: 0,
-    initialCost: 10,
-    minStock: 0,
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  });
+  await getDatabase()
+    .insert(products)
+    .values({
+      id,
+      tenantId,
+      name,
+      sku: `CON-${nanoid(6)}`,
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 10,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 10,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
   return id;
 }
 
@@ -244,14 +246,17 @@ describe('provider payable consolidation', () => {
     const audit = db
       .select({ after: auditLogs.after })
       .from(auditLogs)
-      .where(and(eq(auditLogs.resourceId, invoice.id), eq(auditLogs.action, 'provider_payable.invoice.create')))
+      .where(
+        and(
+          eq(auditLogs.resourceId, invoice.id),
+          eq(auditLogs.action, 'provider_payable.invoice.create')
+        )
+      )
       .get();
     expect(audit?.after).toMatchObject({ purchaseIds: [first, second] });
 
     const available = await caller.providerPayables.availablePurchases({ providerId });
-    const stillListed = available.items.filter(
-      item => item.id === first || item.id === second
-    );
+    const stillListed = available.items.filter(item => item.id === first || item.id === second);
     expect(stillListed).toEqual([]);
   });
 
@@ -424,10 +429,11 @@ describe('provider payable consolidation', () => {
       updatedAt: now,
     });
 
-    const before = db
-      .select({ count: sql<number>`count(*)` })
-      .from(providerPayableInvoicePurchases)
-      .get()?.count ?? 0;
+    const before =
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(providerPayableInvoicePurchases)
+        .get()?.count ?? 0;
 
     const caller = appRouter.createCaller(context());
     await expect(
@@ -444,10 +450,11 @@ describe('provider payable consolidation', () => {
       cause: { errorCode: 'PROVIDER_PAYABLE_PURCHASE_SITE_MISMATCH' },
     });
 
-    const after = db
-      .select({ count: sql<number>`count(*)` })
-      .from(providerPayableInvoicePurchases)
-      .get()?.count ?? 0;
+    const after =
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(providerPayableInvoicePurchases)
+        .get()?.count ?? 0;
     expect(after).toBe(before);
   });
 
@@ -542,9 +549,23 @@ describe('provider payable consolidation', () => {
     });
 
     // 70 units are still on the shelf, so the delivery remains invoiceable and
-    // the picker must still offer it.
+    // the picker must expose the net kept total (700), not gross receipt (1000).
     const available = await caller.providerPayables.availablePurchases({ providerId });
-    expect(available.items.map(item => item.id)).toEqual([purchaseId]);
+    expect(available.items).toEqual([expect.objectContaining({ id: purchaseId, total: 700 })]);
+
+    // Invoicing without lines still refuses the pre-return gross amount.
+    await expect(
+      caller.providerPayables.createInvoice({
+        providerId,
+        purchaseId,
+        documentNumber: `FAC-GROSS-${nanoid(6)}`,
+        issuedAt: businessDayFromNow(-2),
+        dueAt: businessDayFromNow(28),
+        amount: 1000,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PROVIDER_PAYABLE_INVOICE_AMOUNT_MISMATCH' },
+    });
 
     // What the store actually kept: 70 units, 700.
     await expect(
@@ -696,5 +717,273 @@ describe('provider payable consolidation', () => {
       expect(child.entityType).toBe('provider_payable_invoice_purchases');
       expect(child.priority).toBeLessThan(drained[0]!.priority);
     }
+  });
+
+  it('reconciles net purchase lines plus taxAmount and surfaces consolidated purchases in overview', async () => {
+    const db = getDatabase();
+    const providerId = await createProvider(`VAT consolidation ${nanoid(5)}`);
+    const productId = await createProduct('Harina bulto 50kg');
+    const first = await createRemissionPurchase(providerId, productId, 5, 10);
+    const second = await createRemissionPurchase(providerId, productId, 5, 10);
+    const purchaseRows = db
+      .select({ id: purchases.id, purchaseNumber: purchases.purchaseNumber })
+      .from(purchases)
+      .where(inArray(purchases.id, [first, second]))
+      .all();
+
+    const caller = appRouter.createCaller(context());
+    // Amount must equal linesTotal + taxAmount (100 + 19 = 119).
+    await expect(
+      caller.providerPayables.createInvoice({
+        providerId,
+        purchaseIds: [first, second],
+        lines: [{ productId, quantity: 10, unitCost: 10 }],
+        documentNumber: `FAC-TAX-BAD-${nanoid(6)}`,
+        issuedAt: businessDayFromNow(-2),
+        dueAt: businessDayFromNow(28),
+        amount: 118,
+        taxAmount: 19,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PROVIDER_PAYABLE_INVOICE_AMOUNT_MISMATCH' },
+      message: expect.stringMatching(/lines total 100\.00 plus tax 19\.00/i),
+    });
+
+    const invoice = await caller.providerPayables.createInvoice({
+      providerId,
+      purchaseIds: [first, second],
+      lines: [{ productId, quantity: 10, unitCost: 10 }],
+      documentNumber: `FAC-TAX-${nanoid(6)}`,
+      issuedAt: businessDayFromNow(-2),
+      dueAt: businessDayFromNow(28),
+      amount: 119,
+      taxAmount: 19,
+    });
+
+    const overview = await caller.providerPayables.overview({ providerId });
+    const entry = overview.invoices.find(item => item.id === invoice.id);
+    expect(entry).toMatchObject({
+      id: invoice.id,
+      amount: 119,
+      taxAmount: 19,
+      purchaseId: null,
+      purchaseNumber: null,
+    });
+    expect(entry?.purchaseIds.slice().sort()).toEqual([first, second].sort());
+    expect(entry?.purchaseNumbers.slice().sort()).toEqual(
+      purchaseRows.map(row => row.purchaseNumber).sort()
+    );
+  });
+
+  it('rejects lines without any linked purchase at the input boundary', async () => {
+    const providerId = await createProvider(`No purchase lines ${nanoid(5)}`);
+    const productId = await createProduct('Etiqueta térmica');
+    const caller = appRouter.createCaller(context());
+
+    await expect(
+      caller.providerPayables.createInvoice({
+        providerId,
+        lines: [{ productId, quantity: 2, unitCost: 10 }],
+        documentNumber: `FAC-NOPUR-${nanoid(6)}`,
+        issuedAt: businessDayFromNow(-2),
+        dueAt: businessDayFromNow(28),
+        amount: 20,
+      })
+    ).rejects.toThrow(/Invoice lines require at least one linked purchase/i);
+  });
+
+  it('reconciles a partially returned purchase whose fully returned item had fractional return rounding', async () => {
+    const db = getDatabase();
+    const providerId = await createProvider(`Fractional return ${nanoid(5)}`);
+    const returnedProductId = await createProduct('Esencia 1L');
+    const keptProductId = await createProduct('Azúcar 10kg');
+    const now = new Date().toISOString();
+    await db.insert(unitXProduct).values([
+      {
+        id: nanoid(),
+        productId: returnedProductId,
+        unitId: baseUnitId,
+        equivalence: 1,
+        price: 10.01,
+        isBase: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: nanoid(),
+        productId: keptProductId,
+        unitId: baseUnitId,
+        equivalence: 1,
+        price: 10,
+        isBase: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+
+    const caller = appRouter.createCaller(context());
+    const created = await caller.purchases.create({
+      providerId,
+      items: [
+        { productId: returnedProductId, unitId: baseUnitId, quantity: 1, costPerUnit: 10.01 },
+        { productId: keptProductId, unitId: baseUnitId, quantity: 10, costPerUnit: 10 },
+      ],
+    });
+    const returnedLine = db
+      .select()
+      .from(purchaseItems)
+      .where(
+        and(
+          eq(purchaseItems.purchaseId, created.id),
+          eq(purchaseItems.productId, returnedProductId)
+        )
+      )
+      .get();
+    if (!returnedLine) throw new Error('Expected returned product purchase line');
+
+    // Two 0.5 returns of 10.01 each round to 5.01 (10.02 total), leaving a -0.01
+    // naive total residual even though 100% of the item was returned.
+    await caller.purchases.returnPurchase({
+      id: created.id,
+      items: [{ purchaseItemId: returnedLine.id, quantity: 0.5 }],
+      reason: 'Primera mitad dañada',
+    });
+    const afterSecond = await caller.purchases.returnPurchase({
+      id: created.id,
+      items: [{ purchaseItemId: returnedLine.id, quantity: 0.5 }],
+      reason: 'Segunda mitad dañada',
+    });
+    expect(afterSecond.status).toBe('partial_returned');
+
+    await expect(
+      caller.providerPayables.createInvoice({
+        providerId,
+        purchaseIds: [created.id],
+        lines: [{ productId: keptProductId, quantity: 10, unitCost: 10 }],
+        documentNumber: `FAC-FRAC-RET-${nanoid(6)}`,
+        issuedAt: businessDayFromNow(-2),
+        dueAt: businessDayFromNow(28),
+        amount: 100,
+      })
+    ).resolves.toMatchObject({ providerId, amount: 100 });
+  });
+
+  it('rolls back overlapping consolidation and rejects foreign-provider purchases', async () => {
+    const providerId = await createProvider(`Overlap ${nanoid(5)}`);
+    const otherProviderId = await createProvider(`Foreign ${nanoid(5)}`);
+    const productId = await createProduct('Vaso descartable');
+    const p1 = await createRemissionPurchase(providerId, productId, 2, 10);
+    const p2 = await createRemissionPurchase(providerId, productId, 2, 10);
+    const p3 = await createRemissionPurchase(providerId, productId, 2, 10);
+    const foreignPurchase = await createRemissionPurchase(otherProviderId, productId, 2, 10);
+
+    const caller = appRouter.createCaller(context());
+    await caller.providerPayables.createInvoice({
+      providerId,
+      purchaseIds: [p1, p2],
+      lines: [{ productId, quantity: 4, unitCost: 10 }],
+      documentNumber: `FAC-OV1-${nanoid(6)}`,
+      issuedAt: businessDayFromNow(-2),
+      dueAt: businessDayFromNow(28),
+      amount: 40,
+    });
+
+    await expect(
+      caller.providerPayables.createInvoice({
+        providerId,
+        purchaseIds: [p3, p2],
+        lines: [{ productId, quantity: 4, unitCost: 10 }],
+        documentNumber: `FAC-OV2-${nanoid(6)}`,
+        issuedAt: businessDayFromNow(-2),
+        dueAt: businessDayFromNow(28),
+        amount: 40,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PROVIDER_PAYABLE_PURCHASE_ALREADY_INVOICED' },
+    });
+
+    // p3 remains unlinked and available after the rolled-back overlap.
+    const available = await caller.providerPayables.availablePurchases({ providerId });
+    expect(available.items.map(item => item.id)).toEqual([p3]);
+
+    // Mixing a foreign provider's purchase is rejected.
+    await expect(
+      caller.providerPayables.createInvoice({
+        providerId,
+        purchaseIds: [p3, foreignPurchase],
+        lines: [{ productId, quantity: 4, unitCost: 10 }],
+        documentNumber: `FAC-FOR-${nanoid(6)}`,
+        issuedAt: businessDayFromNow(-2),
+        dueAt: businessDayFromNow(28),
+        amount: 40,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PROVIDER_PAYABLE_PURCHASE_MISMATCH' },
+    });
+  });
+
+  it('orders purchase -> invoice -> invoice_purchases in sync outbox and drains bridge rows via sync.push', async () => {
+    const db = getDatabase();
+    const providerId = await createProvider(`Sync chain ${nanoid(5)}`);
+    const productId = await createProduct('Mantel plástico');
+    const caller = appRouter.createCaller(context());
+    const { purchaseId } = await createPurchasedStock(caller, providerId, productId, 5, 10);
+
+    const invoice = await caller.providerPayables.createInvoice({
+      providerId,
+      purchaseIds: [purchaseId],
+      lines: [
+        { productId, quantity: 2, unitCost: 10 },
+        { productId, quantity: 3, unitCost: 10 },
+      ],
+      documentNumber: `FAC-SYNC-CHAIN-${nanoid(6)}`,
+      issuedAt: businessDayFromNow(-2),
+      dueAt: businessDayFromNow(28),
+      amount: 50,
+    });
+
+    const link = db
+      .select({ id: providerPayableInvoicePurchases.id })
+      .from(providerPayableInvoicePurchases)
+      .where(eq(providerPayableInvoicePurchases.invoiceId, invoice.id))
+      .get();
+    if (!link) throw new Error('Expected invoice purchase link');
+
+    const drained = db
+      .select({
+        entityType: syncOutbox.entityType,
+        entityId: syncOutbox.entityId,
+        priority: syncOutbox.priority,
+      })
+      .from(syncOutbox)
+      .where(
+        and(
+          eq(syncOutbox.tenantId, tenantId),
+          inArray(syncOutbox.entityId, [purchaseId, invoice.id, link.id])
+        )
+      )
+      .orderBy(desc(syncOutbox.priority), asc(syncOutbox.createdAt))
+      .all();
+
+    expect(drained.map(row => row.entityType)).toEqual([
+      'purchases',
+      'provider_payable_invoices',
+      'provider_payable_invoice_purchases',
+    ]);
+
+    const pushed = await caller.sync.push({ limit: 100 });
+    expect(pushed.errors.filter(message => message.includes('provider_payable'))).toEqual([]);
+    const linkOutbox = db
+      .select({ status: syncOutbox.status })
+      .from(syncOutbox)
+      .where(
+        and(
+          eq(syncOutbox.tenantId, tenantId),
+          eq(syncOutbox.entityType, 'provider_payable_invoice_purchases'),
+          eq(syncOutbox.entityId, link.id)
+        )
+      )
+      .get();
+    expect(linkOutbox?.status).toBe('synced');
   });
 });

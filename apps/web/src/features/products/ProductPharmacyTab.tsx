@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { ShieldAlert, Snowflake } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { SimpleFormField } from '@/components/form-controls/FormField';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { trpc } from '@/lib/trpc';
 import { cn } from '@/lib/utils';
 import type { PharmacyProductProfile, PharmacyProfileLockReason } from '@/types';
 import { ProductFormFieldGroup } from './ProductFormFieldGroup';
@@ -40,6 +43,13 @@ export function ProductPharmacyTab({
       profileLocks.includes('active_registration_recall'));
   const coldChainChangeLocked = existingRequiresColdChain !== undefined && hasOperationalLock;
   const coldChainField = form.register('pharmacy.requiresColdChain');
+  const hasInvimaLookup = Boolean(
+    (
+      trpc as unknown as {
+        pharmacy?: { searchInvimaCatalog?: { useQuery?: unknown } };
+      }
+    ).pharmacy?.searchInvimaCatalog?.useQuery
+  );
 
   const setPharmacyEnabled = (enabled: boolean) => {
     form.setValue('pharmacyEnabled', enabled, { shouldDirty: true, shouldValidate: true });
@@ -92,6 +102,14 @@ export function ProductPharmacyTab({
             title={t('pharmacy:product.sections.identity.title')}
             description={t('pharmacy:product.sections.identity.description')}
           >
+            {hasInvimaLookup ? (
+              <InvimaCatalogAutofill
+                formBundle={formBundle}
+                registrationLocked={registrationLocked}
+                classificationRelaxationLocked={classificationRelaxationLocked}
+                existingClassification={existingClassification}
+              />
+            ) : null}
             <div className="grid gap-4 md:grid-cols-2">
               <SimpleFormField
                 label={t('pharmacy:product.fields.activeIngredient')}
@@ -157,6 +175,31 @@ export function ProductPharmacyTab({
                   className="pv-input"
                   maxLength={255}
                   {...form.register('pharmacy.presentation')}
+                />
+              </SimpleFormField>
+              <SimpleFormField
+                label={t('pharmacy:product.fields.dosesPerPack')}
+                htmlFor="product-pharmacy-doses-per-pack"
+              >
+                <input
+                  id="product-pharmacy-doses-per-pack"
+                  type="number"
+                  min={1}
+                  max={10000}
+                  step={1}
+                  className="pv-input"
+                  {...form.register('pharmacy.dosesPerPack')}
+                />
+              </SimpleFormField>
+              <SimpleFormField
+                label={t('pharmacy:product.fields.cumCode')}
+                htmlFor="product-pharmacy-cum-code"
+              >
+                <input
+                  id="product-pharmacy-cum-code"
+                  className="pv-input"
+                  maxLength={80}
+                  {...form.register('pharmacy.cumCode')}
                 />
               </SimpleFormField>
             </div>
@@ -311,6 +354,129 @@ export function ProductPharmacyTab({
             ) : null}
           </ProductFormFieldGroup>
         </>
+      )}
+    </div>
+  );
+}
+
+function InvimaCatalogAutofill({
+  formBundle,
+  registrationLocked,
+  classificationRelaxationLocked,
+  existingClassification,
+}: {
+  formBundle: UseProductFormReturn;
+  registrationLocked: boolean;
+  classificationRelaxationLocked: boolean;
+  existingClassification?: PharmacyProductProfile['classification'] | undefined;
+}) {
+  const { t } = useTranslation(['pharmacy']);
+  const { form } = formBundle;
+  const [invimaSearch, setInvimaSearch] = useState('');
+  const debouncedInvimaSearch = useDebouncedValue(invimaSearch.trim(), 250);
+  const invimaQuery = trpc.pharmacy.searchInvimaCatalog.useQuery(
+    { search: debouncedInvimaSearch, page: 1, perPage: 5 },
+    { enabled: debouncedInvimaSearch.length >= 2 }
+  );
+
+  return (
+    <div className="mb-4 rounded-xl border border-secondary-200 bg-secondary-50/70 p-3">
+      <label className="label" htmlFor="product-pharmacy-invima-lookup">
+        {t('pharmacy:product.fields.invimaLookup')}
+      </label>
+      <input
+        id="product-pharmacy-invima-lookup"
+        data-testid="product-pharmacy-invima-lookup"
+        type="search"
+        className="pv-input mt-1 w-full"
+        value={invimaSearch}
+        placeholder={t('pharmacy:product.fields.invimaLookupPlaceholder')}
+        onChange={e => setInvimaSearch(e.target.value)}
+      />
+      {(invimaQuery.data?.items.length ?? 0) > 0 && (
+        <ul className="mt-2 space-y-1.5">
+          {invimaQuery.data?.items.map(entry => (
+            <li
+              key={entry.id}
+              className="flex items-center justify-between gap-2 rounded-lg border border-secondary-200 bg-white px-3 py-2 text-xs"
+            >
+              <span className="min-w-0 truncate">
+                <strong>{entry.productName}</strong> · {entry.cumCode} ·{' '}
+                {entry.sanitaryRegistration}
+              </span>
+              <button
+                type="button"
+                className="shrink-0 rounded-md bg-primary-700 px-2.5 py-1 font-medium text-white hover:bg-primary-800"
+                onClick={() => {
+                  form.setValue('pharmacy.activeIngredient', entry.activeIngredient, {
+                    shouldDirty: true,
+                  });
+                  form.setValue('pharmacy.genericName', entry.activeIngredient, {
+                    shouldDirty: true,
+                  });
+                  if (entry.concentration) {
+                    form.setValue('pharmacy.concentration', entry.concentration, {
+                      shouldDirty: true,
+                    });
+                  }
+                  if (entry.dosageForm) {
+                    form.setValue('pharmacy.dosageForm', entry.dosageForm, { shouldDirty: true });
+                  }
+                  if (entry.administrationRoute) {
+                    form.setValue('pharmacy.administrationRoute', entry.administrationRoute, {
+                      shouldDirty: true,
+                    });
+                  }
+                  if (entry.presentation) {
+                    form.setValue('pharmacy.presentation', entry.presentation, {
+                      shouldDirty: true,
+                    });
+                  }
+                  if (entry.dosesPerPack != null) {
+                    form.setValue('pharmacy.dosesPerPack', String(entry.dosesPerPack), {
+                      shouldDirty: true,
+                    });
+                  }
+                  form.setValue('pharmacy.cumCode', entry.cumCode, { shouldDirty: true });
+                  if (!registrationLocked) {
+                    form.setValue('pharmacy.sanitaryRegistration', entry.sanitaryRegistration, {
+                      shouldDirty: true,
+                    });
+                  }
+                  if (entry.registrationExpiresAt) {
+                    form.setValue('pharmacy.registrationExpiresAt', entry.registrationExpiresAt, {
+                      shouldDirty: true,
+                    });
+                  }
+                  if (entry.manufacturer) {
+                    form.setValue('pharmacy.manufacturer', entry.manufacturer, {
+                      shouldDirty: true,
+                    });
+                  }
+                  if (entry.authorizationHolder) {
+                    form.setValue('pharmacy.authorizationHolder', entry.authorizationHolder, {
+                      shouldDirty: true,
+                    });
+                  }
+                  if (
+                    !classificationRelaxationLocked ||
+                    existingClassification === undefined ||
+                    CLASSIFICATION_RANK[entry.classification] >=
+                      CLASSIFICATION_RANK[existingClassification]
+                  ) {
+                    form.setValue('pharmacy.classification', entry.classification, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                  }
+                  setInvimaSearch('');
+                }}
+              >
+                {t('pharmacy:product.fields.invimaApply')}
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

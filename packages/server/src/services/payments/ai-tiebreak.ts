@@ -20,7 +20,6 @@
  *
  * @module services/payments/ai-tiebreak
  */
-import { generateObject } from 'ai';
 import type { ProviderOptions } from '@ai-sdk/provider-utils';
 import { z } from 'zod';
 
@@ -139,6 +138,8 @@ export async function aiTiebreak(
 
   const userPrompt = buildUserPrompt(input);
   try {
+    await provider.ensureReady?.();
+    const { generateObject } = await import('ai');
     const providerOptions = provider.cacheControlForSystemPrompt();
     const result = await generateObject({
       model: provider.languageModel(modelId),

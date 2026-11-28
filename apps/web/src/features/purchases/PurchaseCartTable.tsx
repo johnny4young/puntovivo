@@ -27,34 +27,34 @@ export function PurchaseCartTable({
   const { t } = useTranslation('purchases');
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-secondary-300 bg-secondary-50 px-4 py-10 text-center text-sm text-secondary-500">
+      <div className="rounded-xl border border-dashed border-line bg-surface-2 px-4 py-10 text-center text-sm text-secondary-500">
         {t('checkout.empty')}
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-secondary-200">
+    <div className="overflow-hidden rounded-xl border border-line">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-secondary-200">
-          <thead className="bg-secondary-50">
+        <table className="min-w-full divide-y divide-line">
+          <thead className="bg-surface-2">
             <tr className="text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">
-              <th className="px-4 py-3">{t('cart.product')}</th>
-              <th className="px-4 py-3">{t('cart.qty')}</th>
-              <th className="px-4 py-3">{t('cart.costPerUnit')}</th>
-              <th className="px-4 py-3">{t('cart.baseUnits')}</th>
-              <th className="px-4 py-3">{t('cart.lineTotal')}</th>
-              <th className="px-4 py-3" />
+              <th className="px-3 py-2.5">{t('cart.product')}</th>
+              <th className="px-3 py-2.5">{t('cart.qty')}</th>
+              <th className="px-3 py-2.5">{t('cart.costPerUnit')}</th>
+              <th className="px-3 py-2.5">{t('cart.baseUnits')}</th>
+              <th className="px-3 py-2.5">{t('cart.lineTotal')}</th>
+              <th className="w-12 px-2 py-2.5" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-secondary-200 bg-white">
+          <tbody className="divide-y divide-line bg-surface">
             {items.map(item => {
               const hasDuplicateSerials =
                 item.tracksSerials && hasDuplicateSerialNumbers(item.serialNumbers);
 
               return (
                 <tr key={item.key}>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2.5">
                     <div>
                       <p className="text-sm font-medium text-secondary-900">{item.productName}</p>
                       <p className="text-xs text-secondary-500">
@@ -65,7 +65,7 @@ export function PurchaseCartTable({
                         {t('cart.currentStock', { count: item.currentStock })}
                       </p>
                       {item.tracksSerials && (
-                        <div className="mt-3 min-w-72">
+                        <div className="mt-3 min-w-64">
                           <label htmlFor={`purchase-serials-${item.key}`} className="label">
                             {t('cart.serialNumbers')}
                           </label>
@@ -91,12 +91,12 @@ export function PurchaseCartTable({
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2.5">
                     <input
                       type="number"
                       min={MIN_OPERATIONAL_QUANTITY}
                       step="any"
-                      className="input w-24"
+                      className="input w-20"
                       value={item.quantity}
                       readOnly={item.tracksSerials}
                       aria-readonly={item.tracksSerials}
@@ -112,12 +112,12 @@ export function PurchaseCartTable({
                       }
                     />
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2.5">
                     <input
                       type="number"
                       min={0}
                       step="0.01"
-                      className="input w-32"
+                      className="input w-28"
                       value={item.costPerUnit}
                       aria-label={t('cart.costFor', { name: item.productName })}
                       onChange={event =>
@@ -125,15 +125,16 @@ export function PurchaseCartTable({
                       }
                     />
                   </td>
-                  <td className="px-4 py-3 text-sm text-secondary-700">
+                  <td className="px-3 py-2.5 text-sm text-secondary-700">
                     {getPurchaseNormalizedQuantity(item)}
                   </td>
-                  <td className="px-4 py-3 text-sm font-medium text-secondary-900">
+                  <td className="px-3 py-2.5 text-sm font-medium text-secondary-900">
                     {formatCurrency(getPurchaseLineTotal(item))}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-2 py-2.5 text-right">
                     <button
-                      className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
+                      type="button"
+                      className="btn-ghost btn-icon h-9 w-9 text-danger-500 hover:text-danger-700"
                       aria-label={t('cart.removeItem', { name: item.productName })}
                       onClick={() => onRemove(item.key)}
                     >

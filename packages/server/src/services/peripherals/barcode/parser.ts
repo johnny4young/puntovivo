@@ -28,7 +28,13 @@
  * @module services/peripherals/barcode/parser
  */
 
-import { resolveGs1PrefixRole, type Gs1PrefixConfig, type Gs1Scheme } from '@puntovivo/shared/gs1';
+import {
+  DEFAULT_GS1_PRICE_DIVISOR,
+  resolveGs1PrefixRole,
+  type Gs1PrefixConfig,
+  type Gs1PriceDivisor,
+  type Gs1Scheme,
+} from '@puntovivo/shared/gs1';
 
 export type ScanKind = 'ean13' | 'ean8' | 'upc-a' | 'gs1-weight' | 'gs1-price' | 'unknown';
 
@@ -128,6 +134,7 @@ export function parseGs1WeightOrPrice(args: {
   code: string;
   scheme?: Gs1Scheme;
   prefixes?: Gs1PrefixConfig;
+  priceDivisor?: Gs1PriceDivisor;
 }): {
   kind: 'gs1-weight' | 'gs1-price';
   sku: string;
@@ -159,11 +166,12 @@ export function parseGs1WeightOrPrice(args: {
       weightKg: Math.round((payload / 1000) * 1000) / 1000,
     };
   }
-  // payload is currency cents (minor units)
+  // Divide by 100 for cent-denominated labels (USD/MXN) or 1 for whole-peso labels (COP/CLP).
+  const divisor = args.priceDivisor ?? DEFAULT_GS1_PRICE_DIVISOR;
   return {
     kind: 'gs1-price',
     sku,
-    priceMajor: Math.round((payload / 100) * 100) / 100,
+    priceMajor: Math.round((payload / divisor) * 100) / 100,
   };
 }
 
@@ -182,7 +190,11 @@ export function parseGs1WeightOrPrice(args: {
  */
 export function parseScan(
   rawCode: string,
-  options?: { gs1Scheme?: Gs1Scheme; gs1Prefixes?: Gs1PrefixConfig }
+  options?: {
+    gs1Scheme?: Gs1Scheme;
+    gs1Prefixes?: Gs1PrefixConfig;
+    gs1PriceDivisor?: Gs1PriceDivisor;
+  }
 ): ParsedScan {
   const code = rawCode.trim();
   const scheme = options?.gs1Scheme ?? 'generic';
@@ -210,6 +222,7 @@ export function parseScan(
         code,
         scheme,
         ...(options?.gs1Prefixes ? { prefixes: options.gs1Prefixes } : {}),
+        ...(options?.gs1PriceDivisor ? { priceDivisor: options.gs1PriceDivisor } : {}),
       });
       if (gs1) {
         return {

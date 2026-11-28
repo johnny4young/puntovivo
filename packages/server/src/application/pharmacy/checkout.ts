@@ -4,11 +4,14 @@ import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   customers,
+  inventoryLots,
+  pharmacyCustomerAllergies,
   pharmacyDispensations,
   pharmacyPrescriptionEvidence,
   pharmacyProfessionalAuthorizations,
   pharmacyProductProfiles,
   products,
+  saleItemLots,
   saleItems,
   sales,
   users,
@@ -39,6 +42,14 @@ import {
   inspectPharmacyAuthorizationSnapshot,
   type PharmacyAuthorizationSnapshot,
 } from './authorizations.js';
+import {
+  appendFneLedgerEntries,
+  findEffectiveFneAuthorization,
+  type FneLedgerMovement,
+} from './fne.js';
+import { findInactiveInvimaRegistrationProductIds } from './invima-catalog.js';
+import { matchesAllergyIngredient } from './allergies.js';
+import { pharmacyEquivalenceKey } from './generic-alternatives.js';
 
 const roundQuantity = (value: number) => Math.round(value * 1_000_000_000) / 1_000_000_000;
 
@@ -75,9 +86,12 @@ export async function getPharmacyCheckoutRequirements(
           .select({
             productId: products.id,
             productName: products.name,
+            activeIngredient: pharmacyProductProfiles.activeIngredient,
+            genericName: pharmacyProductProfiles.genericName,
             classification: pharmacyProductProfiles.classification,
             sanitaryRegistration: pharmacyProductProfiles.sanitaryRegistration,
             registrationExpiresAt: pharmacyProductProfiles.registrationExpiresAt,
+            cumCode: pharmacyProductProfiles.cumCode,
           })
           .from(products)
           .innerJoin(
@@ -95,7 +109,13 @@ export async function getPharmacyCheckoutRequirements(
             )
           )
           .all();
-  const profileByProduct = new Map(profileRows.map(profile => [profile.productId, profile]));
+  const inactiveRegistrations = findInactiveInvimaRegistrationProductIds(db, tenantId, profileRows);
+  const profileByProduct = new Map(
+    profileRows.map(profile => [
+      profile.productId,
+      { ...profile, registrationInactive: inactiveRegistrations.has(profile.productId) },
+    ])
+  );
   const profiles = productIds.flatMap(productId => {
     const profile = profileByProduct.get(productId);
     return profile ? [profile] : [];
@@ -128,11 +148,20 @@ export async function getPharmacyCheckoutRequirements(
       )
     : false;
 
+  const fneAuthorization = findEffectiveFneAuthorization(db, {
+    tenantId,
+    siteId,
+    countryCode: clock.countryCode,
+    businessDate: clock.businessDate,
+  });
+  const fneEnabled = fneAuthorization !== null;
+
   const requirementContexts = profiles.map(profile => {
     const decision = resolvePharmacyPolicy(
       clock.countryCode,
       clock.businessDate,
-      profile.classification
+      profile.classification,
+      fneEnabled ? { fneAuthorized: true } : undefined
     );
     const customerId = customerIsValid ? (input.customerId ?? null) : null;
     const blockCode =
@@ -456,9 +485,96 @@ export async function getPharmacyCheckoutRequirements(
       reapprovalEvidence: reapprovalByProduct.get(profile.productId) ?? [],
     };
   });
+  // Basic clinical safety alerts: active-ingredient duplicity across cart lines
+  // and registered customer allergies matching any medicine in the cart.
+  type PharmacySafetyAlert =
+    | {
+        kind: 'duplicate_active_ingredient';
+        severity: 'warning';
+        activeIngredient: string;
+        productIds: string[];
+        productNames: string[];
+      }
+    | {
+        kind: 'customer_allergy';
+        severity: 'mild' | 'moderate' | 'severe';
+        activeIngredient: string;
+        productId: string;
+        productName: string;
+      };
+  const safetyAlerts: PharmacySafetyAlert[] = [];
+  const ingredientGroups = new Map<
+    string,
+    { label: string; productIds: string[]; productNames: string[] }
+  >();
+  for (const profile of profiles) {
+    const key = pharmacyEquivalenceKey(profile.activeIngredient);
+    if (!key || !profile.activeIngredient) continue;
+    const group = ingredientGroups.get(key) ?? {
+      label: profile.activeIngredient,
+      productIds: [],
+      productNames: [],
+    };
+    group.productIds.push(profile.productId);
+    group.productNames.push(profile.productName);
+    ingredientGroups.set(key, group);
+  }
+  for (const group of ingredientGroups.values()) {
+    if (group.productIds.length >= 2) {
+      safetyAlerts.push({
+        kind: 'duplicate_active_ingredient',
+        severity: 'warning',
+        activeIngredient: group.label,
+        productIds: group.productIds,
+        productNames: group.productNames,
+      });
+    }
+  }
+  if (customerIsValid && input.customerId && profiles.length > 0) {
+    const allergies = db
+      .select({
+        activeIngredient: pharmacyCustomerAllergies.activeIngredient,
+        activeIngredientNormalized: pharmacyCustomerAllergies.activeIngredientNormalized,
+        severity: pharmacyCustomerAllergies.severity,
+      })
+      .from(pharmacyCustomerAllergies)
+      .where(
+        and(
+          eq(pharmacyCustomerAllergies.tenantId, tenantId),
+          eq(pharmacyCustomerAllergies.customerId, input.customerId)
+        )
+      )
+      .all();
+    for (const allergy of allergies) {
+      for (const profile of profiles) {
+        const matches =
+          matchesAllergyIngredient(
+            profile.activeIngredient,
+            allergy.activeIngredient,
+            allergy.activeIngredientNormalized
+          ) ||
+          matchesAllergyIngredient(
+            profile.genericName,
+            allergy.activeIngredient,
+            allergy.activeIngredientNormalized
+          );
+        if (matches) {
+          safetyAlerts.push({
+            kind: 'customer_allergy',
+            severity: allergy.severity,
+            activeIngredient: allergy.activeIngredient,
+            productId: profile.productId,
+            productName: profile.productName,
+          });
+        }
+      }
+    }
+  }
+
   return {
     countryCode: clock.countryCode,
     businessDate: clock.businessDate,
+    fneEnabled,
     customerValid: input.customerId ? customerIsValid : null,
     canApproveEvidence:
       requirementContexts.some(
@@ -472,6 +588,7 @@ export async function getPharmacyCheckoutRequirements(
         businessDate: clock.businessDate,
       }) !== null,
     requirements,
+    safetyAlerts,
     ready: requirements.every(
       requirement =>
         requirement.blockedErrorCode === null &&
@@ -535,6 +652,7 @@ export function allocatePharmacyEvidenceForSale(
       classification: pharmacyProductProfiles.classification,
       sanitaryRegistration: pharmacyProductProfiles.sanitaryRegistration,
       registrationExpiresAt: pharmacyProductProfiles.registrationExpiresAt,
+      cumCode: pharmacyProductProfiles.cumCode,
     })
     .from(saleItems)
     .innerJoin(products, eq(products.id, saleItems.productId))
@@ -547,10 +665,17 @@ export function allocatePharmacyEvidenceForSale(
     )
     .where(and(eq(saleItems.saleId, sale.id), eq(products.tenantId, ctx.tenantId)))
     .all();
-  const medicineLines = lines.filter(
-    (line): line is typeof line & { classification: 'otc' | 'prescription' | 'controlled' } =>
-      line.classification !== null
+  const inactiveRegistrations = findInactiveInvimaRegistrationProductIds(
+    db,
+    ctx.tenantId,
+    lines.filter(line => line.classification !== null)
   );
+  const medicineLines = lines
+    .filter(
+      (line): line is typeof line & { classification: 'otc' | 'prescription' | 'controlled' } =>
+        line.classification !== null
+    )
+    .map(line => ({ ...line, registrationInactive: inactiveRegistrations.has(line.productId) }));
 
   const selectedEvidence =
     args.evidenceIds.length === 0
@@ -594,13 +719,22 @@ export function allocatePharmacyEvidenceForSale(
     saleItemId: string;
     productId: string;
     evidenceId: string;
+    referenceDigest: string;
     authorizationId: string;
-    classification: 'prescription';
+    classification: 'prescription' | 'controlled';
     policyVersion: string;
     quantity: number;
   }> = [];
   const evidenceTotals = new Map<string, number>();
   const usedEvidence = new Set<string>();
+  const fneAuthorization = medicineLines.some(l => l.classification === 'controlled')
+    ? findEffectiveFneAuthorization(db, {
+        tenantId: ctx.tenantId,
+        siteId: ctx.siteId,
+        countryCode: args.countryCode,
+        businessDate: args.businessDate,
+      })
+    : null;
 
   for (const line of medicineLines) {
     const decision = assertPharmacyProductPolicy({
@@ -608,6 +742,7 @@ export function allocatePharmacyEvidenceForSale(
       countryCode: args.countryCode,
       businessDate: args.businessDate,
       customerId: sale.customerId,
+      fneAuthorized: fneAuthorization !== null,
     });
     const baseQuantity = roundQuantity(line.quantity * line.unitEquivalence);
     if (!Number.isFinite(baseQuantity) || baseQuantity <= 0) {
@@ -728,8 +863,9 @@ export function allocatePharmacyEvidenceForSale(
         saleItemId: line.saleItemId,
         productId: line.productId,
         evidenceId: evidence.id,
+        referenceDigest: evidence.referenceDigest,
         authorizationId: authorization.id,
-        classification: 'prescription',
+        classification: line.classification === 'controlled' ? 'controlled' : 'prescription',
         policyVersion: decision.policyVersion,
         quantity,
       });
@@ -815,6 +951,7 @@ export function allocatePharmacyEvidenceForSale(
   }
 
   const dispensationIds: string[] = [];
+  const controlledAllocations: typeof lineAllocations = [];
   for (const allocation of lineAllocations) {
     const id = nanoid();
     db.insert(pharmacyDispensations)
@@ -835,14 +972,146 @@ export function allocatePharmacyEvidenceForSale(
       })
       .run();
     dispensationIds.push(id);
+    if (allocation.classification === 'controlled') controlledAllocations.push(allocation);
+    const syncAllocation = {
+      saleItemId: allocation.saleItemId,
+      productId: allocation.productId,
+      evidenceId: allocation.evidenceId,
+      authorizationId: allocation.authorizationId,
+      classification: allocation.classification,
+      policyVersion: allocation.policyVersion,
+      quantity: allocation.quantity,
+    };
     syncOutboxIds.push(
       enqueueSyncInTransaction(saleSyncContext(db, ctx), {
         entityType: 'pharmacy_dispensations',
         entityId: id,
         operation: 'create',
-        data: { id, saleId: args.saleId, ...allocation, businessDate: args.businessDate },
+        data: { id, saleId: args.saleId, ...syncAllocation, businessDate: args.businessDate },
       }).id
     );
   }
+  recordControlledDispensations(db, ctx, args, controlledAllocations, fneAuthorization?.id ?? null);
   return { dispensationIds, syncOutboxIds };
+}
+
+/** One FNE row per consumed lot, split across the evidence allocations of each sale line. */
+function recordControlledDispensations(
+  db: DatabaseInstance,
+  ctx: PharmacySaleSyncContext,
+  args: { saleId: string; businessDate: string; nowIso: string },
+  allocations: ReadonlyArray<{
+    saleItemId: string;
+    productId: string;
+    evidenceId: string;
+    referenceDigest: string;
+    quantity: number;
+  }>,
+  fneAuthorizationId: string | null
+): void {
+  if (allocations.length === 0) return;
+  const lotQueues = new Map<
+    string,
+    Array<{ lotId: string; lotNumber: string; quantity: number }>
+  >();
+  for (const saleItemId of new Set(allocations.map(a => a.saleItemId))) {
+    lotQueues.set(
+      saleItemId,
+      db
+        .select({
+          lotId: saleItemLots.lotId,
+          lotNumber: inventoryLots.lotNumber,
+          quantity: saleItemLots.quantity,
+        })
+        .from(saleItemLots)
+        .innerJoin(
+          inventoryLots,
+          and(eq(inventoryLots.id, saleItemLots.lotId), eq(inventoryLots.tenantId, ctx.tenantId))
+        )
+        .where(
+          and(eq(saleItemLots.tenantId, ctx.tenantId), eq(saleItemLots.saleItemId, saleItemId))
+        )
+        .orderBy(asc(sql`${saleItemLots}.rowid`))
+        .all()
+    );
+  }
+
+  const byProduct = new Map<
+    string,
+    Array<{ allocationIndex: number; movement: FneLedgerMovement }>
+  >();
+  allocations.forEach((allocation, allocationIndex) => {
+    const queue = lotQueues.get(allocation.saleItemId)!;
+    let remaining = allocation.quantity;
+    const push = (lotId: string | null, lotNumber: string | null, quantity: number) => {
+      const rows = byProduct.get(allocation.productId) ?? [];
+      rows.push({
+        allocationIndex,
+        movement: {
+          lotId,
+          lotNumber,
+          movementType: 'dispensation',
+          quantityDelta: -quantity,
+          fneAuthorizationId,
+          saleId: args.saleId,
+          evidenceId: allocation.evidenceId,
+          retainedFormulaDigest: allocation.referenceDigest,
+        },
+      });
+      byProduct.set(allocation.productId, rows);
+    };
+    while (remaining > QUANTITY_EPSILON && queue.length > 0) {
+      const lot = queue[0]!;
+      const taken = roundQuantity(Math.min(remaining, lot.quantity));
+      push(lot.lotId, lot.lotNumber, taken);
+      lot.quantity = roundQuantity(lot.quantity - taken);
+      if (lot.quantity <= QUANTITY_EPSILON) queue.shift();
+      remaining = roundQuantity(remaining - taken);
+    }
+    if (remaining > QUANTITY_EPSILON) push(null, null, remaining);
+  });
+
+  const ledgerIdsByAllocation = new Map<number, string[]>();
+  for (const [productId, rows] of byProduct) {
+    const ids = appendFneLedgerEntries(
+      db,
+      {
+        tenantId: ctx.tenantId,
+        siteId: ctx.siteId,
+        productId,
+        businessDate: args.businessDate,
+        actorId: ctx.actorId,
+        occurredAt: args.nowIso,
+      },
+      rows.map(row => row.movement)
+    );
+    rows.forEach((row, index) => {
+      ledgerIdsByAllocation.set(row.allocationIndex, [
+        ...(ledgerIdsByAllocation.get(row.allocationIndex) ?? []),
+        ids[index]!,
+      ]);
+    });
+  }
+
+  allocations.forEach((allocation, allocationIndex) => {
+    const ledgerIds = ledgerIdsByAllocation.get(allocationIndex) ?? [];
+    writeAuditLog({
+      tx: db,
+      tenantId: ctx.tenantId,
+      actorId: ctx.actorId,
+      action: 'pharmacy.fne.dispense',
+      resourceType: 'pharmacy_fne_ledger',
+      resourceId: ledgerIds[0]!,
+      after: {
+        saleId: args.saleId,
+        productId: allocation.productId,
+        evidenceId: allocation.evidenceId,
+        fneAuthorizationId,
+        quantity: allocation.quantity,
+        businessDate: args.businessDate,
+        ledgerEntryIds: ledgerIds,
+      },
+      operationId: ctx.envelope?.operationId,
+    });
+  });
 }

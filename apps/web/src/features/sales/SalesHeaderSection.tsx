@@ -28,6 +28,8 @@ interface SalesHeaderSectionProps {
   workspaceTabs?: ReactNode;
   /** Connection and device pills. */
   status?: ReactNode;
+  /** Open-shift controls menu (movement, drawer kick, hand-over, close). */
+  shiftMenu?: ReactNode;
   /** Price tier of the active ticket; omitted on locked tickets. */
   priceTier?: 1 | 2 | 3 | undefined;
   onPriceTierChange?: ((tier: 1 | 2 | 3) => void) | undefined;
@@ -49,6 +51,7 @@ export function SalesHeaderSection({
   activeWorkspace,
   workspaceTabs,
   status,
+  shiftMenu,
   priceTier,
   onPriceTierChange,
 }: SalesHeaderSectionProps) {
@@ -164,6 +167,7 @@ export function SalesHeaderSection({
           ) : null}
           <SoundToggleButton />
           <PaceToggleButton />
+          {shiftMenu}
         </div>
       </div>
 

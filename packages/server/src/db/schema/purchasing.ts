@@ -306,6 +306,7 @@ export const providerPayableInvoices = sqliteTable(
     issuedAt: text('issued_at').notNull(),
     dueAt: text('due_at').notNull(),
     amount: real('amount').notNull(),
+    taxAmount: real('tax_amount').notNull().default(0),
     notes: text('notes'),
     createdBy: text('created_by')
       .notNull()
@@ -339,7 +340,7 @@ export const providerPayableInvoices = sqliteTable(
  * can be consolidated into one final invoice; a purchase is invoiced at most
  * once, enforced by the unique purchase index. Legacy single-purchase
  * invoices keep their direct column for compatibility; this bridge is the
- * complete source of truth and migration 0103 backfills it.
+ * complete source of truth, and its migration backfills it.
  */
 export const providerPayableInvoicePurchases = sqliteTable(
   'provider_payable_invoice_purchases',
@@ -359,10 +360,7 @@ export const providerPayableInvoicePurchases = sqliteTable(
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
-    index('idx_provider_payable_invoice_purchases_tenant').on(
-      table.tenantId,
-      table.createdAt
-    ),
+    index('idx_provider_payable_invoice_purchases_tenant').on(table.tenantId, table.createdAt),
     index('idx_provider_payable_invoice_purchases_invoice').on(table.invoiceId),
     uniqueIndex('idx_provider_payable_invoice_purchases_purchase').on(
       table.tenantId,

@@ -8,6 +8,12 @@ export interface GenericAlternative {
   sku: string;
   price: number;
   savings: number;
+  dosesPerPack?: number | null;
+  pricePerDose?: number | null;
+  sourcePricePerDose?: number | null;
+  savingsPerDose?: number | null;
+  comparisonMode?: 'same_presentation' | 'per_dose';
+  presentation?: string | null;
 }
 
 const NONE: { inResults: ReadonlyMap<string, number>; elsewhere: GenericAlternative[] } = {

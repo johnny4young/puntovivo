@@ -70,6 +70,8 @@ export const pharmacyProductProfileInput = z
     dosageForm: optionalPharmacyText(120),
     administrationRoute: optionalPharmacyText(120),
     presentation: optionalPharmacyText(255),
+    dosesPerPack: z.number().int().positive().max(10_000).nullable().optional(),
+    cumCode: optionalPharmacyText(80),
     manufacturer: optionalPharmacyText(255),
     authorizationHolder: optionalPharmacyText(255),
     sanitaryRegistration: optionalPharmacyText(160),
@@ -176,6 +178,11 @@ export const createProductInput = z
     tracksStock: z.boolean().default(true),
     tracksLots: z.boolean().default(false),
     tracksSerials: z.boolean().default(false),
+    isReturnableContainer: z.boolean().default(false),
+    returnableDepositAmount: z
+      .number()
+      .min(0, 'Returnable deposit must be non-negative')
+      .default(0),
     isActive: z.boolean().default(true),
     barcode: z.string().nullable().optional(),
     imageUrl: productImageUrl,
@@ -255,6 +262,11 @@ export const updateProductInput = z
     tracksStock: z.boolean().optional(),
     tracksLots: z.boolean().optional(),
     tracksSerials: z.boolean().optional(),
+    isReturnableContainer: z.boolean().optional(),
+    returnableDepositAmount: z
+      .number()
+      .min(0, 'Returnable deposit must be non-negative')
+      .optional(),
     isActive: z.boolean().optional(),
     barcode: z.string().nullable().optional(),
     imageUrl: productImageUrl,
@@ -326,6 +338,22 @@ export const createProductVariantMatrixInput = z
 
 export const getProductVariantMatrixInput = z.object({
   parentProductId: z.string().min(1, 'Parent product is required'),
+});
+
+export const getBundleComponentsInput = z.object({
+  productId: z.string().min(1, 'Product ID is required'),
+});
+
+export const setBundleComponentsInput = z.object({
+  productId: z.string().min(1, 'Product ID is required'),
+  components: z
+    .array(
+      z.object({
+        componentProductId: z.string().min(1, 'Component product is required'),
+        quantity: z.number().positive('Component quantity must be greater than zero'),
+      })
+    )
+    .max(50, 'A bundle can contain at most 50 components'),
 });
 
 export const searchProductsInput = z.object({

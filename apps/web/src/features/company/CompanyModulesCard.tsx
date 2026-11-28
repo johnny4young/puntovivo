@@ -250,57 +250,82 @@ export function CompanyModulesCard() {
         </div>
       )}
 
-      {!listQuery.isLoading &&
-        grouped.map(({ surface, modules }) => (
-          <div key={surface} className="space-y-1">
-            <p className="label">{t(`modules:surfaces.${surface}`)}</p>
-            <div>
-              {modules.map(item => {
-                const labelKey = `modules:items.${item.i18nKey}.label`;
-                const descKey = `modules:items.${item.i18nKey}.description`;
-                const rowPending = pendingId === item.id;
-                // A legacy tenant may still have a placeholder module enabled.
-                // Keep deactivation available, but never offer a new activation.
-                const unavailableToEnable = !item.available && !item.enabled;
-                const variantKey = item.customized ? 'explicit' : 'default';
-                const switchLabel = unavailableToEnable
-                  ? t('modules:toggle.unavailable')
-                  : item.enabled
-                    ? t('modules:toggle.disable')
-                    : t('modules:toggle.enable');
-                return (
-                  <div key={item.id} className="pv-check" data-testid={`modules-row-${item.id}`}>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="t">{t(labelKey)}</span>
-                        <Badge variant="neutral">{t(`modules:toggle.${variantKey}`)}</Badge>
-                        {!item.available && (
-                          <Badge variant="warning">{t('modules:toggle.unavailable')}</Badge>
-                        )}
+      {!listQuery.isLoading && grouped.length > 0 && (
+        <details className="rounded-2xl border border-line/70 bg-surface-2/35 p-4">
+          <summary
+            className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold text-secondary-900"
+            data-testid="modules-fine-tuning-toggle"
+          >
+            <span>{t('modules:section.fineTuning')}</span>
+            <span className="text-xs font-medium text-fg2">
+              {t('modules:section.activeCount', { active: activeCount, total: items.length })}
+            </span>
+          </summary>
+          <div className="mt-4 space-y-5">
+            {grouped.map(({ surface, modules }) => (
+              <div key={surface} className="space-y-1">
+                <p className="label">{t(`modules:surfaces.${surface}`)}</p>
+                <div>
+                  {modules.map(item => {
+                    const labelKey = `modules:items.${item.i18nKey}.label`;
+                    const descKey = `modules:items.${item.i18nKey}.description`;
+                    const labelId = `module-label-${item.id}`;
+                    const descId = `module-desc-${item.id}`;
+                    const rowPending = pendingId === item.id;
+                    // A legacy tenant may still have a placeholder module enabled.
+                    // Keep deactivation available, but never offer a new activation.
+                    const unavailableToEnable = !item.available && !item.enabled;
+                    const variantKey = item.customized ? 'explicit' : 'default';
+                    const switchLabel = unavailableToEnable
+                      ? t('modules:toggle.unavailable')
+                      : item.enabled
+                        ? t('modules:toggle.disable')
+                        : t('modules:toggle.enable');
+                    return (
+                      <div
+                        key={item.id}
+                        className="pv-check"
+                        data-testid={`modules-row-${item.id}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span id={labelId} className="t">
+                              {t(labelKey)}
+                            </span>
+                            <Badge variant="neutral">{t(`modules:toggle.${variantKey}`)}</Badge>
+                            {!item.available && (
+                              <Badge variant="warning">{t('modules:toggle.unavailable')}</Badge>
+                            )}
+                          </div>
+                          <p id={descId} className="d">
+                            {t(descKey)}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={item.enabled}
+                          aria-labelledby={labelId}
+                          aria-describedby={descId}
+                          title={rowPending ? t('modules:toggle.saving') : switchLabel}
+                          disabled={rowPending || unavailableToEnable}
+                          onClick={() => {
+                            void handleToggle(item, !item.enabled);
+                          }}
+                          className={`pv-switch shrink-0 disabled:cursor-not-allowed disabled:opacity-60${
+                            item.enabled ? ' on' : ''
+                          }`}
+                          data-testid={`modules-toggle-${item.id}`}
+                        />
                       </div>
-                      <p className="d">{t(descKey)}</p>
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={item.enabled}
-                      aria-label={switchLabel}
-                      title={rowPending ? t('modules:toggle.saving') : switchLabel}
-                      disabled={rowPending || unavailableToEnable}
-                      onClick={() => {
-                        void handleToggle(item, !item.enabled);
-                      }}
-                      className={`pv-switch shrink-0 disabled:cursor-not-allowed disabled:opacity-60${
-                        item.enabled ? ' on' : ''
-                      }`}
-                      data-testid={`modules-toggle-${item.id}`}
-                    />
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        </details>
+      )}
     </section>
   );
 }

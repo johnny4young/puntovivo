@@ -19,6 +19,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '@/i18n';
 import { assertNoA11yViolations } from '@/test/a11y';
+import { Select } from '@/components/form-controls/Select';
 import { Drawer } from '../Drawer';
 
 function renderDrawer(props: Partial<React.ComponentProps<typeof Drawer>> = {}) {
@@ -131,6 +132,34 @@ describe('Drawer', () => {
       </Drawer>
     );
     fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('ESC handled by an inner control closes that control, not the drawer', () => {
+    Element.prototype.scrollIntoView ??= vi.fn();
+    const onClose = vi.fn();
+    render(
+      <Drawer isOpen onClose={onClose} title="Sales history">
+        <Select
+          aria-label="Language"
+          options={[
+            { value: 'en', label: 'English' },
+            { value: 'es', label: 'Spanish' },
+          ]}
+          value="en"
+          onChange={vi.fn()}
+        />
+      </Drawer>
+    );
+    const trigger = screen.getByRole('button', { name: /Language/ });
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+    fireEvent.keyDown(trigger, { key: 'Escape' });
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(trigger, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

@@ -44,7 +44,6 @@ import {
   Map,
   MapPinned,
   Package,
-  PieChart,
   Plug,
   Receipt,
   Ruler,
@@ -473,13 +472,6 @@ export const WORKSPACES: readonly Workspace[] = [
         directoryGroup: 'billing',
       },
       {
-        nameKey: 'items.fiscalReports',
-        href: '/fiscal-reports',
-        icon: PieChart,
-        allowedRoles: adminOnlyRoles,
-        directoryGroup: 'billing',
-      },
-      {
         nameKey: 'items.profitability',
         href: '/profitability',
         icon: BadgePercent,
@@ -533,13 +525,17 @@ export const WORKSPACES: readonly Workspace[] = [
         allowedRoles: adminOnlyRoles,
         directoryGroup: 'business',
       },
-      {
-        nameKey: 'items.designSystem',
-        href: '/design-system',
-        icon: LayoutGrid,
-        allowedRoles: adminOnlyRoles,
-        directoryGroup: 'experience',
-      },
+      ...(import.meta.env.DEV
+        ? [
+            {
+              nameKey: 'items.designSystem',
+              href: '/design-system',
+              icon: LayoutGrid,
+              allowedRoles: adminOnlyRoles,
+              directoryGroup: 'experience',
+            },
+          ]
+        : []),
       {
         nameKey: 'items.dataImport',
         href: '/data-import',
@@ -574,13 +570,6 @@ export const WORKSPACES: readonly Workspace[] = [
         icon: Users,
         allowedRoles: adminOnlyRoles,
         directoryGroup: 'business',
-      },
-      {
-        nameKey: 'items.aiConfig',
-        href: '/settings/ai',
-        icon: Sparkles,
-        allowedRoles: adminOnlyRoles,
-        directoryGroup: 'experience',
       },
     ],
   },

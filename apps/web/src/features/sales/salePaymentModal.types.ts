@@ -37,6 +37,7 @@ export type SalePaymentQuoteItem = CheckoutApprovalItem &
       | 'catalogUnitPrice3'
       | 'isBaseUnit'
       | 'unitEquivalence'
+      | 'pharmacyClassification'
     >
   >;
 

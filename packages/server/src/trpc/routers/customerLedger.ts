@@ -36,9 +36,12 @@ const addPaymentInput = z.object({
   customerId: z.string().min(1),
   amount: z.number().positive('amount must be positive'),
   note: z.string().optional(),
+  paymentMethod: z.enum(['cash', 'card', 'transfer']).optional(),
 });
 
-const addTillPaymentInput = addPaymentInput.extend({
+const addTillPaymentInput = z.object({
+  customerId: z.string().min(1),
+  amount: z.number().positive('amount must be positive'),
   note: z.string().trim().max(TILL_PAYMENT_NOTE_MAX).optional(),
 });
 
@@ -90,7 +93,9 @@ export const customerLedgerRouter = router({
   // replay paths.
   addPayment: criticalCommandManagerOrAdminProcedure
     .input(addPaymentInput)
-    .mutation(({ ctx, input }) => addCustomerLedgerPayment({ ...ctx, user: ctx.user! }, input)),
+    .mutation(({ ctx, input }) =>
+      addCustomerLedgerPayment({ ...ctx, user: ctx.user!, siteId: ctx.siteId ?? null }, input)
+    ),
 
   // Cash a customer hands over at the register: it enters the cashier's open
   // drawer in the same transaction, so cashiers may take it.

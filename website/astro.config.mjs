@@ -24,4 +24,18 @@ export default defineConfig({
   build: { format: 'directory' },
   trailingSlash: 'ignore',
   devToolbar: { enabled: false },
+  // Bundle Astro's ESM cookie@2 dependency during static prerendering so a
+  // parent monorepo checkout's CJS cookie package cannot shadow it locally.
+  vite: {
+    ssr: {
+      noExternal: ['cookie'],
+    },
+    environments: {
+      prerender: {
+        resolve: {
+          noExternal: ['cookie'],
+        },
+      },
+    },
+  },
 });

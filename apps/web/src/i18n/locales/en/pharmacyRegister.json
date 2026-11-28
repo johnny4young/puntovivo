@@ -14,8 +14,19 @@
   "generic": {
     "sameIngredient": "Generic · same active ingredient and strength",
     "savings": "Saves the customer {{amount}}",
+    "savingsPerDose": "{{pricePerDose}} / dose · saves {{saving}} / dose",
+    "pricePerDose": "{{amount}} / dose",
     "panelTitle": "Same active ingredient, lower price",
     "choose": "Choose {{name}}"
+  },
+  "safety": {
+    "duplicateIngredient": "Duplicate active ingredient ({{ingredient}}): {{products}}",
+    "customerAllergy": "Allergy alert ({{severity}}) for {{ingredient}} in {{product}}",
+    "severity": {
+      "mild": "mild",
+      "moderate": "moderate",
+      "severe": "severe"
+    }
   },
   "line": {
     "ready": "Prescription on file · approved by {{name}}",

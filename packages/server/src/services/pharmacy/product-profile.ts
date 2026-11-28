@@ -41,6 +41,8 @@ function pharmacyProfileValues(profile: PharmacyProductProfileInput) {
     dosageForm: profile.dosageForm ?? null,
     administrationRoute: profile.administrationRoute ?? null,
     presentation: profile.presentation ?? null,
+    dosesPerPack: profile.dosesPerPack ?? null,
+    cumCode: profile.cumCode ?? null,
     manufacturer: profile.manufacturer ?? null,
     authorizationHolder: profile.authorizationHolder ?? null,
     sanitaryRegistration: profile.sanitaryRegistration ?? null,

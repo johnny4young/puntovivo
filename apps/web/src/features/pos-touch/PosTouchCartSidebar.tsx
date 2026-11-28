@@ -24,10 +24,16 @@
  */
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CreditCard, Sparkles, Trash2, X } from 'lucide-react';
+import { CreditCard, Minus, Plus, Sparkles, Trash2, WalletCards, X } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { getLineTotals } from '@/features/sales/saleCartTotals';
-import type { SaleCartItem, SaleCartSummary } from '@/features/sales/saleCart';
+import {
+  canChangeCartItemUnit,
+  getSaleMinimumQuantity,
+  getSaleQuantityStep,
+  type SaleCartItem,
+  type SaleCartSummary,
+} from '@/features/sales/saleCart';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { formatQuantity } from './posTouchQuantity';
 
@@ -63,8 +69,11 @@ interface PosTouchCartSidebarProps {
   onClearCart: () => void;
   onCustomerChange: (customerId: string) => void;
   onPriceTierChange: (tier: 1 | 2 | 3) => void;
+  onUpdateQuantity?: ((key: string, quantity: number) => void) | undefined;
+  onUnitChange?: ((key: string, unitId: string) => void) | undefined;
   onRemoveLine: (key: string) => void;
   onCharge: () => void;
+  onOpenCashSession?: (() => void) | undefined;
 }
 
 export function PosTouchCartSidebar({
@@ -80,8 +89,11 @@ export function PosTouchCartSidebar({
   onClearCart,
   onCustomerChange,
   onPriceTierChange,
+  onUpdateQuantity,
+  onUnitChange,
   onRemoveLine,
   onCharge,
+  onOpenCashSession,
 }: PosTouchCartSidebarProps) {
   const { t, i18n } = useTranslation('posTouch');
   const priceIncludesTax = usePriceIncludesTax();
@@ -196,34 +208,98 @@ export function PosTouchCartSidebar({
               // Same shared split as the footer summary, so in exclusive
               // mode the visible line rows still sum to the total due.
               const lineTotal = getLineTotals(item, priceIncludesTax).total;
+              const minQty = getSaleMinimumQuantity(item);
+              const qtyStep = getSaleQuantityStep(item);
+              const lineLabel = item.unitName
+                ? `${item.productName} (${item.unitName})`
+                : item.productName;
+              const canSwitchUnit = Boolean(onUnitChange) && canChangeCartItemUnit(item);
               return (
                 <li
                   key={item.key}
                   data-testid={`pos-touch-cart-line-${item.key}`}
-                  className="flex items-start gap-2 rounded-md border border-line/40 bg-surface-1 p-2"
+                  className="flex flex-col gap-2 rounded-md border border-line/40 bg-surface-1 p-2"
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-secondary-900">
-                      {item.productName}
-                    </p>
-                    <p className="text-[11px] tabular-nums text-secondary-500">
-                      {formatQuantity(item.quantity, i18n.language)} {item.unitName} ·{' '}
-                      {formatCurrency(item.unitPrice)}
-                    </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-secondary-900">
+                        {item.productName}
+                      </p>
+                      <p className="text-[11px] tabular-nums text-secondary-500">
+                        {formatQuantity(item.quantity, i18n.language)} {item.unitName} ·{' '}
+                        {formatCurrency(item.unitPrice)}
+                      </p>
+                    </div>
+                    <span className="font-display text-sm tabular-nums text-secondary-900">
+                      {formatCurrency(lineTotal)}
+                    </span>
                   </div>
-                  <span className="font-display text-sm tabular-nums text-secondary-900">
-                    {formatCurrency(lineTotal)}
-                  </span>
-                  <button
-                    type="button"
-                    data-testid={`pos-touch-cart-line-${item.key}-remove`}
-                    aria-label={t('cart.lineRemoveAriaLabel', { name: item.productName })}
-                    disabled={isCharging}
-                    onClick={() => onRemoveLine(item.key)}
-                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-line/70 text-secondary-500 hover:border-danger-300 hover:bg-danger-50 hover:text-danger-700"
-                  >
-                    <X className="h-3.5 w-3.5" aria-hidden="true" />
-                  </button>
+                  <div className="flex items-center justify-between gap-1.5">
+                    {onUpdateQuantity ? (
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          data-testid={`pos-touch-cart-line-${item.key}-decrement`}
+                          aria-label={t('cart.lineDecrementAriaLabel', { name: lineLabel })}
+                          disabled={isCharging || item.quantity <= minQty}
+                          onClick={() =>
+                            onUpdateQuantity(
+                              item.key,
+                              Math.max(minQty, Number((item.quantity - qtyStep).toFixed(6)))
+                            )
+                          }
+                          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-line/70 text-secondary-700 hover:bg-surface-2 disabled:opacity-40"
+                        >
+                          <Minus className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                        <span className="min-w-[2.25rem] text-center text-sm font-semibold tabular-nums text-secondary-900">
+                          {formatQuantity(item.quantity, i18n.language)}
+                        </span>
+                        <button
+                          type="button"
+                          data-testid={`pos-touch-cart-line-${item.key}-increment`}
+                          aria-label={t('cart.lineIncrementAriaLabel', { name: lineLabel })}
+                          disabled={isCharging}
+                          onClick={() =>
+                            onUpdateQuantity(item.key, Number((item.quantity + qtyStep).toFixed(6)))
+                          }
+                          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-line/70 text-secondary-700 hover:bg-surface-2 disabled:opacity-40"
+                        >
+                          <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span />
+                    )}
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      {canSwitchUnit && item.unitOptions && (
+                        <select
+                          data-testid={`pos-touch-cart-line-${item.key}-unit`}
+                          aria-label={t('cart.lineUnitAriaLabel', { name: item.productName })}
+                          className="input min-h-[44px] max-w-[7.5rem] py-1 text-xs"
+                          value={item.unitId}
+                          disabled={isCharging}
+                          onChange={event => onUnitChange?.(item.key, event.target.value)}
+                        >
+                          {item.unitOptions.map(option => (
+                            <option key={option.unitId} value={option.unitId}>
+                              {option.unitName}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      <button
+                        type="button"
+                        data-testid={`pos-touch-cart-line-${item.key}-remove`}
+                        aria-label={t('cart.lineRemoveAriaLabel', { name: lineLabel })}
+                        disabled={isCharging}
+                        onClick={() => onRemoveLine(item.key)}
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-line/70 text-secondary-500 hover:border-danger-300 hover:bg-danger-50 hover:text-danger-700"
+                      >
+                        <X className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
                 </li>
               );
             })}
@@ -258,16 +334,29 @@ export function PosTouchCartSidebar({
       {electronicInvoice}
 
       <footer className="sticky bottom-0 flex flex-col gap-2 bg-surface-1 pt-2">
-        <button
-          type="button"
-          data-testid="pos-touch-cart-charge"
-          onClick={onCharge}
-          disabled={!canCharge || isCharging}
-          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-base font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-secondary-300 disabled:text-secondary-600"
-        >
-          <CreditCard className="h-4 w-4" aria-hidden="true" />
-          {t('cart.charge')}
-        </button>
+        {chargeDisabledReason === 'noSession' && onOpenCashSession ? (
+          <button
+            type="button"
+            data-testid="pos-touch-open-cash-session"
+            onClick={onOpenCashSession}
+            disabled={isCharging}
+            className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-base font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+          >
+            <WalletCards className="h-4 w-4" aria-hidden="true" />
+            {t('cart.openCashSession')}
+          </button>
+        ) : (
+          <button
+            type="button"
+            data-testid="pos-touch-cart-charge"
+            onClick={onCharge}
+            disabled={!canCharge || isCharging}
+            className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-base font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-secondary-300 disabled:text-secondary-600"
+          >
+            <CreditCard className="h-4 w-4" aria-hidden="true" />
+            {t('cart.charge')}
+          </button>
+        )}
         {chargeHint ? (
           <p
             data-testid="pos-touch-cart-charge-hint"

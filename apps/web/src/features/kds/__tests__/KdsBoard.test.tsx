@@ -254,13 +254,13 @@ describe('KdsBoard', () => {
     view.unmount();
     expect(remove).toHaveBeenCalledWith('offline', expect.any(Function));
   });
-  it('does not expose configuration to a cashier and resets a manager dialog on site switch', () => {
+  it('does not expose configuration to a cashier and resets a manager dialog on site switch', async () => {
     const view = render(<KdsBoard />);
     expect(screen.queryByRole('button', { name: 'Kitchen settings' })).not.toBeInTheDocument();
     h.role = 'manager';
     view.rerender(<KdsBoard />);
     fireEvent.click(screen.getByRole('button', { name: 'Kitchen settings' }));
-    expect(screen.getByTestId('configuration')).toBeInTheDocument();
+    expect(await screen.findByTestId('configuration')).toBeInTheDocument();
     h.site = 'site-2';
     view.rerender(<KdsBoard />);
     expect(screen.queryByTestId('configuration')).not.toBeInTheDocument();
@@ -304,6 +304,7 @@ it('honors configured station order instead of oldest ticket order, including ma
       name: 'Hot',
       isActive: true,
       position: 0,
+      printerConfig: null,
       version: 1,
       createdAt: '',
       updatedAt: '',
@@ -316,6 +317,7 @@ it('honors configured station order instead of oldest ticket order, including ma
       name: 'main',
       isActive: true,
       position: 10,
+      printerConfig: null,
       version: 1,
       createdAt: '',
       updatedAt: '',
@@ -455,4 +457,21 @@ it('colours active tickets by age and leaves finished ones neutral', () => {
   expect(ages.filter(([, age]) => age === 'late')).toHaveLength(1);
   expect(ages.filter(([, age]) => age === 'warning')).toHaveLength(1);
   expect(ages.filter(([status]) => status === 'ready')).toEqual([['ready', 'none']]);
+});
+
+it('runs a single shared clock interval regardless of how many order cards are mounted', () => {
+  const intervalSpy = vi.spyOn(globalThis, 'setInterval');
+  h.items = [
+    card({ id: 'o-1' }),
+    card({ id: 'o-2' }),
+    card({ id: 'o-3' }),
+    card({ id: 'o-4' }),
+    card({ id: 'o-5' }),
+  ];
+
+  const { unmount } = render(<KdsBoard />);
+  expect(screen.getAllByTestId('kds-order-card')).toHaveLength(5);
+  const kdsClockCalls = intervalSpy.mock.calls.filter(([, delay]) => delay === 30_000);
+  expect(kdsClockCalls).toHaveLength(1);
+  unmount();
 });

@@ -174,13 +174,42 @@ describe('first-use ownership over real tRPC and SQLite', () => {
       companyId: company.id,
       name: claim.siteName,
     });
-    expect(server.db.select().from(schema.units).get()).toMatchObject({
-      tenantId: tenant.id,
-      name: 'Unidad',
-      standardCode: 'EA',
-    });
+    expect(
+      server.db
+        .select()
+        .from(schema.units)
+        .all()
+        .map(u => u.abbreviation)
+    ).toEqual(['UN', 'kg', 'g', 'L']);
     expect(company.taxId).toBeNull();
-    expect(server.db.select().from(schema.vatRates).all()).toHaveLength(0);
+    expect(
+      server.db
+        .select()
+        .from(schema.vatRates)
+        .all()
+        .map(v => ({ name: v.name, rate: v.rate, kind: v.kind }))
+    ).toEqual([
+      { name: 'IVA 19%', rate: 19, kind: 'iva' },
+      { name: 'IVA 5%', rate: 5, kind: 'iva' },
+      { name: 'IVA 0% (Exento)', rate: 0, kind: 'iva' },
+      { name: 'INC 8%', rate: 8, kind: 'inc' },
+    ]);
+    expect(
+      server.db
+        .select()
+        .from(schema.sequentials)
+        .all()
+        .map(s => ({
+          documentType: s.documentType,
+          prefix: s.prefix,
+          currentValue: s.currentValue,
+        }))
+    ).toEqual([
+      { documentType: 'sale', prefix: 'POS-', currentValue: 0 },
+      { documentType: 'purchase', prefix: 'COMP-', currentValue: 0 },
+      { documentType: 'order', prefix: 'PED-', currentValue: 0 },
+      { documentType: 'quotation', prefix: 'COT-', currentValue: 0 },
+    ]);
     const audit = server.db.select().from(schema.auditLogs).all();
     expect(audit).toHaveLength(1);
     expect(audit[0]).toMatchObject({

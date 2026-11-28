@@ -9,6 +9,10 @@
  * @module services/fiscal/packs
  */
 
-export { ColombiaMockAdapter } from './co/index.js';
+export {
+  COLOMBIA_DIAN_DIRECT_PROVIDER_ID,
+  ColombiaDianAdapter,
+  ColombiaMockAdapter,
+} from './co/index.js';
 export { MexicoCFDIAdapter } from './mx/index.js';
 export { ChileSIIAdapter } from './cl/index.js';

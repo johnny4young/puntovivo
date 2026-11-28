@@ -18,12 +18,13 @@ import i18next, { BOOTSTRAP_NAMESPACES } from './index';
 describe(' — i18n lazy bootstrap contract', () => {
   it('declares exactly the audited bootstrap namespace set', () => {
     expect([...BOOTSTRAP_NAMESPACES].sort()).toEqual(
-      ['auth', 'common', 'errors', 'nav', 'palette', 'setup', 'workspaces'].sort()
+      ['auth', 'common', 'nav', 'palette', 'setup', 'workspaces'].sort()
     );
   });
 
   it('keeps the heavy feature namespaces OUT of the bootstrap (they lazy-load)', () => {
     for (const ns of [
+      'errors',
       'setupReadiness',
       'fiscal',
       'fiscalOperations',

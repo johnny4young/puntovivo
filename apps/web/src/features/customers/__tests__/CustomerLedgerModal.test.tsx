@@ -302,6 +302,7 @@ describe('CustomerLedgerModal', () => {
       customerId: 'cust-1',
       amount: 250,
       note: undefined,
+      paymentMethod: 'cash',
     });
   });
 });

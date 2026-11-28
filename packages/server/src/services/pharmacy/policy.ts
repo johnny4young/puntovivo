@@ -23,18 +23,26 @@ export interface PharmacyPolicyDecision {
   maxQuantity: number | null;
 }
 
+export interface PharmacyPolicyOptions {
+  /** True only when the server has verified an active tenant/site FNE authorization. */
+  fneAuthorized?: boolean;
+}
+
 interface PharmacyPolicyAdapter {
   countryCode: string;
   policyVersion: string;
   effectiveFrom: string;
-  decide(classification: PharmacyClassification): PharmacyPolicyDecision;
+  decide(
+    classification: PharmacyClassification,
+    options?: PharmacyPolicyOptions
+  ): PharmacyPolicyDecision;
 }
 
 const colombiaV1: PharmacyPolicyAdapter = {
   countryCode: 'CO',
   policyVersion: 'co-pharmacy-v1-2026-09-01',
   effectiveFrom: '2026-09-01',
-  decide(classification) {
+  decide(classification, options) {
     const base = {
       countryCode: this.countryCode,
       policyVersion: this.policyVersion,
@@ -67,8 +75,19 @@ const colombiaV1: PharmacyPolicyAdapter = {
         requiredEvidenceFields: ['prescriberName', 'prescriberCredential'],
       };
     }
-    // Controlled medicines stay disabled until an externally reviewed
-    // authorization contract exists. No remote/config flag can bypass this.
+    if (options?.fneAuthorized) {
+      return {
+        ...base,
+        policyVersion: 'co-pharmacy-fne-v1-2026-11-27',
+        allowed: true,
+        errorCode: null,
+        evidenceRequired: true,
+        professionalApprovalRequired: true,
+        customerRequired: true,
+        requiredEvidenceFields: ['prescriberName', 'prescriberCredential', 'buyerDocument'],
+      };
+    }
+    // Controlled medicines stay disabled unless an active FNE resolution is registered.
     return {
       ...base,
       allowed: false,
@@ -90,14 +109,15 @@ const ADAPTERS = [colombiaV1] as const;
 export function resolvePharmacyPolicy(
   countryCode: string,
   businessDate: string,
-  classification: PharmacyClassification
+  classification: PharmacyClassification,
+  options?: PharmacyPolicyOptions
 ): PharmacyPolicyDecision {
   const adapter = [...ADAPTERS]
     .filter(
       candidate => candidate.countryCode === countryCode && candidate.effectiveFrom <= businessDate
     )
     .sort((left, right) => right.effectiveFrom.localeCompare(left.effectiveFrom))[0];
-  if (adapter) return adapter.decide(classification);
+  if (adapter) return adapter.decide(classification, options);
 
   const allowed = classification === 'otc';
   return {

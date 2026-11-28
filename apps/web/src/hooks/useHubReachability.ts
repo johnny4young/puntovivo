@@ -53,6 +53,96 @@ const DEFAULT_STATE: HubReachabilityState = {
   lastError: null,
 };
 
+interface SharedHubPoller {
+  state: HubReachabilityState;
+  listeners: Set<(next: HubReachabilityState) => void>;
+  timer: ReturnType<typeof setInterval> | null;
+  cancelled: boolean;
+}
+
+// Coalesce polls that share the same fetch transport so GlobalStatusStrip and SalesPage
+// run a single /api/health interval without leaking state across custom test stubs.
+const sharedPollersByFetch = new WeakMap<typeof fetch, Map<string, SharedHubPoller>>();
+let defaultHubFetch: typeof fetch | null = null;
+
+function getDefaultHubFetch(): typeof fetch {
+  defaultHubFetch ??= createHubApiFetch();
+  return defaultHubFetch;
+}
+
+function subscribeSharedHubPoller(
+  key: string,
+  pollUrl: string,
+  intervalMs: number,
+  timeoutMs: number,
+  fetchImpl: typeof fetch,
+  onChange: (next: HubReachabilityState) => void
+): () => void {
+  let byKey = sharedPollersByFetch.get(fetchImpl);
+  if (!byKey) {
+    byKey = new Map<string, SharedHubPoller>();
+    sharedPollersByFetch.set(fetchImpl, byKey);
+  }
+  let entry = byKey.get(key);
+  if (!entry) {
+    entry = {
+      state: DEFAULT_STATE,
+      listeners: new Set(),
+      timer: null,
+      cancelled: false,
+    };
+    byKey.set(key, entry);
+    const activeEntry = entry;
+    const pollOnce = async () => {
+      const controller = new AbortController();
+      const abortTimer = setTimeout(() => controller.abort(), timeoutMs);
+      const startedAt = new Date().toISOString();
+      try {
+        const response = await fetchImpl(pollUrl, {
+          method: 'GET',
+          signal: controller.signal,
+          credentials: 'omit',
+        });
+        if (activeEntry.cancelled) return;
+        activeEntry.state = response.ok
+          ? { reachable: true, lastChecked: startedAt, lastError: null }
+          : { reachable: false, lastChecked: startedAt, lastError: `HTTP ${response.status}` };
+      } catch (err) {
+        if (activeEntry.cancelled) return;
+        const message =
+          err instanceof Error
+            ? err.name === 'AbortError'
+              ? `timeout after ${timeoutMs}ms`
+              : err.message
+            : 'unknown error';
+        activeEntry.state = { reachable: false, lastChecked: startedAt, lastError: message };
+      } finally {
+        clearTimeout(abortTimer);
+      }
+      for (const listener of activeEntry.listeners) listener(activeEntry.state);
+    };
+    void pollOnce();
+    activeEntry.timer = setInterval(() => {
+      void pollOnce();
+    }, intervalMs);
+  }
+
+  entry.listeners.add(onChange);
+  onChange(entry.state);
+
+  return () => {
+    const bucket = sharedPollersByFetch.get(fetchImpl);
+    const current = bucket?.get(key);
+    if (!current) return;
+    current.listeners.delete(onChange);
+    if (current.listeners.size === 0) {
+      current.cancelled = true;
+      if (current.timer !== null) clearInterval(current.timer);
+      bucket?.delete(key);
+    }
+  };
+}
+
 /**
  * Polls the hub's `/api/health` endpoint and exposes a reachability
  * signal. No-ops in `device_local` and `site_hub` runtimes.
@@ -67,7 +157,7 @@ export function useHubReachability(options: UseHubReachabilityOptions = {}): Hub
   const intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const fetchImpl = useMemo(
-    () => options.fetchImpl ?? (isHubClient ? createHubApiFetch() : fetch),
+    () => options.fetchImpl ?? (isHubClient ? getDefaultHubFetch() : fetch),
     [isHubClient, options.fetchImpl]
   );
   const healthUrl =
@@ -79,65 +169,14 @@ export function useHubReachability(options: UseHubReachabilityOptions = {}): Hub
       return;
     }
 
-    const pollUrl = healthUrl;
-    let cancelled = false;
-
-    async function pollOnce(): Promise<void> {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-      const startedAt = new Date().toISOString();
-      try {
-        const response = await fetchImpl(pollUrl, {
-          method: 'GET',
-          signal: controller.signal,
-          // Hub /api/health is unauthenticated per , but we
-          // omit credentials anyway — the cookies belong to the hub
-          // origin and are not needed for this status check.
-          credentials: 'omit',
-        });
-        if (cancelled) return;
-        if (response.ok) {
-          setState({
-            reachable: true,
-            lastChecked: startedAt,
-            lastError: null,
-          });
-        } else {
-          setState({
-            reachable: false,
-            lastChecked: startedAt,
-            lastError: `HTTP ${response.status}`,
-          });
-        }
-      } catch (err) {
-        if (cancelled) return;
-        const message =
-          err instanceof Error
-            ? err.name === 'AbortError'
-              ? `timeout after ${timeoutMs}ms`
-              : err.message
-            : 'unknown error';
-        setState({
-          reachable: false,
-          lastChecked: startedAt,
-          lastError: message,
-        });
-      } finally {
-        clearTimeout(timer);
-      }
-    }
-
-    // Fire immediately so the UI converges on the first paint cycle
-    // instead of waiting `intervalMs` for the first signal.
-    void pollOnce();
-    const interval = setInterval(() => {
-      void pollOnce();
-    }, intervalMs);
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
+    return subscribeSharedHubPoller(
+      `${healthUrl}|${intervalMs}|${timeoutMs}`,
+      healthUrl,
+      intervalMs,
+      timeoutMs,
+      fetchImpl,
+      setState
+    );
   }, [fetchImpl, healthUrl, intervalMs, timeoutMs]);
 
   return state;

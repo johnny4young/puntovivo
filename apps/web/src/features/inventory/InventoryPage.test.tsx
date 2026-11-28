@@ -11,6 +11,7 @@ const {
   listMovementsUseQuery,
   listStockUseQuery,
   pharmacyContextUseQuery,
+  serialCatalogState,
   criticalMutationUse,
 } = vi.hoisted(() => ({
   authState: {
@@ -25,6 +26,7 @@ const {
   listMovementsUseQuery: vi.fn(),
   listStockUseQuery: vi.fn(),
   pharmacyContextUseQuery: vi.fn(),
+  serialCatalogState: { hasTrackedProducts: false },
   criticalMutationUse: vi.fn(),
 }));
 
@@ -86,7 +88,10 @@ vi.mock('@/lib/trpc', () => ({
       recordEntry: { useMutation: () => mutation },
     },
     inventoryLots: { receive: { useMutation: () => mutation } },
-    productSerials: { receive: { useMutation: () => mutation } },
+    productSerials: {
+      receive: { useMutation: () => mutation },
+      hasTrackedProducts: { useQuery: () => ({ data: { ...serialCatalogState } }) },
+    },
     pharmacy: { context: { useQuery: pharmacyContextUseQuery } },
   },
 }));
@@ -141,7 +146,7 @@ vi.mock('@/features/inventory/InventoryDataPanel', () => ({
   ),
 }));
 vi.mock('@/features/inventory/SerialWarrantyLookup', () => ({
-  SerialWarrantyLookup: () => null,
+  SerialWarrantyLookup: () => <div>Serial warranty lookup</div>,
 }));
 vi.mock('@/components/dialogs/ProductSearchDialog', () => ({
   ProductSearchDialog: () => null,
@@ -170,6 +175,7 @@ describe('InventoryPage', () => {
       tenant: { settings: { businessType: 'retail' } },
     };
     currentSiteState.value = { id: 'site-main', name: 'Main Store' };
+    serialCatalogState.hasTrackedProducts = false;
     listStockUseQuery.mockReset();
     listStockUseQuery.mockReturnValue(emptyQuery);
     listMovementsUseQuery.mockReset();
@@ -291,6 +297,17 @@ describe('InventoryPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Pharmacy safety' }));
 
     expect(await screen.findByText('Pharmacy operations loaded')).toBeVisible();
+  });
+
+  it('hides the warranty lookup when the tenant has no serialized product', () => {
+    render(<InventoryPage />);
+    expect(screen.queryByText('Serial warranty lookup')).not.toBeInTheDocument();
+  });
+
+  it('keeps the warranty lookup when no serialized item is on the loaded stock page', async () => {
+    serialCatalogState.hasTrackedProducts = true;
+    render(<InventoryPage />);
+    expect(await screen.findByText('Serial warranty lookup')).toBeInTheDocument();
   });
 
   it('opens an authorized inventory view from a readiness deep link', async () => {

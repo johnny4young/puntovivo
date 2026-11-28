@@ -4,17 +4,30 @@ import i18n from '@/i18n';
 
 const tableStateMock = vi.fn();
 const regroupMutate = vi.fn();
+const splitEqualMutate = vi.fn();
+const splitSharedMutate = vi.fn();
 const invalidateTableState = vi.fn();
-let regroupOptions: {
+type MutationOpts = {
   onSuccess?: (data: unknown, variables: unknown) => Promise<void> | void;
-} = {};
+};
+let regroupOptions: MutationOpts = {};
+let splitEqualOptions: MutationOpts = {};
+let splitSharedOptions: MutationOpts = {};
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }),
 }));
 
 vi.mock('@/lib/useCriticalMutation', () => ({
-  useCriticalMutation: (_path: string, options: typeof regroupOptions) => {
+  useCriticalMutation: (path: string, options: MutationOpts) => {
+    if (path === 'restaurantServices.splitEqual') {
+      splitEqualOptions = options;
+      return { mutate: splitEqualMutate, isPending: false };
+    }
+    if (path === 'restaurantServices.splitSharedLine') {
+      splitSharedOptions = options;
+      return { mutate: splitSharedMutate, isPending: false };
+    }
     regroupOptions = options;
     return { mutate: regroupMutate, isPending: false };
   },
@@ -204,5 +217,50 @@ describe('RestaurantSplitSheet', () => {
     }
     expect(screen.getByTestId('split-sheet-by-diner')).toBeDisabled();
     expect(screen.getByTestId('split-sheet-add-account')).toBeDisabled();
+  });
+
+  it('splits a single check equally into N parts (Total / N)', async () => {
+    mockTable([check('c-1', [line('a', 'd-1', 30_000), line('b', 'd-2', 15_000)])]);
+    render(<RestaurantSplitSheet tableId="t-7" tableName="Mesa 7" onClose={vi.fn()} />);
+
+    const partsInput = screen.getByTestId('split-sheet-equal-parts');
+    fireEvent.change(partsInput, { target: { value: '3' } });
+    fireEvent.click(screen.getByTestId('split-sheet-equal-apply'));
+
+    expect(splitEqualMutate).toHaveBeenCalledWith({
+      tableId: 't-7',
+      checkId: 'c-1',
+      expectedCheckVersion: 1,
+      parts: 3,
+    });
+
+    await act(async () => {
+      await splitEqualOptions.onSuccess?.({ checks: [] }, { parts: 3 });
+    });
+    expect(invalidateTableState).toHaveBeenCalled();
+  });
+
+  it('shares a dish equally across selected open accounts', async () => {
+    render(<RestaurantSplitSheet tableId="t-7" tableName="Mesa 7" onClose={vi.fn()} />);
+
+    const shareButtons = screen.getAllByTestId('split-sheet-share-dish');
+    fireEvent.click(shareButtons[0]!);
+    expect(screen.getByTestId('split-sheet-share-bar')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('split-sheet-share-confirm'));
+    expect(splitSharedMutate).toHaveBeenCalledWith({
+      tableId: 't-7',
+      saleItemId: 'a',
+      targetCheckIds: ['c-1', 'c-2'],
+      checks: [
+        { checkId: 'c-1', version: 1 },
+        { checkId: 'c-2', version: 1 },
+      ],
+    });
+
+    await act(async () => {
+      await splitSharedOptions.onSuccess?.({ checks: [] }, { targetCheckIds: ['c-1', 'c-2'] });
+    });
+    expect(screen.queryByTestId('split-sheet-share-bar')).not.toBeInTheDocument();
   });
 });

@@ -8,8 +8,8 @@
     "placeholderOn": "Combine términos del producto y lo que necesita"
   },
   "staleness": {
-    "banner": "Los embeddings tienen {{days}} días. Regenérelos para una búsqueda más fiel.",
-    "regenerate": "Regenerar embeddings",
+    "banner": "El índice de búsqueda tiene {{days}} días. Actualícelo para resultados más fieles.",
+    "regenerate": "Actualizar índice de búsqueda",
     "regenerating": "Regenerando...",
     "done": "Embeddings actualizados"
   },

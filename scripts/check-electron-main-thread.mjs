@@ -184,7 +184,11 @@ export function createSaleWorkload({ serverUrl, fetchImpl = fetch, thinkMs = THI
         salesInWindow: sold,
         failures,
         firstFailure,
-        saleLatency: { p50: percentile(sorted, 50), p95: percentile(sorted, 95) },
+        saleLatency: {
+          p50: percentile(sorted, 50),
+          p95: percentile(sorted, 95),
+          max: percentile(sorted, 100),
+        },
       };
     },
   };

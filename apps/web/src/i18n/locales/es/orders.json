@@ -120,7 +120,16 @@
     "notes": "Notas",
     "actions": {
       "receiveItems": "Recibir artículos",
-      "submitDraft": "Enviar borrador"
+      "submitDraft": "Enviar borrador",
+      "print": "Imprimir orden",
+      "printPending": "Imprimiendo…"
+    },
+    "printError": "No se pudo imprimir la orden",
+    "printErrors": {
+      "notPrintable": "Solo se puede imprimir una orden enviada o parcialmente recibida.",
+      "popupBlocked": "Permita las ventanas emergentes para Puntovivo e intente de nuevo.",
+      "desktopBridgeFailed": "La impresora del escritorio no pudo procesar la orden.",
+      "unknown": "La orden no se pudo imprimir en este momento."
     },
     "toast": {
       "receiveSuccessTitle": "Recibo de la orden creado",
@@ -144,5 +153,33 @@
     "partial_received": "Parcialmente recibida",
     "received": "Recibida",
     "voided": "Anulada"
+  },
+  "print": {
+    "kicker": "Orden de compra",
+    "title": "Orden de compra {{orderNumber}}",
+    "info": "Datos de la orden",
+    "provider": "Proveedor",
+    "site": "Sede",
+    "status": "Estado",
+    "createdAt": "Creada",
+    "updatedAt": "Actualizada",
+    "columns": {
+      "item": "Producto",
+      "code": "Código",
+      "quantity": "Cant.",
+      "received": "Recibido",
+      "pending": "Pendiente",
+      "unitCost": "Costo",
+      "total": "Total"
+    },
+    "totalsLabel": "Totales",
+    "totals": {
+      "subtotal": "Subtotal",
+      "total": "Total"
+    },
+    "notes": "Notas",
+    "itemCount_one": "{{count}} artículo",
+    "itemCount_other": "{{count}} artículos",
+    "footer": "Solicitud al proveedor. No es un documento fiscal."
   }
 }

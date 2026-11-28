@@ -255,6 +255,13 @@ export function cleanupRestrictiveBusinessLinks(db: Database.Database, tenantId:
       .get()
   );
   if (payableTablesExist) {
+    const payableInvoicePurchasesExist = Boolean(
+      db
+        .prepare(
+          "select 1 from sqlite_master where type = 'table' and name = 'provider_payable_invoice_purchases'"
+        )
+        .get()
+    );
     const disposableInvoicePredicate = (invoiceAlias: string) => `
       ${invoiceAlias}.created_by in (select id from disposable_e2e_users)
       or ${invoiceAlias}.purchase_id in (
@@ -262,6 +269,32 @@ export function cleanupRestrictiveBusinessLinks(db: Database.Database, tenantId:
         from purchases
         where purchases.tenant_id = ${invoiceAlias}.tenant_id
           and purchases.created_by in (select id from disposable_e2e_users)
+      )${
+        payableInvoicePurchasesExist
+          ? `
+      or exists (
+        select 1
+        from provider_payable_invoice_purchases as invoice_purchase
+        inner join purchases on purchases.id = invoice_purchase.purchase_id
+          and purchases.tenant_id = invoice_purchase.tenant_id
+        where invoice_purchase.tenant_id = ${invoiceAlias}.tenant_id
+          and invoice_purchase.invoice_id = ${invoiceAlias}.id
+          and purchases.created_by in (select id from disposable_e2e_users)
+      )`
+          : ''
+      }`;
+    const disposableInvoicePurchasePredicate = (linkAlias: string) => `
+      ${linkAlias}.purchase_id in (
+        select purchases.id
+        from purchases
+        where purchases.tenant_id = ${linkAlias}.tenant_id
+          and purchases.created_by in (select id from disposable_e2e_users)
+      )
+      or ${linkAlias}.invoice_id in (
+        select invoice.id
+        from provider_payable_invoices as invoice
+        where invoice.tenant_id = ${linkAlias}.tenant_id
+          and (${disposableInvoicePredicate('invoice')})
       )`;
     const disposableAllocationOriginPredicate = (allocationAlias: string) => `
       ${allocationAlias}.created_by in (select id from disposable_e2e_users)
@@ -304,10 +337,15 @@ export function cleanupRestrictiveBusinessLinks(db: Database.Database, tenantId:
           and (${disposableCreditPredicate('credit')})
       )`;
 
-    // Payments and credits must stay fully allocated. Capture every affected
-    // source before deleting any allocation; otherwise an operator-authored
-    // source linked to a disposable invoice would survive as a partial ledger
-    // entry after its child row disappears.
+    // Capture every affected parent before deleting its children: deleting
+    // bridge rows first would hide consolidated invoices whose legacy
+    // purchase_id is NULL, and deleting allocations first would strand
+    // payments/credits linked to disposable invoices.
+    const disposableInvoiceIds = allForDisposableUsers<{ id: string }>(
+      `select invoice.id
+       from provider_payable_invoices as invoice
+       where invoice.tenant_id = ? and (${disposableInvoicePredicate('invoice')})`
+    ).map(row => row.id);
     const disposablePaymentIds = allForDisposableUsers<{ id: string }>(
       `select payment.id
        from provider_payable_payments as payment
@@ -347,7 +385,16 @@ export function cleanupRestrictiveBusinessLinks(db: Database.Database, tenantId:
              select id from provider_payable_invoices
              where provider_payable_invoices.tenant_id = sync_outbox.tenant_id
                and (${disposableInvoicePredicate('provider_payable_invoices')})
-           ))
+           ))${
+             payableInvoicePurchasesExist
+               ? `
+           or (entity_type = 'provider_payable_invoice_purchases' and entity_id in (
+             select id from provider_payable_invoice_purchases
+             where provider_payable_invoice_purchases.tenant_id = sync_outbox.tenant_id
+               and (${disposableInvoicePurchasePredicate('provider_payable_invoice_purchases')})
+           ))`
+               : ''
+           }
          )`
       );
     }
@@ -364,10 +411,16 @@ export function cleanupRestrictiveBusinessLinks(db: Database.Database, tenantId:
       'delete from provider_payable_credits where tenant_id = ? and id = ?'
     );
     for (const creditId of disposableCreditIds) deleteCredit.run(tenantId, creditId);
-    runForDisposableUsers(
-      `delete from provider_payable_invoices
-       where tenant_id = ? and (${disposableInvoicePredicate('provider_payable_invoices')})`
+    if (payableInvoicePurchasesExist) {
+      runForDisposableUsers(
+        `delete from provider_payable_invoice_purchases
+         where tenant_id = ? and (${disposableInvoicePurchasePredicate('provider_payable_invoice_purchases')})`
+      );
+    }
+    const deleteInvoice = db.prepare(
+      'delete from provider_payable_invoices where tenant_id = ? and id = ?'
     );
+    for (const invoiceId of disposableInvoiceIds) deleteInvoice.run(tenantId, invoiceId);
   }
 
   const quotationSaleLinksExist = Boolean(

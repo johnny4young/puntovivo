@@ -158,8 +158,9 @@ export async function resetSession(page: Page) {
 
 export async function ensureLanguage(page: Page, language: 'en' | 'es') {
   const targetLabel = language === 'es' ? 'Español' : 'English';
-  const languageTrigger = page
-    .locator('header button[aria-haspopup="listbox"]')
+  const userMenu = page.locator('#header-user-menu');
+  const languageTrigger = userMenu
+    .locator('button[aria-haspopup="listbox"]')
     .filter({ hasText: /^(?:English|Español|System|Sistema)$/ });
   const originalViewport = page.viewportSize();
 
@@ -177,13 +178,15 @@ export async function ensureLanguage(page: Page, language: 'en' | 'es') {
   }
   await expect(page.locator('[role="dialog"]:visible')).toHaveCount(0);
 
-  // The control is hidden below the `sm` breakpoint, so briefly expose it for
-  // mobile assertions and restore the original viewport afterwards.
   if (originalViewport && originalViewport.width < 640) {
     await page.setViewportSize({ width: 640, height: originalViewport.height });
   }
 
   try {
+    if (!(await userMenu.isVisible())) {
+      await openUserMenu(page);
+      await expect(userMenu).toBeVisible();
+    }
     if (!(await languageTrigger.filter({ hasText: new RegExp(`^${targetLabel}$`) }).isVisible())) {
       // A failing trace showed document movement during option hit-testing.
       // Use the control's keyboard contract to avoid pointer-scroll timing;
@@ -193,7 +196,7 @@ export async function ensureLanguage(page: Page, language: 'en' | 'es') {
         await languageTrigger.press('Escape');
       }
       await languageTrigger.press('Enter');
-      const listbox = page.locator('header').getByRole('listbox');
+      const listbox = userMenu.getByRole('listbox');
       await expect(listbox.getByRole('option', { name: targetLabel, exact: true })).toBeVisible();
       const labels = await listbox.getByRole('option').allTextContents();
       const targetIndex = labels.findIndex(label => label.trim() === targetLabel);
@@ -209,10 +212,8 @@ export async function ensureLanguage(page: Page, language: 'en' | 'es') {
     }
     await expect(languageTrigger).toHaveAttribute('aria-expanded', 'false');
 
-    // Reloading also used to close transient header popovers. Preserve that
-    // contract so callers can deterministically open the user menu after a
+    // Close the user menu so callers can deterministically open it after a
     // locale change instead of accidentally toggling an existing menu closed.
-    const userMenu = page.locator('#header-user-menu');
     if (await userMenu.isVisible()) {
       await page.locator('header button[aria-controls="header-user-menu"]').click();
       await expect(userMenu).toBeHidden();

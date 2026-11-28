@@ -33,7 +33,7 @@
       },
       "ai": {
         "title": "Actividad de IA",
-        "description": "Consultas, OCR, revisión de anomalías y cambios de embeddings."
+        "description": "Consultas, OCR, revisión de anomalías y cambios en el índice de búsqueda."
       }
     }
   },
@@ -42,7 +42,7 @@
     "description": "Cronológico inverso. Use los filtros para acotar la vista a una acción, recurso o rango de fechas.",
     "loading": "Cargando eventos de auditoría…",
     "error": "No se pudieron cargar los eventos de auditoría",
-    "empty": "Aún no hay eventos. Acciones sensibles como anulaciones o reembolsos de venta, precios manuales en venta, recepciones o anulaciones de compra, cierres de caja, ajustes y transferencias de stock, cambios del ciclo de vida de usuarios, revocaciones de terminales hub-client y cambios en cotizaciones aparecerán aquí.",
+    "empty": "Aún no hay eventos. Acciones sensibles como anulaciones o reembolsos de venta, precios manuales en venta, recepciones o anulaciones de compra, cierres de caja, ajustes y transferencias de stock, cambios del ciclo de vida de usuarios, revocaciones de terminales conectados y cambios en cotizaciones aparecerán aquí.",
     "search": "Buscar por id del recurso…",
     "exportTitle": "Exportar registro de auditoría",
     "columns": {
@@ -133,7 +133,7 @@
     "ai.copilot.query": "Consulta de Co-pilot",
     "ai.copilot.response_mode.updated": "Modo de respuesta de Co-pilot actualizado",
     "ai.budget_hold.reconciled": "Reserva de presupuesto de IA conciliada",
-    "ai.semantic_search.regenerate_embeddings": "Embeddings regenerados",
+    "ai.semantic_search.regenerate_embeddings": "Índice de búsqueda actualizado",
     "module.toggle": "Módulo actualizado",
     "module.preset_applied": "Configuración de módulos aplicada",
     "register_zone.toggle": "Zona de la caja actualizada",
@@ -198,6 +198,14 @@
     "pharmacy.recall.close": "Retiro de medicamento cerrado",
     "pharmacy.lot.transition": "Estado de lote de medicamento actualizado",
     "pharmacy.lot.destroy": "Lote de medicamento destruido",
+    "pharmacy.lot.fractionate": "Lote de medicamento fraccionado",
+    "pharmacy.environmental_log.record": "Lectura ambiental de droguería registrada",
+    "pharmacy.invima.import": "Catálogo INVIMA / CUM importado",
+    "pharmacy.fne_authorization.create": "Resolución FNE registrada",
+    "pharmacy.fne_authorization.revoke": "Resolución FNE revocada",
+    "pharmacy.fne.dispense": "Medicamento controlado FNE dispensado",
+    "pharmacy.customer_allergy.create": "Alergia de paciente registrada",
+    "pharmacy.customer_allergy.delete": "Alergia de paciente eliminada",
     "kds.order.preparing": "Preparación de cocina iniciada",
     "kds.order.resent": "Aviso de cocina reenviado",
     "kds.order.relocated": "Destino de cocina cambiado",
@@ -223,10 +231,15 @@
     "attendance_reconciliation.changed": "Conciliación de asistencia registrada",
     "installation.owner_created": "Propietario de la instalación creado",
     "restaurant_modifier.save": "Adicional de restaurante guardado",
+    "restaurant_modifier.bom_updated": "Insumos de adicional actualizados",
     "restaurant_modifier_group.save": "Grupo de opciones de restaurante guardado",
     "restaurant_service.bill_requested": "La mesa pidió la cuenta",
     "restaurant.checks.regrouped": "Se repartieron las cuentas de la mesa",
     "restaurant_service.bill_request_cleared": "Se retiró la solicitud de la cuenta",
+    "restaurant_check.round_added": "Ronda agregada a cuenta abierta",
+    "restaurant_check.precheck_printed": "Precuenta generada",
+    "restaurant_check.split_equal": "Cuenta dividida en partes iguales",
+    "restaurant_check.split_shared_line": "Plato compartido dividido entre cuentas",
     "fiscal_numbering.create": "Rango de numeración DIAN registrado",
     "fiscal_numbering.activate": "Rango de numeración DIAN activado",
     "fiscal_numbering.retire": "Rango de numeración DIAN retirado",
@@ -307,6 +320,12 @@
     "pharmacy_product_profile": "Perfil de medicamento",
     "pharmacy_prescription_evidence": "Evidencia de prescripción",
     "pharmacy_recall": "Retiro de medicamento",
+    "pharmacy_lot_fractionation": "Fraccionamiento de lote",
+    "pharmacy_environmental_log": "Bitácora ambiental",
+    "pharmacy_invima_catalog": "Catálogo INVIMA / CUM",
+    "pharmacy_fne_authorization": "Autorización FNE",
+    "pharmacy_fne_ledger": "Libro oficial FNE",
+    "pharmacy_customer_allergy": "Alergia de paciente",
     "inventory_lot": "Lote de inventario",
     "kds_configuration": "Configuración de cocina",
     "delivery_order": "Domicilio",
@@ -326,6 +345,7 @@
     "restaurant_modifier": "Adicional de restaurante",
     "restaurant_modifier_group": "Grupo de opciones de restaurante",
     "restaurant_service": "Servicio de mesa",
+    "restaurant_check": "Cuenta de mesa",
     "fiscal_numbering_range": "Rango de numeración DIAN",
     "transfer_destination": "Destino de transferencia",
     "sequential": "Consecutivo",
@@ -398,7 +418,7 @@
     "validFreshnessAnchoredTitle": "Cadena íntegra y protegida contra retrocesos",
     "validFreshnessAnchoredDescription": "Registros encadenados verificados contra la cabecera autenticada y el contador monotónico externo: {{checked}}. Registros previos a la cadena: {{legacy}}.",
     "brokenTitle": "Cadena de auditoría ROTA",
-    "brokenDescription": "La cadena de hashes no verifica ({{reason}}). Puede haber registros alterados o eliminados.",
+    "brokenDescription": "La cadena de verificación criptográfica no coincide ({{reason}}). Puede haber registros alterados o eliminados.",
     "errorTitle": "No se pudo verificar la cadena de auditoría"
   }
 }

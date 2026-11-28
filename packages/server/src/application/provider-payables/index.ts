@@ -55,13 +55,91 @@ export interface CriticalProviderPayableContext {
 
 type AllocationInput = { invoiceId: string; amount: number };
 
-// Rows that are the parent of another row written by the same command — the
-// invoice of its purchase links, a supplier payment or credit of its
-// allocations — are enqueued narrowly above the ordinary manual-conflict
-// default (5) so a remote drain cannot apply a child before its same-command
-// parent when their created_at values land in the same millisecond. The
-// children keep that default, which is what makes the pair ordered.
+// Parent rows written alongside child allocations (payments, credits) drain
+// narrowly above the manual-conflict default (5) so allocations follow them on
+// same-millisecond timestamps. Invoice purchase links sit just below 5 so
+// purchases (5) -> invoices (5) -> invoice purchase links (4.9) stay ordered.
 const PROVIDER_PAYABLE_PARENT_SYNC_PRIORITY = 5.1;
+const PROVIDER_PAYABLE_INVOICE_LINK_SYNC_PRIORITY = 4.9;
+
+interface NetKeptProductSummary {
+  netQuantity: number;
+  netTotal: number;
+  returnedQuantity: number;
+  returnedTotal: number;
+}
+
+function computeNetKeptGoods(
+  tx: DatabaseInstance,
+  tenantId: string,
+  linkedPurchaseIds: string[]
+): { byProduct: Map<string, NetKeptProductSummary>; total: number; hasItems: boolean } {
+  const receivedItems = tx
+    .select({
+      id: purchaseItems.id,
+      productId: purchaseItems.productId,
+      quantity: purchaseItems.quantity,
+      unitEquivalence: purchaseItems.unitEquivalence,
+      total: purchaseItems.total,
+    })
+    .from(purchaseItems)
+    .where(inArray(purchaseItems.purchaseId, linkedPurchaseIds))
+    .all();
+
+  const returnedItems = tx
+    .select({
+      purchaseItemId: purchaseReturnItems.purchaseItemId,
+      baseQuantity: sql<number>`sum(${purchaseReturnItems.quantity} * ${purchaseReturnItems.unitEquivalence})`,
+      lineTotal: sql<number>`sum(${purchaseReturnItems.total})`,
+    })
+    .from(purchaseReturnItems)
+    .innerJoin(purchaseReturns, eq(purchaseReturnItems.purchaseReturnId, purchaseReturns.id))
+    .where(
+      and(
+        eq(purchaseReturns.tenantId, tenantId),
+        inArray(purchaseReturns.purchaseId, linkedPurchaseIds)
+      )
+    )
+    .groupBy(purchaseReturnItems.purchaseItemId)
+    .all();
+  const returnedByItem = new Map(returnedItems.map(row => [row.purchaseItemId, row]));
+
+  const byProduct = new Map<string, NetKeptProductSummary>();
+  let total = 0;
+
+  for (const item of receivedItems) {
+    const ret = returnedByItem.get(item.id);
+    const receivedQty = roundQuantity(Number(item.quantity) * Number(item.unitEquivalence), 12);
+    const returnedQty = ret ? roundQuantity(Number(ret.baseQuantity), 12) : 0;
+    const netQty = roundQuantity(Math.max(0, receivedQty - returnedQty), 12);
+    const receivedTotal = roundMoney(Number(item.total));
+    // Clamp fully returned lines to zero value so per-return cent rounding
+    // residuals cannot become negative or bleed across consolidated purchases.
+    const fullyReturned = netQty <= 1e-9;
+    const returnedTotal = fullyReturned
+      ? receivedTotal
+      : ret
+        ? roundMoney(Number(ret.lineTotal))
+        : 0;
+    const netTotal = fullyReturned ? 0 : roundMoney(Math.max(0, receivedTotal - returnedTotal));
+
+    const current = byProduct.get(item.productId) ?? {
+      netQuantity: 0,
+      netTotal: 0,
+      returnedQuantity: 0,
+      returnedTotal: 0,
+    };
+    byProduct.set(item.productId, {
+      netQuantity: roundQuantity(current.netQuantity + netQty, 12),
+      netTotal: roundMoney(current.netTotal + netTotal),
+      returnedQuantity: roundQuantity(current.returnedQuantity + returnedQty, 12),
+      returnedTotal: roundMoney(current.returnedTotal + returnedTotal),
+    });
+    total = roundMoney(total + netTotal);
+  }
+
+  return { byProduct, total, hasItems: receivedItems.length > 0 };
+}
 
 function requireSiteId(ctx: Pick<CriticalProviderPayableContext, 'siteId'>): string {
   if (!ctx.siteId) {
@@ -128,6 +206,7 @@ export function createProviderInvoice(
   const now = new Date().toISOString();
   const invoiceId = nanoid();
   const amount = roundMoney(input.amount);
+  const taxAmount = roundMoney(input.taxAmount ?? 0);
 
   return ctx.db.transaction(
     tx => {
@@ -136,13 +215,7 @@ export function createProviderInvoice(
 
       // A purchase-linked invoice inherits the purchase's authoritative site,
       // so the ambient active site is only required when there is no purchase
-      // to inherit from. Requiring it up front rejected linked invoices that
-      // had a perfectly good site waiting to be read below.
-      //
-      // Consolidation: purchaseIds takes precedence over the legacy single
-      // purchaseId and may carry several deliveries (remisiones) that one
-      // final invoice covers. The legacy column keeps the single-purchase link
-      // for compatibility; the bridge table is the complete source of truth.
+      // to inherit from.
       const linkedPurchaseIds = input.purchaseIds?.length
         ? input.purchaseIds
         : input.purchaseId
@@ -150,6 +223,7 @@ export function createProviderInvoice(
           : [];
 
       let siteId: string;
+      let hasPartialReturnedPurchase = false;
       if (linkedPurchaseIds.length > 0) {
         const seenPurchaseIds = new Set<string>();
         const linkedSiteIds = new Set<string>();
@@ -186,6 +260,9 @@ export function createProviderInvoice(
               message:
                 'Only a completed or partially returned purchase can be linked to a supplier invoice',
             });
+          }
+          if (purchase.status === 'partial_returned') {
+            hasPartialReturnedPurchase = true;
           }
           // Invoiced twice is impossible: legacy column, bridge, either.
           const alreadyLinked =
@@ -230,48 +307,13 @@ export function createProviderInvoice(
         siteId = requireSiteId(ctx);
       }
 
-      // Strict line-by-line reconciliation (owner decision D1): when invoice
-      // lines are provided — mandatory when consolidating several purchases —
-      // every product received across the linked purchases must match its
-      // invoice line in base-unit quantity and in line total, and the lines
-      // must add up to the invoice amount. Any difference rejects the invoice
-      // with the per-product detail; accepting a difference stays an explicit
-      // admin decision in a follow-up.
+      // Strict line-by-line reconciliation: when invoice lines are provided —
+      // mandatory when consolidating several purchases — every product kept
+      // across the linked purchases must match its invoice line in base-unit
+      // quantity and value, and lines total plus tax must equal the invoice
+      // amount.
       if (input.lines?.length) {
-        const received = tx
-          .select({
-            productId: purchaseItems.productId,
-            baseQuantity: sql<number>`sum(${purchaseItems.quantity} * ${purchaseItems.unitEquivalence})`,
-            lineTotal: sql<number>`sum(${purchaseItems.total})`,
-          })
-          .from(purchaseItems)
-          .where(inArray(purchaseItems.purchaseId, linkedPurchaseIds))
-          .groupBy(purchaseItems.productId)
-          .all();
-        const receivedByProduct = new Map(received.map(row => [row.productId, row]));
-
-        // Goods sent back to the provider leave the store, so they cannot be
-        // invoiced: what reconciles is received minus returned, in base units
-        // and in value. Without this netting, a partially returned delivery
-        // reconciled as if nothing had come back.
-        const returned = tx
-          .select({
-            productId: purchaseReturnItems.productId,
-            baseQuantity: sql<number>`sum(${purchaseReturnItems.quantity} * ${purchaseReturnItems.unitEquivalence})`,
-            lineTotal: sql<number>`sum(${purchaseReturnItems.total})`,
-          })
-          .from(purchaseReturnItems)
-          .innerJoin(purchaseReturns, eq(purchaseReturnItems.purchaseReturnId, purchaseReturns.id))
-          .where(
-            and(
-              eq(purchaseReturns.tenantId, ctx.tenantId),
-              inArray(purchaseReturns.purchaseId, linkedPurchaseIds)
-            )
-          )
-          .groupBy(purchaseReturnItems.productId)
-          .all();
-        const returnedByProduct = new Map(returned.map(row => [row.productId, row]));
-
+        const netKept = computeNetKeptGoods(tx, ctx.tenantId, linkedPurchaseIds);
         const lineTotalsByProduct = new Map<string, { quantity: number; lineTotal: number }>();
         for (const line of input.lines) {
           const current = lineTotalsByProduct.get(line.productId) ?? { quantity: 0, lineTotal: 0 };
@@ -281,17 +323,14 @@ export function createProviderInvoice(
         }
 
         const discrepancies: string[] = [];
-        const productIds = new Set([...receivedByProduct.keys(), ...lineTotalsByProduct.keys()]);
+        const productIds = new Set([...netKept.byProduct.keys(), ...lineTotalsByProduct.keys()]);
         for (const productId of productIds) {
-          const receivedRow = receivedByProduct.get(productId);
-          const returnedRow = returnedByProduct.get(productId);
+          const keptRow = netKept.byProduct.get(productId);
           const invoiceRow = lineTotalsByProduct.get(productId);
-          const receivedQuantity = receivedRow ? Number(receivedRow.baseQuantity) : 0;
-          const returnedQuantity = returnedRow ? Number(returnedRow.baseQuantity) : 0;
-          const netQuantity = roundQuantity(receivedQuantity - returnedQuantity, 12);
-          const receivedTotal = receivedRow ? roundMoney(Number(receivedRow.lineTotal)) : 0;
-          const returnedTotal = returnedRow ? roundMoney(Number(returnedRow.lineTotal)) : 0;
-          const netTotal = roundMoney(receivedTotal - returnedTotal);
+          const netQuantity = keptRow?.netQuantity ?? 0;
+          const returnedQuantity = keptRow?.returnedQuantity ?? 0;
+          const netTotal = keptRow?.netTotal ?? 0;
+          const returnedTotal = keptRow?.returnedTotal ?? 0;
           const invoiceQuantity = invoiceRow?.quantity ?? 0;
           const invoiceTotal = invoiceRow ? roundMoney(invoiceRow.lineTotal) : 0;
           if (Math.abs(netQuantity - invoiceQuantity) > 1e-9) {
@@ -315,12 +354,25 @@ export function createProviderInvoice(
         const linesTotal = roundMoney(
           [...lineTotalsByProduct.values()].reduce((sum, row) => sum + row.lineTotal, 0)
         );
-        if (Math.abs(linesTotal - amount) > 0.005) {
+        const expectedAmount = roundMoney(linesTotal + taxAmount);
+        if (Math.abs(expectedAmount - amount) > 0.005) {
           throwServerError({
             trpcCode: 'CONFLICT',
             errorCode: 'PROVIDER_PAYABLE_INVOICE_AMOUNT_MISMATCH',
-            message: `Invoice amount ${amount.toFixed(2)} does not match its lines total ${linesTotal.toFixed(2)}`,
+            message: `Invoice amount ${amount.toFixed(2)} does not match lines total ${linesTotal.toFixed(2)} plus tax ${taxAmount.toFixed(2)} (${expectedAmount.toFixed(2)})`,
           });
+        }
+      } else if (hasPartialReturnedPurchase) {
+        const netKept = computeNetKeptGoods(tx, ctx.tenantId, linkedPurchaseIds);
+        if (netKept.hasItems) {
+          const expectedAmount = roundMoney(netKept.total + taxAmount);
+          if (Math.abs(expectedAmount - amount) > 0.005) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'PROVIDER_PAYABLE_INVOICE_AMOUNT_MISMATCH',
+              message: `Invoice amount ${amount.toFixed(2)} does not match net received total ${netKept.total.toFixed(2)} plus tax ${taxAmount.toFixed(2)} (${expectedAmount.toFixed(2)})`,
+            });
+          }
         }
       }
 
@@ -336,6 +388,7 @@ export function createProviderInvoice(
           issuedAt: input.issuedAt,
           dueAt: input.dueAt,
           amount,
+          taxAmount,
           notes: input.notes ?? null,
           createdBy: ctx.user.id,
           syncStatus: 'pending',
@@ -377,6 +430,7 @@ export function createProviderInvoice(
           purchaseIds: linkedPurchaseIds,
           documentNumber: input.documentNumber,
           amount,
+          taxAmount,
           dueAt: input.dueAt,
         },
         operationId: ctx.envelope.operationId,
@@ -385,19 +439,26 @@ export function createProviderInvoice(
         entityType: 'provider_payable_invoices',
         entityId: invoiceId,
         operation: 'create',
-        data: { id: invoiceId, providerId: input.providerId, siteId, amount, purchaseIds: linkedPurchaseIds },
-        priority: PROVIDER_PAYABLE_PARENT_SYNC_PRIORITY,
+        data: {
+          id: invoiceId,
+          providerId: input.providerId,
+          siteId,
+          amount,
+          taxAmount,
+          purchaseIds: linkedPurchaseIds,
+        },
       });
-      // Parent-before-child: each covered purchase link follows its invoice so
-      // a synced copy can reconstruct what the consolidating factura covers —
-      // the legacy column alone cannot carry several purchases. The links keep
-      // the manual default priority, below the invoice above them.
+      // Parent-before-child: links enqueue below default priority (5) so
+      // purchases (5) -> invoices (5) -> invoice purchase links (4.9) drain in
+      // dependency order even when created_at timestamps tie.
       for (const purchaseId of linkedPurchaseIds) {
+        const linkId = invoicePurchaseLinkIdsByPurchase.get(purchaseId)!;
         enqueueSyncInTransaction(syncContext(ctx, tx), {
           entityType: 'provider_payable_invoice_purchases',
-          entityId: invoicePurchaseLinkIdsByPurchase.get(purchaseId)!,
+          entityId: linkId,
           operation: 'create',
-          data: { invoiceId, purchaseId },
+          data: { id: linkId, invoiceId, purchaseId },
+          priority: PROVIDER_PAYABLE_INVOICE_LINK_SYNC_PRIORITY,
         });
       }
       const result = { id: invoiceId, providerId: input.providerId, amount };
@@ -799,6 +860,7 @@ export async function getProviderPayableOverview(
       issuedAt: providerPayableInvoices.issuedAt,
       dueAt: providerPayableInvoices.dueAt,
       amount: providerPayableInvoices.amount,
+      taxAmount: providerPayableInvoices.taxAmount,
       notes: providerPayableInvoices.notes,
       createdAt: providerPayableInvoices.createdAt,
     })
@@ -830,6 +892,38 @@ export async function getProviderPayableOverview(
         eq(providerPayableInvoices.providerId, providerId)
       )
     );
+  const purchaseLinks = db
+    .select({
+      invoiceId: providerPayableInvoicePurchases.invoiceId,
+      purchaseId: purchases.id,
+      purchaseNumber: purchases.purchaseNumber,
+    })
+    .from(providerPayableInvoicePurchases)
+    .innerJoin(
+      purchases,
+      and(
+        eq(providerPayableInvoicePurchases.purchaseId, purchases.id),
+        eq(purchases.tenantId, tenantId),
+        eq(purchases.providerId, providerId)
+      )
+    )
+    .where(
+      and(
+        eq(providerPayableInvoicePurchases.tenantId, tenantId),
+        inArray(providerPayableInvoicePurchases.invoiceId, providerInvoiceIds)
+      )
+    )
+    .orderBy(asc(purchases.purchaseNumber), asc(purchases.id))
+    .all();
+  const purchaseLinksByInvoice = new Map<
+    string,
+    Array<{ purchaseId: string; purchaseNumber: string }>
+  >();
+  for (const link of purchaseLinks) {
+    const list = purchaseLinksByInvoice.get(link.invoiceId) ?? [];
+    list.push({ purchaseId: link.purchaseId, purchaseNumber: link.purchaseNumber });
+    purchaseLinksByInvoice.set(link.invoiceId, list);
+  }
   const allocations = db
     .select({
       invoiceId: providerPayableAllocations.invoiceId,
@@ -848,23 +942,37 @@ export async function getProviderPayableOverview(
   const allocatedByInvoice = new Map(
     allocations.map(row => [row.invoiceId, roundMoney(Number(row.amount))] as const)
   );
-  const openInvoices = invoices
-    .map(invoice => {
-      const allocated = allocatedByInvoice.get(invoice.id) ?? 0;
-      const outstanding = roundMoney(invoice.amount - allocated);
-      return {
-        ...invoice,
-        allocated,
-        outstanding,
-        status:
-          outstanding <= 0
-            ? ('paid' as const)
-            : allocated > 0
-              ? ('partial' as const)
-              : ('open' as const),
-      };
-    })
-    .filter(invoice => invoice.outstanding > 0);
+  const enrichedInvoices = invoices.map(invoice => {
+    const allocated = allocatedByInvoice.get(invoice.id) ?? 0;
+    const outstanding = roundMoney(invoice.amount - allocated);
+    const bridgeLinks = purchaseLinksByInvoice.get(invoice.id);
+    const purchaseIds =
+      bridgeLinks && bridgeLinks.length > 0
+        ? bridgeLinks.map(link => link.purchaseId)
+        : invoice.purchaseId
+          ? [invoice.purchaseId]
+          : [];
+    const purchaseNumbers =
+      bridgeLinks && bridgeLinks.length > 0
+        ? bridgeLinks.map(link => link.purchaseNumber)
+        : invoice.purchaseNumber
+          ? [invoice.purchaseNumber]
+          : [];
+    return {
+      ...invoice,
+      purchaseIds,
+      purchaseNumbers,
+      allocated,
+      outstanding,
+      status:
+        outstanding <= 0
+          ? ('paid' as const)
+          : allocated > 0
+            ? ('partial' as const)
+            : ('open' as const),
+    };
+  });
+  const openInvoices = enrichedInvoices.filter(invoice => invoice.outstanding > 0);
 
   const paymentTotal = Number(
     db
@@ -1010,21 +1118,7 @@ export async function getProviderPayableOverview(
       balance: roundMoney(invoiceTotal - paymentTotal - creditTotal),
     },
     aging,
-    invoices: invoices.map(invoice => {
-      const allocated = allocatedByInvoice.get(invoice.id) ?? 0;
-      const outstanding = roundMoney(invoice.amount - allocated);
-      return {
-        ...invoice,
-        allocated,
-        outstanding,
-        status:
-          outstanding <= 0
-            ? ('paid' as const)
-            : allocated > 0
-              ? ('partial' as const)
-              : ('open' as const),
-      };
-    }),
+    invoices: enrichedInvoices,
     openInvoices,
     statement,
     availablePurchases,

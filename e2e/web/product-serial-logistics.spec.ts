@@ -96,6 +96,7 @@ test('admin preserves exact serial identities from purchase through return and t
   expect(product.tracksSerials).toBe(1);
 
   await page.goto('/purchases');
+  await page.getByTestId('purchases-tab-new').click();
   await page.getByRole('button', { name: 'Add Product' }).first().click();
   const addProductDialog = page
     .locator('[role="dialog"]')
@@ -183,7 +184,8 @@ test('admin preserves exact serial identities from purchase through return and t
     .toEqual(['in_stock', 'in_stock', 'returned_to_supplier']);
 
   await page.goto('/inventory');
-  await page.getByRole('button', { name: 'By Site' }).click();
+  await page.getByTestId('inventory-group-stock').click();
+  await page.getByTestId('inventory-tab-balances').click();
   await page.locator('#inventory-balances-site').selectOption(purchase.siteId);
   const destinationSite = scenario.sites.find(site => site.id !== purchase.siteId);
   expect(destinationSite).toBeTruthy();
@@ -217,7 +219,8 @@ test('admin preserves exact serial identities from purchase through return and t
 
   await ensureLanguage(page, 'es');
   await page.goto('/inventory');
-  await page.getByRole('button', { name: 'Por sede' }).click();
+  await page.getByTestId('inventory-group-stock').click();
+  await page.getByTestId('inventory-tab-balances').click();
   const transferRow = transferHistory(page).locator(`tr[data-row-id="${transfer.id}"]`);
   await expect(transferRow).toContainText('En tránsito');
   await transferRow.getByRole('button', { name: 'Recibir' }).click();

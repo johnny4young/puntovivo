@@ -12,7 +12,7 @@ export {
   submitInventoryCount,
 } from './countSessions.js';
 export { receiveInventoryTransfer } from './receiveInventoryTransfer.js';
-export { recordInventoryEntry } from './recordInventoryEntry.js';
+export { recordInventoryEntry, recordInventoryEntryForImport } from './recordInventoryEntry.js';
 export { createTransformationRecipe, updateTransformationRecipe } from './transformationRecipes.js';
 export { voidInventoryTransfer } from './voidInventoryTransfer.js';
 export { voidInventoryTransformation } from './voidInventoryTransformation.js';

@@ -17,6 +17,10 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { normalizeSerialNumber } from '../../services/product-serials.js';
 import { writeInventoryLotEvent } from '../../services/pharmacy/lot-events.js';
 import { enqueueSyncInTransaction, type EnqueueSyncContext } from '../../services/sync/enqueue.js';
+import {
+  recordControlledStockMovementsInFneLedger,
+  type FneLedgerMovement,
+} from '../pharmacy/fne.js';
 
 /** Snapshot mode is frozen on the count line, not inferred on read from a mutable product. */
 export type CountTrackingMode = 'aggregate' | 'lots' | 'serials';
@@ -417,10 +421,12 @@ export function applyCountIdentities(
     sessionId: string;
     actorId: string;
     now: string;
+    businessDate: string;
   }
 ): InventoryValueDelta | null {
   if (input.mode === 'aggregate') return null;
   let totalValueDelta = 0;
+  const fneMovements: FneLedgerMovement[] = [];
   for (const row of rowsForLine(db, sync.tenantId, input.lineId)) {
     if (row.countedQuantity === null) invalidIdentities();
     if (row.countedQuantity === row.expectedQuantity) continue;
@@ -484,6 +490,13 @@ export function applyCountIdentities(
         )
         .run();
       if (changed.changes !== 1) changedIdentities();
+      fneMovements.push({
+        lotId: row.sourceId,
+        lotNumber: current.lotNumber,
+        movementType: 'count_adjustment',
+        quantityDelta: roundQuantity(row.countedQuantity - current.onHand, 12),
+        notes: input.sessionId,
+      });
       if (status === 'quarantined' && status !== current.status)
         writeInventoryLotEvent(db, sync, {
           tenantId: sync.tenantId,
@@ -608,5 +621,17 @@ export function applyCountIdentities(
       data: snapshot,
     });
   }
+  recordControlledStockMovementsInFneLedger(
+    db,
+    {
+      tenantId: sync.tenantId,
+      siteId: input.siteId,
+      productId: input.productId,
+      businessDate: input.businessDate,
+      actorId: input.actorId,
+      occurredAt: input.now,
+    },
+    fneMovements.filter(movement => movement.quantityDelta !== 0)
+  );
   return { inventoryValue: totalValueDelta, cogsValue: totalValueDelta };
 }

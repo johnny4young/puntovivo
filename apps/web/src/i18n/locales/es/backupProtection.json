@@ -3,7 +3,7 @@
   "description": "Verifique el cifrado de la base de datos y cómo este dispositivo protege la clave de respaldo.",
   "states": {
     "loading": "Verificando la protección…",
-    "browser": "El estado de protección solo se verifica desde la aplicación de escritorio Electron.",
+    "browser": "El estado de protección solo se verifica desde la aplicación de escritorio.",
     "unsupported": "Actualice la aplicación de escritorio para verificar la protección de respaldos.",
     "error": "No se pudo verificar la protección de respaldos. Reinicie la aplicación de escritorio e inténtelo de nuevo.",
     "protected": {

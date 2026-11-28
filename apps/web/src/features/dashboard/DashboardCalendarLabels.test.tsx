@@ -76,7 +76,7 @@ describe('dashboard calendar labels', () => {
     const { container } = render(<RevenueTrendCard points={[]} formatCurrency={formatCurrency} />);
     expect(screen.getByText('There is no revenue to chart yet.')).toBeVisible();
     expect(container.querySelector('.dashboard-chart-axis')?.textContent).toBe('');
-    expect(screen.getByText('Best day').nextElementSibling).toHaveTextContent('—');
+    expect(screen.queryByText('Best day')).not.toBeInTheDocument();
   });
 
   it('still renders actual sale timestamps in the tenant timezone', async () => {

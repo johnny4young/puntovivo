@@ -1,6 +1,10 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { tenants, users } from '../db/schema.js';
+import {
+  isAccessFamilyActive,
+  isRefreshFamilyRevokedByDevice,
+} from '../services/devices/deviceSessions.js';
 import { shouldUseSecureCookies } from './cookies.js';
 import type { UserRole } from '@puntovivo/shared/roles';
 
@@ -85,9 +89,14 @@ export function getAuthSessionClaims(
 export function signAccessToken(
   server: FastifyInstance,
   user: AuthUserIdentity,
-  session?: AuthSessionClaims
+  session?: AuthSessionClaims,
+  familyId?: string
 ): string {
-  return server.jwt.sign(buildTokenPayload(user, 'access', session), {
+  const payload = {
+    ...buildTokenPayload(user, 'access', session),
+    ...(familyId ? { familyId } : {}),
+  };
+  return server.jwt.sign(payload, {
     expiresIn: ACCESS_TOKEN_TTL,
   });
 }
@@ -194,6 +203,25 @@ export async function verifyTokenWithServer(
       user.sessionVersion !== payload.sessionVersion
     ) {
       return null;
+    }
+
+    if (payload.familyId) {
+      if (
+        expectedType === 'access' &&
+        !isAccessFamilyActive(server.db, {
+          familyId: payload.familyId,
+          tenantId: payload.tenantId,
+          userId: payload.userId,
+        })
+      ) {
+        return null;
+      }
+      if (
+        expectedType === 'refresh' &&
+        isRefreshFamilyRevokedByDevice(server.db, payload.familyId)
+      ) {
+        return null;
+      }
     }
 
     return payload;

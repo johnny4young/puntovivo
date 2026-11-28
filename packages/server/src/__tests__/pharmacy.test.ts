@@ -220,6 +220,8 @@ describe('pharmacy daily-operation invariants', () => {
       businessDate,
       canApproveEvidence: false,
       approvalCapabilityErrorCode: null,
+      fneEnabled: false,
+      fneResolutionNumber: null,
       hasOperationalData: false,
     });
   });

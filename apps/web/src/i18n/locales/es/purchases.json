@@ -7,7 +7,11 @@
     "completed": "Compras completadas",
     "recentSpend": "Gasto reciente",
     "providersUsed": "Proveedores usados",
-    "draftTotal": "Total borrador"
+    "draftTotal": "Total borrador",
+    "tabs": {
+      "history": "Historial",
+      "newPurchase": "Nueva compra"
+    }
   },
   "checkout": {
     "kicker": "Compra actual",
@@ -95,7 +99,7 @@
       "confidence": "{{percent}}% de coincidencia",
       "unmatchedPill": "Sin coincidencia — agregue manualmente",
       "createPurchaseCta": "Crear compra con coincidencias",
-      "unavailable": "Active la Búsqueda semántica y regenere los embeddings de productos para asociar las líneas automáticamente.",
+      "unavailable": "Active la Búsqueda semántica y actualice el índice de búsqueda de productos para asociar las líneas automáticamente.",
       "toastMatched_one": "{{count}} línea asociada agregada al borrador.",
       "toastMatched_other": "{{count}} líneas asociadas agregadas al borrador.",
       "toastUnmatched_one": "{{count}} línea queda pendiente: agréguela manualmente con Buscar producto.",

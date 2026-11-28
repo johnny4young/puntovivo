@@ -19,6 +19,7 @@ import { EmptyState } from '@/components/feedback/EmptyState';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { KpiTile, StatusStrip, Button } from '@/components/ui';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
+import { useIsModuleActive } from '@/features/modules';
 import { calendarDayAt, formatCurrency, formatDate, getActiveTenantLocale } from '@/lib/utils';
 import { translateServerError } from '@/lib/translateServerError';
 import { DayCloseChecklist } from './DayCloseChecklist';
@@ -68,6 +69,7 @@ export function DayCloseReportPage() {
   const toast = useToast();
   const utils = trpc.useUtils();
   const locale = useResolvedLocale();
+  const anomalyModuleActive = useIsModuleActive('anomaly-detection');
   const dayCloseMeasurement = useTaskMeasurementController();
   const today = useMemo(() => calendarDayAt(new Date(), locale.timezone), [locale.timezone]);
   // Keep following the tenant timezone while locale state hydrates. Once the
@@ -282,7 +284,9 @@ export function DayCloseReportPage() {
             />
           </section>
 
-          <div className="pv-kpis grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          <div
+            className={`pv-kpis grid grid-cols-1 sm:grid-cols-2 ${report.fiscal.total > 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}
+          >
             <KpiTile
               icon={Banknote}
               label={t('dayClose.kpis.netRevenue')}
@@ -320,16 +324,18 @@ export function DayCloseReportPage() {
               tone={report.cash.discrepancySessions > 0 ? 'warning' : 'success'}
               mono
             />
-            <KpiTile
-              icon={FileCheck2}
-              label={t('dayClose.kpis.fiscal')}
-              value={String(report.fiscal.total)}
-              context={t('dayClose.kpis.fiscalNet', {
-                amount: formatReportMoney(report.fiscal.totalAmount, report.currencyCode),
-              })}
-              tone={report.fiscal.byStatus.rejected > 0 ? 'danger' : 'success'}
-              mono
-            />
+            {report.fiscal.total > 0 && (
+              <KpiTile
+                icon={FileCheck2}
+                label={t('dayClose.kpis.fiscal')}
+                value={String(report.fiscal.total)}
+                context={t('dayClose.kpis.fiscalNet', {
+                  amount: formatReportMoney(report.fiscal.totalAmount, report.currencyCode),
+                })}
+                tone={report.fiscal.byStatus.rejected > 0 ? 'danger' : 'success'}
+                mono
+              />
+            )}
           </div>
 
           <div className="grid gap-6 xl:grid-cols-2">
@@ -422,29 +428,31 @@ export function DayCloseReportPage() {
               </div>
             </section>
 
-            <section className={SECTION_CLASS} data-testid="day-close-fiscal-section">
-              <SectionTitle icon={FileCheck2} title={t('dayClose.sections.fiscal')} />
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {(
-                  [
-                    'accepted',
-                    'pending',
-                    'sent',
-                    'rejected',
-                    'contingency',
-                    'voided',
-                    'notified_correction',
-                    'partial_send',
-                  ] as const
-                ).map(status => (
-                  <Metric
-                    key={status}
-                    label={t(`dayClose.fiscalStatuses.${status}`)}
-                    value={String(report.fiscal.byStatus[status])}
-                  />
-                ))}
-              </div>
-            </section>
+            {report.fiscal.total > 0 && (
+              <section className={SECTION_CLASS} data-testid="day-close-fiscal-section">
+                <SectionTitle icon={FileCheck2} title={t('dayClose.sections.fiscal')} />
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {(
+                    [
+                      'accepted',
+                      'pending',
+                      'sent',
+                      'rejected',
+                      'contingency',
+                      'voided',
+                      'notified_correction',
+                      'partial_send',
+                    ] as const
+                  ).map(status => (
+                    <Metric
+                      key={status}
+                      label={t(`dayClose.fiscalStatuses.${status}`)}
+                      value={String(report.fiscal.byStatus[status])}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
 
             <section className={SECTION_CLASS} data-testid="day-close-adjustments-section">
               <SectionTitle icon={RotateCcw} title={t('dayClose.sections.adjustments')} />
@@ -466,44 +474,51 @@ export function DayCloseReportPage() {
               </div>
             </section>
 
-            <section className={SECTION_CLASS} data-testid="day-close-anomalies-section">
-              <SectionTitle icon={Bot} title={t('dayClose.sections.anomalies')} />
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Metric
-                  label={t('dayClose.anomalies.total')}
-                  value={String(report.anomalies.total)}
-                />
-                <Metric
-                  label={t('dayClose.anomalies.high')}
-                  value={String(report.anomalies.high)}
-                />
-                <Metric
-                  label={t('dayClose.anomalies.medium')}
-                  value={String(report.anomalies.medium)}
-                />
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {(
-                  Object.entries(report.anomalies.byKind) as Array<
-                    [keyof typeof report.anomalies.byKind, number]
-                  >
-                ).map(([kind, count]) => (
-                  <div
-                    key={kind}
-                    className="flex items-center justify-between rounded-xl border border-secondary-200 px-3 py-2 text-xs"
-                  >
-                    <span className="text-secondary-600">{t(`dayClose.anomalyKinds.${kind}`)}</span>
-                    <span className="font-mono font-semibold tabular-nums text-secondary-950">
-                      {count}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
+            {(anomalyModuleActive || report.anomalies.total > 0) && (
+              <section className={SECTION_CLASS} data-testid="day-close-anomalies-section">
+                <SectionTitle icon={Bot} title={t('dayClose.sections.anomalies')} />
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Metric
+                    label={t('dayClose.anomalies.total')}
+                    value={String(report.anomalies.total)}
+                  />
+                  <Metric
+                    label={t('dayClose.anomalies.high')}
+                    value={String(report.anomalies.high)}
+                  />
+                  <Metric
+                    label={t('dayClose.anomalies.medium')}
+                    value={String(report.anomalies.medium)}
+                  />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {(
+                    Object.entries(report.anomalies.byKind) as Array<
+                      [keyof typeof report.anomalies.byKind, number]
+                    >
+                  ).map(([kind, count]) => (
+                    <div
+                      key={kind}
+                      className="flex items-center justify-between rounded-xl border border-secondary-200 px-3 py-2 text-xs"
+                    >
+                      <span className="text-secondary-600">
+                        {t(`dayClose.anomalyKinds.${kind}`)}
+                      </span>
+                      <span className="font-mono font-semibold tabular-nums text-secondary-950">
+                        {count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
 
-          <section className={SECTION_CLASS} data-testid="day-close-capabilities-section">
-            <SectionTitle icon={AlertTriangle} title={t('dayClose.sections.coverage')} />
+          <details className={SECTION_CLASS} data-testid="day-close-capabilities-section">
+            <summary className="flex cursor-pointer items-center gap-2 text-base font-semibold text-secondary-950">
+              <AlertTriangle className="h-4 w-4 text-primary-600" aria-hidden="true" />
+              {t('dayClose.sections.coverage')}
+            </summary>
             <p className="text-sm text-secondary-500">{t('dayClose.coverage.description')}</p>
             <div className="grid gap-3 sm:grid-cols-2">
               {(['commissions_not_tracked', 'waste_not_tracked'] as ReadinessCode[]).map(code => (
@@ -520,7 +535,7 @@ export function DayCloseReportPage() {
                 </div>
               ))}
             </div>
-          </section>
+          </details>
         </>
       )}
     </div>

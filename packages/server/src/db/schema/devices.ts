@@ -15,7 +15,7 @@ import {
   devicePairingCodeStatusEnum,
   idempotencyKeyStatusEnum,
 } from './base.js';
-import { sites, tenants, users } from './auth.js';
+import { authRefreshFamilies, sites, tenants, users } from './auth.js';
 
 // ============================================================================
 // DEVICES + IDEMPOTENCY (Command Envelope foundation, ADR-0002)
@@ -156,6 +156,66 @@ export const devicePairingCodesRelations = relations(devicePairingCodes, ({ one 
   claimedByDevice: one(devices, {
     fields: [devicePairingCodes.claimedByDeviceId],
     references: [devices.id],
+  }),
+}));
+
+export const deviceSessionStatusEnum = ['active', 'revoked'] as const;
+export type DeviceSessionStatus = (typeof deviceSessionStatusEnum)[number];
+
+/** Binds a refresh-token family to a specific terminal so revoking one hub_client leaves other sessions intact. */
+export const deviceSessions = sqliteTable(
+  'device_sessions',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    deviceId: text('device_id')
+      .notNull()
+      .references(() => devices.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    refreshFamilyId: text('refresh_family_id')
+      .notNull()
+      .references(() => authRefreshFamilies.id, { onDelete: 'cascade' }),
+    status: text('status', { enum: deviceSessionStatusEnum }).notNull().default('active'),
+    revokedAt: text('revoked_at'),
+    revokedByUserId: text('revoked_by_user_id').references(() => users.id),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text('updated_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  table => [
+    uniqueIndex('idx_device_sessions_refresh_family').on(table.refreshFamilyId),
+    index('idx_device_sessions_tenant_device_status').on(
+      table.tenantId,
+      table.deviceId,
+      table.status
+    ),
+    index('idx_device_sessions_tenant_user_status').on(table.tenantId, table.userId, table.status),
+  ]
+);
+
+export const deviceSessionsRelations = relations(deviceSessions, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [deviceSessions.tenantId],
+    references: [tenants.id],
+  }),
+  device: one(devices, {
+    fields: [deviceSessions.deviceId],
+    references: [devices.id],
+  }),
+  user: one(users, {
+    fields: [deviceSessions.userId],
+    references: [users.id],
+  }),
+  refreshFamily: one(authRefreshFamilies, {
+    fields: [deviceSessions.refreshFamilyId],
+    references: [authRefreshFamilies.id],
   }),
 }));
 

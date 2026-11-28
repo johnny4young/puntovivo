@@ -25,10 +25,10 @@
  * @module security/refreshTokenFamilies
  */
 
-import { and, eq, gt, lt, sql } from 'drizzle-orm';
+import { and, eq, gt, lt, notExists, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../db/index.js';
-import { authRefreshFamilies, users } from '../db/schema.js';
+import { authRefreshFamilies, deviceSessions, users } from '../db/schema.js';
 import { createModuleLogger } from '../logging/logger.js';
 
 const familyLog = createModuleLogger('security/refresh-families');
@@ -245,6 +245,8 @@ export function revokeRefreshFamiliesForUser(db: DatabaseInstance, userId: strin
 /**
  * Prune expired families. Called opportunistically from `auth.login`
  * (low frequency, indexed delete) so no dedicated worker is needed.
+ * Families behind a revoked device session stay: the cascade would erase
+ * the revocation record.
  */
 export function pruneExpiredRefreshFamilies(
   db: DatabaseInstance,
@@ -252,7 +254,22 @@ export function pruneExpiredRefreshFamilies(
 ): number {
   const result = db
     .delete(authRefreshFamilies)
-    .where(lt(authRefreshFamilies.expiresAt, new Date(now()).toISOString()))
+    .where(
+      and(
+        lt(authRefreshFamilies.expiresAt, new Date(now()).toISOString()),
+        notExists(
+          db
+            .select({ id: deviceSessions.id })
+            .from(deviceSessions)
+            .where(
+              and(
+                eq(deviceSessions.refreshFamilyId, authRefreshFamilies.id),
+                eq(deviceSessions.status, 'revoked')
+              )
+            )
+        )
+      )
+    )
     .run() as { changes?: number };
   const deleted = result.changes ?? 0;
   if (deleted > 0) {

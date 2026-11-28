@@ -197,6 +197,12 @@
       "to": "To",
       "site": "Site",
       "allSites": "All sites",
+      "presets": {
+        "today": "Today",
+        "thisWeek": "This week",
+        "thisMonth": "This month",
+        "lastMonth": "Last month"
+      },
       "siteSaved": "This site selection will be used the next time this company opens the export.",
       "siteSaveError": "The site preference could not be saved.",
       "siteLoadError": "Sites could not be loaded. Accounting export remains disabled.",
@@ -206,7 +212,8 @@
     "kpi": {
       "vouchers": "Accounting events",
       "total": "Net total",
-      "taxes": "Net VAT · INC"
+      "taxes": "Net VAT · INC",
+      "rounding": "Rounding adjustment"
     },
     "empty": {
       "title": "No accounting events in this range",

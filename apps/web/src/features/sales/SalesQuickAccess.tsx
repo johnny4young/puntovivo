@@ -179,7 +179,11 @@ export function SalesQuickAccess({
 
   return (
     <section
-      className="sales-quick-access lg:shrink-0"
+      className={
+        !asChips && !hasCartItems
+          ? 'sales-quick-access min-h-[15.75rem] lg:shrink-0'
+          : 'sales-quick-access lg:shrink-0'
+      }
       aria-labelledby="sales-quick-access-title"
       data-testid="sales-quick-access"
     >

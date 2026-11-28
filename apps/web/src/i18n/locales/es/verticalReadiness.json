@@ -6,7 +6,7 @@
   "noProfile": "Elija arriba un tipo de negocio para ver una lista adaptada a su operación.",
   "loading": "Verificando la configuración actual del perfil…",
   "profiles": {
-    "retail": "retail",
+    "retail": "comercio minorista",
     "pharmacy": "droguería o farmacia",
     "hardware": "ferretería",
     "butchery": "carnicería",

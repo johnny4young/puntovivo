@@ -25,6 +25,10 @@ describe('formatSystemNote', () => {
     expect(formatSystemNote('Opening stock from product creation', t)).toBe(
       'Stock inicial al crear el producto'
     );
+    expect(formatSystemNote('Initial inventory entry', t)).toBe(
+      'Stock inicial al crear el producto'
+    );
+    expect(formatSystemNote('Physical count entry', t)).toBe('Conteo físico de inventario');
     expect(formatSystemNote('Stock changed from product edit', t)).toBe(
       'Stock cambiado al editar el producto'
     );

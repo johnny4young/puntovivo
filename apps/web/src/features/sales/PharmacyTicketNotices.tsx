@@ -1,21 +1,24 @@
-import { FileText, Lock, UserPlus } from 'lucide-react';
+import { AlertTriangle, FileText, Lock, ShieldAlert, UserPlus } from 'lucide-react';
 import { initialsOf } from './handoff/handoffModel';
 import { formatDayMonth, type PharmacyCustomerNote } from './pharmacyRegister';
 import { usePharmacyCopy } from './usePharmacyCopy';
+import type { PharmacySafetyAlert } from './usePharmacyTicket';
 
 interface PharmacyTicketNoticesProps {
   customerNote: PharmacyCustomerNote | null;
   hasControlled: boolean;
+  safetyAlerts?: readonly PharmacySafetyAlert[] | undefined;
   /** Shown where nothing above already names the customer (phone). */
   customerName?: string | null | undefined;
   /** Omitted when the ticket's customer is frozen. */
   onAssignCustomer?: (() => void) | undefined;
 }
 
-/** Why the ticket needs a named customer, and the controlled-medicine block. */
+/** Why the ticket needs a named customer, controlled-medicine block, and allergy/duplicity alerts. */
 export function PharmacyTicketNotices({
   customerNote,
   hasControlled,
+  safetyAlerts = [],
   customerName,
   onAssignCustomer,
 }: PharmacyTicketNoticesProps) {
@@ -77,6 +80,43 @@ export function PharmacyTicketNotices({
           <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{t('controlled')}</span>
         </p>
+      )}
+      {safetyAlerts.map((alert, idx) =>
+        alert.kind === 'customer_allergy' ? (
+          <p
+            key={`allergy-${alert.productId}-${idx}`}
+            className="flex items-start gap-2 rounded-xl border border-danger-300 bg-danger-50 px-3 py-2 text-xs font-semibold text-danger-900"
+            role="alert"
+            data-testid="pharmacy-allergy-alert"
+          >
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-danger-700" aria-hidden="true" />
+            <span>
+              {t('safety.customerAllergy', {
+                severity: t(`safety.severity.${alert.severity}`),
+                ingredient: alert.activeIngredient,
+                product: alert.productName,
+              })}
+            </span>
+          </p>
+        ) : (
+          <p
+            key={`dup-${alert.activeIngredient}-${idx}`}
+            className="flex items-start gap-2 rounded-xl border border-warning-300 bg-warning-50 px-3 py-2 text-xs font-medium text-warning-950"
+            role="status"
+            data-testid="pharmacy-duplicity-alert"
+          >
+            <AlertTriangle
+              className="mt-0.5 h-4 w-4 shrink-0 text-warning-700"
+              aria-hidden="true"
+            />
+            <span>
+              {t('safety.duplicateIngredient', {
+                ingredient: alert.activeIngredient,
+                products: alert.productNames.join(', '),
+              })}
+            </span>
+          </p>
+        )
       )}
     </div>
   );

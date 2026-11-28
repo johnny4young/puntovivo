@@ -54,6 +54,8 @@ export interface ProductFormValues {
   tracksStock: boolean;
   tracksLots: boolean;
   tracksSerials: boolean;
+  isReturnableContainer: boolean;
+  returnableDepositAmount: number;
   isActive: boolean;
   unitAssignments: ProductUnitAssignmentFormValues[];
   providerAssignments: ProductProviderAssignmentFormValues[];
@@ -68,6 +70,8 @@ export interface PharmacyProductFormValues {
   dosageForm: string;
   administrationRoute: string;
   presentation: string;
+  dosesPerPack: string;
+  cumCode: string;
   manufacturer: string;
   authorizationHolder: string;
   sanitaryRegistration: string;

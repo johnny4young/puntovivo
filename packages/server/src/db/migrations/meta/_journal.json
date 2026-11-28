@@ -768,8 +768,50 @@
     {
       "idx": 109,
       "version": "6",
-      "when": 1795616945897,
-      "tag": "0111_provider_payable_invoice_purchases",
+      "when": 1795569311326,
+      "tag": "0109_perf_hot_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "6",
+      "when": 1795712615862,
+      "tag": "0110_retail_promotions_bundles_device_sessions",
+      "breakpoints": true
+    },
+    {
+      "idx": 111,
+      "version": "6",
+      "when": 1795721632524,
+      "tag": "0111_bundle_component_value",
+      "breakpoints": true
+    },
+    {
+      "idx": 112,
+      "version": "6",
+      "when": 1795726609980,
+      "tag": "0112_restaurant_ops_comandas_bom",
+      "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "6",
+      "when": 1795787572884,
+      "tag": "0113_pharmacy_ops_band6b",
+      "breakpoints": true
+    },
+    {
+      "idx": 114,
+      "version": "6",
+      "when": 1795803203396,
+      "tag": "0114_pharmacy_fne_ledger_movements",
+      "breakpoints": true
+    },
+    {
+      "idx": 115,
+      "version": "6",
+      "when": 1795822197349,
+      "tag": "0115_provider_payable_invoice_purchases",
       "breakpoints": true
     }
   ]

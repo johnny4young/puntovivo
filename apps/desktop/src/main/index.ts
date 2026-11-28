@@ -243,7 +243,8 @@ const serverLifecycle = createServerLifecycle({
     lastWorkerStats = stats;
     workerMemoryWatch(stats);
   },
-  onStateChange: broadcastServerState,
+  onStateChange: state =>
+    broadcastServerState(state, windowLifecycleRef.current?.getWindow() ?? null),
   onFatalExit: fatal => handleFatalServerExit(fatal),
   recordCrash: entry => {
     const record = { ...entry, at: new Date().toISOString(), appVersion: app.getVersion() };
@@ -353,8 +354,12 @@ const trayController = createTrayController({
 });
 trayControllerRef.current = trayController;
 let trayInitialized = false;
-subscribeAutoUpdateStatus(() => {
+subscribeAutoUpdateStatus(status => {
   if (trayInitialized) trayController.refresh();
+  const mainWindow = windowLifecycle.getWindow();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('app:auto-update-status', status);
+  }
 });
 windowLifecycle.installGlobalWebContentsPolicy();
 

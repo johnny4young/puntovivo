@@ -11,7 +11,6 @@ import { resolveBootLocale, toSupportedAppLocale } from './resolveLocale';
 import enCommon from './locales/en/common.json';
 import enAuth from './locales/en/auth.json';
 import enNav from './locales/en/nav.json';
-import enErrors from './locales/en/errors.json';
 import enWorkspaces from './locales/en/workspaces.json';
 import enSetup from './locales/en/setup.json';
 import enPalette from './locales/en/palette.json';
@@ -19,7 +18,6 @@ import enPalette from './locales/en/palette.json';
 import esCommon from './locales/es/common.json';
 import esAuth from './locales/es/auth.json';
 import esNav from './locales/es/nav.json';
-import esErrors from './locales/es/errors.json';
 import esWorkspaces from './locales/es/workspaces.json';
 import esSetup from './locales/es/setup.json';
 import esPalette from './locales/es/palette.json';
@@ -30,26 +28,22 @@ import esPalette from './locales/es/palette.json';
  *
  * The set is intentionally limited to namespaces consumed by components
  * that render OUTSIDE a route-level `<Suspense>` boundary — i.e. the
- * persistent app shell plus the error boundary, none of which has a
- * suspense fallback of its own:
+ * persistent app shell, none of which has a suspense fallback of its own:
  * - common      — Header (including fiscal badge), updater banner, status/toasts, route fallbacks
  * - auth        — Header, ProtectedRoute, login route fallback
  * - nav         — Sidebar, Header
- * - errors      — AppErrorBoundary (an error boundary must never suspend)
  * - workspaces  — Sidebar workspace groups
  * - setup       — GlobalStatusStrip onboarding banner
  * - palette     — Command palette (triggerable from any screen)
  *
- * Invariant: adding a non-bootstrap `useTranslation()` to always-mounted
- * chrome requires adding that namespace here. The root `<Suspense>` in
- * `main.tsx` is the safety net if one is ever missed — a missed namespace
- * degrades to a brief fallback instead of an unbounded suspend.
+ * `errors` loads asynchronously for the active language right after boot so
+ * startup never downloads both error dictionaries upfront; AppErrorBoundary
+ * carries bilingual fallback copy and disables Suspense so crashes never stall.
  */
 export const BOOTSTRAP_NAMESPACES = [
   'common',
   'auth',
   'nav',
-  'errors',
   'workspaces',
   'setup',
   'palette',
@@ -65,7 +59,7 @@ export const BOOTSTRAP_NAMESPACES = [
  */
 const lazyNamespaceModules = import.meta.glob<{ default: Record<string, unknown> }>([
   './locales/{en,es}/*.json',
-  '!./locales/{en,es}/{common,auth,nav,errors,workspaces,setup,palette}.json',
+  '!./locales/{en,es}/{common,auth,nav,workspaces,setup,palette}.json',
 ]);
 
 // Boot language resolves synchronously, BEFORE React renders, and
@@ -144,7 +138,6 @@ void i18next
         common: enCommon,
         auth: enAuth,
         nav: enNav,
-        errors: enErrors,
         workspaces: enWorkspaces,
         setup: enSetup,
         palette: enPalette,
@@ -153,7 +146,6 @@ void i18next
         common: esCommon,
         auth: esAuth,
         nav: esNav,
-        errors: esErrors,
         workspaces: esWorkspaces,
         setup: esSetup,
         palette: esPalette,
@@ -170,9 +162,16 @@ void i18next
     },
   });
 
+// Warm only the active language's error dictionary in the background so the
+// entry bundle never blocks on both error packs while mutations still resolve.
+void i18next.loadNamespaces('errors');
+
 syncDocumentLanguage(lng);
 syncElectronMainLocale(lng);
 i18next.on('languageChanged', syncDocumentLanguage);
 i18next.on('languageChanged', syncElectronMainLocale);
+i18next.on('languageChanged', () => {
+  void i18next.loadNamespaces('errors');
+});
 
 export default i18next;

@@ -28,10 +28,10 @@
  */
 
 import { z } from 'zod';
-import { GS1_SCHEMES } from '@puntovivo/shared/gs1';
+import { DEFAULT_GS1_PRICE_DIVISOR, GS1_SCHEMES } from '@puntovivo/shared/gs1';
 import type { BarcodeScannerAdapter, ScannerStatus } from '../contracts/barcode-scanner.js';
 import type { TestResult } from '../types.js';
-import { gs1PrefixConfigSchema } from '../barcode/config.js';
+import { gs1PrefixConfigSchema, gs1PriceDivisorSchema } from '../barcode/config.js';
 
 export const wedgeScannerConfigSchema = z
   .object({
@@ -51,6 +51,8 @@ export const wedgeScannerConfigSchema = z
     gs1Scheme: z.enum(GS1_SCHEMES).default('generic'),
     /** Optional role map for the site's 20-29 in-store label prefixes. */
     gs1Prefixes: gs1PrefixConfigSchema.optional(),
+    /** Price divisor for price-embedded labels: 100 for cents, 1 for whole pesos (COP/CLP). */
+    gs1PriceDivisor: gs1PriceDivisorSchema.default(DEFAULT_GS1_PRICE_DIVISOR),
   })
   .refine(config => config.minLength <= config.maxLength, {
     message: 'minLength must be less than or equal to maxLength',

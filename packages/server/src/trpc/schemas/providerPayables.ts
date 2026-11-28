@@ -3,6 +3,7 @@ import { providerPayablePaymentMethodEnum } from '../../db/schema.js';
 
 const providerIdInput = z.object({ providerId: z.string().min(1) }).strict();
 const payableAmountInput = z.number().finite().min(0.01).multipleOf(0.01);
+const payableNonNegativeAmountInput = z.number().finite().min(0).multipleOf(0.01);
 const payableCalendarDayInput = z.iso.date({ error: 'Expected a valid YYYY-MM-DD calendar day' });
 
 function occursOnOrAfter(later: string, earlier: string): boolean {
@@ -47,6 +48,8 @@ export const createProviderInvoiceInput = z
     issuedAt: payableCalendarDayInput,
     dueAt: payableCalendarDayInput,
     amount: payableAmountInput,
+    /** Tax billed by the supplier on top of net purchase lines (e.g. VAT). */
+    taxAmount: payableNonNegativeAmountInput.optional(),
     notes: z.string().trim().max(500).optional(),
   })
   .strict()
@@ -54,17 +57,19 @@ export const createProviderInvoiceInput = z
     message: 'Due date cannot be before issue date',
     path: ['dueAt'],
   })
-  .refine(
-    value => !((value.purchaseIds?.length ?? 0) > 1 && !value.lines?.length),
-    {
-      message: 'Invoice lines are required when consolidating several purchases',
-      path: ['lines'],
-    }
-  )
-  // Two keys that disagree about what the invoice covers is not a preference
-  // to resolve silently: honouring one of them invoices the wrong deliveries.
-  // Declaring the same purchase through both keys is not ambiguous, so it
-  // stays accepted; contradicting itself is refused.
+  .refine(value => (value.taxAmount ?? 0) <= value.amount, {
+    message: 'Tax amount cannot exceed the invoice amount',
+    path: ['taxAmount'],
+  })
+  .refine(value => !((value.purchaseIds?.length ?? 0) > 1 && !value.lines?.length), {
+    message: 'Invoice lines are required when consolidating several purchases',
+    path: ['lines'],
+  })
+  .refine(value => !(value.lines?.length && !value.purchaseId && !value.purchaseIds?.length), {
+    message: 'Invoice lines require at least one linked purchase',
+    path: ['lines'],
+  })
+  // Reject contradictory purchase selectors; matching values stay accepted.
   .refine(
     value =>
       !(

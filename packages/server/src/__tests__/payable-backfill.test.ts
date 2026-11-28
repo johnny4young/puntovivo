@@ -3,18 +3,16 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * The 0111 backfill turns every legacy single-purchase invoice into a bridge
- * row. Replaying the whole chain for one INSERT would be the honest-but-slow
- * way; this test replays the REAL backfill SQL — read verbatim from the
- * migration file — against a minimal pre-0111 shape and asserts the invariants
- * the migration promises.
+ * The 0115 backfill turns every legacy single-purchase invoice into a bridge
+ * row. Replaying the real backfill SQL — read verbatim from the migration file
+ * — against a minimal pre-0115 shape verifies the migration's invariants.
  */
 const migrationPath = join(
   import.meta.dirname,
-  '../db/migrations/0111_provider_payable_invoice_purchases.sql'
+  '../db/migrations/0115_provider_payable_invoice_purchases.sql'
 );
 const migrationSql = readFileSync(migrationPath, 'utf8');
-const backfillSql = migrationSql.slice(migrationSql.indexOf('INSERT INTO'));
+const backfillSql = migrationSql.slice(migrationSql.indexOf('INSERT OR IGNORE INTO'));
 
 const preMigrationShape = `
   CREATE TABLE provider_payable_invoices (
@@ -88,29 +86,12 @@ async function buildReplica(order: LinkedInvoice[]): Promise<{ rows: unknown[] }
   return { rows };
 }
 
-describe('0111 payable backfill', () => {
+describe('0115 payable backfill', () => {
   it('bridges only invoices that carry a legacy purchase link', async () => {
     const { default: Database } = await import('better-sqlite3');
     const db = new Database(':memory:');
 
-    // Minimal pre-0102 shape of the two tables the backfill touches.
-    db.exec(`
-      CREATE TABLE provider_payable_invoices (
-        id TEXT PRIMARY KEY,
-        tenant_id TEXT NOT NULL,
-        purchase_id TEXT,
-        created_at TEXT
-      );
-      CREATE TABLE provider_payable_invoice_purchases (
-        id TEXT PRIMARY KEY,
-        tenant_id TEXT NOT NULL,
-        invoice_id TEXT NOT NULL,
-        purchase_id TEXT NOT NULL,
-        sync_status TEXT,
-        sync_version INTEGER,
-        created_at TEXT
-      );
-    `);
+    db.exec(preMigrationShape);
 
     db.prepare(
       "INSERT INTO provider_payable_invoices (id, tenant_id, purchase_id) VALUES ('inv-linked', 'tenant-1', 'purchase-1')"
@@ -119,6 +100,8 @@ describe('0111 payable backfill', () => {
       "INSERT INTO provider_payable_invoices (id, tenant_id, purchase_id) VALUES ('inv-opening', 'tenant-1', NULL)"
     ).run();
 
+    db.exec(backfillSql);
+    // Replaying the backfill statement must stay idempotent.
     db.exec(backfillSql);
 
     const bridge = db

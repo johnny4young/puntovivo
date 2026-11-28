@@ -14,7 +14,7 @@ dependency.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-16a34a.svg)](./LICENSE)
 [![CI](https://github.com/johnny4young/puntovivo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/johnny4young/puntovivo/actions/workflows/ci.yml)
-[![Node](https://img.shields.io/badge/node-%3E%3D24-339933.svg?logo=node.js&logoColor=white)](./package.json)
+[![Node](https://img.shields.io/badge/node-%3E%3D26.13.1-339933.svg?logo=node.js&logoColor=white)](./package.json)
 [![Electron](https://img.shields.io/badge/Electron-45-47848F.svg?logo=electron&logoColor=white)](./apps/desktop)
 [![React](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react&logoColor=black)](./apps/web)
 [![tRPC](https://img.shields.io/badge/tRPC-11-2596BE.svg?logo=trpc&logoColor=white)](./packages/server)
@@ -37,8 +37,9 @@ selling even when the network does not.
 
 It runs the same React app in two targets — an **Electron desktop** app and a
 **browser** app — over an embedded **Fastify + tRPC** API. On desktop the
-server runs in-process inside the Electron main process, and all data lives in
-an encrypted local **SQLite** database.
+server runs on a dedicated `worker_threads` worker inside Electron (off the main
+window/IPC thread), and all data lives in an encrypted local **SQLite**
+(SQLCipher) database.
 
 It is deliberately **not** a generic ERP, not a cloud-only suite, and not
 trying to ship every vertical at once. Restaurant, KDS, AI, delivery, public
@@ -130,7 +131,7 @@ The canonical capability inventory, remaining gaps, and release gates live in
   [run 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582).
   That validation-only matrix is regression evidence for v1.10.1, not proof of
   later binaries, release signing, or a production recovery-time
-  promise. The [v1.16.0 release](https://github.com/johnny4young/puntovivo/releases/tag/v1.16.0)
+  promise. The current `1.19.0` line
   and [live update policy](https://johnny4young.github.io/puntovivo/update-policy.json)
   do not substitute for representative-machine Gate 5 evidence.
 - The macOS artifact is Apple Silicon and now declares macOS 15 Sequoia as its
@@ -164,8 +165,8 @@ The canonical capability inventory, remaining gaps, and release gates live in
 
 </div>
 
-The desktop app imports `@puntovivo/server` directly from the Electron main
-process — it is not a spawned child server process.
+The desktop app runs `@puntovivo/server` on a `worker_threads` worker inside
+Electron — it is not a spawned child server process.
 
 ## Quick start
 

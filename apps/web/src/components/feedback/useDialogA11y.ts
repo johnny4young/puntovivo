@@ -166,7 +166,7 @@ export function useDialogA11y({
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isActive()) return;
-      if (e.key === 'Escape' && closeOnEsc) onClose();
+      if (e.key === 'Escape' && closeOnEsc && !e.defaultPrevented) onClose();
       if (e.key === 'Tab') handleTabKey(e);
     };
     document.addEventListener('keydown', handleKeyDown);

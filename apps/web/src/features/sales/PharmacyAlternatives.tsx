@@ -30,8 +30,19 @@ export function PharmacyAlternatives({
                 <span className="block truncate text-sm font-semibold text-secondary-900">
                   {alternative.name}
                 </span>
-                <span className="mt-1 inline-flex">
+                <span className="mt-1 flex flex-wrap items-center gap-1.5">
                   <PharmacySavingsTag savings={alternative.savings} />
+                  {alternative.pricePerDose != null && alternative.savingsPerDose != null && (
+                    <span
+                      className="rounded-md bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-800"
+                      data-testid={`product-generic-dose-${alternative.sku}`}
+                    >
+                      {t('generic.savingsPerDose', {
+                        pricePerDose: formatCurrency(alternative.pricePerDose),
+                        saving: formatCurrency(alternative.savingsPerDose),
+                      })}
+                    </span>
+                  )}
                 </span>
               </span>
               <span className="font-numeric text-sm font-bold text-secondary-900">

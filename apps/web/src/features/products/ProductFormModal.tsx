@@ -289,19 +289,52 @@ export function ProductFormModal({
         ) : (
           <>
             <div className="pv-tabs mb-6" role="tablist" aria-label={t('form.tabs.ariaLabel')}>
-              {PRODUCT_FORM_TABS.map(tab => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  id={`product-tab-${tab.id}`}
-                  aria-selected={activeTab === tab.id}
-                  aria-controls={`product-tabpanel-${tab.id}`}
-                  onClick={() => setActiveTab(tab.id)}
-                >
-                  {tab.label}
-                </button>
-              ))}
+              {PRODUCT_FORM_TABS.map(tab => {
+                const { errors } = formBundle;
+                const hasTabError =
+                  (tab.id === 'general' &&
+                    Boolean(
+                      errors.name ||
+                      errors.sku ||
+                      errors.barcode ||
+                      errors.taxRate ||
+                      errors.stock ||
+                      errors.minStock ||
+                      errors.fractionStep ||
+                      errors.fractionMinimum
+                    )) ||
+                  (tab.id === 'pricing' &&
+                    Boolean(
+                      errors.cost ||
+                      errors.initialCost ||
+                      errors.price ||
+                      errors.price2 ||
+                      errors.price3
+                    )) ||
+                  (tab.id === 'units' && Boolean(errors.unitAssignments)) ||
+                  (tab.id === 'providers' && Boolean(errors.providerAssignments)) ||
+                  (tab.id === 'pharmacy' && Boolean(errors.pharmacyEnabled || errors.pharmacy));
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    id={`product-tab-${tab.id}`}
+                    aria-selected={activeTab === tab.id}
+                    aria-controls={`product-tabpanel-${tab.id}`}
+                    onClick={() => setActiveTab(tab.id)}
+                  >
+                    <span>{tab.label}</span>
+                    {hasTabError && (
+                      <span
+                        className="ml-1.5 inline-block h-2 w-2 rounded-full bg-danger-500"
+                        data-testid={`product-tab-${tab.id}-error`}
+                        aria-hidden="true"
+                      />
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             {activeTab === 'general' && (

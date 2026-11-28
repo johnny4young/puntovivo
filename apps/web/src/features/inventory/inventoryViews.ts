@@ -29,6 +29,12 @@ export const viewKeys: Record<InventoryView, string> = {
   pharmacy: 'page.tabs.pharmacy',
 };
 
+export const INVENTORY_TABPANEL_ID = 'inventory-tabpanel';
+
+export function inventoryViewTabId(view: InventoryView): string {
+  return `inventory-view-tab-${view}`;
+}
+
 /**
  * Views a manager owns exclusively. Every count and replenishment procedure
  * behind `controls` is a managerOrAdmin one, so rendering the tab for a

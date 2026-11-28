@@ -57,7 +57,9 @@ export function readAvailableProviderPurchases(
       .select({
         id: purchases.id,
         purchaseNumber: purchases.purchaseNumber,
-        total: purchases.total,
+        // Net of supplier returns so partially returned deliveries expose the
+        // invoiceable balance instead of the pre-return gross receipt total.
+        total: sql<number>`ROUND(MAX(0, ${purchases.total} - COALESCE((SELECT SUM(pr.return_amount) FROM purchase_returns pr WHERE pr.tenant_id = ${purchases.tenantId} AND pr.purchase_id = ${purchases.id}), 0)), 2)`,
         siteId: purchases.siteId,
         siteName: sites.name,
         createdAt: purchases.createdAt,

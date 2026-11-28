@@ -41,7 +41,7 @@ export default async ({ phase }) => {
   const result = await workload.run(() => performance.now() - startedAt >= windowMs);
   console.log(
     `sales (${phase}): ${result.salesInWindow} ok, ${result.failures} failed, ` +
-      `HTTP sale p50 ${result.saleLatency.p50} / p95 ${result.saleLatency.p95} ms` +
+      `HTTP sale p50 ${result.saleLatency.p50} / p95 ${result.saleLatency.p95} / max ${result.saleLatency.max} ms` +
       (result.firstFailure ? ` (first failure: ${result.firstFailure})` : '')
   );
   // Too few sales means the server was not under load; the window proves nothing.

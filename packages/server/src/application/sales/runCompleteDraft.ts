@@ -381,6 +381,7 @@ export async function runCompleteDraft(
       customerId: finalCustomerId,
       nowIso: now,
       businessDate: businessClock.businessDate,
+      timezone: businessClock.timezone,
     });
     assertPromotionQuoteFingerprint(appliedPromotionQuote, input.promotionFingerprint);
   }
@@ -793,6 +794,7 @@ export async function runCompleteDraft(
             customerId: finalCustomerId,
             nowIso: writerNow,
             businessDate: businessClock.businessDate,
+            timezone: businessClock.timezone,
           });
           assertPromotionQuoteFingerprint(transactionalQuote, input.promotionFingerprint);
         }

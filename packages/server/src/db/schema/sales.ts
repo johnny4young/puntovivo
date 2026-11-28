@@ -190,7 +190,10 @@ export const sales = sqliteTable(
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
-    index('idx_sales_tenant').on(table.tenantId),
+    // Expression index idx_sales_tenant_status_effective_date on
+    // (tenant_id, status, coalesce(checkout_completed_at, created_at)) lives in
+    // migration SQL because drizzle-kit misquotes commas inside expressions.
+
     // The sales history list (`sales.list`) filters by tenant and orders by
     // `created_at DESC` with LIMIT/OFFSET; the composite lets SQLite walk
     // the index in order instead of sorting the tenant's full sale history
@@ -431,7 +434,7 @@ export const cashMovements = sqliteTable(
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
-    index('idx_cash_movements_tenant').on(table.tenantId),
+    index('idx_cash_movements_tenant_reference').on(table.tenantId, table.referenceId),
     index('idx_cash_movements_session').on(table.sessionId),
     index('idx_cash_movements_type').on(table.type),
     index('idx_cash_movements_created_by').on(table.createdBy),

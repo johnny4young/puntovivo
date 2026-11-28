@@ -9,7 +9,6 @@
  *
  * @module services/ai/client
  */
-import { generateText } from 'ai';
 import type { ProviderOptions } from '@ai-sdk/provider-utils';
 import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
@@ -474,6 +473,7 @@ export async function completeAI(
   let model: ReturnType<AIProvider['languageModel']>;
   let providerOptions: ReturnType<AIProvider['cacheControlForSystemPrompt']>;
   try {
+    await provider.ensureReady?.();
     model = provider.languageModel(modelId);
     providerOptions = provider.cacheControlForSystemPrompt();
   } catch (error) {
@@ -504,6 +504,7 @@ export async function completeAI(
 
   let result;
   try {
+    const { generateText } = await import('ai');
     result = await generateText({
       model,
       ...(input.system !== undefined ? { instructions: input.system } : {}),

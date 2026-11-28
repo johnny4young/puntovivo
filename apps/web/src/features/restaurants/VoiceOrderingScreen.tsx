@@ -11,7 +11,7 @@
  */
 import { Suspense, lazy, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Split } from 'lucide-react';
+import { Receipt, Split } from 'lucide-react';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { useTranslation } from 'react-i18next';
 
@@ -19,7 +19,6 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { useIsModuleActive } from '@/features/modules/ModulesContext';
 import { useRegisterZone } from '@/features/modules/useRegisterZone';
-import { MANAGER_OR_ADMIN_ROLES } from '@puntovivo/shared/roles';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { trpc } from '@/lib/trpc';
@@ -72,6 +71,10 @@ const RestaurantSplitSheet = lazy(() =>
   import('./RestaurantSplitSheet').then(module => ({ default: module.RestaurantSplitSheet }))
 );
 
+const RestaurantPrecheckModal = lazy(() =>
+  import('./RestaurantPrecheckModal').then(module => ({ default: module.RestaurantPrecheckModal }))
+);
+
 const VoiceCartCommandModal = lazy(() =>
   import('@/features/voice/VoiceCartCommandModal').then(mod => ({
     default: mod.VoiceCartCommandModal,
@@ -96,6 +99,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
   const splitsBills = useRegisterZone('tip-split');
   const navigate = useNavigate();
   const [splitOpen, setSplitOpen] = useState(false);
+  const [precheckOpen, setPrecheckOpen] = useState(false);
   const voiceAvailabilityQuery = trpc.ai.settings.voiceAvailability.useQuery(undefined, {
     enabled: semanticSearchActive,
   });
@@ -119,6 +123,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
 
   const utils = trpc.useUtils();
   const openCheckMutation = useCriticalMutation('restaurantServices.openCheck');
+  const addRoundMutation = useCriticalMutation('restaurantServices.addRound');
 
   const [tableLabel, setTableLabel] = useState<string>('');
   // Guard against a stale selection after catalog refresh.
@@ -137,6 +142,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
   const reservationSelected =
     !!arrivedReservation && reservationSelection === reservationChoiceKey(arrivedReservation);
   const [checkLabel, setCheckLabel] = useState<string>('');
+  const [roundCheckId, setRoundCheckId] = useState<string>('');
   const lockedGuestCount = tableStateQuery.data?.service?.guestCount ?? null;
   const pickedTableGuestMaximum =
     tableCatalog.find(row => row.id === resolvedPickedTableId)?.seatCount ?? 200;
@@ -163,7 +169,17 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
     return null;
   })();
   const micDisabled = micDisabledReason !== null;
+  const openChecks = tableStateQuery.data?.checks ?? [];
+  // A check resumed on a register cannot take a round; after a split the waiter picks one.
+  const parkedChecks = openChecks.filter(check => check.suspendedAt !== null);
+  const activeOpenCheck =
+    parkedChecks.length > 1
+      ? (parkedChecks.find(check => check.id === roundCheckId) ?? null)
+      : (parkedChecks[0] ?? openChecks[0] ?? null);
+  const roundCheckMissing =
+    parkedChecks.length > 1 && activeOpenCheck === null && checkLabel.trim().length === 0;
   const saveDisabled =
+    roundCheckMissing ||
     !cashSession ||
     !useCatalogDropdown ||
     !resolvedPickedTableId ||
@@ -195,11 +211,11 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
     0
   );
   const roundNumber = sentRounds.length + 1;
-  // Regrouping checks is a manager or admin override, like the server command.
+  // Equal split and shared-dish split are available to waiters/cashiers as well as managers.
   const canSplit =
     splitsBills &&
-    MANAGER_OR_ADMIN_ROLES.some(role => role === user?.role) &&
-    sentRounds.reduce((count, round) => count + round.lines.length, 0) > 1;
+    openChecks.length > 0 &&
+    sentRounds.reduce((count, round) => count + round.lines.length, 0) > 0;
   const openService = tableStateQuery.data?.service ?? null;
   usePendingRoundReport(resolvedPickedTableId, cartItems.length, openService !== null);
   const draftLines: RailLine[] = pricedCartItems.map(item => {
@@ -337,40 +353,53 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
       const trimmedLabel = tableLabel.trim();
       if (!resolvedPickedTableId) return;
       try {
-        await openCheckMutation.mutateAsync({
-          tableId: resolvedPickedTableId,
-          ...(reservationSelected
-            ? {
-                reservation: {
-                  id: arrivedReservation.id,
-                  expectedVersion: arrivedReservation.version,
-                },
-              }
-            : {}),
-          guestCount: effectiveGuestCount,
-          checkLabel: checkLabel.trim() || undefined,
-          diners: Array.from({ length: effectiveGuestCount }, (_, index) => ({
-            clientId: `seat-${index + 1}`,
-            seatNumber: index + 1,
-          })),
-          items: cartItems.map(item => {
-            const trimmedNote = itemNotes[item.key]?.trim();
-            const detail = detailFor(item.key);
-            return {
-              productId: item.productId,
-              unitId: item.unitId,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              discount: item.discount,
-              taxRate: item.taxRate,
-              notes: trimmedNote && trimmedNote.length > 0 ? trimmedNote : null,
-              dinerClientId: seatFor(detail) === null ? null : `seat-${seatFor(detail)}`,
-              courseKey: detail.courseKey,
-              ...(detail.modifierGroups ? { modifierGroups: detail.modifierGroups } : {}),
-              modifiers: restaurantModifierSnapshot(detail.modifiers),
-            };
-          }),
+        const mappedDiners = Array.from({ length: effectiveGuestCount }, (_, index) => ({
+          clientId: `seat-${index + 1}`,
+          seatNumber: index + 1,
+        }));
+        const mappedItems = cartItems.map(item => {
+          const trimmedNote = itemNotes[item.key]?.trim();
+          const detail = detailFor(item.key);
+          return {
+            productId: item.productId,
+            unitId: item.unitId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discount: item.discount,
+            taxRate: item.taxRate,
+            notes: trimmedNote && trimmedNote.length > 0 ? trimmedNote : null,
+            dinerClientId: seatFor(detail) === null ? null : `seat-${seatFor(detail)}`,
+            courseKey: detail.courseKey,
+            ...(detail.modifierGroups ? { modifierGroups: detail.modifierGroups } : {}),
+            modifiers: restaurantModifierSnapshot(detail.modifiers),
+          };
         });
+        const trimmedCheckLabel = checkLabel.trim();
+        if (activeOpenCheck && !trimmedCheckLabel && !reservationSelected) {
+          await addRoundMutation.mutateAsync({
+            tableId: resolvedPickedTableId,
+            checkId: activeOpenCheck.id,
+            expectedCheckVersion: activeOpenCheck.version,
+            diners: mappedDiners,
+            items: mappedItems,
+          });
+        } else {
+          await openCheckMutation.mutateAsync({
+            tableId: resolvedPickedTableId,
+            ...(reservationSelected
+              ? {
+                  reservation: {
+                    id: arrivedReservation.id,
+                    expectedVersion: arrivedReservation.version,
+                  },
+                }
+              : {}),
+            guestCount: effectiveGuestCount,
+            checkLabel: trimmedCheckLabel || undefined,
+            diners: mappedDiners,
+            items: mappedItems,
+          });
+        }
       } catch (error) {
         toast.error({
           title: t('restaurants:save.errorTitle'),
@@ -519,6 +548,35 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
             requested={openService.billRequestedAt !== null}
             disabled={isSaving}
           />
+          {parkedChecks.length > 1 && (
+            <select
+              className="input min-h-11 w-auto"
+              aria-label={t('restaurants:service.roundCheck')}
+              value={activeOpenCheck?.id ?? ''}
+              disabled={isSaving}
+              onChange={e => setRoundCheckId(e.target.value)}
+              data-testid="voice-ordering-round-check"
+            >
+              <option value="">{t('restaurants:service.roundCheck')}</option>
+              {parkedChecks.map(check => (
+                <option key={check.id} value={check.id}>
+                  {check.label ?? check.saleNumber}
+                </option>
+              ))}
+            </select>
+          )}
+          {openChecks.length > 0 && (
+            <button
+              type="button"
+              className="btn-outline"
+              disabled={isSaving}
+              onClick={() => setPrecheckOpen(true)}
+              data-testid="voice-ordering-precheck"
+            >
+              <Receipt className="h-4 w-4" aria-hidden="true" />
+              {t('restaurants:precheck.ctaLabel')}
+            </button>
+          )}
           {canSplit && (
             <button
               type="button"
@@ -638,6 +696,14 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
                     {t('restaurants:save.tableRequired')}
                   </p>
                 )}
+                {roundCheckMissing && cartItems.length > 0 && (
+                  <p
+                    className="text-xs text-warning-700"
+                    data-testid="voice-ordering-round-check-hint"
+                  >
+                    {t('restaurants:save.roundCheckRequired')}
+                  </p>
+                )}
                 {cartItems.length === 0 && tableLabel.trim().length > 0 && (
                   <p
                     className="text-xs text-warning-700"
@@ -673,6 +739,16 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
             tableName={tableLabel}
             onClose={() => setSplitOpen(false)}
             onCharge={account => navigate('/sales', { state: { restaurantCharge: account } })}
+          />
+        </Suspense>
+      )}
+
+      {precheckOpen && resolvedPickedTableId && (
+        <Suspense fallback={null}>
+          <RestaurantPrecheckModal
+            tableId={resolvedPickedTableId}
+            tableName={tableLabel}
+            onClose={() => setPrecheckOpen(false)}
           />
         </Suspense>
       )}

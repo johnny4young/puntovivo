@@ -244,9 +244,12 @@ export function replaceUnitAssignments(
   unitAssignmentsInput:
     | NonNullable<CreateProductInput['unitAssignments']>
     | NonNullable<UpdateProductInput['unitAssignments']>,
-  now: string
+  now: string,
+  options?: { skipDelete?: boolean }
 ) {
-  db.delete(unitXProduct).where(eq(unitXProduct.productId, productId)).run();
+  if (!options?.skipDelete) {
+    db.delete(unitXProduct).where(eq(unitXProduct.productId, productId)).run();
+  }
 
   for (const assignment of unitAssignmentsInput) {
     db.insert(unitXProduct)

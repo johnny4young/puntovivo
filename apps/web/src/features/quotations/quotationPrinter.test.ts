@@ -200,6 +200,20 @@ describe('quotationPrinter', () => {
     expect(withoutAutoPrint).not.toContain('window.print()');
   });
 
+  it('opens the browser print window synchronously to preserve user activation', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue({
+      opener: null,
+      location: { replace: vi.fn() },
+      close: vi.fn(),
+    } as unknown as Window);
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:quotation');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+
+    const promise = printQuotationReceipt(buildQuotation());
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    await promise;
+  });
+
   it('throws a typed popupBlocked error when the browser blocks the print window', async () => {
     vi.spyOn(window, 'open').mockReturnValue(null);
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:quotation');

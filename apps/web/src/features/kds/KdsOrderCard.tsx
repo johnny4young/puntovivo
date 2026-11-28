@@ -1,5 +1,4 @@
 /** Immutable preparation plus current destinations and explicitly versioned cook actions. */
-import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { KdsActions, KdsCardData } from './types';
 export type { KdsCardData } from './types';
@@ -13,6 +12,18 @@ export interface KdsOrderCardProps extends KdsActions {
    * rest. The card then carries its own frozen name.
    */
   showFrozenStation?: boolean;
+  /** Shared clock from KdsBoard; cards mount no interval of their own. */
+  now: number;
+}
+
+const quantityFormatters = new Map<string, Intl.NumberFormat>();
+function getQuantityFormatter(language: string): Intl.NumberFormat {
+  let formatter = quantityFormatters.get(language);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(language, { maximumFractionDigits: 3 });
+    quantityFormatters.set(language, formatter);
+  }
+  return formatter;
 }
 const actionClass =
   'min-h-11 rounded-lg border border-line-strong px-3 py-2 text-sm font-medium disabled:opacity-50';
@@ -46,20 +57,12 @@ export function KdsOrderCard({
   onLine,
   busy = false,
   showFrozenStation = false,
+  now,
 }: KdsOrderCardProps) {
   const { t, i18n } = useTranslation(['kds', 'restaurants']);
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => {
-    const tick = () => setNow(Date.now());
-    tick();
-    const interval = setInterval(tick, 30_000);
-    return () => clearInterval(interval);
-  }, []);
   const created = Date.parse(order.createdAt);
-  const minutes = Number.isFinite(created)
-    ? Math.max(0, Math.floor(((now ?? created) - created) / 60_000))
-    : 0;
-  const quantity = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 3 });
+  const minutes = Number.isFinite(created) ? Math.max(0, Math.floor((now - created) / 60_000)) : 0;
+  const quantity = getQuantityFormatter(i18n.language);
   const observed = { id: order.id, expectedVersion: order.version };
   const valid = order.integrity === 'valid';
   const cancelled = order.status === 'cancelled';

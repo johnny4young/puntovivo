@@ -29,6 +29,10 @@ import {
   resolveTransferLotCustody,
 } from '../../services/pharmacy/transfer-custody.js';
 import type { EnqueueSyncContext } from '../../services/sync/enqueue.js';
+import {
+  recordControlledStockMovementsInFneLedger,
+  type FneLedgerMovement,
+} from '../pharmacy/fne.js';
 
 function assertAllocationTotal(allocated: number, required: number) {
   if (Math.abs(allocated - required) > QUANTITY_EPSILON) {
@@ -53,7 +57,7 @@ export function shipTransferItemLots(
     allocations: TransferItemInput['lotAllocations'];
     deferred: boolean;
     now: string;
-    businessDate?: string;
+    businessDate: string;
     actorId: string;
     syncContext: Omit<EnqueueSyncContext, 'db'>;
   }
@@ -69,10 +73,10 @@ export function shipTransferItemLots(
     productId: input.productId,
     allocations: requested,
     now: input.now,
-    ...(input.businessDate ? { businessDate: input.businessDate } : {}),
+    businessDate: input.businessDate,
   });
 
-  return consumed.map(source => {
+  const shipped = consumed.map(source => {
     const id = nanoid();
     let destinationLotId: string | null = null;
     let destinationSnapshot: ReturnType<typeof receiveInventoryLot> | null = null;
@@ -149,6 +153,38 @@ export function shipTransferItemLots(
       totalCost: source.totalCost,
     };
   });
+  const fneScope = {
+    tenantId: input.tenantId,
+    productId: input.productId,
+    businessDate: input.businessDate,
+    actorId: input.actorId,
+    occurredAt: input.now,
+  };
+  recordControlledStockMovementsInFneLedger(
+    tx,
+    { ...fneScope, siteId: input.fromSiteId },
+    shipped.map(lot => ({
+      lotId: lot.sourceLotId,
+      lotNumber: lot.lotNumber,
+      movementType: 'transfer_out' as const,
+      quantityDelta: -lot.quantity,
+      notes: input.transferOrderItemId,
+    }))
+  );
+  if (!input.deferred) {
+    recordControlledStockMovementsInFneLedger(
+      tx,
+      { ...fneScope, siteId: input.toSiteId },
+      shipped.map(lot => ({
+        lotId: lot.destinationLotId,
+        lotNumber: lot.lotNumber,
+        movementType: 'transfer_in' as const,
+        quantityDelta: lot.quantity,
+        notes: input.transferOrderItemId,
+      }))
+    );
+  }
+  return shipped;
 }
 
 export function receiveTransferItemLots(
@@ -160,7 +196,7 @@ export function receiveTransferItemLots(
     productId: string;
     requested?: readonly { transferItemLotId: string; receivedQuantity: number }[] | undefined;
     now: string;
-    businessDate?: string;
+    businessDate: string;
     actorId: string;
     syncContext: Omit<EnqueueSyncContext, 'db'>;
   }
@@ -317,6 +353,26 @@ export function receiveTransferItemLots(
     };
   });
 
+  recordControlledStockMovementsInFneLedger(
+    tx,
+    {
+      tenantId: input.tenantId,
+      siteId: input.toSiteId,
+      productId: input.productId,
+      businessDate: input.businessDate,
+      actorId: input.actorId,
+      occurredAt: input.now,
+    },
+    lots
+      .filter(lot => lot.receivedQuantity > 0)
+      .map(lot => ({
+        lotId: lot.destinationLotId,
+        lotNumber: lot.lotNumber,
+        movementType: 'transfer_in' as const,
+        quantityDelta: lot.receivedQuantity,
+        notes: input.transferOrderItemId,
+      }))
+  );
   return {
     lots,
     receivedQuantity,
@@ -393,7 +449,8 @@ export function voidTransferItemLots(
     productId: string;
     wasInTransit: boolean;
     now: string;
-    businessDate?: string;
+    businessDate: string;
+    actorId: string;
   }
 ): string[] {
   const rows = tx
@@ -441,6 +498,8 @@ export function voidTransferItemLots(
 
   const changedLotIds = new Set<string>();
   const returningStatusByRowId = new Map<string, InventoryLotStatus>();
+  const destinationReversals: FneLedgerMovement[] = [];
+  const sourceRestorations: FneLedgerMovement[] = [];
   if (!input.wasInTransit) {
     for (const row of rows) {
       if ((row.receivedQuantity ?? 0) <= 0) continue;
@@ -456,6 +515,13 @@ export function voidTransferItemLots(
         })
       );
       changedLotIds.add(row.destinationLotId!);
+      destinationReversals.push({
+        lotId: row.destinationLotId,
+        lotNumber: row.lotNumberSnapshot,
+        movementType: 'transfer_out',
+        quantityDelta: -row.receivedQuantity!,
+        notes: input.transferOrderItemId,
+      });
     }
   }
 
@@ -492,7 +558,31 @@ export function voidTransferItemLots(
       ...(input.businessDate ? { businessDate: input.businessDate } : {}),
     });
     changedLotIds.add(row.sourceLotId);
+    sourceRestorations.push({
+      lotId: row.sourceLotId,
+      lotNumber: row.lotNumberSnapshot,
+      movementType: 'transfer_in',
+      quantityDelta: returningQuantity,
+      notes: input.transferOrderItemId,
+    });
   }
+  const fneScope = {
+    tenantId: input.tenantId,
+    productId: input.productId,
+    businessDate: input.businessDate,
+    actorId: input.actorId,
+    occurredAt: input.now,
+  };
+  recordControlledStockMovementsInFneLedger(
+    tx,
+    { ...fneScope, siteId: input.toSiteId },
+    destinationReversals
+  );
+  recordControlledStockMovementsInFneLedger(
+    tx,
+    { ...fneScope, siteId: input.fromSiteId },
+    sourceRestorations
+  );
   return [...changedLotIds];
 }
 

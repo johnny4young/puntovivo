@@ -9,11 +9,13 @@ import { TRPCError } from '@trpc/server';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
-import { createProductForImport } from '../products/index.js';
-import { recordInventoryEntry } from '../inventory/index.js';
+import { createProductForImport, type ProductImportCache } from '../products/index.js';
+import { recordInventoryEntryForImport } from '../inventory/index.js';
 import { products, units, vatRates } from '../../db/schema.js';
+import { resolveTenantCurrency } from '../../lib/currency.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
+import { getDefaultUnitAssignments } from '../../services/products/mutation-helpers.js';
 import type {
   CommitLaunchProductImportInput,
   ImportDecimalFormat,
@@ -450,6 +452,29 @@ export async function commitLaunchProductImport(
   }
 
   const importId = nanoid();
+  const hasReadyRows = preview.rows.some(row => row.status === 'ready');
+  let importCache: ProductImportCache | undefined;
+  if (hasReadyRows) {
+    const defaultAssignments = await getDefaultUnitAssignments(ctx.db, ctx.tenantId, 0);
+    const [activeUnits, activeVatRates] = await Promise.all([
+      ctx.db
+        .select({ id: units.id })
+        .from(units)
+        .where(and(eq(units.tenantId, ctx.tenantId), eq(units.isActive, true)))
+        .all(),
+      ctx.db
+        .select({ id: vatRates.id, rate: vatRates.rate, kind: vatRates.kind })
+        .from(vatRates)
+        .where(and(eq(vatRates.tenantId, ctx.tenantId), eq(vatRates.isActive, true)))
+        .all(),
+    ]);
+    importCache = {
+      defaultUnitId: defaultAssignments[0]!.unitId,
+      activeUnitIds: new Set(activeUnits.map(unit => unit.id)),
+      vatRatesById: new Map(activeVatRates.map(rate => [rate.id, rate])),
+      currencyCode: resolveTenantCurrency(ctx.db, ctx.tenantId),
+    };
+  }
   const importedRows: Array<{
     rowNumber: number;
     productId: string;
@@ -464,44 +489,50 @@ export async function commitLaunchProductImport(
   for (const row of preview.rows) {
     if (row.status !== 'ready') continue;
     try {
-      const created = await createProductForImport(ctx, {
-        name: row.normalized.name,
-        sku: row.normalized.sku,
-        description: row.normalized.description,
-        price: row.normalized.price,
-        price2: row.normalized.price2,
-        price3: row.normalized.price3,
-        cost: row.normalized.cost,
-        marginPercent1: 0,
-        marginPercent2: 0,
-        marginPercent3: 0,
-        marginAmount1: 0,
-        marginAmount2: 0,
-        marginAmount3: 0,
-        taxRate: row.normalized.taxRate,
-        vatRateId: row.normalized.vatRateId,
-        initialCost: row.normalized.cost,
-        stock: 0,
-        minStock: row.normalized.minStock,
-        sellByFraction: false,
-        tracksStock: row.normalized.tracksStock,
-        tracksLots: row.normalized.tracksLots,
-        tracksSerials: false,
-        isActive: true,
-        barcode: row.normalized.barcode,
-        unitAssignments: row.normalized.unitId
-          ? [
-              {
-                unitId: row.normalized.unitId,
-                equivalence: 1,
-                price: row.normalized.price,
-                price2: row.normalized.price2,
-                price3: row.normalized.price3,
-                isBase: true,
-              },
-            ]
-          : undefined,
-      });
+      const created = await createProductForImport(
+        ctx,
+        {
+          name: row.normalized.name,
+          sku: row.normalized.sku,
+          description: row.normalized.description,
+          price: row.normalized.price,
+          price2: row.normalized.price2,
+          price3: row.normalized.price3,
+          cost: row.normalized.cost,
+          marginPercent1: 0,
+          marginPercent2: 0,
+          marginPercent3: 0,
+          marginAmount1: 0,
+          marginAmount2: 0,
+          marginAmount3: 0,
+          taxRate: row.normalized.taxRate,
+          vatRateId: row.normalized.vatRateId,
+          initialCost: row.normalized.cost,
+          stock: 0,
+          minStock: row.normalized.minStock,
+          sellByFraction: false,
+          tracksStock: row.normalized.tracksStock,
+          tracksLots: row.normalized.tracksLots,
+          tracksSerials: false,
+          isReturnableContainer: false,
+          returnableDepositAmount: 0,
+          isActive: true,
+          barcode: row.normalized.barcode,
+          unitAssignments: row.normalized.unitId
+            ? [
+                {
+                  unitId: row.normalized.unitId,
+                  equivalence: 1,
+                  price: row.normalized.price,
+                  price2: row.normalized.price2,
+                  price3: row.normalized.price3,
+                  isBase: true,
+                },
+              ]
+            : undefined,
+        },
+        importCache
+      );
 
       const issues: ProductImportIssue[] = [];
       // Count only durable opening-ledger entries. A product with zero (or
@@ -514,7 +545,7 @@ export async function commitLaunchProductImport(
           issues.push({ code: 'stock_failed', field: 'stock' });
         } else {
           try {
-            await recordInventoryEntry(ctx, {
+            await recordInventoryEntryForImport(ctx, {
               productId: created.id,
               unitId: baseUnit.unitId,
               mode: 'initial',

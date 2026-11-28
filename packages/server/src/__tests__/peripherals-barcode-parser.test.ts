@@ -209,4 +209,15 @@ describe('parseScan top-level', () => {
     expect(result.kind).toBe('gs1-weight');
     expect(result.weightKg).toBe(0.199);
   });
+
+  it('supports gs1PriceDivisor=1 for whole-peso COP/CLP scale labels and defaults to 100 for cents', () => {
+    const wholePesos = parseScan('2112345125009', { gs1PriceDivisor: 1 });
+    expect(wholePesos.kind).toBe('gs1-price');
+    expect(wholePesos.lookupCode).toBe('12345');
+    expect(wholePesos.priceMajor).toBe(12500);
+
+    const cents = parseScan('2112345125009', { gs1PriceDivisor: 100 });
+    expect(cents.kind).toBe('gs1-price');
+    expect(cents.priceMajor).toBe(125);
+  });
 });

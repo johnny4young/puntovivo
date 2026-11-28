@@ -36,7 +36,12 @@ const hardBlocked = (requirement: PharmacyTicketRequirement) =>
   requirement.blockedErrorCode !== 'PHARMACY_CUSTOMER_REQUIRED';
 
 function lineStatus(requirement: PharmacyTicketRequirement): PharmacyLineStatus | null {
-  if (requirement.classification === 'controlled') return null;
+  if (
+    requirement.classification === 'controlled' &&
+    requirement.blockedErrorCode === 'PHARMACY_CONTROLLED_NOT_ENABLED'
+  ) {
+    return null;
+  }
   if (hardBlocked(requirement)) return { kind: 'blocked' };
   if (!requirement.evidenceRequired) return null;
   const covered = selectedEvidenceCoversRequirement(

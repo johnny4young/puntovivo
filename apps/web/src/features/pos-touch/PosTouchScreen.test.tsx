@@ -69,6 +69,11 @@ let mockDineInActive = true;
 let productFetchOverride: ((input: { id: string }) => Promise<Record<string, unknown>>) | null =
   null;
 const createMutate = vi.fn(async (_input: unknown) => ({ id: 'sale-1' }) as { id: string });
+const openCashMutate = vi.fn(async (_input: unknown) => ({
+  id: 'session-new',
+  registerName: 'Caja 1',
+  openingFloat: 50000,
+}));
 const invalidateCash = vi.fn();
 const invalidateProducts = vi.fn();
 const toastSuccess = vi.fn();
@@ -80,19 +85,128 @@ const toastWarning = vi.fn();
 // pull in the desktop bridge or fetch the envelope header.
 vi.mock('@/lib/useCriticalMutation', () => ({
   useCriticalMutation: (
-    _path: string,
+    path: string,
     opts?: {
       onSuccess?: (data: unknown, variables: unknown) => unknown | Promise<unknown>;
       onError?: (err: unknown) => unknown;
     }
   ) => ({
     mutateAsync: async (input: unknown) => {
-      const result = await createMutate(input);
+      const fn = path === 'cashSessions.open' ? openCashMutate : createMutate;
+      const result = await fn(input);
       await opts?.onSuccess?.(result, input);
       return result;
     },
     isPending: false,
   }),
+}));
+
+vi.mock('@/features/sales/SalePaymentModal', () => ({
+  SalePaymentModal: ({
+    isOpen,
+    total,
+    approvalCustomerId,
+    onClose,
+    onSubmit,
+  }: {
+    isOpen: boolean;
+    total: number;
+    approvalCustomerId?: string | null;
+    onClose: () => void;
+    onSubmit: (values: Record<string, unknown>) => Promise<void>;
+  }) =>
+    isOpen ? (
+      <div role="dialog" data-testid="mock-touch-payment-modal">
+        <button
+          type="button"
+          data-testid="mock-touch-confirm-cash"
+          onClick={() =>
+            void onSubmit({
+              customerId: approvalCustomerId ?? '',
+              paymentMethod: 'cash',
+              amountReceived: total,
+              tenders: [],
+              notes: '',
+            })
+          }
+        >
+          Confirm cash
+        </button>
+        <button
+          type="button"
+          data-testid="mock-touch-confirm-card"
+          onClick={() =>
+            void onSubmit({
+              customerId: approvalCustomerId ?? '',
+              paymentMethod: 'card',
+              amountReceived: total,
+              tenders: [],
+              notes: '',
+            })
+          }
+        >
+          Confirm card
+        </button>
+        <button
+          type="button"
+          data-testid="mock-touch-confirm-invoice"
+          onClick={() =>
+            void onSubmit({
+              customerId: approvalCustomerId ?? '',
+              paymentMethod: 'cash',
+              amountReceived: total,
+              tenders: [],
+              notes: '',
+              electronicInvoice: {
+                buyer: {
+                  name: 'Ferretería La 14 SAS',
+                  identificationTypeCode: '31',
+                  identificationNumber: '900373115-3',
+                  email: 'compras@la14.co',
+                },
+              },
+            })
+          }
+        >
+          Confirm with invoice
+        </button>
+        <button type="button" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    ) : null,
+}));
+
+vi.mock('@/features/sales/CashSessionOpenModal', () => ({
+  CashSessionOpenModal: ({
+    isOpen,
+    onSubmit,
+    onClose,
+  }: {
+    isOpen: boolean;
+    onSubmit: (values: {
+      registerName: string;
+      openingFloat: number;
+      denominations: [];
+    }) => Promise<void>;
+    onClose: () => void;
+  }) =>
+    isOpen ? (
+      <div role="dialog" data-testid="mock-touch-open-cash-modal">
+        <button
+          type="button"
+          data-testid="mock-touch-open-cash-confirm"
+          onClick={() =>
+            void onSubmit({ registerName: 'Caja Táctil', openingFloat: 50000, denominations: [] })
+          }
+        >
+          Open
+        </button>
+        <button type="button" onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    ) : null,
 }));
 
 vi.mock('@/lib/trpc', () => ({
@@ -228,6 +342,10 @@ vi.mock('@/lib/trpc', () => ({
         pace: { invalidate: vi.fn() },
         report: { invalidate: vi.fn() },
         registerAssignments: { invalidate: vi.fn() },
+      },
+      employeeShifts: {
+        current: { invalidate: vi.fn() },
+        attendance: { list: { invalidate: vi.fn() } },
       },
       sales: {
         list: { invalidate: vi.fn() },
@@ -424,15 +542,49 @@ describe('PosTouchScreen', () => {
     );
   });
 
-  it('disables Charge sale when no cash session is open', () => {
+  it('offers in-situ cash session opening when no cash session is open', async () => {
+    const user = userEvent.setup();
     mockActiveSession = null;
     render(<PosTouchScreen />);
-    expect(screen.getByTestId('pos-touch-cart-charge')).toBeDisabled();
+    expect(screen.getByTestId('pos-touch-open-cash-session')).toBeEnabled();
     expect(screen.getByTestId('pos-touch-cart-charge-hint')).toHaveTextContent(
       'Open the cash register'
     );
     expect(screen.getByTestId('pos-touch-till-link')).toHaveAttribute('href', '/sales');
     expect(screen.getByTestId('pos-touch-till-link')).toHaveTextContent('Till and shift');
+
+    await user.click(screen.getByTestId('pos-touch-open-cash-session'));
+    await user.click(await screen.findByTestId('mock-touch-open-cash-confirm'));
+    expect(openCashMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ registerName: 'Caja Táctil', openingFloat: 50000 })
+    );
+  });
+
+  it('adjusts cart quantities with touch steppers and includes the unit name in remove labels', async () => {
+    const user = userEvent.setup();
+    render(<PosTouchScreen />);
+    await user.click(screen.getByTestId('pos-touch-tile-p-1'));
+    await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
+
+    const decBtn = screen.getByTestId('pos-touch-cart-line-p-1:p-1-unit-1-decrement');
+    const incBtn = screen.getByTestId('pos-touch-cart-line-p-1:p-1-unit-1-increment');
+    const removeBtn = screen.getByTestId('pos-touch-cart-line-p-1:p-1-unit-1-remove');
+    expect(decBtn).toBeDisabled();
+    expect(removeBtn).toHaveAttribute(
+      'aria-label',
+      expect.stringContaining('Arroz Diana 500g (UND)')
+    );
+
+    await user.click(incBtn);
+    expect(decBtn).toBeEnabled();
+    expect(
+      screen.getByTestId('pos-touch-cart-total').textContent?.replace(/[^0-9]/g, '')
+    ).toContain('6400');
+
+    await user.click(decBtn);
+    expect(
+      screen.getByTestId('pos-touch-cart-total').textContent?.replace(/[^0-9]/g, '')
+    ).toContain('3200');
   });
 
   it('hides voice ordering when dine-in is disabled', () => {
@@ -620,6 +772,7 @@ describe('PosTouchScreen', () => {
       expect(toastSuccess).not.toHaveBeenCalled();
 
       await user.click(screen.getByTestId('pos-touch-cart-charge'));
+      await user.click(await screen.findByTestId('mock-touch-confirm-cash'));
       const call = createMutate.mock.calls.at(0)?.at(0) as { items: Array<{ quantity: number }> };
       expect(call.items).toEqual([expect.objectContaining({ quantity: 0.5 })]);
       expect(screen.queryByTestId('weighed-item-panel')).not.toBeInTheDocument();
@@ -770,6 +923,7 @@ describe('PosTouchScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Sell Arroz Diana 500g by amount' }));
     expect(screen.getByTestId('sales-quick-value-form')).toBeInTheDocument();
     await user.click(screen.getByTestId('pos-touch-cart-charge'));
+    await user.click(await screen.findByTestId('mock-touch-confirm-cash'));
     await waitFor(() => expect(createMutate).toHaveBeenCalled());
     expect(screen.queryByTestId('sales-quick-value-form')).not.toBeInTheDocument();
   });
@@ -831,6 +985,7 @@ describe('PosTouchScreen', () => {
     ).toContain('2800');
 
     await user.click(screen.getByTestId('pos-touch-cart-charge'));
+    await user.click(await screen.findByTestId('mock-touch-confirm-cash'));
     expect(createMutate).toHaveBeenCalledWith(
       expect.objectContaining({
         customerId: 'cust-wholesale',
@@ -900,14 +1055,15 @@ describe('PosTouchScreen', () => {
     expect(screen.getByTestId('pos-touch-cart-loyalty-cta')).toHaveTextContent('Add points');
   });
 
-  it('fires sales.create with the correct payload shape when Charge sale is tapped', async () => {
+  it('opens the payment modal and supports card as well as cash tenders', async () => {
     const user = userEvent.setup();
     render(<PosTouchScreen />);
     await user.click(screen.getByTestId('pos-touch-tile-p-1'));
     await user.click(screen.getByTestId('pos-touch-cart-charge'));
+    await user.click(await screen.findByTestId('mock-touch-confirm-card'));
     expect(createMutate).toHaveBeenCalledTimes(1);
     const call = createMutate.mock.calls.at(0)?.at(0) as Record<string, unknown>;
-    expect(call.paymentMethod).toBe('cash');
+    expect(call.paymentMethod).toBe('card');
     expect(call.paymentStatus).toBe('paid');
     expect(call.status).toBe('completed');
     expect(call.priceTier).toBe(1);
@@ -958,6 +1114,7 @@ describe('PosTouchScreen', () => {
       id === 'p-2' ? secondProductHydration : hydrateProductForTest(id);
     await user.click(screen.getByTestId('pos-touch-tile-p-2'));
     await user.click(screen.getByTestId('pos-touch-cart-charge'));
+    await user.click(await screen.findByTestId('mock-touch-confirm-cash'));
 
     await waitFor(() => {
       expect(screen.getByTestId('pos-touch-cart')).toHaveAttribute('aria-busy', 'true');
@@ -990,9 +1147,7 @@ describe('PosTouchScreen', () => {
   });
 });
 
-describe('PosTouchScreen — customer asked for an electronic invoice', () => {
-  const toggleName = 'Electronic invoice';
-
+describe('PosTouchScreen — electronic invoice via payment modal', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     await i18next.changeLanguage('en');
@@ -1002,75 +1157,18 @@ describe('PosTouchScreen — customer asked for an electronic invoice', () => {
     mockCustomers = [];
     mockProducts = [makeProduct({ id: 'p-1', name: 'Arroz Diana 500g', price: 3200 })];
     mockCategories = [];
-    mockInvoiceAvailability = {
-      available: true,
-      identificationTypes: [
-        { code: '13', abbr: 'CC', nameEs: 'Cédula de ciudadanía', nameEn: 'Citizenship ID' },
-        {
-          code: '31',
-          abbr: 'NIT',
-          nameEs: 'Número de identificación tributaria',
-          nameEn: 'Tax ID',
-        },
-      ],
-    };
   });
 
-  function lastCharge(): Record<string, unknown> {
-    return createMutate.mock.calls.at(-1)?.at(0) as Record<string, unknown>;
-  }
-
-  it('hides the selector where the site cannot issue an invoice', async () => {
-    mockInvoiceAvailability = { available: false, identificationTypes: [] };
+  it('forwards electronic invoice payloads submitted from the payment modal', async () => {
     const user = userEvent.setup();
     render(<PosTouchScreen />);
     await user.click(screen.getByTestId('pos-touch-tile-p-1'));
     await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
-
-    expect(screen.queryByTestId('sale-electronic-invoice')).not.toBeInTheDocument();
     await user.click(screen.getByTestId('pos-touch-cart-charge'));
-    await waitFor(() => expect(createMutate).toHaveBeenCalledTimes(1));
-    expect(lastCharge()).not.toHaveProperty('electronicInvoice');
-  });
-
-  it('charges with the POS document and asks for no buyer data while the selector is off', async () => {
-    const user = userEvent.setup();
-    render(<PosTouchScreen />);
-    const toggle = await screen.findByRole('switch', { name: toggleName });
-    expect(toggle).not.toBeChecked();
-    expect(screen.queryByLabelText('Name or business name')).not.toBeInTheDocument();
-
-    await user.click(screen.getByTestId('pos-touch-tile-p-1'));
-    await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
-    await user.click(screen.getByTestId('pos-touch-cart-charge'));
+    await user.click(await screen.findByTestId('mock-touch-confirm-invoice'));
 
     await waitFor(() => expect(createMutate).toHaveBeenCalledTimes(1));
-    const charge = lastCharge();
-    expect(charge).not.toHaveProperty('electronicInvoice');
-    expect(charge).not.toHaveProperty('invoiceRequested');
-    expect(charge).not.toHaveProperty('invoiceBuyer');
-  });
-
-  it('requires the buyer once the selector is on, submits the request and clears it after the sale', async () => {
-    const user = userEvent.setup();
-    render(<PosTouchScreen />);
-    await user.click(screen.getByTestId('pos-touch-tile-p-1'));
-    await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
-
-    await user.click(await screen.findByRole('switch', { name: toggleName }));
-    expect(screen.getByLabelText('Name or business name')).toHaveClass('min-h-[44px]');
-    await user.click(screen.getByTestId('pos-touch-cart-charge'));
-    expect(await screen.findAllByText('Required')).toHaveLength(2);
-    expect(createMutate).not.toHaveBeenCalled();
-
-    await user.type(screen.getByLabelText('Name or business name'), '  Ferretería La 14 SAS ');
-    await user.selectOptions(screen.getByLabelText('ID type'), '31');
-    await user.type(screen.getByLabelText('ID number'), '900373115-3');
-    await user.type(screen.getByLabelText('Email to send it to'), ' compras@la14.co ');
-    await user.click(screen.getByTestId('pos-touch-cart-charge'));
-
-    await waitFor(() => expect(createMutate).toHaveBeenCalledTimes(1));
-    expect(lastCharge()).toMatchObject({
+    expect(createMutate.mock.calls.at(-1)?.at(0)).toMatchObject({
       paymentMethod: 'cash',
       status: 'completed',
       electronicInvoice: {
@@ -1082,91 +1180,5 @@ describe('PosTouchScreen — customer asked for an electronic invoice', () => {
         },
       },
     });
-    // The next walk-in sale must not inherit this buyer.
-    await waitFor(() => expect(screen.getByRole('switch', { name: toggleName })).not.toBeChecked());
-    expect(screen.queryByLabelText('Name or business name')).not.toBeInTheDocument();
-  });
-
-  it('drops the buyer when the cashier clears the ticket', async () => {
-    const user = userEvent.setup();
-    render(<PosTouchScreen />);
-    await user.click(screen.getByTestId('pos-touch-tile-p-1'));
-    await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
-    await user.click(await screen.findByRole('switch', { name: toggleName }));
-    await user.type(screen.getByLabelText('Name or business name'), 'Ferretería La 14 SAS');
-
-    await user.click(screen.getByTestId('pos-touch-cart-clear'));
-
-    expect(screen.getByRole('switch', { name: toggleName })).not.toBeChecked();
-    await user.click(screen.getByRole('switch', { name: toggleName }));
-    expect(screen.getByLabelText('Name or business name')).toHaveValue('');
-  });
-
-  it('drops the buyer when the active site changes', async () => {
-    const user = userEvent.setup();
-    const { rerender } = render(<PosTouchScreen />);
-    await user.click(await screen.findByRole('switch', { name: toggleName }));
-    await user.type(screen.getByLabelText('Name or business name'), 'Ferretería La 14 SAS');
-
-    mockSiteId = 'site-2';
-    rerender(<PosTouchScreen />);
-
-    await waitFor(() => expect(screen.getByRole('switch', { name: toggleName })).not.toBeChecked());
-  });
-
-  it('prefills the buyer from the customer attached on the touch cart', async () => {
-    mockCustomers = [
-      { id: 'cust-ana', name: 'Ana Gómez', taxId: '1020304050', email: 'ana@example.co' },
-    ];
-    const user = userEvent.setup();
-    render(<PosTouchScreen />);
-    await user.click(screen.getByTestId('pos-touch-tile-p-1'));
-    await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
-    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-ana');
-
-    await user.click(await screen.findByRole('switch', { name: toggleName }));
-    expect(screen.getByLabelText('Name or business name')).toHaveValue('Ana Gómez');
-    expect(screen.getByLabelText('ID number')).toHaveValue('1020304050');
-    await user.click(screen.getByTestId('pos-touch-cart-charge'));
-
-    await waitFor(() => expect(createMutate).toHaveBeenCalledTimes(1));
-    expect(lastCharge()).toMatchObject({
-      customerId: 'cust-ana',
-      electronicInvoice: {
-        buyer: {
-          name: 'Ana Gómez',
-          identificationTypeCode: '13',
-          identificationNumber: '1020304050',
-          email: 'ana@example.co',
-        },
-      },
-    });
-  });
-
-  it('locks the buyer fields while the charge is in flight', async () => {
-    let resolveCharge: ((value: { id: string }) => void) | undefined;
-    createMutate.mockImplementationOnce(
-      () =>
-        new Promise<{ id: string }>(resolve => {
-          resolveCharge = resolve;
-        })
-    );
-    const user = userEvent.setup();
-    render(<PosTouchScreen />);
-    await user.click(screen.getByTestId('pos-touch-tile-p-1'));
-    await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
-    await user.click(await screen.findByRole('switch', { name: toggleName }));
-    await user.type(screen.getByLabelText('Name or business name'), 'Ana Gómez');
-    await user.type(screen.getByLabelText('ID number'), '1020304050');
-    await user.click(screen.getByTestId('pos-touch-cart-charge'));
-
-    await waitFor(() => expect(screen.getByRole('switch', { name: toggleName })).toBeDisabled());
-    expect(screen.getByLabelText('Name or business name')).toBeDisabled();
-
-    await act(async () => {
-      resolveCharge?.({ id: 'sale-invoice' });
-      await Promise.resolve();
-    });
-    await waitFor(() => expect(screen.getByRole('switch', { name: toggleName })).toBeEnabled());
   });
 });

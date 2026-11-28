@@ -47,6 +47,11 @@
       "title": "GS1 weight and price labels",
       "help": "Assign each in-store prefix to the value encoded by this site's scale. Unused prefixes are treated as ordinary barcodes.",
       "scheme": "Label scheme",
+      "priceDivisor": "Price label scale",
+      "priceDivisors": {
+        "100": "Cents (÷100 · e.g. 12500 → 125.00)",
+        "1": "Whole pesos (÷1 · e.g. 12500 → 12,500)"
+      },
       "prefix": "Prefix {{prefix}}",
       "invalid": "The GS1 prefix configuration is invalid. Assign at least one prefix and do not reuse a prefix for weight and price.",
       "schemes": {

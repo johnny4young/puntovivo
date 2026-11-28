@@ -25,7 +25,12 @@
 
 import type { FiscalAdapter, FiscalAdapterMaturity } from './adapter.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { ChileSIIAdapter, ColombiaMockAdapter, MexicoCFDIAdapter } from './packs/index.js';
+import {
+  ChileSIIAdapter,
+  COLOMBIA_DIAN_DIRECT_PROVIDER_ID,
+  ColombiaMockAdapter,
+  MexicoCFDIAdapter,
+} from './packs/index.js';
 
 /**
  * ISO 3166-1 alpha-2 codes the registry knows how to dispatch.
@@ -150,12 +155,13 @@ export function listFiscalAdapterCountries(): ReadonlyArray<{
 const PROVIDER_DESCRIPTORS: ReadonlyMap<
   string,
   { maturity: FiscalAdapterMaturity; countryCode: SupportedFiscalCountry }
-> = new Map(
-  (Object.keys(ADAPTER_FACTORIES) as SupportedFiscalCountry[]).map(code => {
+> = new Map([
+  ...(Object.keys(ADAPTER_FACTORIES) as SupportedFiscalCountry[]).map(code => {
     const adapter = ADAPTER_FACTORIES[code]();
     return [adapter.providerId, { maturity: adapter.maturity, countryCode: code }] as const;
-  })
-);
+  }),
+  [COLOMBIA_DIAN_DIRECT_PROVIDER_ID, { maturity: 'draft', countryCode: 'CO' }] as const,
+]);
 
 export function describeFiscalProvider(
   providerId: string
