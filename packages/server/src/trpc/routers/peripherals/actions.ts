@@ -19,6 +19,7 @@ import type {
   ReceiptPrinterAdapter,
 } from '../../../services/peripherals/index.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
+import { assertCanViewSaleDraft } from '../../../application/sales/draft-ownership.js';
 import { escposReceiptPrinterConfigSchema } from '../../../services/peripherals/drivers/escpos-receipt-printer.js';
 import {
   renderSaleReceiptTemplate,
@@ -65,6 +66,18 @@ export const peripheralsActionProcedures = {
       // Cross-tenant guard. Throws SALE_NOT_FOUND for foreign ids.
       const sale = await getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
       await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      if (ctx.user) {
+        assertCanViewSaleDraft(
+          ctx.db,
+          {
+            tenantId: ctx.tenantId,
+            siteId: input.siteId,
+            userId: ctx.user.id,
+            role: ctx.user.role,
+          },
+          sale
+        );
+      }
 
       // Find the active printer peripheral for the active site.
       const printerRow = await ctx.db

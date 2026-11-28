@@ -701,6 +701,9 @@ describe('pre-release QA audit regressions', () => {
       await expect(
         caller.peripherals.buildReceiptBytes({ saleId: draftId, siteId: siteAId })
       ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      await expect(
+        caller.peripherals.printReceipt({ saleId: draftId, siteId: siteAId })
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     }
   });
 

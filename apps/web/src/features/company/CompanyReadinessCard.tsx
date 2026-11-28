@@ -76,7 +76,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
   const toast = useToast();
   const utils = trpc.useUtils();
   const navigate = useNavigate();
-  const { route: sellingRoute } = useSellingRoute();
+  const { route: sellingRoute, isResolving: isResolvingSellingRoute } = useSellingRoute();
   const [searchParams, setSearchParams] = useSearchParams();
   const readinessQuery = trpc.setupReadiness.get.useQuery(undefined, {
     staleTime: 60_000,
@@ -277,7 +277,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
               <PrimaryTaskButton
                 className="shrink-0 bg-white text-slate-950 hover:bg-slate-100"
                 onClick={continueToSales}
-                disabled={acknowledgeMutation.isPending}
+                disabled={acknowledgeMutation.isPending || isResolvingSellingRoute}
                 data-testid={
                   readinessQuery.data.acknowledgedAt === null
                     ? 'company-readiness-acknowledge'
