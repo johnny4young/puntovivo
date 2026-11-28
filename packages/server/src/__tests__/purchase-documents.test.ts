@@ -533,6 +533,33 @@ describe('Purchase documents', () => {
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
+  it('rejects cashiers on every document procedure', async () => {
+    const purchaseId = await insertPurchaseRow();
+    const cashier = appRouter.createCaller(createTestContext('cashier'));
+    const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+    await expect(
+      cashier.purchases.setDocument({ purchaseId, documentType: 'invoice', documentNumber: 'X-1' })
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(
+      cashier.purchases.attachDocument({
+        purchaseId,
+        mimeType: 'image/png',
+        documentBase64: pngBytes.toString('base64'),
+      })
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(cashier.purchases.getDocument({ purchaseId })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+
+    const stored = getDatabase()
+      .select({ id: purchaseDocuments.id })
+      .from(purchaseDocuments)
+      .where(eq(purchaseDocuments.purchaseId, purchaseId))
+      .get();
+    expect(stored).toBeUndefined();
+  });
+
   it('rejects an empty payload and an unknown purchase', async () => {
     const purchaseId = await insertPurchaseRow();
     const caller = appRouter.createCaller(createTestContext('manager'));
