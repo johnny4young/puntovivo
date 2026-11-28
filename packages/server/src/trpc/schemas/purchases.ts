@@ -7,7 +7,15 @@
  */
 
 import { z } from 'zod';
+import {
+  PURCHASE_DOCUMENT_MAX_BYTES,
+  PURCHASE_DOCUMENT_MIME_TYPES,
+  PURCHASE_DOCUMENT_TYPES,
+  type PurchaseDocumentMimeType,
+} from '@puntovivo/shared/purchase-documents';
 import { isoDateField, paginationInput } from './common.js';
+
+export { PURCHASE_DOCUMENT_MAX_BYTES, PURCHASE_DOCUMENT_MIME_TYPES, type PurchaseDocumentMimeType };
 
 export const purchaseStatusEnum = z.enum([
   'draft',
@@ -17,18 +25,7 @@ export const purchaseStatusEnum = z.enum([
   'voided',
 ]);
 
-export const purchaseDocumentTypeEnum = z.enum(['invoice', 'remision', 'other']);
-
-/** Mirrors the invoice-OCR upload budget: a supporting paper for one
- * purchase never needs more headroom than the OCR intake allows. */
-export const PURCHASE_DOCUMENT_MIME_TYPES = [
-  'application/pdf',
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-] as const;
-export type PurchaseDocumentMimeType = (typeof PURCHASE_DOCUMENT_MIME_TYPES)[number];
-export const PURCHASE_DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
+export const purchaseDocumentTypeEnum = z.enum(PURCHASE_DOCUMENT_TYPES);
 
 const dataUrlPrefix = /^data:[^;]+;base64,/;
 

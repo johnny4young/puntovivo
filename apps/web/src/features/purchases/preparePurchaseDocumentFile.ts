@@ -1,7 +1,12 @@
-const ACCEPTED_MIME = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'] as const;
-export type AcceptedPurchaseDocumentMime = (typeof ACCEPTED_MIME)[number];
+import {
+  isPurchaseDocumentMimeType,
+  PURCHASE_DOCUMENT_MAX_BYTES,
+  PURCHASE_DOCUMENT_MIME_TYPES,
+  type PurchaseDocumentMimeType,
+} from '@puntovivo/shared/purchase-documents';
 
-export const PURCHASE_DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
+export type AcceptedPurchaseDocumentMime = PurchaseDocumentMimeType;
+export { PURCHASE_DOCUMENT_MAX_BYTES };
 export const PURCHASE_IMAGE_MAX_LONG_SIDE_PX = 1600;
 export const PURCHASE_IMAGE_QUALITY = 0.8;
 
@@ -10,11 +15,11 @@ const dataUrlPrefix = /^data:[^;]+;base64,/;
 export function isAcceptedPurchaseDocumentMime(
   mimeType: string
 ): mimeType is AcceptedPurchaseDocumentMime {
-  return ACCEPTED_MIME.includes(mimeType as AcceptedPurchaseDocumentMime);
+  return isPurchaseDocumentMimeType(mimeType);
 }
 
 export function getAcceptedPurchaseDocumentMimes(): readonly AcceptedPurchaseDocumentMime[] {
-  return ACCEPTED_MIME;
+  return PURCHASE_DOCUMENT_MIME_TYPES;
 }
 
 function replaceExtension(fileName: string, mimeType: 'image/webp' | 'image/jpeg'): string {

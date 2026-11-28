@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "69028e5d-6417-4168-bd12-b18f83ff5949",
+  "id": "e8519c75-c51d-489f-8b07-12b05886d9fa",
   "prevId": "f988d986-456b-480b-ba31-acfc3a225289",
   "tables": {
     "account_recovery_codes": {
@@ -11518,6 +11518,132 @@
         }
       }
     },
+    "provider_payable_invoice_purchases": {
+      "name": "provider_payable_invoice_purchases",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "invoice_id": {
+          "name": "invoice_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "purchase_id": {
+          "name": "purchase_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sync_status": {
+          "name": "sync_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "sync_version": {
+          "name": "sync_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_provider_payable_invoice_purchases_tenant": {
+          "name": "idx_provider_payable_invoice_purchases_tenant",
+          "columns": [
+            "tenant_id",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "idx_provider_payable_invoice_purchases_invoice": {
+          "name": "idx_provider_payable_invoice_purchases_invoice",
+          "columns": [
+            "invoice_id"
+          ],
+          "isUnique": false
+        },
+        "idx_provider_payable_invoice_purchases_purchase": {
+          "name": "idx_provider_payable_invoice_purchases_purchase",
+          "columns": [
+            "tenant_id",
+            "purchase_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "provider_payable_invoice_purchases_tenant_id_tenants_id_fk": {
+          "name": "provider_payable_invoice_purchases_tenant_id_tenants_id_fk",
+          "tableFrom": "provider_payable_invoice_purchases",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "provider_payable_invoice_purchases_invoice_id_provider_payable_invoices_id_fk": {
+          "name": "provider_payable_invoice_purchases_invoice_id_provider_payable_invoices_id_fk",
+          "tableFrom": "provider_payable_invoice_purchases",
+          "tableTo": "provider_payable_invoices",
+          "columnsFrom": [
+            "invoice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "provider_payable_invoice_purchases_purchase_id_purchases_id_fk": {
+          "name": "provider_payable_invoice_purchases_purchase_id_purchases_id_fk",
+          "tableFrom": "provider_payable_invoice_purchases",
+          "tableTo": "purchases",
+          "columnsFrom": [
+            "purchase_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "provider_payable_invoices": {
       "name": "provider_payable_invoices",
       "columns": {
@@ -11590,6 +11716,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "tax_amount": {
+          "name": "tax_amount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
         },
         "notes": {
           "name": "notes",
@@ -11743,6 +11877,14 @@
         "chk_provider_payable_invoices_amount_2dec": {
           "name": "chk_provider_payable_invoices_amount_2dec",
           "value": "round(\"provider_payable_invoices\".\"amount\", 2) = \"provider_payable_invoices\".\"amount\""
+        },
+        "chk_provider_payable_invoices_tax_nonneg": {
+          "name": "chk_provider_payable_invoices_tax_nonneg",
+          "value": "\"provider_payable_invoices\".\"tax_amount\" >= 0"
+        },
+        "chk_provider_payable_invoices_tax_2dec": {
+          "name": "chk_provider_payable_invoices_tax_2dec",
+          "value": "round(\"provider_payable_invoices\".\"tax_amount\", 2) = \"provider_payable_invoices\".\"tax_amount\""
         }
       }
     },
@@ -11921,151 +12063,6 @@
           "value": "round(\"provider_payable_payments\".\"amount\", 2) = \"provider_payable_payments\".\"amount\""
         }
       }
-    },
-    "purchase_documents": {
-      "name": "purchase_documents",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "purchase_id": {
-          "name": "purchase_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "file_name": {
-          "name": "file_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "mime_type": {
-          "name": "mime_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "size_bytes": {
-          "name": "size_bytes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "payload": {
-          "name": "payload",
-          "type": "blob",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "payload_hash": {
-          "name": "payload_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "uploaded_by": {
-          "name": "uploaded_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        }
-      },
-      "indexes": {
-        "idx_purchase_documents_tenant_created": {
-          "name": "idx_purchase_documents_tenant_created",
-          "columns": [
-            "tenant_id",
-            "created_at"
-          ],
-          "isUnique": false
-        },
-        "idx_purchase_documents_payload_hash": {
-          "name": "idx_purchase_documents_payload_hash",
-          "columns": [
-            "payload_hash"
-          ],
-          "isUnique": false
-        },
-        "idx_purchase_documents_tenant_purchase": {
-          "name": "idx_purchase_documents_tenant_purchase",
-          "columns": [
-            "tenant_id",
-            "purchase_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "purchase_documents_tenant_id_tenants_id_fk": {
-          "name": "purchase_documents_tenant_id_tenants_id_fk",
-          "tableFrom": "purchase_documents",
-          "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "purchase_documents_purchase_id_purchases_id_fk": {
-          "name": "purchase_documents_purchase_id_purchases_id_fk",
-          "tableFrom": "purchase_documents",
-          "tableTo": "purchases",
-          "columnsFrom": [
-            "purchase_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "purchase_documents_uploaded_by_users_id_fk": {
-          "name": "purchase_documents_uploaded_by_users_id_fk",
-          "tableFrom": "purchase_documents",
-          "tableTo": "users",
-          "columnsFrom": [
-            "uploaded_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
     },
     "purchase_item_lots": {
       "name": "purchase_item_lots",
@@ -13055,20 +13052,6 @@
         },
         "notes": {
           "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "document_type": {
-          "name": "document_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "document_number": {
-          "name": "document_number",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

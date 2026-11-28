@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
   buildRendererContentSecurityPolicy,
+  isChromiumPdfViewerUrl,
   isFastifyApiResponse,
   resolveLocalApiOrigin,
 } from '../renderer-security-headers.ts';
@@ -99,5 +100,17 @@ describe('renderer security headers', () => {
       sentryDsn: 'not-a-dsn',
     });
     assert.equal(malformed, withoutDsn);
+  });
+
+  it('matches only Chromium built-in PDF viewer extension URLs', () => {
+    assert.equal(
+      isChromiumPdfViewerUrl('chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/index.html'),
+      true
+    );
+    assert.equal(
+      isChromiumPdfViewerUrl('chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/index.html'),
+      false
+    );
+    assert.equal(isChromiumPdfViewerUrl('http://localhost:3000/purchases'), false);
   });
 });

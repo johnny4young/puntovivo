@@ -1,8 +1,15 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import test from 'node:test';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-import { inspectMigrationChain, readMigrationChain } from './check-migration-chain.mjs';
+import {
+  inspectMigrationChain,
+  isMainModule,
+  readMigrationChain,
+} from './check-migration-chain.mjs';
 
 /** A minimal sound chain: two migrations, two snapshots, linked. */
 function soundChain() {
@@ -82,4 +89,36 @@ test('the repository chain itself is sound', () => {
   // The gate must agree with the tree it ships in, or it is decoration.
   const folder = resolve(process.cwd(), 'packages/server/src/db/migrations');
   assert.deepEqual(inspectMigrationChain(readMigrationChain(folder)), []);
+});
+
+const GATE = resolve(import.meta.dirname, 'check-migration-chain.mjs');
+
+test('the entry guard recognises the script itself, symlinks included', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'chain-gate-'));
+  try {
+    const moduleUrl = pathToFileURL(GATE).href;
+    assert.equal(isMainModule(GATE, moduleUrl), true);
+    assert.equal(isMainModule(undefined, moduleUrl), false);
+    assert.equal(isMainModule(join(dir, 'missing.mjs'), moduleUrl), false);
+    assert.equal(isMainModule(import.meta.filename, moduleUrl), false);
+    try {
+      const link = join(dir, 'gate.mjs');
+      symlinkSync(GATE, link);
+      assert.equal(isMainModule(link, moduleUrl), true);
+    } catch (error) {
+      // Symlinks can need elevated rights on Windows: the direct case still counts.
+      if (error?.code !== 'EPERM') throw error;
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('reading a folder without a chain fails instead of reporting a sound one', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'chain-gate-empty-'));
+  try {
+    assert.throws(() => readMigrationChain(dir));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

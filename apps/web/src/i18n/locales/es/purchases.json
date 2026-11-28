@@ -207,6 +207,7 @@
     "errorTooLarge": "El archivo supera el límite de 10 MB",
     "errorUnsupportedType": "Solo se permiten archivos PDF, PNG, JPEG o WebP",
     "previewTitle": "Vista previa del documento",
+    "defaultFileName": "documento",
     "close": "Cerrar",
     "download": "Descargar"
   }

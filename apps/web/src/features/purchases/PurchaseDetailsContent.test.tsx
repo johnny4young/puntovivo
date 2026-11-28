@@ -289,4 +289,99 @@ describe('PurchaseDetailsContent lot evidence', () => {
     expect(listInvalidateMock).toHaveBeenCalled();
     expect(getByIdInvalidateMock).toHaveBeenCalled();
   });
+
+  it('renders an inline PDF iframe with a localized fallback filename and extension', async () => {
+    const createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:pdf-1');
+    const revokeObjectUrlSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    getDocumentFetchMock.mockResolvedValue({
+      fileName: null,
+      mimeType: 'application/pdf',
+      sizeBytes: 256,
+      documentBase64: btoa('%PDF-1.4\n%%EOF\n'),
+      payloadHash: 'def',
+      uploadedBy: 'user-1',
+      createdAt: '2030-01-01T12:00:00.000Z',
+    });
+
+    render(
+      <PurchaseDetailsContent
+        purchase={
+          {
+            ...purchase,
+            documentType: 'invoice',
+            documentNumber: 'FE-100',
+            document: {
+              fileName: null,
+              mimeType: 'application/pdf',
+              sizeBytes: 256,
+              createdAt: '2030-01-01T12:00:00.000Z',
+            },
+          } as Purchase
+        }
+        returnError={null}
+        voidError={null}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Ver documento adjunto/i }));
+
+    await waitFor(() => {
+      const iframe = screen.getByTitle('Vista previa del documento');
+      expect(iframe.tagName).toBe('IFRAME');
+      expect(iframe).toHaveAttribute('src', 'blob:pdf-1');
+    });
+    expect(screen.getByRole('link', { name: 'Descargar' })).toHaveAttribute(
+      'download',
+      'documento.pdf'
+    );
+    createObjectUrlSpy.mockRestore();
+    revokeObjectUrlSpy.mockRestore();
+  });
+
+  it('does not create an object URL if unmounted while getDocument is in flight', async () => {
+    let resolveFetch!: (value: unknown) => void;
+    getDocumentFetchMock.mockReturnValue(
+      new Promise(resolve => {
+        resolveFetch = resolve;
+      })
+    );
+    const createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:leaked');
+
+    const { unmount } = render(
+      <PurchaseDetailsContent
+        purchase={
+          {
+            ...purchase,
+            document: {
+              fileName: 'remision.pdf',
+              mimeType: 'application/pdf',
+              sizeBytes: 256,
+              createdAt: '2030-01-01T12:00:00.000Z',
+            },
+          } as Purchase
+        }
+        returnError={null}
+        voidError={null}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Ver documento adjunto/i }));
+    unmount();
+
+    await act(async () => {
+      resolveFetch({
+        fileName: 'remision.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 256,
+        documentBase64: btoa('%PDF-1.4\n%%EOF\n'),
+        payloadHash: 'def',
+        uploadedBy: 'user-1',
+        createdAt: '2030-01-01T12:00:00.000Z',
+      });
+      await Promise.resolve();
+    });
+
+    expect(createObjectUrlSpy).not.toHaveBeenCalled();
+    createObjectUrlSpy.mockRestore();
+  });
 });

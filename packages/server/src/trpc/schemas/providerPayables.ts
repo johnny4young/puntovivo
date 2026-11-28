@@ -3,6 +3,7 @@ import { providerPayablePaymentMethodEnum } from '../../db/schema.js';
 
 const providerIdInput = z.object({ providerId: z.string().min(1) }).strict();
 const payableAmountInput = z.number().finite().min(0.01).multipleOf(0.01);
+const payableNonNegativeAmountInput = z.number().finite().min(0).multipleOf(0.01);
 const payableCalendarDayInput = z.iso.date({ error: 'Expected a valid YYYY-MM-DD calendar day' });
 
 function occursOnOrAfter(later: string, earlier: string): boolean {
@@ -19,21 +20,71 @@ export const availableProviderPurchasesInput = providerIdInput.extend({
 });
 export type AvailableProviderPurchasesInput = z.infer<typeof availableProviderPurchasesInput>;
 
+const providerInvoiceLineInput = z
+  .object({
+    productId: z.string().min(1),
+    /** Quantity in the product's base unit, as printed by the supplier. */
+    quantity: z.number().finite().positive(),
+    /** Base-unit cost as printed by the supplier. Deliberately not the
+     * payable-amount rule: a zero-cost line is legitimate and a 3-pack at
+     * 10 yields a base rate of 3.33 with fractional cents — cent rounding
+     * stays on the calculated line totals and the invoice amount. */
+    unitCost: z.number().finite().min(0),
+  })
+  .strict();
+
 export const createProviderInvoiceInput = z
   .object({
     providerId: z.string().min(1),
     purchaseId: z.string().min(1).optional(),
+    /** Several deliveries (remisiones) consolidated by one final invoice.
+     * When the legacy purchaseId is also sent it must be one of them. */
+    purchaseIds: z.array(z.string().min(1)).min(1).max(50).optional(),
+    /** Invoice lines as printed by the supplier. Required when consolidating
+     * several purchases: each product must match what was received, in base
+     * units, before the invoice is accepted. */
+    lines: z.array(providerInvoiceLineInput).min(1).max(200).optional(),
     documentNumber: z.string().trim().min(1).max(80),
     issuedAt: payableCalendarDayInput,
     dueAt: payableCalendarDayInput,
     amount: payableAmountInput,
+    /** Tax billed by the supplier on top of net purchase lines (e.g. VAT). */
+    taxAmount: payableNonNegativeAmountInput.optional(),
     notes: z.string().trim().max(500).optional(),
   })
   .strict()
   .refine(value => occursOnOrAfter(value.dueAt, value.issuedAt), {
     message: 'Due date cannot be before issue date',
     path: ['dueAt'],
-  });
+  })
+  .refine(value => (value.taxAmount ?? 0) <= value.amount, {
+    message: 'Tax amount cannot exceed the invoice amount',
+    path: ['taxAmount'],
+  })
+  .refine(value => !((value.purchaseIds?.length ?? 0) > 1 && !value.lines?.length), {
+    message: 'Invoice lines are required when consolidating several purchases',
+    path: ['lines'],
+  })
+  .refine(value => !(value.lines?.length && !value.purchaseId && !value.purchaseIds?.length), {
+    message: 'Invoice lines require at least one linked purchase',
+    path: ['lines'],
+  })
+  // Reject contradictory purchase selectors; matching values stay accepted.
+  .refine(
+    value =>
+      !(
+        value.purchaseId &&
+        value.purchaseIds?.length &&
+        !value.purchaseIds.includes(value.purchaseId)
+      ),
+    {
+      message:
+        'purchaseId and purchaseIds disagree: include purchaseId in purchaseIds or drop one of them',
+      path: ['purchaseIds'],
+    }
+  );
+
+export type ProviderInvoiceLineInput = z.infer<typeof providerInvoiceLineInput>;
 
 export const createProviderOpeningBalanceInput = z
   .object({

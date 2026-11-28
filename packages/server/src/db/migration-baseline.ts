@@ -252,7 +252,8 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         '0112_restaurant_ops_comandas_bom',
         '0113_pharmacy_ops_band6b',
         '0114_pharmacy_fne_ledger_movements',
-        '0115_purchase_document_type',
+        '0115_provider_payable_invoice_purchases',
+        '0116_purchase_document_type',
       ].includes(entry.tag)
     ) {
       // A later marker skips every earlier entry in Drizzle. The exact

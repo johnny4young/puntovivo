@@ -1,27 +1,40 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Paperclip } from 'lucide-react';
+import {
+  PURCHASE_DOCUMENT_MIME_TYPES,
+  purchaseDocumentExtensionForMime,
+  type PurchaseDocumentType,
+} from '@puntovivo/shared/purchase-documents';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { trpc } from '@/lib/trpc';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { invalidateGroups } from '@/lib/invalidateGroups';
 import { formatDateTime } from '@/lib/utils';
 import type { Purchase } from '@/types';
-import {
-  getAcceptedPurchaseDocumentMimes,
-  preparePurchaseDocumentFile,
-} from './preparePurchaseDocumentFile';
 
 interface PurchaseDocumentPanelProps {
   purchase: Purchase;
 }
 
-const ACCEPTED_MIME = getAcceptedPurchaseDocumentMimes();
+const ACCEPTED_MIME = PURCHASE_DOCUMENT_MIME_TYPES;
+
+const DOCUMENT_TYPE_KEYS: Record<PurchaseDocumentType, string> = {
+  invoice: 'document.typeInvoice',
+  remision: 'document.typeRemision',
+  other: 'document.typeOther',
+};
 
 interface DocumentPreview {
+  purchaseId: string;
   url: string;
   mimeType: string;
   fileName: string | null;
+}
+
+interface ScopedError {
+  purchaseId: string;
+  message: string;
 }
 
 /** Base64 → browser object URL. The caller owns revocation. */
@@ -40,18 +53,38 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
   const toast = useToast();
   const utils = trpc.useUtils();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mountedRef = useRef(true);
+  const viewRequestIdRef = useRef(0);
   const [isBusy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<DocumentPreview | null>(null);
+  const [errorState, setErrorState] = useState<ScopedError | null>(null);
+  const [previewState, setPreviewState] = useState<DocumentPreview | null>(null);
   const attached = purchase.document ?? null;
   const canManageDocument = user?.role === 'admin' || user?.role === 'manager';
+  const preview = previewState?.purchaseId === purchase.id ? previewState : null;
+  const error = errorState?.purchaseId === purchase.id ? errorState.message : null;
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      viewRequestIdRef.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
+    viewRequestIdRef.current += 1;
+  }, [purchase.id]);
 
   useEffect(
     () => () => {
-      if (preview) URL.revokeObjectURL(preview.url);
+      if (previewState) URL.revokeObjectURL(previewState.url);
     },
-    [preview]
+    [previewState]
   );
+
+  const setError = (message: string | null) => {
+    setErrorState(message ? { purchaseId: purchase.id, message } : null);
+  };
 
   const refreshPurchase = async () => {
     await invalidateGroups(utils, [u => u.purchases.list, u => u.purchases.getById]);
@@ -61,28 +94,28 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
     onSuccess: async () => {
       await refreshPurchase();
       toast.success({ title: t('document.attachSuccess') });
-      setError(null);
-      setBusy(false);
+      if (mountedRef.current) {
+        setError(null);
+        setBusy(false);
+      }
     },
     onError: async attachError => {
       // A stale purchase copy with a document already attached cannot accept
       // another upload: say so specifically and refresh so the existing paper
       // becomes visible instead of inviting retries that cannot succeed.
-      if ((attachError as { data?: { code?: string } }).data?.code === 'CONFLICT') {
-        setError(t('document.attachConflict'));
+      if (attachError.data?.code === 'CONFLICT') {
+        if (mountedRef.current) setError(t('document.attachConflict'));
         await refreshPurchase();
-      } else {
+      } else if (mountedRef.current) {
         setError(t('document.attachError'));
       }
-      setBusy(false);
+      if (mountedRef.current) setBusy(false);
     },
   });
 
   const documentIdentityLabel = (() => {
     if (purchase.documentType != null) {
-      const typeLabel = t(
-        `document.type${purchase.documentType.charAt(0).toUpperCase()}${purchase.documentType.slice(1)}`
-      );
+      const typeLabel = t(DOCUMENT_TYPE_KEYS[purchase.documentType]);
       return purchase.documentNumber ? `${typeLabel} · ${purchase.documentNumber}` : typeLabel;
     }
     if (purchase.documentNumber) return purchase.documentNumber;
@@ -94,7 +127,9 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
     setBusy(true);
     setError(null);
     try {
+      const { preparePurchaseDocumentFile } = await import('./preparePurchaseDocumentFile');
       const prepared = await preparePurchaseDocumentFile(file);
+      if (!mountedRef.current) return;
       attachMutation.mutate({
         purchaseId: purchase.id,
         fileName: prepared.fileName,
@@ -102,6 +137,7 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
         documentBase64: prepared.documentBase64,
       });
     } catch (prepareError) {
+      if (!mountedRef.current) return;
       const message = prepareError instanceof Error ? prepareError.message : '';
       if (message === 'DOCUMENT_TOO_LARGE') {
         setError(t('document.errorTooLarge'));
@@ -115,6 +151,8 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
   };
 
   const handleViewDocument = async () => {
+    const requestId = viewRequestIdRef.current + 1;
+    viewRequestIdRef.current = requestId;
     setBusy(true);
     setError(null);
     try {
@@ -123,23 +161,31 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
         { purchaseId: purchase.id },
         { gcTime: 0, staleTime: 0 }
       );
-      if (preview) URL.revokeObjectURL(preview.url);
-      setPreview({
+      if (!mountedRef.current || requestId !== viewRequestIdRef.current) return;
+      setPreviewState({
+        purchaseId: purchase.id,
         url: documentObjectUrl(document.documentBase64, document.mimeType),
         mimeType: document.mimeType,
         fileName: document.fileName,
       });
     } catch {
+      if (!mountedRef.current || requestId !== viewRequestIdRef.current) return;
       setError(t('document.viewError'));
     } finally {
-      setBusy(false);
+      if (mountedRef.current && requestId === viewRequestIdRef.current) {
+        setBusy(false);
+      }
     }
   };
 
   const closePreview = () => {
-    if (preview) URL.revokeObjectURL(preview.url);
-    setPreview(null);
+    setPreviewState(null);
   };
+
+  const downloadFileName = preview
+    ? (preview.fileName ??
+      `${t('document.defaultFileName')}${purchaseDocumentExtensionForMime(preview.mimeType)}`)
+    : undefined;
 
   return (
     <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
@@ -209,7 +255,7 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
           <div className="flex flex-wrap gap-3">
             <a
               href={preview.url}
-              download={preview.fileName ?? 'documento'}
+              download={downloadFileName}
               className="btn-secondary inline-flex items-center"
             >
               {t('document.download')}

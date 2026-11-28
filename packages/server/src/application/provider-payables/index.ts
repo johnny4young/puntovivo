@@ -5,6 +5,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import {
   providerPayableAllocations,
   providerPayableCredits,
+  providerPayableInvoicePurchases,
   providerPayableInvoices,
   providerPayablePayments,
   providers,
@@ -13,6 +14,7 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { readAvailableProviderPurchases } from './available-purchases.js';
+import { computeNetKeptGoods } from './net-kept-goods.js';
 /**
  * Backward-compatible cap on the overview preview. The invoice picker uses
  * its separate bounded, searchable endpoint; the overview still returns the
@@ -50,11 +52,12 @@ export interface CriticalProviderPayableContext {
 
 type AllocationInput = { invoiceId: string; amount: number };
 
-// Allocation rows reference their payment/credit source. Give the source a
-// narrowly higher priority than the ordinary manual-conflict default (5) so a
-// remote drain cannot apply a child before its same-command parent when their
-// created_at values land in the same millisecond.
-const PROVIDER_PAYABLE_SOURCE_SYNC_PRIORITY = 5.1;
+// Parent rows written alongside child allocations (payments, credits) drain
+// narrowly above the manual-conflict default (5) so allocations follow them on
+// same-millisecond timestamps. Invoice purchase links sit just below 5 so
+// purchases (5) -> invoices (5) -> invoice purchase links (4.9) stay ordered.
+const PROVIDER_PAYABLE_PARENT_SYNC_PRIORITY = 5.1;
+const PROVIDER_PAYABLE_INVOICE_LINK_SYNC_PRIORITY = 4.9;
 
 function requireSiteId(ctx: Pick<CriticalProviderPayableContext, 'siteId'>): string {
   if (!ctx.siteId) {
@@ -121,6 +124,7 @@ export function createProviderInvoice(
   const now = new Date().toISOString();
   const invoiceId = nanoid();
   const amount = roundMoney(input.amount);
+  const taxAmount = roundMoney(input.taxAmount ?? 0);
 
   return ctx.db.transaction(
     tx => {
@@ -129,54 +133,167 @@ export function createProviderInvoice(
 
       // A purchase-linked invoice inherits the purchase's authoritative site,
       // so the ambient active site is only required when there is no purchase
-      // to inherit from. Requiring it up front rejected linked invoices that
-      // had a perfectly good site waiting to be read below.
+      // to inherit from.
+      const linkedPurchaseIds = input.purchaseIds?.length
+        ? input.purchaseIds
+        : input.purchaseId
+          ? [input.purchaseId]
+          : [];
+
       let siteId: string;
-      if (input.purchaseId) {
-        const purchase = tx
-          .select({
-            id: purchases.id,
-            providerId: purchases.providerId,
-            siteId: purchases.siteId,
-            status: purchases.status,
-          })
-          .from(purchases)
-          .where(and(eq(purchases.id, input.purchaseId), eq(purchases.tenantId, ctx.tenantId)))
-          .get();
-        if (!purchase || purchase.providerId !== input.providerId) {
+      let hasPartialReturnedPurchase = false;
+      if (linkedPurchaseIds.length > 0) {
+        const seenPurchaseIds = new Set<string>();
+        const linkedSiteIds = new Set<string>();
+        for (const purchaseId of linkedPurchaseIds) {
+          if (seenPurchaseIds.has(purchaseId)) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'PROVIDER_PAYABLE_PURCHASE_DUPLICATED',
+              message: 'A purchase cannot be listed twice in one invoice',
+            });
+          }
+          seenPurchaseIds.add(purchaseId);
+          const purchase = tx
+            .select({
+              id: purchases.id,
+              providerId: purchases.providerId,
+              siteId: purchases.siteId,
+              status: purchases.status,
+            })
+            .from(purchases)
+            .where(and(eq(purchases.id, purchaseId), eq(purchases.tenantId, ctx.tenantId)))
+            .get();
+          if (!purchase || purchase.providerId !== input.providerId) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'PROVIDER_PAYABLE_PURCHASE_MISMATCH',
+              message: 'Purchase does not belong to the selected provider',
+            });
+          }
+          if (purchase.status !== 'completed' && purchase.status !== 'partial_returned') {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'PROVIDER_PAYABLE_PURCHASE_NOT_COMPLETED',
+              message:
+                'Only a completed or partially returned purchase can be linked to a supplier invoice',
+            });
+          }
+          if (purchase.status === 'partial_returned') {
+            hasPartialReturnedPurchase = true;
+          }
+          // Invoiced twice is impossible: legacy column, bridge, either.
+          const alreadyLinked =
+            tx
+              .select({ id: providerPayableInvoices.id })
+              .from(providerPayableInvoices)
+              .where(
+                and(
+                  eq(providerPayableInvoices.tenantId, ctx.tenantId),
+                  eq(providerPayableInvoices.purchaseId, purchaseId)
+                )
+              )
+              .get() ??
+            tx
+              .select({ id: providerPayableInvoicePurchases.id })
+              .from(providerPayableInvoicePurchases)
+              .where(
+                and(
+                  eq(providerPayableInvoicePurchases.tenantId, ctx.tenantId),
+                  eq(providerPayableInvoicePurchases.purchaseId, purchaseId)
+                )
+              )
+              .get();
+          if (alreadyLinked) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'PROVIDER_PAYABLE_PURCHASE_ALREADY_INVOICED',
+              message: 'Purchase already has a supplier invoice',
+            });
+          }
+          linkedSiteIds.add(purchase.siteId);
+        }
+        if (linkedSiteIds.size > 1) {
           throwServerError({
             trpcCode: 'CONFLICT',
-            errorCode: 'PROVIDER_PAYABLE_PURCHASE_MISMATCH',
-            message: 'Purchase does not belong to the selected provider',
+            errorCode: 'PROVIDER_PAYABLE_PURCHASE_SITE_MISMATCH',
+            message: 'Purchases consolidated by one invoice must belong to the same site',
           });
         }
-        if (purchase.status !== 'completed') {
-          throwServerError({
-            trpcCode: 'CONFLICT',
-            errorCode: 'PROVIDER_PAYABLE_PURCHASE_NOT_COMPLETED',
-            message: 'Only a completed purchase can be linked to a supplier invoice',
-          });
-        }
-        const alreadyLinked = tx
-          .select({ id: providerPayableInvoices.id })
-          .from(providerPayableInvoices)
-          .where(
-            and(
-              eq(providerPayableInvoices.tenantId, ctx.tenantId),
-              eq(providerPayableInvoices.purchaseId, input.purchaseId)
-            )
-          )
-          .get();
-        if (alreadyLinked) {
-          throwServerError({
-            trpcCode: 'CONFLICT',
-            errorCode: 'PROVIDER_PAYABLE_PURCHASE_ALREADY_INVOICED',
-            message: 'Purchase already has a supplier invoice',
-          });
-        }
-        siteId = purchase.siteId;
+        siteId = [...linkedSiteIds][0]!;
       } else {
         siteId = requireSiteId(ctx);
+      }
+
+      // Strict line-by-line reconciliation: when invoice lines are provided —
+      // mandatory when consolidating several purchases — every product kept
+      // across the linked purchases must match its invoice line in base-unit
+      // quantity and value, and lines total plus tax must equal the invoice
+      // amount.
+      if (input.lines?.length) {
+        const netKept = computeNetKeptGoods(tx, ctx.tenantId, linkedPurchaseIds);
+        const lineTotalsByProduct = new Map<string, { quantity: number; lineTotal: number }>();
+        for (const line of input.lines) {
+          const current = lineTotalsByProduct.get(line.productId) ?? { quantity: 0, lineTotal: 0 };
+          const lineQuantity = current.quantity + line.quantity;
+          const lineTotal = roundMoney(
+            current.lineTotal + roundMoney(line.quantity * line.unitCost)
+          );
+          lineTotalsByProduct.set(line.productId, { quantity: lineQuantity, lineTotal });
+        }
+
+        const discrepancies: string[] = [];
+        const productIds = new Set([...netKept.byProduct.keys(), ...lineTotalsByProduct.keys()]);
+        for (const productId of productIds) {
+          const keptRow = netKept.byProduct.get(productId);
+          const invoiceRow = lineTotalsByProduct.get(productId);
+          const netQuantity = keptRow?.netQuantity ?? 0;
+          const returnedQuantity = keptRow?.returnedQuantity ?? 0;
+          const netTotal = keptRow?.netTotal ?? 0;
+          const returnedTotal = keptRow?.returnedTotal ?? 0;
+          const invoiceQuantity = invoiceRow?.quantity ?? 0;
+          const invoiceTotal = invoiceRow ? roundMoney(invoiceRow.lineTotal) : 0;
+          if (Math.abs(netQuantity - invoiceQuantity) > 1e-9) {
+            discrepancies.push(
+              `product ${productId}: invoiced ${invoiceQuantity} but received ${netQuantity} base units after ${returnedQuantity} returned`
+            );
+          } else if (Math.abs(netTotal - invoiceTotal) > 0.005) {
+            discrepancies.push(
+              `product ${productId}: invoiced ${invoiceTotal.toFixed(2)} but received ${netTotal.toFixed(2)} after ${returnedTotal.toFixed(2)} returned`
+            );
+          }
+        }
+        if (discrepancies.length > 0) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'PROVIDER_PAYABLE_INVOICE_LINES_MISMATCH',
+            message: `Invoice lines do not match the received goods: ${discrepancies.join('; ')}`,
+          });
+        }
+
+        const linesTotal = roundMoney(
+          [...lineTotalsByProduct.values()].reduce((sum, row) => sum + row.lineTotal, 0)
+        );
+        const expectedAmount = roundMoney(linesTotal + taxAmount);
+        if (Math.abs(expectedAmount - amount) > 0.005) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'PROVIDER_PAYABLE_INVOICE_AMOUNT_MISMATCH',
+            message: `Invoice amount ${amount.toFixed(2)} does not match lines total ${linesTotal.toFixed(2)} plus tax ${taxAmount.toFixed(2)} (${expectedAmount.toFixed(2)})`,
+          });
+        }
+      } else if (hasPartialReturnedPurchase) {
+        const netKept = computeNetKeptGoods(tx, ctx.tenantId, linkedPurchaseIds);
+        if (netKept.hasItems) {
+          const expectedAmount = roundMoney(netKept.total + taxAmount);
+          if (Math.abs(expectedAmount - amount) > 0.005) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'PROVIDER_PAYABLE_INVOICE_AMOUNT_MISMATCH',
+              message: `Invoice amount ${amount.toFixed(2)} does not match net received total ${netKept.total.toFixed(2)} plus tax ${taxAmount.toFixed(2)} (${expectedAmount.toFixed(2)})`,
+            });
+          }
+        }
       }
 
       tx.insert(providerPayableInvoices)
@@ -185,12 +302,13 @@ export function createProviderInvoice(
           tenantId: ctx.tenantId,
           providerId: input.providerId,
           siteId,
-          purchaseId: input.purchaseId ?? null,
+          purchaseId: linkedPurchaseIds.length === 1 ? linkedPurchaseIds[0]! : null,
           kind: 'invoice',
           documentNumber: input.documentNumber,
           issuedAt: input.issuedAt,
           dueAt: input.dueAt,
           amount,
+          taxAmount,
           notes: input.notes ?? null,
           createdBy: ctx.user.id,
           syncStatus: 'pending',
@@ -198,6 +316,25 @@ export function createProviderInvoice(
           createdAt: now,
         })
         .run();
+
+      // The bridge is the complete source of truth: every linked purchase,
+      // legacy-single or consolidated, lands here.
+      const invoicePurchaseLinkIdsByPurchase = new Map<string, string>();
+      for (const purchaseId of linkedPurchaseIds) {
+        const linkId = nanoid();
+        invoicePurchaseLinkIdsByPurchase.set(purchaseId, linkId);
+        tx.insert(providerPayableInvoicePurchases)
+          .values({
+            id: linkId,
+            tenantId: ctx.tenantId,
+            invoiceId,
+            purchaseId,
+            syncStatus: 'pending',
+            syncVersion: 1,
+            createdAt: now,
+          })
+          .run();
+      }
 
       writeAuditLog({
         tx,
@@ -209,9 +346,11 @@ export function createProviderInvoice(
         before: null,
         after: {
           providerId: input.providerId,
-          purchaseId: input.purchaseId ?? null,
+          purchaseId: linkedPurchaseIds.length === 1 ? linkedPurchaseIds[0]! : null,
+          purchaseIds: linkedPurchaseIds,
           documentNumber: input.documentNumber,
           amount,
+          taxAmount,
           dueAt: input.dueAt,
         },
         operationId: ctx.envelope.operationId,
@@ -220,8 +359,28 @@ export function createProviderInvoice(
         entityType: 'provider_payable_invoices',
         entityId: invoiceId,
         operation: 'create',
-        data: { id: invoiceId, providerId: input.providerId, siteId, amount },
+        data: {
+          id: invoiceId,
+          providerId: input.providerId,
+          siteId,
+          amount,
+          taxAmount,
+          purchaseIds: linkedPurchaseIds,
+        },
       });
+      // Parent-before-child: links enqueue below default priority (5) so
+      // purchases (5) -> invoices (5) -> invoice purchase links (4.9) drain in
+      // dependency order even when created_at timestamps tie.
+      for (const purchaseId of linkedPurchaseIds) {
+        const linkId = invoicePurchaseLinkIdsByPurchase.get(purchaseId)!;
+        enqueueSyncInTransaction(syncContext(ctx, tx), {
+          entityType: 'provider_payable_invoice_purchases',
+          entityId: linkId,
+          operation: 'create',
+          data: { id: linkId, invoiceId, purchaseId },
+          priority: PROVIDER_PAYABLE_INVOICE_LINK_SYNC_PRIORITY,
+        });
+      }
       const result = { id: invoiceId, providerId: input.providerId, amount };
       ctx.completeInTransaction(tx, result);
       return result;
@@ -452,7 +611,7 @@ export async function recordProviderPayment(
         entityId: paymentId,
         operation: 'create',
         data: { id: paymentId, providerId: input.providerId, siteId, amount },
-        priority: PROVIDER_PAYABLE_SOURCE_SYNC_PRIORITY,
+        priority: PROVIDER_PAYABLE_PARENT_SYNC_PRIORITY,
       });
       const allocationIds = insertAllocations(tx, {
         tenantId: ctx.tenantId,
@@ -549,7 +708,7 @@ export function recordProviderCredit(
         entityId: creditId,
         operation: 'create',
         data: { id: creditId, providerId: input.providerId, siteId, amount },
-        priority: PROVIDER_PAYABLE_SOURCE_SYNC_PRIORITY,
+        priority: PROVIDER_PAYABLE_PARENT_SYNC_PRIORITY,
       });
       const allocationIds = insertAllocations(tx, {
         tenantId: ctx.tenantId,
@@ -621,6 +780,7 @@ export async function getProviderPayableOverview(
       issuedAt: providerPayableInvoices.issuedAt,
       dueAt: providerPayableInvoices.dueAt,
       amount: providerPayableInvoices.amount,
+      taxAmount: providerPayableInvoices.taxAmount,
       notes: providerPayableInvoices.notes,
       createdAt: providerPayableInvoices.createdAt,
     })
@@ -652,6 +812,38 @@ export async function getProviderPayableOverview(
         eq(providerPayableInvoices.providerId, providerId)
       )
     );
+  const purchaseLinks = db
+    .select({
+      invoiceId: providerPayableInvoicePurchases.invoiceId,
+      purchaseId: purchases.id,
+      purchaseNumber: purchases.purchaseNumber,
+    })
+    .from(providerPayableInvoicePurchases)
+    .innerJoin(
+      purchases,
+      and(
+        eq(providerPayableInvoicePurchases.purchaseId, purchases.id),
+        eq(purchases.tenantId, tenantId),
+        eq(purchases.providerId, providerId)
+      )
+    )
+    .where(
+      and(
+        eq(providerPayableInvoicePurchases.tenantId, tenantId),
+        inArray(providerPayableInvoicePurchases.invoiceId, providerInvoiceIds)
+      )
+    )
+    .orderBy(asc(purchases.purchaseNumber), asc(purchases.id))
+    .all();
+  const purchaseLinksByInvoice = new Map<
+    string,
+    Array<{ purchaseId: string; purchaseNumber: string }>
+  >();
+  for (const link of purchaseLinks) {
+    const list = purchaseLinksByInvoice.get(link.invoiceId) ?? [];
+    list.push({ purchaseId: link.purchaseId, purchaseNumber: link.purchaseNumber });
+    purchaseLinksByInvoice.set(link.invoiceId, list);
+  }
   const allocations = db
     .select({
       invoiceId: providerPayableAllocations.invoiceId,
@@ -670,23 +862,37 @@ export async function getProviderPayableOverview(
   const allocatedByInvoice = new Map(
     allocations.map(row => [row.invoiceId, roundMoney(Number(row.amount))] as const)
   );
-  const openInvoices = invoices
-    .map(invoice => {
-      const allocated = allocatedByInvoice.get(invoice.id) ?? 0;
-      const outstanding = roundMoney(invoice.amount - allocated);
-      return {
-        ...invoice,
-        allocated,
-        outstanding,
-        status:
-          outstanding <= 0
-            ? ('paid' as const)
-            : allocated > 0
-              ? ('partial' as const)
-              : ('open' as const),
-      };
-    })
-    .filter(invoice => invoice.outstanding > 0);
+  const enrichedInvoices = invoices.map(invoice => {
+    const allocated = allocatedByInvoice.get(invoice.id) ?? 0;
+    const outstanding = roundMoney(invoice.amount - allocated);
+    const bridgeLinks = purchaseLinksByInvoice.get(invoice.id);
+    const purchaseIds =
+      bridgeLinks && bridgeLinks.length > 0
+        ? bridgeLinks.map(link => link.purchaseId)
+        : invoice.purchaseId
+          ? [invoice.purchaseId]
+          : [];
+    const purchaseNumbers =
+      bridgeLinks && bridgeLinks.length > 0
+        ? bridgeLinks.map(link => link.purchaseNumber)
+        : invoice.purchaseNumber
+          ? [invoice.purchaseNumber]
+          : [];
+    return {
+      ...invoice,
+      purchaseIds,
+      purchaseNumbers,
+      allocated,
+      outstanding,
+      status:
+        outstanding <= 0
+          ? ('paid' as const)
+          : allocated > 0
+            ? ('partial' as const)
+            : ('open' as const),
+    };
+  });
+  const openInvoices = enrichedInvoices.filter(invoice => invoice.outstanding > 0);
 
   const paymentTotal = Number(
     db
@@ -832,21 +1038,7 @@ export async function getProviderPayableOverview(
       balance: roundMoney(invoiceTotal - paymentTotal - creditTotal),
     },
     aging,
-    invoices: invoices.map(invoice => {
-      const allocated = allocatedByInvoice.get(invoice.id) ?? 0;
-      const outstanding = roundMoney(invoice.amount - allocated);
-      return {
-        ...invoice,
-        allocated,
-        outstanding,
-        status:
-          outstanding <= 0
-            ? ('paid' as const)
-            : allocated > 0
-              ? ('partial' as const)
-              : ('open' as const),
-      };
-    }),
+    invoices: enrichedInvoices,
     openInvoices,
     statement,
     availablePurchases,

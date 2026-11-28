@@ -131,6 +131,11 @@ export const syncEntityConfig = {
     supportsSyncMetadata: true,
     touchUpdatedAt: false,
   },
+  provider_payable_invoice_purchases: {
+    tableName: 'provider_payable_invoice_purchases',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: false,
+  },
   provider_payable_payments: {
     tableName: 'provider_payable_payments',
     supportsSyncMetadata: true,

@@ -389,6 +389,12 @@ test('E2E cleanup removes restrictive business links child-first and stays tenan
       entity_type text not null,
       entity_id text not null
     );
+    create table provider_payable_invoice_purchases (
+      id text primary key,
+      tenant_id text not null,
+      invoice_id text not null references provider_payable_invoices(id) on delete restrict,
+      purchase_id text not null references purchases(id) on delete restrict
+    );
   `);
 
   const insertUser = db.prepare('insert into users values (?, ?, ?)');
@@ -415,9 +421,28 @@ test('E2E cleanup removes restrictive business links child-first and stays tenan
     'purchase-disposable',
     'operator'
   );
+  insertInvoice.run('invoice-consolidated-disposable', 'tenant-a', null, 'operator');
   insertInvoice.run('invoice-operator', 'tenant-a', 'purchase-operator', 'operator');
   insertInvoice.run('invoice-template', 'tenant-a', null, 'template');
   insertInvoice.run('invoice-other', 'tenant-b', 'purchase-other', 'other-disposable');
+
+  const insertInvoicePurchase = db.prepare(
+    'insert into provider_payable_invoice_purchases values (?, ?, ?, ?)'
+  );
+  insertInvoicePurchase.run(
+    'bridge-disposable-single',
+    'tenant-a',
+    'invoice-on-disposable-purchase',
+    'purchase-disposable'
+  );
+  insertInvoicePurchase.run(
+    'bridge-disposable-consolidated',
+    'tenant-a',
+    'invoice-consolidated-disposable',
+    'purchase-disposable'
+  );
+  insertInvoicePurchase.run('bridge-operator', 'tenant-a', 'invoice-operator', 'purchase-operator');
+  insertInvoicePurchase.run('bridge-other', 'tenant-b', 'invoice-other', 'purchase-other');
 
   const insertPayment = db.prepare('insert into provider_payable_payments values (?, ?, ?)');
   insertPayment.run('payment-disposable', 'tenant-a', 'disposable');
@@ -695,6 +720,10 @@ test('E2E cleanup removes restrictive business links child-first and stays tenan
   for (const [entityType, entityId] of [
     ['provider_payable_invoices', 'invoice-by-disposable'],
     ['provider_payable_invoices', 'invoice-on-disposable-purchase'],
+    ['provider_payable_invoices', 'invoice-consolidated-disposable'],
+    ['provider_payable_invoice_purchases', 'bridge-disposable-single'],
+    ['provider_payable_invoice_purchases', 'bridge-disposable-consolidated'],
+    ['provider_payable_invoice_purchases', 'bridge-operator'],
     ['provider_payable_payments', 'payment-disposable'],
     ['provider_payable_payments', 'payment-operator'],
     ['provider_payable_payments', 'payment-preserved'],
@@ -735,6 +764,10 @@ test('E2E cleanup removes restrictive business links child-first and stays tenan
     'allocation-credit-operator',
     'allocation-other',
     'allocation-preserved',
+  ]);
+  assert.deepEqual(listIds(db, 'provider_payable_invoice_purchases'), [
+    'bridge-operator',
+    'bridge-other',
   ]);
   assert.deepEqual(listIds(db, 'provider_payable_invoices'), [
     'invoice-operator',
@@ -781,6 +814,7 @@ test('E2E cleanup removes restrictive business links child-first and stays tenan
     10
   );
   assert.deepEqual(listIds(db, 'sync_outbox'), [
+    'outbox-bridge-operator',
     'outbox-invoice-operator',
     'outbox-invoice-other',
     'outbox-payment-preserved',

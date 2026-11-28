@@ -109,3 +109,13 @@ export {
   type OperationalServiceSource,
 } from './operational-readiness.js';
 export { createSseParser, type ParsedSseEvent, type SseParser } from './realtime-sse.js';
+export {
+  isPurchaseDocumentMimeType,
+  PURCHASE_DOCUMENT_MAX_BYTES,
+  PURCHASE_DOCUMENT_MIME_EXTENSIONS,
+  PURCHASE_DOCUMENT_MIME_TYPES,
+  PURCHASE_DOCUMENT_TYPES,
+  purchaseDocumentExtensionForMime,
+  type PurchaseDocumentMimeType,
+  type PurchaseDocumentType,
+} from './purchase-documents.js';
