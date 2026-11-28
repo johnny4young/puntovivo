@@ -187,5 +187,29 @@
     "partial_returned": "Parcialmente devuelto",
     "returned": "Devuelto",
     "voided": "Anulado"
+  },
+  "document": {
+    "title": "Documento de soporte",
+    "typeLabel": "Tipo de documento",
+    "numberLabel": "Número de documento",
+    "numberPlaceholder": "Ej.: RM-0042",
+    "typeNone": "Sin documento",
+    "typeInvoice": "Factura",
+    "typeRemision": "Remisión",
+    "typeOther": "Otro",
+    "attachLabel": "Adjuntar foto o PDF del documento",
+    "attachedOn": "Adjuntado el {{date}}",
+    "view": "Ver documento adjunto",
+    "attachSuccess": "Documento adjunto",
+    "attachError": "No se pudo adjuntar el documento",
+    "attachConflict": "Esta compra ya tiene un documento adjunto. La vista se actualizó para mostrarlo.",
+    "viewError": "No se pudo cargar el documento",
+    "errorEmpty": "El archivo seleccionado está vacío",
+    "errorTooLarge": "El archivo supera el límite de {{limitMb}} MB",
+    "errorUnsupportedType": "Solo se permiten archivos PDF, PNG, JPEG o WebP",
+    "previewTitle": "Vista previa del documento",
+    "defaultFileName": "documento",
+    "close": "Cerrar",
+    "download": "Descargar"
   }
 }

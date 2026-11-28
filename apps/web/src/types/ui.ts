@@ -89,6 +89,8 @@ export type AuditLogAction =
   | 'inventory.count.reject'
   | 'purchase.receive'
   | 'purchase.return'
+  | 'purchase.document_updated'
+  | 'purchase.document_attached'
   | 'order.create'
   | 'order.submit'
   | 'order.void'

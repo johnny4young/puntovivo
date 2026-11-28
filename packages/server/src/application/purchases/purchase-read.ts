@@ -26,6 +26,7 @@ import {
   purchaseReturnItemLots,
   purchaseReturnItems,
   purchaseReturns,
+  purchaseDocuments,
   purchases,
   sites,
   units,
@@ -49,6 +50,8 @@ export function getPurchaseRecord(db: DatabaseInstance, tenantId: string, purcha
       subtotal: purchases.subtotal,
       total: purchases.total,
       notes: purchases.notes,
+      documentType: purchases.documentType,
+      documentNumber: purchases.documentNumber,
       createdBy: purchases.createdBy,
       syncStatus: purchases.syncStatus,
       syncVersion: purchases.syncVersion,
@@ -68,6 +71,22 @@ export function getPurchaseRecord(db: DatabaseInstance, tenantId: string, purcha
   if (!purchase) {
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Purchase not found' });
   }
+
+  // Metadata only: the payload never leaves this record. The details panel
+  // uses it to know whether a paper exists; the bytes are fetched on demand
+  // through purchases.getDocument.
+  const document = db
+    .select({
+      fileName: purchaseDocuments.fileName,
+      mimeType: purchaseDocuments.mimeType,
+      sizeBytes: purchaseDocuments.sizeBytes,
+      createdAt: purchaseDocuments.createdAt,
+    })
+    .from(purchaseDocuments)
+    .where(
+      and(eq(purchaseDocuments.tenantId, tenantId), eq(purchaseDocuments.purchaseId, purchaseId))
+    )
+    .get();
 
   const items = db
     .select({
@@ -337,6 +356,7 @@ export function getPurchaseRecord(db: DatabaseInstance, tenantId: string, purcha
 
   return {
     ...purchase,
+    document: document ?? null,
     returnedAmount,
     returnedAt,
     latestReturnReason,

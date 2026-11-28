@@ -62,7 +62,11 @@ import {
   getTraySettings,
   type TraySettings,
 } from './ipc/settings.js';
-import { buildRendererSecurityHeaders, isFastifyApiResponse } from './renderer-security-headers.js';
+import {
+  buildRendererSecurityHeaders,
+  isChromiumPdfViewerUrl,
+  isFastifyApiResponse,
+} from './renderer-security-headers.js';
 import {
   installPackagedRendererProtocol,
   registerPackagedRendererScheme,
@@ -552,6 +556,12 @@ app.whenReady().then(async () => {
     if (isFastifyApiResponse(url, authorityRuntime)) {
       saleActivity.observe(details.method, url, details.statusCode);
       // omit responseHeaders rather than passing explicit undefined.
+      callback(
+        details.responseHeaders === undefined ? {} : { responseHeaders: details.responseHeaders }
+      );
+      return;
+    }
+    if (isChromiumPdfViewerUrl(url)) {
       callback(
         details.responseHeaders === undefined ? {} : { responseHeaders: details.responseHeaders }
       );

@@ -1,5 +1,6 @@
 // purchasing / order domain shapes ( slice 28).
 
+import type { PurchaseDocumentType } from '@puntovivo/shared/purchase-documents';
 import type { OrderStatus, PurchaseStatus, SyncStatus } from '../ui';
 
 export interface Purchase {
@@ -23,6 +24,14 @@ export interface Purchase {
   subtotal: number;
   total: number;
   notes?: string | null;
+  documentType?: PurchaseDocumentType | null;
+  documentNumber?: string | null;
+  document?: {
+    fileName: string | null;
+    mimeType: string;
+    sizeBytes: number;
+    createdAt: string;
+  } | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

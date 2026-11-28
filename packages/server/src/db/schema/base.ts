@@ -288,6 +288,11 @@ export const auditLogActionEnum = [
   // the goods; direct purchases and receipts from an order share this action.
   'purchase.receive',
   'purchase.return',
+  // Which paper backs a receipt, and its scan. Evidence-only actions: they
+  // move no stock and no money, but the audit trail must show when a
+  // remisión/invoice identity was recorded or its image attached.
+  'purchase.document_updated',
+  'purchase.document_attached',
   // Purchase-order creation and void are money-adjacent procurement decisions.
   // They do not move stock, but their supplier, site, totals and status must
   // remain reconstructable beside the later receipt evidence.

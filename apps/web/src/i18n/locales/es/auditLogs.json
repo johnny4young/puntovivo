@@ -91,6 +91,8 @@
     "inventory.transformation.void": "Transformación de inventario anulada",
     "purchase.receive": "Compra recibida",
     "purchase.return": "Compra devuelta al proveedor",
+    "purchase.document_updated": "Documento de la compra actualizado",
+    "purchase.document_attached": "Documento adjunto a la compra",
     "purchase.void": "Compra anulada",
     "order.create": "Orden de compra creada",
     "order.submit": "Borrador de orden de compra enviado",

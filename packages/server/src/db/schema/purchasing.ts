@@ -10,6 +10,7 @@ import { inventoryValueChecks } from './value-checks.js';
  * @module db/schema/purchasing
  */
 import {
+  blob,
   check,
   index,
   integer,
@@ -19,6 +20,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
 import { relations, sql } from 'drizzle-orm';
+import { PURCHASE_DOCUMENT_TYPES } from '@puntovivo/shared/purchase-documents';
 import {
   moneyPositiveChecks,
   moneyTwoDecimalCheck,
@@ -68,6 +70,9 @@ export const purchases = sqliteTable(
     subtotal: real('subtotal').notNull().default(0),
     total: real('total').notNull().default(0),
     notes: text('notes'),
+    // A remisión travels with the goods; the final invoice may arrive later.
+    documentType: text('document_type', { enum: PURCHASE_DOCUMENT_TYPES }),
+    documentNumber: text('document_number'),
     createdBy: text('created_by')
       .notNull()
       .references(() => users.id),
@@ -142,6 +147,38 @@ export const invoiceUploads = sqliteTable(
       table.createdAt
     ),
     index('idx_invoice_uploads_payload_hash').on(table.payloadHash),
+  ]
+);
+
+/**
+ * Scanned or photographed supporting paper attached to a purchase: the
+ * remisión that traveled with the goods, or the supplier invoice. Payload
+ * lives in the encrypted database on purpose so the existing encrypted
+ * backup covers it with zero configuration. One attachment per purchase for
+ * now; a many-per-purchase follow-up only needs this index relaxed.
+ */
+export const purchaseDocuments = sqliteTable(
+  'purchase_documents',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    purchaseId: text('purchase_id')
+      .notNull()
+      .references(() => purchases.id),
+    fileName: text('file_name'),
+    mimeType: text('mime_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    payload: blob('payload', { mode: 'buffer' }).notNull(),
+    payloadHash: text('payload_hash').notNull(),
+    uploadedBy: text('uploaded_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    uniqueIndex('idx_purchase_documents_tenant_purchase').on(table.tenantId, table.purchaseId),
   ]
 );
 

@@ -247,6 +247,26 @@ export function cleanupRestrictiveBusinessLinks(db: Database.Database, tenantId:
     );
   };
 
+  const purchaseDocumentsExist = Boolean(
+    db
+      .prepare("select 1 from sqlite_master where type = 'table' and name = 'purchase_documents'")
+      .get()
+  );
+  if (purchaseDocumentsExist) {
+    runForDisposableUsers(
+      `delete from purchase_documents
+       where tenant_id = ? and (
+         uploaded_by in (select id from disposable_e2e_users)
+         or purchase_id in (
+           select purchases.id
+           from purchases
+           where purchases.tenant_id = purchase_documents.tenant_id
+             and purchases.created_by in (select id from disposable_e2e_users)
+         )
+       )`
+    );
+  }
+
   const payableTablesExist = Boolean(
     db
       .prepare(

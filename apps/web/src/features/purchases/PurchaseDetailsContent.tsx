@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { formatSystemNote } from '@/lib/systemNotes';
 import { formatLotExpiryDate } from '@/features/inventory/lotForm';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { PurchaseDocumentPanel } from './PurchaseDocumentPanel';
 import type { Purchase } from '@/types';
 
 interface PurchaseDetailsContentProps {
@@ -56,6 +57,8 @@ export function PurchaseDetailsContent({
           <p className="mt-2 font-medium text-primary-900">{purchase.sourceOrderNumber}</p>
         </div>
       )}
+
+      <PurchaseDocumentPanel purchase={purchase} />
 
       {purchase.returnCount ? (
         <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-4">

@@ -109,6 +109,11 @@
       "types": "./src/restaurant-split.ts",
       "import": "./dist/restaurant-split.js",
       "default": "./dist/restaurant-split.js"
+    },
+    "./purchase-documents": {
+      "types": "./src/purchase-documents.ts",
+      "import": "./dist/purchase-documents.js",
+      "default": "./dist/purchase-documents.js"
     }
   },
   "scripts": {
