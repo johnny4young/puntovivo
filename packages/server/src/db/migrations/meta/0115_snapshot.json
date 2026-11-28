@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8de206dc-f19b-43cd-b6e1-267918ed0f4d",
+  "id": "e8519c75-c51d-489f-8b07-12b05886d9fa",
   "prevId": "f988d986-456b-480b-ba31-acfc3a225289",
   "tables": {
     "account_recovery_codes": {
@@ -11877,6 +11877,14 @@
         "chk_provider_payable_invoices_amount_2dec": {
           "name": "chk_provider_payable_invoices_amount_2dec",
           "value": "round(\"provider_payable_invoices\".\"amount\", 2) = \"provider_payable_invoices\".\"amount\""
+        },
+        "chk_provider_payable_invoices_tax_nonneg": {
+          "name": "chk_provider_payable_invoices_tax_nonneg",
+          "value": "\"provider_payable_invoices\".\"tax_amount\" >= 0"
+        },
+        "chk_provider_payable_invoices_tax_2dec": {
+          "name": "chk_provider_payable_invoices_tax_2dec",
+          "value": "round(\"provider_payable_invoices\".\"tax_amount\", 2) = \"provider_payable_invoices\".\"tax_amount\""
         }
       }
     },

@@ -332,6 +332,7 @@ export const providerPayableInvoices = sqliteTable(
       .where(sql`${table.purchaseId} IS NOT NULL`),
     check('chk_provider_payable_invoices_amount_positive', sql`${table.amount} > 0`),
     moneyTwoDecimalCheck('provider_payable_invoices_amount', table.amount),
+    ...moneyPositiveChecks('provider_payable_invoices_tax', table.taxAmount),
   ]
 );
 

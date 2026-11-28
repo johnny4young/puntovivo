@@ -593,6 +593,57 @@ describe('provider payable consolidation', () => {
     expect(links).toEqual([{ purchaseId }]);
   });
 
+  it('invoices a partially returned purchase on the single-purchase path at its net', async () => {
+    const db = getDatabase();
+    const providerId = await createProvider(`Legacy net ${nanoid(5)}`);
+    const productId = await createProduct('Caja de galletas');
+    const caller = appRouter.createCaller(context());
+    const { purchaseId, purchaseItemId } = await createPurchasedStock(
+      caller,
+      providerId,
+      productId,
+      10,
+      10
+    );
+    await caller.purchases.returnPurchase({
+      id: purchaseId,
+      items: [{ purchaseItemId, quantity: 4 }],
+      reason: 'Vencidas',
+    });
+
+    const available = await caller.providerPayables.availablePurchases({ providerId });
+    const offered = available.items.find(item => item.id === purchaseId)?.total;
+    expect(offered).toBe(60);
+
+    // No lines: the amount must equal what was kept plus the supplier's VAT.
+    const invoice = await caller.providerPayables.createInvoice({
+      providerId,
+      purchaseId,
+      documentNumber: `FAC-NET-${nanoid(6)}`,
+      issuedAt: businessDayFromNow(-2),
+      dueAt: businessDayFromNow(28),
+      amount: 71.4,
+      taxAmount: 11.4,
+    });
+
+    const stored = db
+      .select({
+        purchaseId: providerPayableInvoices.purchaseId,
+        amount: providerPayableInvoices.amount,
+        taxAmount: providerPayableInvoices.taxAmount,
+      })
+      .from(providerPayableInvoices)
+      .where(eq(providerPayableInvoices.id, invoice.id))
+      .get();
+    expect(stored).toEqual({ purchaseId, amount: 71.4, taxAmount: 11.4 });
+    const links = db
+      .select({ purchaseId: providerPayableInvoicePurchases.purchaseId })
+      .from(providerPayableInvoicePurchases)
+      .where(eq(providerPayableInvoicePurchases.invoiceId, invoice.id))
+      .all();
+    expect(links).toEqual([{ purchaseId }]);
+  });
+
   it('still refuses to invoice a fully returned purchase', async () => {
     const providerId = await createProvider(`Full return ${nanoid(5)}`);
     const productId = await createProduct('Caja devuelta');
