@@ -14,8 +14,6 @@ CREATE TABLE `purchase_documents` (
 	FOREIGN KEY (`uploaded_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `idx_purchase_documents_tenant_created` ON `purchase_documents` (`tenant_id`,`created_at`);--> statement-breakpoint
-CREATE INDEX `idx_purchase_documents_payload_hash` ON `purchase_documents` (`payload_hash`);--> statement-breakpoint
 CREATE UNIQUE INDEX `idx_purchase_documents_tenant_purchase` ON `purchase_documents` (`tenant_id`,`purchase_id`);--> statement-breakpoint
 ALTER TABLE `purchases` ADD `document_type` text;--> statement-breakpoint
 ALTER TABLE `purchases` ADD `document_number` text;

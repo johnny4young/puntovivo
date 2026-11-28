@@ -78,8 +78,8 @@ const CHROMIUM_PDF_VIEWER_ORIGIN = 'chrome-extension://mhjfbmdgcfjbbpaeojofohoef
 
 /**
  * Chromium's built-in PDF viewer runs under this fixed extension origin when
- * rendering a `blob:` PDF inside an iframe; slapping `frame-ancestors 'none'`
- * onto its own response blocks the preview.
+ * rendering a `blob:` PDF inside an iframe. Adding `frame-ancestors 'none'` to
+ * its response blocks the preview, so recheck this id on every Electron major.
  */
 export function isChromiumPdfViewerUrl(url: string): boolean {
   return url === CHROMIUM_PDF_VIEWER_ORIGIN || url.startsWith(`${CHROMIUM_PDF_VIEWER_ORIGIN}/`);

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3e3b8ba3-2a1d-4c17-9366-9c122bf71b01",
+  "id": "7bd27fee-1313-4bb7-a4be-81c3642b2794",
   "prevId": "e8519c75-c51d-489f-8b07-12b05886d9fa",
   "tables": {
     "account_recovery_codes": {
@@ -12140,21 +12140,6 @@
         }
       },
       "indexes": {
-        "idx_purchase_documents_tenant_created": {
-          "name": "idx_purchase_documents_tenant_created",
-          "columns": [
-            "tenant_id",
-            "created_at"
-          ],
-          "isUnique": false
-        },
-        "idx_purchase_documents_payload_hash": {
-          "name": "idx_purchase_documents_payload_hash",
-          "columns": [
-            "payload_hash"
-          ],
-          "isUnique": false
-        },
         "idx_purchase_documents_tenant_purchase": {
           "name": "idx_purchase_documents_tenant_purchase",
           "columns": [

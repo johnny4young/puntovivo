@@ -58,6 +58,12 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
   const [busyPurchaseId, setBusyPurchaseId] = useState<string | null>(null);
   const [errorState, setErrorState] = useState<ScopedError | null>(null);
   const [previewState, setPreviewState] = useState<DocumentPreview | null>(null);
+  const [renderedPurchaseId, setRenderedPurchaseId] = useState(purchase.id);
+  if (renderedPurchaseId !== purchase.id) {
+    // Dropping the preview lets its cleanup effect revoke the blob URL.
+    setRenderedPurchaseId(purchase.id);
+    setPreviewState(null);
+  }
   const attached = purchase.document ?? null;
   const canManageDocument = user?.role === 'admin' || user?.role === 'manager';
   const isBusy = busyPurchaseId === purchase.id;
@@ -138,7 +144,7 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
     try {
       const { preparePurchaseDocumentFile } = await import('./preparePurchaseDocumentFile');
       const prepared = await preparePurchaseDocumentFile(file);
-      if (!mountedRef.current) return;
+      // A background refetch can remount the panel; the upload must still go out.
       attachMutation.mutate({
         purchaseId: activePurchaseId,
         fileName: prepared.fileName,
@@ -187,7 +193,7 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
       if (!mountedRef.current || requestId !== viewRequestIdRef.current) return;
       setErrorState({ purchaseId: activePurchaseId, message: t('document.viewError') });
     } finally {
-      if (mountedRef.current && requestId === viewRequestIdRef.current) {
+      if (mountedRef.current) {
         setBusyPurchaseId(current => (current === activePurchaseId ? null : current));
       }
     }

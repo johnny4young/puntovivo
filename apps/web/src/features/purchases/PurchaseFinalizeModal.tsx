@@ -13,13 +13,14 @@ import {
   type LotReceiptDraft,
   type LotReceiptPayload,
 } from '@/features/inventory/lotForm';
+import type { PurchaseDocumentType } from '@puntovivo/shared/purchase-documents';
 import type { PurchaseCartItem } from './purchaseCart';
 import { useSingleFlightSubmit } from '@/lib/useSingleFlightSubmit';
 
 export interface PurchaseFinalizeValues {
   providerId: string;
   notes: string;
-  documentType: '' | 'invoice' | 'remision' | 'other';
+  documentType: '' | PurchaseDocumentType;
   documentNumber: string;
   lotReceiptsByItemKey: Record<string, LotReceiptPayload[]>;
 }

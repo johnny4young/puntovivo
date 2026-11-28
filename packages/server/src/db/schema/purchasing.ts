@@ -20,6 +20,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
 import { relations, sql } from 'drizzle-orm';
+import { PURCHASE_DOCUMENT_TYPES } from '@puntovivo/shared/purchase-documents';
 import {
   moneyPositiveChecks,
   moneyTwoDecimalCheck,
@@ -40,11 +41,6 @@ export const providerPayableSourceTypeEnum = ['payment', 'credit'] as const;
 export type ProviderPayableSourceType = (typeof providerPayableSourceTypeEnum)[number];
 export const providerPayablePaymentMethodEnum = ['cash', 'card', 'transfer', 'other'] as const;
 export type ProviderPayablePaymentMethod = (typeof providerPayablePaymentMethodEnum)[number];
-
-/** Which paper backs a purchase receipt. A remisión travels with the goods;
- * the final invoice may arrive later. Null = not recorded. */
-export const purchaseDocumentTypeEnum = ['invoice', 'remision', 'other'] as const;
-export type PurchaseDocumentType = (typeof purchaseDocumentTypeEnum)[number];
 
 // ============================================================================
 // PURCHASES
@@ -74,7 +70,8 @@ export const purchases = sqliteTable(
     subtotal: real('subtotal').notNull().default(0),
     total: real('total').notNull().default(0),
     notes: text('notes'),
-    documentType: text('document_type', { enum: purchaseDocumentTypeEnum }),
+    // A remisión travels with the goods; the final invoice may arrive later.
+    documentType: text('document_type', { enum: PURCHASE_DOCUMENT_TYPES }),
     documentNumber: text('document_number'),
     createdBy: text('created_by')
       .notNull()
@@ -181,8 +178,6 @@ export const purchaseDocuments = sqliteTable(
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
-    index('idx_purchase_documents_tenant_created').on(table.tenantId, table.createdAt),
-    index('idx_purchase_documents_payload_hash').on(table.payloadHash),
     uniqueIndex('idx_purchase_documents_tenant_purchase').on(table.tenantId, table.purchaseId),
   ]
 );

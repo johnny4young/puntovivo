@@ -451,6 +451,84 @@ describe('PurchaseDetailsContent lot evidence', () => {
     });
 
     expect(createObjectUrlSpy).not.toHaveBeenCalled();
+
+    rerender(
+      <PurchaseDetailsContent
+        purchase={
+          {
+            ...purchase,
+            id: 'purchase-1',
+            document: {
+              fileName: 'first.pdf',
+              mimeType: 'application/pdf',
+              sizeBytes: 256,
+              createdAt: '2030-01-01T12:00:00.000Z',
+            },
+          } as Purchase
+        }
+        returnError={null}
+        voidError={null}
+      />
+    );
+    expect(screen.getByRole('button', { name: /Ver documento adjunto/i })).not.toBeDisabled();
     createObjectUrlSpy.mockRestore();
+  });
+
+  it('revokes the open preview when the panel switches to another purchase', async () => {
+    const createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:switched');
+    const revokeObjectUrlSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    getDocumentFetchMock.mockResolvedValue({
+      fileName: 'first.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 256,
+      documentBase64: btoa('%PDF-1.4\n%%EOF\n'),
+      payloadHash: 'def',
+      uploadedBy: 'user-1',
+      createdAt: '2030-01-01T12:00:00.000Z',
+    });
+    const withDocument = {
+      ...purchase,
+      document: {
+        fileName: 'first.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 256,
+        createdAt: '2030-01-01T12:00:00.000Z',
+      },
+    } as Purchase;
+
+    const { rerender } = render(
+      <PurchaseDetailsContent purchase={withDocument} returnError={null} voidError={null} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Ver documento adjunto/i }));
+    await waitFor(() => expect(createObjectUrlSpy).toHaveBeenCalled());
+
+    rerender(
+      <PurchaseDetailsContent
+        purchase={{ ...purchase, id: 'purchase-2', document: null } as Purchase}
+        returnError={null}
+        voidError={null}
+      />
+    );
+
+    expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:switched');
+    createObjectUrlSpy.mockRestore();
+    revokeObjectUrlSpy.mockRestore();
+  });
+
+  it('still sends the upload when a refetch unmounts the panel while the file is prepared', async () => {
+    const { container, unmount } = render(
+      <PurchaseDetailsContent purchase={purchase} returnError={null} voidError={null} />
+    );
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+
+    const validPdf = new File(['%PDF-1.4\n%%EOF\n'], 'remision.pdf', { type: 'application/pdf' });
+    fireEvent.change(fileInput, { target: { files: [validPdf] } });
+    unmount();
+
+    await waitFor(() => {
+      expect(attachMutateMock).toHaveBeenCalledWith(
+        expect.objectContaining({ purchaseId: 'purchase-1', fileName: 'remision.pdf' })
+      );
+    });
   });
 });
