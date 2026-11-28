@@ -134,16 +134,16 @@ const MIGRATIONS_FOLDER = resolve(process.cwd(), 'packages/server/src/db/migrati
 
 // import.meta.url is symlink-resolved, argv[1] is not: compare real paths so a
 // symlinked checkout still runs the gate instead of exiting 0 silently.
-function isMainModule() {
-  if (!process.argv[1]) return false;
+export function isMainModule(entryPath, moduleUrl = import.meta.url) {
+  if (!entryPath) return false;
   try {
-    return import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
+    return moduleUrl === pathToFileURL(realpathSync(entryPath)).href;
   } catch {
     return false;
   }
 }
 
-if (isMainModule()) {
+if (isMainModule(process.argv[1])) {
   const problems = inspectMigrationChain(readMigrationChain(MIGRATIONS_FOLDER));
   if (problems.length > 0) {
     console.error('Migration chain check failed:');

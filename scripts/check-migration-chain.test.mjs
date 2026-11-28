@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import test from 'node:test';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-import { inspectMigrationChain, readMigrationChain } from './check-migration-chain.mjs';
+import {
+  inspectMigrationChain,
+  isMainModule,
+  readMigrationChain,
+} from './check-migration-chain.mjs';
 
 /** A minimal sound chain: two migrations, two snapshots, linked. */
 function soundChain() {
@@ -88,36 +92,32 @@ test('the repository chain itself is sound', () => {
 });
 
 const GATE = resolve(import.meta.dirname, 'check-migration-chain.mjs');
-const REPO_ROOT = resolve(import.meta.dirname, '..');
 
-function runGate(entry, cwd) {
-  return spawnSync(process.execPath, [entry], { cwd, encoding: 'utf8' });
-}
-
-test('the gate really runs, directly and through a symlinked path', () => {
+test('the entry guard recognises the script itself, symlinks included', () => {
   const dir = mkdtempSync(join(tmpdir(), 'chain-gate-'));
   try {
-    const entries = [GATE];
+    const moduleUrl = pathToFileURL(GATE).href;
+    assert.equal(isMainModule(GATE, moduleUrl), true);
+    assert.equal(isMainModule(undefined, moduleUrl), false);
+    assert.equal(isMainModule(join(dir, 'missing.mjs'), moduleUrl), false);
+    assert.equal(isMainModule(import.meta.filename, moduleUrl), false);
     try {
-      symlinkSync(GATE, join(dir, 'gate.mjs'));
-      entries.push(join(dir, 'gate.mjs'));
-    } catch {
-      // Symlinks can need elevated rights on Windows: the direct run still counts.
-    }
-    for (const entry of entries) {
-      const result = runGate(entry, REPO_ROOT);
-      assert.equal(result.status, 0, result.stderr);
-      assert.match(result.stdout, /Migration chain check passed/);
+      const link = join(dir, 'gate.mjs');
+      symlinkSync(GATE, link);
+      assert.equal(isMainModule(link, moduleUrl), true);
+    } catch (error) {
+      // Symlinks can need elevated rights on Windows: the direct case still counts.
+      if (error?.code !== 'EPERM') throw error;
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('the gate fails when there is no chain to inspect', () => {
+test('reading a folder without a chain fails instead of reporting a sound one', () => {
   const dir = mkdtempSync(join(tmpdir(), 'chain-gate-empty-'));
   try {
-    assert.notEqual(runGate(GATE, dir).status, 0);
+    assert.throws(() => readMigrationChain(dir));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
