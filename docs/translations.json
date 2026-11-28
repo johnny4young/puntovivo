@@ -339,5 +339,5 @@
     }
   ],
   "bilingual": ["docs/TRANSLATIONS.md"],
-  "historical": ["CHANGELOG.md", "docs/releases/v*.md", "docs/es/releases/v*.md", "docs/qa/*.md"]
+  "historical": ["CHANGELOG.md", "docs/releases/v*.md", "docs/es/releases/v*.md"]
 }
