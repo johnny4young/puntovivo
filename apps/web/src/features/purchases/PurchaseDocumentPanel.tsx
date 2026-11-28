@@ -264,7 +264,6 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
           external blob navigation, so the paper is shown inside the panel. */}
       {preview && (
         <div className="mt-3 space-y-2">
-          <p className="text-xs font-semibold text-secondary-700">{t('document.previewTitle')}</p>
           {preview.mimeType === 'application/pdf' ? (
             <iframe
               title={t('document.previewTitle')}

@@ -339,6 +339,7 @@ describe('PurchaseDetailsContent lot evidence', () => {
       expect(iframe.tagName).toBe('IFRAME');
       expect(iframe).toHaveAttribute('src', 'blob:pdf-1');
     });
+    expect(screen.queryByText('Vista previa del documento')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Descargar' })).toHaveAttribute(
       'download',
       'documento.pdf'
