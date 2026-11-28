@@ -430,6 +430,7 @@
     "supplierPayment": "Supplier payment {{reference}}",
     "launchImport": "Initial import {{id}}",
     "openingStock": "Opening stock from product creation",
+    "physicalCount": "Physical inventory count",
     "productEditStock": "Stock changed from product edit"
   }
 }

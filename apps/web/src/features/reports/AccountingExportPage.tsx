@@ -69,6 +69,17 @@ function lastOfLastMonth(): string {
   return isoDay(new Date(now.getFullYear(), now.getMonth(), 0));
 }
 
+function startOfThisWeek(): string {
+  const now = new Date();
+  const offset = (now.getDay() + 6) % 7;
+  return isoDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset));
+}
+
+function firstOfThisMonth(): string {
+  const now = new Date();
+  return isoDay(new Date(now.getFullYear(), now.getMonth(), 1));
+}
+
 const SIIGO_COLUMNS: ExportColumn<SiigoRow>[] = SIIGO_INVOICE_COLUMNS.map((header, index) => ({
   key: `cells.${index}`,
   header,
@@ -153,13 +164,15 @@ export function AccountingExportPage() {
     let total = 0;
     let iva = 0;
     let inc = 0;
+    let rounding = 0;
     for (const voucher of vouchers) {
       const sign = voucher.kind === 'refund' ? -1 : 1;
       total += voucher.kind === 'refund' ? -voucher.refundAmount : voucher.total;
       iva += voucher.ivaAmount * sign;
       inc += voucher.incAmount * sign;
+      if (voucher.kind === 'sale') rounding += voucher.roundingAdjustment ?? 0;
     }
-    return { total, iva, inc };
+    return { total, iva, inc, rounding };
   }, [vouchers]);
 
   const rangeSuffix = `${fromDate}_${toDate}`;
@@ -305,7 +318,28 @@ export function AccountingExportPage() {
         <p className="mt-2 text-sm text-secondary-500">{t('accounting.description')}</p>
       </header>
 
-      <div className="card p-4">
+      <div className="card space-y-3 p-4">
+        <div className="flex flex-wrap gap-2" data-testid="accounting-range-presets">
+          {[
+            { id: 'today', from: () => isoDay(new Date()), to: () => isoDay(new Date()) },
+            { id: 'thisWeek', from: startOfThisWeek, to: () => isoDay(new Date()) },
+            { id: 'thisMonth', from: firstOfThisMonth, to: () => isoDay(new Date()) },
+            { id: 'lastMonth', from: firstOfLastMonth, to: lastOfLastMonth },
+          ].map(preset => (
+            <button
+              key={preset.id}
+              type="button"
+              data-testid={`accounting-preset-${preset.id}`}
+              className="btn-outline h-8 px-3 text-xs"
+              onClick={() => {
+                setFromDate(preset.from());
+                setToDate(preset.to());
+              }}
+            >
+              {t(`accounting.filters.presets.${preset.id}`)}
+            </button>
+          ))}
+        </div>
         <div className="flex flex-wrap gap-4">
           <label className="block">
             <span className="label">{t('accounting.filters.from')}</span>
@@ -487,7 +521,10 @@ export function AccountingExportPage() {
       ) : null}
 
       {validRange && vouchersQuery.error ? (
-        <div className="rounded-2xl border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-700">
+        <div
+          role="alert"
+          className="rounded-2xl border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-700"
+        >
           {translateServerError(vouchersQuery.error, t, t('errors:server.unknown'))}
         </div>
       ) : null}
@@ -540,7 +577,9 @@ export function AccountingExportPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div
+        className={`grid gap-4 ${totals.rounding !== 0 ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-3'}`}
+      >
         <KpiTile
           icon={BookOpenCheck}
           label={t('accounting.kpi.vouchers')}
@@ -556,6 +595,13 @@ export function AccountingExportPage() {
           label={t('accounting.kpi.taxes')}
           value={`${formatCurrency(totals.iva)} · ${formatCurrency(totals.inc)}`}
         />
+        {totals.rounding !== 0 && (
+          <KpiTile
+            icon={Table2}
+            label={t('accounting.kpi.rounding')}
+            value={formatCurrency(totals.rounding, undefined, undefined, 2)}
+          />
+        )}
       </div>
 
       {isEmpty ? (

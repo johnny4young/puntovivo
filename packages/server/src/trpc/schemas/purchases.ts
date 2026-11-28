@@ -27,6 +27,7 @@ export const PURCHASE_DOCUMENT_MIME_TYPES = [
   'image/png',
   'image/webp',
 ] as const;
+export type PurchaseDocumentMimeType = (typeof PURCHASE_DOCUMENT_MIME_TYPES)[number];
 export const PURCHASE_DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
 
 const dataUrlPrefix = /^data:[^;]+;base64,/;

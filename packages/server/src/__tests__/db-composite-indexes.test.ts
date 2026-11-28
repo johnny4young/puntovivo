@@ -138,3 +138,73 @@ describe('composite indexes added by  (migration 0034)', () => {
     ]);
   });
 });
+
+describe('hot-path report indexes and redundant prefix cleanup (migration 0109)', () => {
+  function indexExists(name: string): boolean {
+    const sqlite = (getDatabase() as unknown as LiveDatabase).$client;
+    const row = sqlite
+      .prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name = ?")
+      .get(name);
+    return row !== undefined;
+  }
+
+  function explainPlan(sqlQuery: string, params: unknown[]): string[] {
+    const sqlite = (getDatabase() as unknown as LiveDatabase).$client;
+    return (
+      sqlite.prepare(`EXPLAIN QUERY PLAN ${sqlQuery}`).all(...params) as Array<{ detail: string }>
+    ).map(row => row.detail);
+  }
+
+  it('adds hot composite/expression indexes and drops redundant single-tenant prefixes', async () => {
+    await initDatabase({ dbPath: ':memory:', seedData: false });
+
+    expect(readIndex('idx_sales_tenant_status_effective_date').tbl_name).toBe('sales');
+    expect(readIndex('idx_sale_returns_tenant_created').tbl_name).toBe('sale_returns');
+    expect(readIndexColumns('idx_sale_returns_tenant_created')).toEqual([
+      'tenant_id',
+      'created_at',
+    ]);
+    expect(readIndex('idx_cash_movements_tenant_reference').tbl_name).toBe('cash_movements');
+    expect(readIndexColumns('idx_cash_movements_tenant_reference')).toEqual([
+      'tenant_id',
+      'reference_id',
+    ]);
+
+    expect(indexExists('idx_sales_tenant')).toBe(false);
+    expect(indexExists('idx_sale_returns_tenant')).toBe(false);
+    expect(indexExists('idx_cash_movements_tenant')).toBe(false);
+    expect(indexExists('idx_audit_logs_tenant')).toBe(false);
+    expect(indexExists('idx_inventory_balances_tenant')).toBe(false);
+    expect(indexExists('idx_inventory_lots_tenant')).toBe(false);
+  });
+
+  it('plans hot dashboard, return, and cash-movement lookups without table scans', async () => {
+    await initDatabase({ dbPath: ':memory:', seedData: false });
+
+    const salesPlan = explainPlan(
+      `SELECT id FROM sales
+        WHERE tenant_id = ?
+          AND status = 'completed'
+          AND coalesce(checkout_completed_at, created_at) >= ?
+          AND coalesce(checkout_completed_at, created_at) < ?`,
+      ['t1', '2026-01-01T00:00:00.000Z', '2026-02-01T00:00:00.000Z']
+    );
+    expect(salesPlan.join(' | ')).toContain('idx_sales_tenant_status_effective_date');
+    expect(salesPlan.join(' | ')).not.toContain('SCAN sales');
+
+    const returnsPlan = explainPlan(
+      `SELECT id FROM sale_returns
+        WHERE tenant_id = ? AND created_at >= ? AND created_at < ?`,
+      ['t1', '2026-01-01T00:00:00.000Z', '2026-02-01T00:00:00.000Z']
+    );
+    expect(returnsPlan.join(' | ')).toContain('idx_sale_returns_tenant_created');
+    expect(returnsPlan.join(' | ')).not.toContain('SCAN sale_returns');
+
+    const cashPlan = explainPlan(
+      `SELECT id FROM cash_movements WHERE tenant_id = ? AND reference_id = ?`,
+      ['t1', 'sale-1']
+    );
+    expect(cashPlan.join(' | ')).toContain('idx_cash_movements_tenant_reference');
+    expect(cashPlan.join(' | ')).not.toContain('SCAN cash_movements');
+  });
+});

@@ -74,7 +74,7 @@ export function DayCloseSignoffCard({
                 </dd>
               </div>
             </dl>
-            <div className="mt-4 flex flex-col gap-3 rounded-xl border border-success-200 bg-white/55 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-4 flex flex-col gap-3 rounded-xl border border-success-200 bg-surface/80 p-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-start gap-2.5">
                 <FileText className="mt-0.5 h-4 w-4 shrink-0 text-success-700" aria-hidden="true" />
                 <div className="min-w-0">

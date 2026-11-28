@@ -28,8 +28,17 @@ export function registerServerStateIpc(deps: {
   }
 }
 
-export function broadcastServerState(state: EmbeddedServerState): void {
-  for (const window of BrowserWindow.getAllWindows()) {
+export function broadcastServerState(
+  state: EmbeddedServerState,
+  targetWindow?: BrowserWindow | null
+): void {
+  const targets =
+    targetWindow !== undefined
+      ? targetWindow
+        ? [targetWindow]
+        : []
+      : BrowserWindow.getAllWindows();
+  for (const window of targets) {
     if (!window.isDestroyed()) window.webContents.send(SERVER_STATE_CHANNEL, state);
   }
 }

@@ -69,7 +69,7 @@ const a11yRoutes: readonly A11yRoute[] = [
     label: 'Inventory (admin)',
     path: '/inventory',
     role: 'admin',
-    settled: page => page.getByRole('button', { name: /Movements|By Site|Por sede/i }).first(),
+    settled: page => page.getByRole('tab', { name: /Movements|Stock|Existencias/i }).first(),
   },
   {
     label: 'Customers (admin)',
@@ -88,7 +88,7 @@ const a11yRoutes: readonly A11yRoute[] = [
     path: '/purchases',
     role: 'admin',
     settled: page =>
-      page.getByRole('button', { name: /Record purchase|Nueva compra|Add product/i }).first(),
+      page.getByRole('tab', { name: /New purchase|Nueva compra|History|Historial/i }).first(),
   },
   {
     label: 'Orders (admin)',

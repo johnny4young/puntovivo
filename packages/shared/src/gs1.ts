@@ -18,6 +18,15 @@ export type Gs1PrefixRole = 'weight' | 'price';
 export const GS1_SCHEMES = ['none', 'generic', 'co', 'mx', 'cl'] as const;
 export type Gs1Scheme = (typeof GS1_SCHEMES)[number];
 
+/** Divisor applied to 5-digit GS1 price payloads: 100 for cents, 1 for whole currency units (COP/CLP). */
+export const GS1_PRICE_DIVISORS = [1, 100] as const;
+export type Gs1PriceDivisor = (typeof GS1_PRICE_DIVISORS)[number];
+export const DEFAULT_GS1_PRICE_DIVISOR: Gs1PriceDivisor = 100;
+
+export function isGs1PriceDivisor(value: unknown): value is Gs1PriceDivisor {
+  return value === 1 || value === 100;
+}
+
 export interface Gs1PrefixConfig {
   weight: ReadonlyArray<Gs1InStorePrefix>;
   price: ReadonlyArray<Gs1InStorePrefix>;

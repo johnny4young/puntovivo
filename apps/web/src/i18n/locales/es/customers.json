@@ -168,6 +168,12 @@
       "description": "Registre un abono contra el saldo del cliente. El monto se asienta como crédito y el saldo baja.",
       "amountLabel": "Monto",
       "amountRequired": "Ingrese un monto mayor a cero",
+      "paymentMethodLabel": "Medio de pago",
+      "paymentMethods": {
+        "cash": "Efectivo",
+        "card": "Tarjeta",
+        "transfer": "Transferencia"
+      },
       "noteLabel": "Nota",
       "confirm": "Confirmar abono",
       "success": "Abono registrado",

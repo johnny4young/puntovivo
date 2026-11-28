@@ -23,6 +23,10 @@ import { snapshotCountValue, assertCountValueUnchanged } from './countValues.js'
 import { toInventoryCents } from '../../services/inventory-valuation.js';
 import type { InventoryValueDelta } from '../../services/product-valuation.js';
 import { applyInventoryBalanceDelta } from '../../services/inventory-balances.js';
+import {
+  assertTenantBusinessClockCurrent,
+  resolveTenantBusinessClock,
+} from '../../services/pharmacy/business-clock.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import type {
   ApproveInventoryCountInput,
@@ -701,14 +705,20 @@ export function submitInventoryCount(
   );
 }
 
-export function approveInventoryCount(
+export async function approveInventoryCount(
   ctx: TransactionalInventoryContext,
   input: ApproveInventoryCountInput
 ) {
-  const now = new Date().toISOString();
+  const businessClock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
+  const now = businessClock.nowIso;
 
   return ctx.db.transaction(
     tx => {
+      assertTenantBusinessClockCurrent(
+        tx as unknown as DatabaseInstance,
+        ctx.tenantId,
+        businessClock
+      );
       const session = getSessionRow(tx as unknown as DatabaseInstance, ctx.tenantId, input.id);
       if (session.status !== 'submitted') throwCountStatus(session.status, 'submitted');
       if (session.version !== input.version) throwCountVersion('session', session.id);
@@ -876,6 +886,7 @@ export function approveInventoryCount(
             sessionId: input.id,
             actorId: ctx.user.id,
             now,
+            businessDate: businessClock.businessDate,
           }
         );
         const entryId = nanoid();

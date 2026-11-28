@@ -2,12 +2,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 
 import { render, screen, waitFor } from '@/test/utils';
-import type { Customer } from '@/types';
+import type { Customer, PharmacyClassification } from '@/types';
 import { SalePaymentModal, type SalePaymentValues } from './SalePaymentModal';
 
 const state = vi.hoisted(() => ({
   blockedErrorCode: null as string | null,
   eligibleEvidence: [{ id: 'evidence-approved-1', remainingQuantity: 2 }],
+  pharmacyZone: true,
+}));
+
+vi.mock('@/features/modules/useRegisterZone', () => ({
+  useRegisterZone: (zone: string) => zone !== 'pharmacy-lot' || state.pharmacyZone,
 }));
 
 vi.mock('@/lib/trpc', () => ({
@@ -115,7 +120,10 @@ const customer: Customer = {
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
-function renderPharmacyPayment(onSubmit = vi.fn(async (_values: SalePaymentValues) => undefined)) {
+function renderPharmacyPayment(
+  onSubmit = vi.fn(async (_values: SalePaymentValues) => undefined),
+  pharmacyClassification?: PharmacyClassification | null
+) {
   render(
     <SalePaymentModal
       isOpen
@@ -133,6 +141,7 @@ function renderPharmacyPayment(onSubmit = vi.fn(async (_values: SalePaymentValue
           quantity: 2,
           unitPrice: 50,
           discount: 0,
+          pharmacyClassification,
         },
       ]}
       onClose={vi.fn()}
@@ -146,6 +155,23 @@ describe('SalePaymentModal pharmacy policy', () => {
   beforeEach(() => {
     state.blockedErrorCode = null;
     state.eligibleEvidence = [{ id: 'evidence-approved-1', remainingQuantity: 2 }];
+    state.pharmacyZone = true;
+  });
+
+  it('still checks a medicine line when the pharmacy register zone is off', async () => {
+    state.pharmacyZone = false;
+    renderPharmacyPayment(undefined, 'prescription');
+    expect(
+      await screen.findByText('Select an active customer before using prescription evidence.')
+    ).toBeVisible();
+  });
+
+  it('skips the pharmacy check for a cart without medicine when the zone is off', () => {
+    state.pharmacyZone = false;
+    renderPharmacyPayment(undefined, null);
+    expect(
+      screen.queryByText('Select an active customer before using prescription evidence.')
+    ).not.toBeInTheDocument();
   });
 
   it('requires an identified customer and exact evidence selection before checkout', async () => {

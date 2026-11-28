@@ -1087,5 +1087,51 @@ describe('customerLedger.* router', () => {
         manager.customerLedger.addAdjustment({ customerId, amount: 10, note: 'x' })
       ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     });
+
+    it('records a paid_in cash movement when addPayment uses cash with an open register, and skips drawer on transfer', async () => {
+      const customerId = await seedCustomer('Cliente Abono Caja');
+      const db = getDatabase();
+      const sessionId = nanoid();
+      db.insert(cashSessions)
+        .values({
+          id: sessionId,
+          tenantId,
+          siteId: primarySiteId,
+          cashierId: adminUserId,
+          registerName: 'Caja Abonos',
+          status: 'open',
+          openingFloat: 50000,
+          expectedBalance: 50000,
+          openingCountDenominations: [],
+        })
+        .run();
+
+      await adminCaller().customerLedger.addPayment({
+        customerId,
+        amount: 20000,
+        paymentMethod: 'cash',
+        note: 'Abono efectivo',
+      });
+      await adminCaller().customerLedger.addPayment({
+        customerId,
+        amount: 15000,
+        paymentMethod: 'transfer',
+        note: 'Abono Nequi',
+      });
+
+      const movements = db
+        .select()
+        .from(cashMovements)
+        .where(and(eq(cashMovements.tenantId, tenantId), eq(cashMovements.sessionId, sessionId)))
+        .all();
+      expect(movements).toHaveLength(1);
+      expect(movements[0]).toMatchObject({
+        type: 'paid_in',
+        amount: 20000,
+      });
+
+      const balance = await adminCaller().customerLedger.getBalance({ customerId });
+      expect(balance.balance).toBe(-35000);
+    });
   });
 });

@@ -90,7 +90,17 @@
     "saveRoute": "Guardar enrutamiento",
     "saved": "Configuración de cocina guardada.",
     "saveError": "No se pudo guardar la configuración. Actualice y revise la versión actual.",
-    "loadError": "No se pudo cargar la configuración. Cierre y vuelva a abrir para reintentar."
+    "loadError": "No se pudo cargar la configuración. Cierre y vuelva a abrir para reintentar.",
+    "printerMode": "Impresora de comandas",
+    "printerNone": "Solo pantalla KDS",
+    "printerSite": "Impresora principal de la sede",
+    "printerTcp": "Impresora térmica TCP/LAN",
+    "printerHost": "IP o host LAN",
+    "printerPort": "Puerto TCP",
+    "printerPaperWidth": "Ancho de papel",
+    "printerCopies": "Copias",
+    "printerTagSite": "Impresora sede",
+    "printerTagTcp": "TCP {{host}}:{{port}}"
   },
   "line": {
     "pending": "Pendiente",

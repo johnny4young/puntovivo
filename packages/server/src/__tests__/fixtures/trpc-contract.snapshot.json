@@ -104,7 +104,7 @@
   {
     "path": "auditLogs.list",
     "kind": "query",
-    "input": "object{action?:enum(\"installation.owner_created\"|\"employment_contract.changed\"|\"payroll_profile.changed\"|\"payroll_period.changed\"|\"payroll_run.changed\"|\"payroll_provider_job.changed\"|\"time_off.changed\"|\"availability.changed\"|\"schedule_plan.changed\"|\"shift_swap.changed\"|\"attendance_reconciliation.changed\"|\"external_order.connector\"|\"external_order.update\"|\"reservation.create\"|\"reservation.update\"|\"delivery.create\"|\"delivery.transition\"|\"transfer.create\"|\"transfer.receive\"|\"transfer.void\"|\"inventory.transformation.recipe.create\"|\"inventory.transformation.recipe.update\"|\"inventory.transformation.execute\"|\"inventory.transformation.void\"|\"quotation.delete\"|\"quotation.convert\"|\"provider_payable.invoice.create\"|\"provider_payable.opening.create\"|\"provider_payable.payment.create\"|\"provider_payable.credit.create\"|\"sale.void\"|\"sale.return\"|\"cash_session.close\"|\"cash_session.open\"|\"cash_session.movement\"|\"cash_session.handoff\"|\"cash_session.handoff_receive\"|\"cash_session.handoff_superseded\"|\"cash_session.explain_difference\"|\"inventory.adjust_stock\"|\"inventory.revalue\"|\"inventory.count.create\"|\"inventory.count.save\"|\"inventory.count.submit\"|\"inventory.count.approve\"|\"inventory.count.reject\"|\"purchase.receive\"|\"purchase.return\"|\"order.create\"|\"order.submit\"|\"order.void\"|\"purchase.void\"|\"user.create\"|\"user.update\"|\"user.pin.update\"|\"auth.staff_switch\"|\"auth.recovery_code.generated\"|\"auth.recovered_with_code\"|\"auth.owner_recovered_locally\"|\"employee_shift.clock_in\"|\"employee_shift.clock_out\"|\"employee_shift.correct\"|\"employee_shift_break.start\"|\"employee_shift_break.end\"|\"scheduled_shift.create\"|\"scheduled_shift.update\"|\"scheduled_shift.cancel\"|\"manager_approval.request\"|\"manager_approval.approve\"|\"manager_approval.reject\"|\"manager_approval.cancel\"|\"manager_approval.consume\"|\"loss_prevention.settings.updated\"|\"loss_prevention.triggered\"|\"loss_prevention.alert.acknowledged\"|\"cash_drawer.open\"|\"data_import.products\"|\"data_import.customers\"|\"data_import.providers\"|\"data_import.customer_balances\"|\"data_import.opening_cash\"|\"data_import.fiscal_profile\"|\"sale.price_override\"|\"sale.park\"|\"sale.resume\"|\"sale.carry_over\"|\"sale.reprint\"|\"sale.complete\"|\"ai.anomaly.detected\"|\"module.toggle\"|\"module.preset_applied\"|\"register_zone.toggle\"|\"device.revoke\"|\"device.pairing.claimed\"|\"payment.retry\"|\"payment.mark_settled\"|\"payment.proposal_approved\"|\"payment.proposal_rejected\"|\"restaurant_table.create\"|\"restaurant_table.update\"|\"restaurant_table.archive\"|\"sale.changeTable\"|\"sale.splitDraft\"|\"ai.invoice_ocr.extract\"|\"ai.invoice_ocr.confirm\"|\"ai.copilot.query\"|\"ai.copilot.response_mode.updated\"|\"ai.budget_hold.reconciled\"|\"ai.anomaly.silenced\"|\"ai.semantic_search.regenerate_embeddings\"|\"kds.order.ready\"|\"kds.order.recalled\"|\"kds.order.preparing\"|\"kds.order.resent\"|\"kds.order.relocated\"|\"kds.order.voided\"|\"kds.station.saved\"|\"restaurant_modifier.save\"|\"restaurant_modifier_group.save\"|\"restaurant_service.bill_requested\"|\"restaurant_service.bill_request_cleared\"|\"restaurant.checks.regrouped\"|\"kds.routing.saved\"|\"kds.routing.removed\"|\"customer.credit_limit.update\"|\"customer.price_tier.update\"|\"customer.personal_data.export\"|\"customer.personal_data.delete\"|\"customer.personal_data.anonymize\"|\"sale.credit_override\"|\"fiscal.xml.downloaded\"|\"fiscal.intent.rearmed\"|\"telemetry.opt_in.updated\"|\"pricing.tax_mode.updated\"|\"data_retention.policy.updated\"|\"data_retention.sweep.run\"|\"inventory.lot.discount_suggested\"|\"inventory.lot.discount_suggestion_dismissed\"|\"inventory.lot.discount_promotion_activated\"|\"promotion.create\"|\"promotion.update\"|\"promotion.status_changed\"|\"pharmacy.authorization.create\"|\"pharmacy.authorization.revoke\"|\"pharmacy.product.profile.update\"|\"pharmacy.evidence.record\"|\"pharmacy.evidence.approve\"|\"pharmacy.evidence.revoke\"|\"pharmacy.evidence.dispense\"|\"pharmacy.recall.create\"|\"pharmacy.recall.close\"|\"pharmacy.lot.transition\"|\"pharmacy.lot.destroy\"|\"backup.restore_drill\"|\"backup.encryption_key_reveal\"|\"security.db_key_rotation\"|\"day_close.sign_off\"|\"webhook_subscription.create\"|\"webhook_subscription.disable\"|\"webhook_subscription.revoke\"|\"webhook_delivery.retry\"|\"operational_alert.acknowledged\"|\"operational_alert.delivery.retry\"|\"fiscal_numbering.create\"|\"fiscal_numbering.activate\"|\"fiscal_numbering.retire\"|\"fiscal_numbering.delete\"|\"fiscal_numbering.relieve\"|\"transfer_destination.create\"|\"transfer_destination.update\"|\"transfer_destination.delete\"|\"transfer_destination.reorder\"|\"sequential.create\"|\"sequential.adjust\"|\"sequential.delete\"|\"product.create\"|\"product.update\"|\"category.create\"|\"category.update\"|\"category.delete\"|\"unit.create\"|\"unit.update\"|\"unit.delete\"|\"vat_rate.create\"|\"vat_rate.update\"|\"vat_rate.delete\"|\"customer.ledger.adjust\"|\"fiscal.settings.update\"|\"cash_close.settings.update\"|\"product.delete\"|\"product.variant_matrix.create\"|\"inventory.serial.receive\"|\"sync.conflict.resolve\"),actorId?:string[minLength=1],createdAfter?:string[format=date-time],createdBefore?:string[format=date-time],limit?:integer[max=500,min>0],resourceId?:string[minLength=1],resourceType?:enum(\"employment_contract\"|\"payroll_profile\"|\"payroll_period\"|\"payroll_run\"|\"payroll_provider_job\"|\"time_off\"|\"availability\"|\"schedule_plan\"|\"shift_swap\"|\"attendance_reconciliation\"|\"external_order\"|\"external_order_connector\"|\"restaurant_reservation\"|\"delivery_order\"|\"transfer_order\"|\"inventory_transformation_recipe\"|\"inventory_transformation\"|\"quotation\"|\"provider_payable\"|\"sale\"|\"sale_return\"|\"cash_session\"|\"cash_movement\"|\"cash_session_handoff\"|\"product\"|\"inventory_count_session\"|\"purchase\"|\"order\"|\"user\"|\"employee_shift\"|\"employee_shift_break\"|\"scheduled_shift\"|\"manager_approval\"|\"loss_prevention_rule\"|\"loss_prevention_alert\"|\"site\"|\"cashier\"|\"tenant_module\"|\"tenant_register_zone\"|\"device\"|\"payment_outbox\"|\"payment_reconciliation_proposal\"|\"webhook_subscription\"|\"webhook_outbox\"|\"operational_alert\"|\"operational_alert_delivery\"|\"restaurant_table\"|\"ai_feature\"|\"kds_order\"|\"restaurant_modifier\"|\"restaurant_modifier_group\"|\"restaurant_service\"|\"kds_configuration\"|\"customer\"|\"fiscal_document\"|\"fiscal_emission_intent\"|\"tenant\"|\"price_suggestion\"|\"promotion\"|\"pharmacy_authorization\"|\"pharmacy_product_profile\"|\"pharmacy_prescription_evidence\"|\"pharmacy_recall\"|\"inventory_lot\"|\"backup_snapshot\"|\"backup_key\"|\"data_import\"|\"day_close_signoff\"|\"fiscal_numbering_range\"|\"transfer_destination\"|\"sequential\"|\"category\"|\"unit\"|\"vat_rate\"),sensitiveCategory?:enum(\"privacy\"|\"access\"|\"money\"|\"inventory\"|\"ai\")}",
+    "input": "object{action?:enum(\"installation.owner_created\"|\"employment_contract.changed\"|\"payroll_profile.changed\"|\"payroll_period.changed\"|\"payroll_run.changed\"|\"payroll_provider_job.changed\"|\"time_off.changed\"|\"availability.changed\"|\"schedule_plan.changed\"|\"shift_swap.changed\"|\"attendance_reconciliation.changed\"|\"external_order.connector\"|\"external_order.update\"|\"reservation.create\"|\"reservation.update\"|\"delivery.create\"|\"delivery.transition\"|\"transfer.create\"|\"transfer.receive\"|\"transfer.void\"|\"inventory.transformation.recipe.create\"|\"inventory.transformation.recipe.update\"|\"inventory.transformation.execute\"|\"inventory.transformation.void\"|\"quotation.delete\"|\"quotation.convert\"|\"provider_payable.invoice.create\"|\"provider_payable.opening.create\"|\"provider_payable.payment.create\"|\"provider_payable.credit.create\"|\"sale.void\"|\"sale.return\"|\"cash_session.close\"|\"cash_session.open\"|\"cash_session.movement\"|\"cash_session.handoff\"|\"cash_session.handoff_receive\"|\"cash_session.handoff_superseded\"|\"cash_session.explain_difference\"|\"inventory.adjust_stock\"|\"inventory.revalue\"|\"inventory.count.create\"|\"inventory.count.save\"|\"inventory.count.submit\"|\"inventory.count.approve\"|\"inventory.count.reject\"|\"purchase.receive\"|\"purchase.return\"|\"purchase.document_updated\"|\"purchase.document_attached\"|\"order.create\"|\"order.submit\"|\"order.void\"|\"purchase.void\"|\"user.create\"|\"user.update\"|\"user.pin.update\"|\"auth.staff_switch\"|\"auth.recovery_code.generated\"|\"auth.recovered_with_code\"|\"auth.owner_recovered_locally\"|\"employee_shift.clock_in\"|\"employee_shift.clock_out\"|\"employee_shift.correct\"|\"employee_shift_break.start\"|\"employee_shift_break.end\"|\"scheduled_shift.create\"|\"scheduled_shift.update\"|\"scheduled_shift.cancel\"|\"manager_approval.request\"|\"manager_approval.approve\"|\"manager_approval.reject\"|\"manager_approval.cancel\"|\"manager_approval.consume\"|\"loss_prevention.settings.updated\"|\"loss_prevention.triggered\"|\"loss_prevention.alert.acknowledged\"|\"cash_drawer.open\"|\"data_import.products\"|\"data_import.customers\"|\"data_import.providers\"|\"data_import.customer_balances\"|\"data_import.opening_cash\"|\"data_import.fiscal_profile\"|\"sale.price_override\"|\"sale.park\"|\"sale.resume\"|\"sale.carry_over\"|\"sale.reprint\"|\"sale.complete\"|\"ai.anomaly.detected\"|\"module.toggle\"|\"module.preset_applied\"|\"register_zone.toggle\"|\"device.revoke\"|\"device.pairing.claimed\"|\"payment.retry\"|\"payment.mark_settled\"|\"payment.proposal_approved\"|\"payment.proposal_rejected\"|\"restaurant_table.create\"|\"restaurant_table.update\"|\"restaurant_table.archive\"|\"sale.changeTable\"|\"sale.splitDraft\"|\"ai.invoice_ocr.extract\"|\"ai.invoice_ocr.confirm\"|\"ai.copilot.query\"|\"ai.copilot.response_mode.updated\"|\"ai.budget_hold.reconciled\"|\"ai.anomaly.silenced\"|\"ai.semantic_search.regenerate_embeddings\"|\"kds.order.ready\"|\"kds.order.recalled\"|\"kds.order.preparing\"|\"kds.order.resent\"|\"kds.order.relocated\"|\"kds.order.voided\"|\"kds.station.saved\"|\"restaurant_modifier.save\"|\"restaurant_modifier.bom_updated\"|\"restaurant_modifier_group.save\"|\"restaurant_service.bill_requested\"|\"restaurant_service.bill_request_cleared\"|\"restaurant_check.round_added\"|\"restaurant_check.precheck_printed\"|\"restaurant_check.split_equal\"|\"restaurant_check.split_shared_line\"|\"restaurant.checks.regrouped\"|\"kds.routing.saved\"|\"kds.routing.removed\"|\"customer.credit_limit.update\"|\"customer.price_tier.update\"|\"customer.personal_data.export\"|\"customer.personal_data.delete\"|\"customer.personal_data.anonymize\"|\"sale.credit_override\"|\"fiscal.xml.downloaded\"|\"fiscal.intent.rearmed\"|\"telemetry.opt_in.updated\"|\"pricing.tax_mode.updated\"|\"data_retention.policy.updated\"|\"data_retention.sweep.run\"|\"inventory.lot.discount_suggested\"|\"inventory.lot.discount_suggestion_dismissed\"|\"inventory.lot.discount_promotion_activated\"|\"promotion.create\"|\"promotion.update\"|\"promotion.status_changed\"|\"pharmacy.authorization.create\"|\"pharmacy.authorization.revoke\"|\"pharmacy.product.profile.update\"|\"pharmacy.evidence.record\"|\"pharmacy.evidence.approve\"|\"pharmacy.evidence.revoke\"|\"pharmacy.evidence.dispense\"|\"pharmacy.recall.create\"|\"pharmacy.recall.close\"|\"pharmacy.lot.transition\"|\"pharmacy.lot.destroy\"|\"pharmacy.lot.fractionate\"|\"pharmacy.environmental_log.record\"|\"pharmacy.invima.import\"|\"pharmacy.fne_authorization.create\"|\"pharmacy.fne_authorization.revoke\"|\"pharmacy.fne.dispense\"|\"pharmacy.customer_allergy.create\"|\"pharmacy.customer_allergy.delete\"|\"backup.restore_drill\"|\"backup.encryption_key_reveal\"|\"security.db_key_rotation\"|\"day_close.sign_off\"|\"webhook_subscription.create\"|\"webhook_subscription.disable\"|\"webhook_subscription.revoke\"|\"webhook_delivery.retry\"|\"operational_alert.acknowledged\"|\"operational_alert.delivery.retry\"|\"fiscal_numbering.create\"|\"fiscal_numbering.activate\"|\"fiscal_numbering.retire\"|\"fiscal_numbering.delete\"|\"fiscal_numbering.relieve\"|\"transfer_destination.create\"|\"transfer_destination.update\"|\"transfer_destination.delete\"|\"transfer_destination.reorder\"|\"sequential.create\"|\"sequential.adjust\"|\"sequential.delete\"|\"product.create\"|\"product.update\"|\"category.create\"|\"category.update\"|\"category.delete\"|\"unit.create\"|\"unit.update\"|\"unit.delete\"|\"vat_rate.create\"|\"vat_rate.update\"|\"vat_rate.delete\"|\"customer.ledger.adjust\"|\"fiscal.settings.update\"|\"cash_close.settings.update\"|\"product.delete\"|\"product.variant_matrix.create\"|\"inventory.serial.receive\"|\"sync.conflict.resolve\"),actorId?:string[minLength=1],createdAfter?:string[format=date-time],createdBefore?:string[format=date-time],limit?:integer[max=500,min>0],resourceId?:string[minLength=1],resourceType?:enum(\"employment_contract\"|\"payroll_profile\"|\"payroll_period\"|\"payroll_run\"|\"payroll_provider_job\"|\"time_off\"|\"availability\"|\"schedule_plan\"|\"shift_swap\"|\"attendance_reconciliation\"|\"external_order\"|\"external_order_connector\"|\"restaurant_reservation\"|\"delivery_order\"|\"transfer_order\"|\"inventory_transformation_recipe\"|\"inventory_transformation\"|\"quotation\"|\"provider_payable\"|\"sale\"|\"sale_return\"|\"cash_session\"|\"cash_movement\"|\"cash_session_handoff\"|\"product\"|\"inventory_count_session\"|\"purchase\"|\"order\"|\"user\"|\"employee_shift\"|\"employee_shift_break\"|\"scheduled_shift\"|\"manager_approval\"|\"loss_prevention_rule\"|\"loss_prevention_alert\"|\"site\"|\"cashier\"|\"tenant_module\"|\"tenant_register_zone\"|\"device\"|\"payment_outbox\"|\"payment_reconciliation_proposal\"|\"webhook_subscription\"|\"webhook_outbox\"|\"operational_alert\"|\"operational_alert_delivery\"|\"restaurant_table\"|\"ai_feature\"|\"kds_order\"|\"restaurant_modifier\"|\"restaurant_modifier_group\"|\"restaurant_service\"|\"restaurant_check\"|\"kds_configuration\"|\"customer\"|\"fiscal_document\"|\"fiscal_emission_intent\"|\"tenant\"|\"price_suggestion\"|\"promotion\"|\"pharmacy_authorization\"|\"pharmacy_product_profile\"|\"pharmacy_prescription_evidence\"|\"pharmacy_recall\"|\"pharmacy_lot_fractionation\"|\"pharmacy_environmental_log\"|\"pharmacy_invima_catalog\"|\"pharmacy_fne_authorization\"|\"pharmacy_fne_ledger\"|\"pharmacy_customer_allergy\"|\"inventory_lot\"|\"backup_snapshot\"|\"backup_key\"|\"data_import\"|\"day_close_signoff\"|\"fiscal_numbering_range\"|\"transfer_destination\"|\"sequential\"|\"category\"|\"unit\"|\"vat_rate\"),sensitiveCategory?:enum(\"privacy\"|\"access\"|\"money\"|\"inventory\"|\"ai\")}",
     "output": "inferred"
   },
   {
@@ -578,7 +578,7 @@
   {
     "path": "customerLedger.addPayment",
     "kind": "mutation",
-    "input": "object{amount:number[min>0],customerId:string[minLength=1],note?:string}",
+    "input": "object{amount:number[min>0],customerId:string[minLength=1],note?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\")}",
     "output": "inferred"
   },
   {
@@ -1346,7 +1346,7 @@
   {
     "path": "kds.saveStation",
     "kind": "mutation",
-    "input": "object{code:string[minLength=1,maxLength=80],expectedVersion:integer[min=0,max=9007199254740991],isActive:boolean,name:string[minLength=1,maxLength=120],position:integer[min=0,max=999],siteId:string[minLength=1,maxLength=128]}",
+    "input": "object{code:string[minLength=1,maxLength=80],expectedVersion:integer[min=0,max=9007199254740991],isActive:boolean,name:string[minLength=1,maxLength=120],position:integer[min=0,max=999],printerConfig?:object{characterSet?:enum(\"cp437\"|\"cp858\"|\"cp850\"|\"pc858_euro\"),copies?:integer[min=1,max=3]=1,host?:string[maxLength=253],mode?:enum(\"none\"|\"site_printer\"|\"tcp\"),paperWidth?:enum(\"58mm\"|\"80mm\"),port?:integer[min=1,max=65535]}|null,siteId:string[minLength=1,maxLength=128]}",
     "output": "inferred"
   },
   {
@@ -1932,6 +1932,12 @@
     "output": "inferred"
   },
   {
+    "path": "pharmacy.addCustomerAllergy",
+    "kind": "mutation",
+    "input": "object{activeIngredient:string[minLength=2,maxLength=200],customerId:string[minLength=1],notes?:string[maxLength=400]|null,severity?:enum(\"mild\"|\"moderate\"|\"severe\")}",
+    "output": "inferred"
+  },
+  {
     "path": "pharmacy.affectedSales",
     "kind": "query",
     "input": "object{id:string[minLength=1],page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50}",
@@ -1968,6 +1974,12 @@
     "output": "inferred"
   },
   {
+    "path": "pharmacy.createFneAuthorization",
+    "kind": "mutation",
+    "input": "object{countryCode:string[minLength=2,maxLength=2],issuingAuthority:string[minLength=3,maxLength=200],resolutionNumber:string[minLength=3,maxLength=160],responsibleUserId:string[minLength=1],siteId?:string[minLength=1]|null,validFrom:string[format=date],validUntil?:string[format=date]|null}",
+    "output": "inferred"
+  },
+  {
     "path": "pharmacy.createRecall",
     "kind": "mutation",
     "input": "object{lotId?:string[minLength=1],productId?:string[minLength=1],providerId?:string[minLength=1],reason:string[minLength=3,maxLength=500],sanitaryRegistration?:string[minLength=1,maxLength=160],scopeType:enum(\"product\"|\"lot\"|\"provider\"|\"sanitary_registration\")}",
@@ -1980,9 +1992,27 @@
     "output": "inferred"
   },
   {
+    "path": "pharmacy.fractionateLot",
+    "kind": "mutation",
+    "input": "object{reason:string[minLength=3,maxLength=500],sourceLotId:string[minLength=1],sourceQuantity:number[max=1000000000,min>0],targetProductId:string[minLength=1],targetQuantity:number[max=1000000000,min>0]}",
+    "output": "inferred"
+  },
+  {
     "path": "pharmacy.genericAlternatives",
     "kind": "query",
     "input": "object{limit?:integer[min=1,max=5]=3,priceTier?:literal(1)|literal(2)|literal(3),productId:string[minLength=1],siteId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "pharmacy.getEnvironmentalReport",
+    "kind": "query",
+    "input": "object{fromDate:string[format=date],siteId?:string[minLength=1],toDate:string[format=date],zone?:enum(\"ambient\"|\"refrigerator\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "pharmacy.getFneMonthlyReport",
+    "kind": "query",
+    "input": "object{month:string,siteId?:string[minLength=1]}",
     "output": "inferred"
   },
   {
@@ -1992,9 +2022,27 @@
     "output": "inferred"
   },
   {
+    "path": "pharmacy.importInvimaCatalog",
+    "kind": "mutation",
+    "input": "object{csvText?:string[minLength=1,maxLength=2000000],rows?:array<object>[maxItems=2000],syncMatchingProducts?:boolean=false}",
+    "output": "inferred"
+  },
+  {
     "path": "pharmacy.listAuthorizations",
     "kind": "query",
     "input": "object{activeOnly?:boolean=true,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,siteId?:string[minLength=1],userId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "pharmacy.listCustomerAllergies",
+    "kind": "query",
+    "input": "object{customerId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "pharmacy.listEnvironmentalLogs",
+    "kind": "query",
+    "input": "object{fromDate?:string[format=date],onlyDeviations?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,siteId?:string[minLength=1],toDate?:string[format=date],zone?:enum(\"ambient\"|\"refrigerator\")}",
     "output": "inferred"
   },
   {
@@ -2004,15 +2052,39 @@
     "output": "inferred"
   },
   {
+    "path": "pharmacy.listFneAuthorizations",
+    "kind": "query",
+    "input": "object{activeOnly?:boolean=true,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,siteId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "pharmacy.listFractionations",
+    "kind": "query",
+    "input": "object{page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,siteId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
     "path": "pharmacy.listRecalls",
     "kind": "query",
     "input": "object{page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,status?:enum(\"active\"|\"closed\")}",
     "output": "inferred"
   },
   {
+    "path": "pharmacy.recordEnvironmentalLog",
+    "kind": "mutation",
+    "input": "object{correctiveAction?:string[maxLength=500]|null,humidityPercent?:number[min=0,max=100]|null,instrumentCode?:string[maxLength=120]|null,notes?:string[maxLength=500]|null,period:enum(\"morning\"|\"afternoon\"),siteId?:string[minLength=1],temperatureC:number[min=-40,max=80],zone:enum(\"ambient\"|\"refrigerator\")}",
+    "output": "inferred"
+  },
+  {
     "path": "pharmacy.recordEvidence",
     "kind": "mutation",
     "input": "object{authorizedQuantity:number[max=1000000000,min>0],buyerDocument?:string[minLength=2,maxLength=120]|null,customerId:string[minLength=1],expiresAt:string[format=date],notes?:string[maxLength=500]|null,prescriberCredential?:string[minLength=2,maxLength=160]|null,prescriberName?:string[minLength=2,maxLength=160]|null,productId:string[minLength=1],reference:string[minLength=2,maxLength=200],validFrom:string[format=date]}",
+    "output": "inferred"
+  },
+  {
+    "path": "pharmacy.removeCustomerAllergy",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1]}",
     "output": "inferred"
   },
   {
@@ -2025,6 +2097,18 @@
     "path": "pharmacy.revokeEvidence",
     "kind": "mutation",
     "input": "object{id:string[minLength=1],reason:string[minLength=3,maxLength=500]}",
+    "output": "inferred"
+  },
+  {
+    "path": "pharmacy.revokeFneAuthorization",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1],reason:string[minLength=3,maxLength=500]}",
+    "output": "inferred"
+  },
+  {
+    "path": "pharmacy.searchInvimaCatalog",
+    "kind": "query",
+    "input": "object{page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,search?:string[maxLength=160],status?:enum(\"vigente\"|\"en_tramite_renovacion\"|\"vencido\"|\"cancelado\"|\"suspendido\")}",
     "output": "inferred"
   },
   {
@@ -2042,7 +2126,7 @@
   {
     "path": "products.create",
     "kind": "mutation",
-    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0]=0,description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,imageUrl?:string|null,initialCost?:number[min=0]=0,isActive?:boolean=true,locationId?:string|null,marginAmount1?:number[min=0]=0,marginAmount2?:number[min=0]=0,marginAmount3?:number[min=0]=0,marginPercent1?:number[min=0]=0,marginPercent2?:number[min=0]=0,marginPercent3?:number[min=0]=0,minStock?:number[min=0]=0,name:string[minLength=1,maxLength=255],pharmacy?:object{activeIngredient?:string[minLength=1,maxLength=255]|null,administrationRoute?:string[minLength=1,maxLength=120]|null,authorizationHolder?:string[minLength=1,maxLength=255]|null,classification?:enum(\"otc\"|\"prescription\"|\"controlled\"),concentration?:string[minLength=1,maxLength=120]|null,dosageForm?:string[minLength=1,maxLength=120]|null,genericName?:string[minLength=1,maxLength=255]|null,manufacturer?:string[minLength=1,maxLength=255]|null,presentation?:string[minLength=1,maxLength=255]|null,registrationExpiresAt?:string[format=date]|null,requiresColdChain?:boolean=false,sanitaryRegistration?:string[minLength=1,maxLength=160]|null,storageConditions?:string[minLength=1,maxLength=500]|null}|null,price?:number[min=0]=0,price2?:number[min=0]=0,price3?:number[min=0]=0,providerAssignments?:array<object>,providerId?:string|null,sellByFraction?:boolean=false,siteId?:string[minLength=1],sku:string[minLength=1,maxLength=100],stock?:number[min=0]=0,taxComponents?:array<object>[minItems=1,maxItems=4],taxRate?:number[min=0,max=100]=0,tracksLots?:boolean=false,tracksSerials?:boolean=false,tracksStock?:boolean=true,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null}",
+    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0]=0,description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,imageUrl?:string|null,initialCost?:number[min=0]=0,isActive?:boolean=true,isReturnableContainer?:boolean=false,locationId?:string|null,marginAmount1?:number[min=0]=0,marginAmount2?:number[min=0]=0,marginAmount3?:number[min=0]=0,marginPercent1?:number[min=0]=0,marginPercent2?:number[min=0]=0,marginPercent3?:number[min=0]=0,minStock?:number[min=0]=0,name:string[minLength=1,maxLength=255],pharmacy?:object{activeIngredient?:string[minLength=1,maxLength=255]|null,administrationRoute?:string[minLength=1,maxLength=120]|null,authorizationHolder?:string[minLength=1,maxLength=255]|null,classification?:enum(\"otc\"|\"prescription\"|\"controlled\"),concentration?:string[minLength=1,maxLength=120]|null,cumCode?:string[minLength=1,maxLength=80]|null,dosageForm?:string[minLength=1,maxLength=120]|null,dosesPerPack?:integer[max=10000,min>0]|null,genericName?:string[minLength=1,maxLength=255]|null,manufacturer?:string[minLength=1,maxLength=255]|null,presentation?:string[minLength=1,maxLength=255]|null,registrationExpiresAt?:string[format=date]|null,requiresColdChain?:boolean=false,sanitaryRegistration?:string[minLength=1,maxLength=160]|null,storageConditions?:string[minLength=1,maxLength=500]|null}|null,price?:number[min=0]=0,price2?:number[min=0]=0,price3?:number[min=0]=0,providerAssignments?:array<object>,providerId?:string|null,returnableDepositAmount?:number[min=0]=0,sellByFraction?:boolean=false,siteId?:string[minLength=1],sku:string[minLength=1,maxLength=100],stock?:number[min=0]=0,taxComponents?:array<object>[minItems=1,maxItems=4],taxRate?:number[min=0,max=100]=0,tracksLots?:boolean=false,tracksSerials?:boolean=false,tracksStock?:boolean=true,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null}",
     "output": "inferred"
   },
   {
@@ -2061,6 +2145,12 @@
     "path": "products.embeddingHealth",
     "kind": "query",
     "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "products.getBundleComponents",
+    "kind": "query",
+    "input": "object{productId:string[minLength=1]}",
     "output": "inferred"
   },
   {
@@ -2106,6 +2196,12 @@
     "output": "inferred"
   },
   {
+    "path": "products.setBundleComponents",
+    "kind": "mutation",
+    "input": "object{components:array<object>[maxItems=50],productId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
     "path": "products.suggestCategory",
     "kind": "mutation",
     "input": "object{description?:string[maxLength=2000]|null,name:string[minLength=1,maxLength=200]}",
@@ -2120,7 +2216,13 @@
   {
     "path": "products.update",
     "kind": "mutation",
-    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0],description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,id:string[minLength=1],imageUrl?:string|null,initialCost?:number[min=0],isActive?:boolean,locationId?:string|null,marginAmount1?:number[min=0],marginAmount2?:number[min=0],marginAmount3?:number[min=0],marginPercent1?:number[min=0],marginPercent2?:number[min=0],marginPercent3?:number[min=0],minStock?:number[min=0],name?:string[minLength=1,maxLength=255],pharmacy?:object{activeIngredient?:string[minLength=1,maxLength=255]|null,administrationRoute?:string[minLength=1,maxLength=120]|null,authorizationHolder?:string[minLength=1,maxLength=255]|null,classification?:enum(\"otc\"|\"prescription\"|\"controlled\"),concentration?:string[minLength=1,maxLength=120]|null,dosageForm?:string[minLength=1,maxLength=120]|null,genericName?:string[minLength=1,maxLength=255]|null,manufacturer?:string[minLength=1,maxLength=255]|null,presentation?:string[minLength=1,maxLength=255]|null,registrationExpiresAt?:string[format=date]|null,requiresColdChain?:boolean=false,sanitaryRegistration?:string[minLength=1,maxLength=160]|null,storageConditions?:string[minLength=1,maxLength=500]|null}|null,price?:number[min=0],price2?:number[min=0],price3?:number[min=0],providerAssignments?:array<object>,providerId?:string|null,sellByFraction?:boolean,sku?:string[minLength=1,maxLength=100],stock?:number[min=0],taxComponents?:array<object>[minItems=1,maxItems=4],taxRate?:number[min=0,max=100],tracksLots?:boolean,tracksSerials?:boolean,tracksStock?:boolean,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null,version:integer[min=0,max=9007199254740991]}",
+    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0],description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,id:string[minLength=1],imageUrl?:string|null,initialCost?:number[min=0],isActive?:boolean,isReturnableContainer?:boolean,locationId?:string|null,marginAmount1?:number[min=0],marginAmount2?:number[min=0],marginAmount3?:number[min=0],marginPercent1?:number[min=0],marginPercent2?:number[min=0],marginPercent3?:number[min=0],minStock?:number[min=0],name?:string[minLength=1,maxLength=255],pharmacy?:object{activeIngredient?:string[minLength=1,maxLength=255]|null,administrationRoute?:string[minLength=1,maxLength=120]|null,authorizationHolder?:string[minLength=1,maxLength=255]|null,classification?:enum(\"otc\"|\"prescription\"|\"controlled\"),concentration?:string[minLength=1,maxLength=120]|null,cumCode?:string[minLength=1,maxLength=80]|null,dosageForm?:string[minLength=1,maxLength=120]|null,dosesPerPack?:integer[max=10000,min>0]|null,genericName?:string[minLength=1,maxLength=255]|null,manufacturer?:string[minLength=1,maxLength=255]|null,presentation?:string[minLength=1,maxLength=255]|null,registrationExpiresAt?:string[format=date]|null,requiresColdChain?:boolean=false,sanitaryRegistration?:string[minLength=1,maxLength=160]|null,storageConditions?:string[minLength=1,maxLength=500]|null}|null,price?:number[min=0],price2?:number[min=0],price3?:number[min=0],providerAssignments?:array<object>,providerId?:string|null,returnableDepositAmount?:number[min=0],sellByFraction?:boolean,sku?:string[minLength=1,maxLength=100],stock?:number[min=0],taxComponents?:array<object>[minItems=1,maxItems=4],taxRate?:number[min=0,max=100],tracksLots?:boolean,tracksSerials?:boolean,tracksStock?:boolean,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null,version:integer[min=0,max=9007199254740991]}",
+    "output": "inferred"
+  },
+  {
+    "path": "productSerials.hasTrackedProducts",
+    "kind": "query",
+    "input": "void",
     "output": "inferred"
   },
   {
@@ -2150,7 +2252,7 @@
   {
     "path": "promotions.create",
     "kind": "mutation",
-    "input": "object{categoryId?:string[minLength=1]|null,combinable?:boolean=false,customerId?:string[minLength=1]|null,discountPct:number[max=100,min>0],endsAt?:string[format=date-time]|null,minQuantity?:number[max=1000000,min>0]=1,name:string[minLength=1,maxLength=120],priority?:integer[min=-10000,max=10000]=0,productId?:string[minLength=1]|null,siteId?:string[minLength=1]|null,startsAt?:string[format=date-time]|null}",
+    "input": "object{buyQuantity?:integer[min=2,max=100]|null,categoryId?:string[minLength=1]|null,combinable?:boolean=false,customerId?:string[minLength=1]|null,discountAmount?:number[max=1000000000,min>0]|null,discountPct?:number[max=100,min>0],endsAt?:string[format=date-time]|null,minQuantity?:number[max=1000000,min>0]=1,name:string[minLength=1,maxLength=120],payQuantity?:integer[min=1,max=99]|null,priority?:integer[min=-10000,max=10000]=0,productId?:string[minLength=1]|null,ruleKind?:enum(\"percentage\"|\"fixed_amount\"|\"nxm\"),scheduleDays?:array<integer[min=0,max=6]>[maxItems=7]|null,scheduleEndTime?:string|null,scheduleStartTime?:string|null,siteId?:string[minLength=1]|null,startsAt?:string[format=date-time]|null}",
     "output": "inferred"
   },
   {
@@ -2174,7 +2276,7 @@
   {
     "path": "promotions.update",
     "kind": "mutation",
-    "input": "object{categoryId?:string[minLength=1]|null,combinable?:boolean=false,customerId?:string[minLength=1]|null,discountPct:number[max=100,min>0],endsAt?:string[format=date-time]|null,id:string[minLength=1],minQuantity?:number[max=1000000,min>0]=1,name:string[minLength=1,maxLength=120],priority?:integer[min=-10000,max=10000]=0,productId?:string[minLength=1]|null,siteId?:string[minLength=1]|null,startsAt?:string[format=date-time]|null,version:integer[max=9007199254740991,min>0]}",
+    "input": "object{buyQuantity?:integer[min=2,max=100]|null,categoryId?:string[minLength=1]|null,combinable?:boolean=false,customerId?:string[minLength=1]|null,discountAmount?:number[max=1000000000,min>0]|null,discountPct?:number[max=100,min>0],endsAt?:string[format=date-time]|null,id:string[minLength=1],minQuantity?:number[max=1000000,min>0]=1,name:string[minLength=1,maxLength=120],payQuantity?:integer[min=1,max=99]|null,priority?:integer[min=-10000,max=10000]=0,productId?:string[minLength=1]|null,ruleKind?:enum(\"percentage\"|\"fixed_amount\"|\"nxm\"),scheduleDays?:array<integer[min=0,max=6]>[maxItems=7]|null,scheduleEndTime?:string|null,scheduleStartTime?:string|null,siteId?:string[minLength=1]|null,startsAt?:string[format=date-time]|null,version:integer[max=9007199254740991,min>0]}",
     "output": "inferred"
   },
   {
@@ -2262,21 +2364,33 @@
     "output": "inferred"
   },
   {
+    "path": "purchases.attachDocument",
+    "kind": "mutation",
+    "input": "object{documentBase64:string[minLength=1,maxLength=14712832],fileName?:string[minLength=1,maxLength=240],mimeType:enum(\"application/pdf\"|\"image/jpeg\"|\"image/png\"|\"image/webp\"),purchaseId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
     "path": "purchases.create",
     "kind": "mutation",
-    "input": "object{items:array<object>[minItems=1],notes?:string,providerId:string[minLength=1]}",
+    "input": "object{documentNumber?:string[minLength=1,maxLength=120],documentType?:enum(\"invoice\"|\"remision\"|\"other\"),items:array<object>[minItems=1],notes?:string,providerId:string[minLength=1]}",
     "output": "inferred"
   },
   {
     "path": "purchases.createFromOrder",
     "kind": "mutation",
-    "input": "object{items?:array<object>[minItems=1],notes?:string,orderId:string[minLength=1]}",
+    "input": "object{documentNumber?:string[minLength=1,maxLength=120],documentType?:enum(\"invoice\"|\"remision\"|\"other\"),items?:array<object>[minItems=1],notes?:string,orderId:string[minLength=1]}",
     "output": "inferred"
   },
   {
     "path": "purchases.getById",
     "kind": "query",
     "input": "object{id:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "purchases.getDocument",
+    "kind": "query",
+    "input": "object{purchaseId:string[minLength=1]}",
     "output": "inferred"
   },
   {
@@ -2289,6 +2403,12 @@
     "path": "purchases.returnPurchase",
     "kind": "mutation",
     "input": "object{id:string[minLength=1],items:array<object>[minItems=1],reason?:string}",
+    "output": "inferred"
+  },
+  {
+    "path": "purchases.setDocument",
+    "kind": "mutation",
+    "input": "object{documentNumber?:string[minLength=1,maxLength=120],documentType?:enum(\"invoice\"|\"remision\"|\"other\"),purchaseId:string[minLength=1]}",
     "output": "inferred"
   },
   {
@@ -2634,6 +2754,12 @@
     "output": "inferred"
   },
   {
+    "path": "restaurantModifiers.getBomComponents",
+    "kind": "query",
+    "input": "object{catalogId:string[minLength=1,maxLength=128],siteId:string[minLength=1,maxLength=128]}",
+    "output": "inferred"
+  },
+  {
     "path": "restaurantModifiers.groups",
     "kind": "query",
     "input": "object{includeArchived?:boolean=false,siteId:string[minLength=1,maxLength=128]}",
@@ -2654,13 +2780,25 @@
   {
     "path": "restaurantModifiers.save",
     "kind": "mutation",
-    "input": "object{expectedVersion:integer[min=0,max=9007199254740990],id?:string[minLength=1,maxLength=128],isActive:boolean,maxQuantity:integer[min=1,max=20],name:string[minLength=1,maxLength=80],requiresManager:boolean,siteId:string[minLength=1,maxLength=128],unitPriceDelta:number[min=0,max=1000000000]}",
+    "input": "object{bomComponents?:array<object>[maxItems=50],expectedVersion:integer[min=0,max=9007199254740990],id?:string[minLength=1,maxLength=128],isActive:boolean,maxQuantity:integer[min=1,max=20],name:string[minLength=1,maxLength=80],requiresManager:boolean,siteId:string[minLength=1,maxLength=128],unitPriceDelta:number[min=0,max=1000000000]}",
     "output": "inferred"
   },
   {
     "path": "restaurantModifiers.saveGroup",
     "kind": "mutation",
     "input": "object{catalogIds:array<string[minLength=1,maxLength=128]>[minItems=1,maxItems=20],expectedVersion:integer[min=0,max=9007199254740990],id?:string[minLength=1,maxLength=128],isActive:boolean,kind:enum(\"choice\"|\"without\"|\"extra\"),maxSelections:integer[min=1,max=20],minSelections:integer[min=0,max=20],name:string[minLength=1,maxLength=80],productIds:array<string[minLength=1,maxLength=128]>[maxItems=500],selection:enum(\"single\"|\"multiple\"),siteId:string[minLength=1,maxLength=128]}",
+    "output": "inferred"
+  },
+  {
+    "path": "restaurantServices.addRound",
+    "kind": "mutation",
+    "input": "object{checkId:string[minLength=1],diners?:array<object>[maxItems=200],expectedCheckVersion:integer[min=1,max=9007199254740991],items:array<object>[minItems=1,maxItems=200],roundLabel?:string[minLength=1,maxLength=80]|null,tableId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "restaurantServices.getPrecheck",
+    "kind": "query",
+    "input": "object{checkId?:string[minLength=1],tableId:string[minLength=1],tipPercent?:number[min=0,max=100]=10}",
     "output": "inferred"
   },
   {
@@ -2673,6 +2811,12 @@
     "path": "restaurantServices.openCheck",
     "kind": "mutation",
     "input": "object{checkLabel?:string[minLength=1,maxLength=80]|null,diners?:array<object>[maxItems=200],guestCount:integer[min=1,max=200],items:array<object>[minItems=1,maxItems=200],priceTier?:literal(1)|literal(2)|literal(3),reservation?:object{expectedVersion:integer[min=1,max=9007199254740990],id:string[minLength=1,maxLength=128]},roundLabel?:string[minLength=1,maxLength=80]|null,tableId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "restaurantServices.printPrecheck",
+    "kind": "mutation",
+    "input": "object{checkId?:string[minLength=1],markBillRequested?:boolean=true,tableId:string[minLength=1],tipPercent?:number[min=0,max=100]=10}",
     "output": "inferred"
   },
   {
@@ -2691,6 +2835,18 @@
     "path": "restaurantServices.setPendingRound",
     "kind": "mutation",
     "input": "object{itemCount:integer[min=0,max=1000],tableId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "restaurantServices.splitEqual",
+    "kind": "mutation",
+    "input": "object{checkId:string[minLength=1],expectedCheckVersion:integer[min=1,max=9007199254740991],parts:integer[min=2,max=100],tableId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "restaurantServices.splitSharedLine",
+    "kind": "mutation",
+    "input": "object{checks:array<object>[minItems=1,maxItems=100],saleItemId:string[minLength=1],tableId:string[minLength=1],targetCheckIds:array<string[minLength=1]|null>[minItems=2,maxItems=10]}",
     "output": "inferred"
   },
   {
@@ -2960,7 +3116,7 @@
   {
     "path": "sync.addToQueue",
     "kind": "mutation",
-    "input": "object{data?:object{},entityId:string[minLength=1],entityType:enum(\"sales\"|\"sale_items\"|\"sale_payments\"|\"sale_returns\"|\"sale_exchanges\"|\"sale_item_promotions\"|\"store_credit_accounts\"|\"store_credit_movements\"|\"sale_item_lots\"|\"sale_item_serials\"|\"cash_sessions\"|\"cash_movements\"|\"employee_shifts\"|\"delivery_orders\"|\"restaurant_reservations\"|\"external_orders\"|\"employment_contracts\"|\"employee_time_off\"|\"employee_availability\"|\"employee_schedule_plans\"|\"employee_shift_swaps\"|\"employee_shift_reconciliations\"|\"scheduled_shifts\"|\"manager_approval_requests\"|\"fiscal_documents\"|\"fiscal_document_items\"|\"fiscal_numbering_resolutions\"|\"fiscal_certificates\"|\"inventory_movements\"|\"inventory_count_sessions\"|\"inventory_count_lines\"|\"inventory_count_identities\"|\"inventory_balances\"|\"inventory_lots\"|\"pharmacy_product_profiles\"|\"pharmacy_professional_authorizations\"|\"pharmacy_prescription_evidence\"|\"pharmacy_dispensations\"|\"pharmacy_recalls\"|\"pharmacy_recall_lots\"|\"inventory_lot_events\"|\"inventory_transformations\"|\"inventory_transformation_recipes\"|\"product_serials\"|\"product_serial_transfers\"|\"price_suggestions\"|\"promotions\"|\"loyalty_accounts\"|\"loyalty_movements\"|\"initial_inventory\"|\"transfer_orders\"|\"transfer_order_items\"|\"stock_adjustments\"|\"audit_logs\"|\"orders\"|\"order_items\"|\"purchases\"|\"purchase_returns\"|\"purchase_return_items\"|\"provider_payable_invoices\"|\"provider_payable_payments\"|\"provider_payable_credits\"|\"provider_payable_allocations\"|\"customers\"|\"products\"|\"categories\"|\"category_x_provider\"|\"units\"|\"providers\"|\"vat_rates\"|\"identification_types\"|\"client_types\"|\"commercial_activities\"|\"regime_types\"|\"person_types\"|\"cities\"|\"countries\"|\"departments\"|\"companies\"|\"sites\"|\"locations\"|\"location_x_site\"|\"logos\"|\"sequentials\"|\"users\"|\"customer_catalogs\"|\"receipt_templates\"|\"site_peripherals\"),operation:enum(\"create\"|\"update\"|\"delete\")}",
+    "input": "object{data?:object{},entityId:string[minLength=1],entityType:enum(\"sales\"|\"sale_items\"|\"sale_payments\"|\"sale_returns\"|\"sale_exchanges\"|\"sale_item_promotions\"|\"store_credit_accounts\"|\"store_credit_movements\"|\"sale_item_lots\"|\"sale_item_serials\"|\"cash_sessions\"|\"cash_movements\"|\"employee_shifts\"|\"delivery_orders\"|\"restaurant_reservations\"|\"external_orders\"|\"employment_contracts\"|\"employee_time_off\"|\"employee_availability\"|\"employee_schedule_plans\"|\"employee_shift_swaps\"|\"employee_shift_reconciliations\"|\"scheduled_shifts\"|\"manager_approval_requests\"|\"fiscal_documents\"|\"fiscal_document_items\"|\"fiscal_numbering_resolutions\"|\"fiscal_certificates\"|\"inventory_movements\"|\"inventory_count_sessions\"|\"inventory_count_lines\"|\"inventory_count_identities\"|\"inventory_balances\"|\"inventory_lots\"|\"pharmacy_product_profiles\"|\"pharmacy_professional_authorizations\"|\"pharmacy_prescription_evidence\"|\"pharmacy_dispensations\"|\"pharmacy_recalls\"|\"pharmacy_recall_lots\"|\"pharmacy_lot_fractionations\"|\"pharmacy_environmental_logs\"|\"pharmacy_invima_catalog\"|\"pharmacy_fne_authorizations\"|\"pharmacy_fne_ledger\"|\"pharmacy_customer_allergies\"|\"inventory_lot_events\"|\"inventory_transformations\"|\"inventory_transformation_recipes\"|\"product_serials\"|\"product_serial_transfers\"|\"price_suggestions\"|\"promotions\"|\"loyalty_accounts\"|\"loyalty_movements\"|\"initial_inventory\"|\"transfer_orders\"|\"transfer_order_items\"|\"stock_adjustments\"|\"audit_logs\"|\"orders\"|\"order_items\"|\"purchases\"|\"purchase_returns\"|\"purchase_return_items\"|\"provider_payable_invoices\"|\"provider_payable_payments\"|\"provider_payable_credits\"|\"provider_payable_allocations\"|\"customers\"|\"products\"|\"categories\"|\"category_x_provider\"|\"units\"|\"providers\"|\"vat_rates\"|\"identification_types\"|\"client_types\"|\"commercial_activities\"|\"regime_types\"|\"person_types\"|\"cities\"|\"countries\"|\"departments\"|\"companies\"|\"sites\"|\"locations\"|\"location_x_site\"|\"logos\"|\"sequentials\"|\"users\"|\"customer_catalogs\"|\"receipt_templates\"|\"site_peripherals\"),operation:enum(\"create\"|\"update\"|\"delete\")}",
     "output": "inferred"
   },
   {

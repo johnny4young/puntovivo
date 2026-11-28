@@ -18,7 +18,6 @@
  *
  * @module services/ai/voice/parse-cart-command/parse
  */
-import { generateObject } from 'ai';
 import type { ProviderOptions } from '@ai-sdk/provider-utils';
 
 import { throwServerError } from '../../../../lib/errorCodes.js';
@@ -119,6 +118,8 @@ export async function parseVoiceCartCommand(
   let parsed: VoiceCartCommand;
   let costUsd = 0;
   try {
+    await provider.ensureReady?.();
+    const { generateObject } = await import('ai');
     const providerOptions = provider.cacheControlForSystemPrompt();
     const result = await generateObject({
       model: provider.languageModel(modelId),

@@ -7,12 +7,15 @@ import {
   restaurantModifierGroupsForProduct,
   saveRestaurantModifierGroup,
 } from '../../application/restaurant/modifier-groups.js';
+import { getModifierBomComponents } from '../../services/restaurant/modifier-bom.js';
+import { canViewProductCost } from '../../services/products/product-read.js';
 import { router } from '../init.js';
 import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { createModuleGuard } from '../middleware/modules.js';
 import { commandEnvelope, asCriticalCommandContext } from '../middleware/commandEnvelope.js';
 import { ensureTenantSite } from '../middleware/tenantSite.js';
 import {
+  getRestaurantModifierBomInput,
   listRestaurantModifierGroupsInput,
   listRestaurantModifiersInput,
   restaurantProductModifierGroupsInput,
@@ -103,5 +106,19 @@ export const restaurantModifiersRouter = router({
     .mutation(async ({ ctx, input }) => {
       await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
       return saveRestaurantModifierGroup(asCriticalCommandContext(ctx), input);
+    }),
+  getBomComponents: cashierManagerOrAdminProcedure
+    .use(createModuleGuard('dine-in'))
+    .input(getRestaurantModifierBomInput)
+    .query(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      const components = getModifierBomComponents(
+        ctx.db,
+        ctx.tenantId,
+        input.siteId,
+        input.catalogId
+      );
+      if (canViewProductCost(ctx.user?.role)) return components;
+      return components.map(component => ({ ...component, unitCost: null as number | null }));
     }),
 });

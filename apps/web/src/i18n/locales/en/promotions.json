@@ -7,6 +7,10 @@
   "loading": "Loading promotions…",
   "error": "Promotions could not be loaded.",
   "discount": "{{value}}% off",
+  "fixedDiscount": "{{amount}} off",
+  "nxmDiscount": "Buy {{buy}}, pay {{pay}}",
+  "scheduleSummary": "{{days}}{{time}}",
+  "scheduleEveryDay": "Every day",
   "window": "From {{start}} to {{end}}",
   "filter": {
     "label": "Filter promotions by status",
@@ -38,7 +42,16 @@
   },
   "fields": {
     "name": "Promotion name",
+    "ruleKind": "Rule type",
+    "ruleKinds": {
+      "percentage": "Percentage (%)",
+      "fixed_amount": "Fixed amount ($)",
+      "nxm": "Buy N, pay M (2×1, 3×2)"
+    },
     "discount": "Discount percentage",
+    "discountAmount": "Fixed discount amount",
+    "buyQuantity": "Buy quantity (N)",
+    "payQuantity": "Pay quantity (M)",
     "minimum": "Minimum quantity",
     "site": "Site",
     "target": "Product scope",
@@ -47,6 +60,19 @@
     "customer": "Customer scope",
     "startsAt": "Starts at",
     "endsAt": "Ends at",
+    "schedule": "Recurring schedule (optional)",
+    "scheduleDays": "Active weekdays",
+    "scheduleStartTime": "Start time",
+    "scheduleEndTime": "End time",
+    "days": {
+      "0": "Sun",
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat"
+    },
     "priority": "Priority",
     "combinable": "Can combine",
     "combinableHelp": "Combine only with other eligible combinable rules. Priority still decides the order."

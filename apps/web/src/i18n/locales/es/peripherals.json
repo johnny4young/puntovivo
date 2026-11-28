@@ -47,6 +47,11 @@
       "title": "Etiquetas GS1 de peso y precio",
       "help": "Asigne cada prefijo interno al valor que codifica la balanza de esta sede. Los prefijos sin uso se tratan como códigos normales.",
       "scheme": "Esquema de etiquetas",
+      "priceDivisor": "Escala de precio en etiquetas",
+      "priceDivisors": {
+        "100": "Centavos (÷100 · p. ej. 12500 → 125,00)",
+        "1": "Pesos enteros (÷1 · p. ej. 12500 → 12.500)"
+      },
       "prefix": "Prefijo {{prefix}}",
       "invalid": "La configuración de prefijos GS1 no es válida. Asigne al menos un prefijo y no lo repita para peso y precio.",
       "schemes": {

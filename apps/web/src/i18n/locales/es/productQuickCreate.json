@@ -36,8 +36,10 @@
   },
   "openingStock": {
     "title": "Agregar stock inicial",
-    "description": "Opcional: registre cuántas unidades tiene disponibles hoy.",
+    "description": "Opcional: registre cuántas unidades tiene disponibles hoy y su costo unitario.",
     "field": "Unidades disponibles",
+    "costField": "Costo de compra",
+    "costHelp": "Evita que el inventario inicial quede valorizado en $0.",
     "help": "También puede recibir o ajustar inventario después."
   },
   "advanced": {

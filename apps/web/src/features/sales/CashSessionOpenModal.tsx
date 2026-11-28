@@ -133,7 +133,7 @@ export function CashSessionOpenModal({
                 })}
               />
               {form.formState.errors.registerName && (
-                <p className="mt-1 text-sm text-danger-500">
+                <p role="alert" className="mt-1 text-sm text-danger-500">
                   {form.formState.errors.registerName.message}
                 </p>
               )}
@@ -168,7 +168,7 @@ export function CashSessionOpenModal({
                 />
               )}
               {form.formState.errors.openingFloat && (
-                <p className="mt-1 text-sm text-danger-500">
+                <p role="alert" className="mt-1 text-sm text-danger-500">
                   {form.formState.errors.openingFloat.message}
                 </p>
               )}
@@ -262,7 +262,11 @@ export function CashSessionOpenModal({
           </div>
         </section>
 
-        {error && <p className="text-sm text-danger-500">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-danger-500">
+            {error}
+          </p>
+        )}
       </form>
     </Overlay>
   );

@@ -25,7 +25,7 @@
   "connectors": {
     "title": "Conectores de pedidos",
     "sandboxOnly": "Contrato genérico de pruebas con firma. No es una integración certificada con una plataforma de domicilios o un agregador.",
-    "endpoint": "Endpoint tRPC firmado:",
+    "endpoint": "Dirección de integración firmada:",
     "create": "Crear conector",
     "name": "Nombre del conector",
     "generate": "Generar clave segura",

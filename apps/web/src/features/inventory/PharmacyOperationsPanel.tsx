@@ -1,5 +1,15 @@
 import { lazy, Suspense, useState } from 'react';
-import { AlertOctagon, ClipboardCheck, KeyRound, Pill, ShieldAlert } from 'lucide-react';
+import {
+  AlertOctagon,
+  ArrowRightLeft,
+  BookOpenCheck,
+  ClipboardCheck,
+  Database,
+  KeyRound,
+  Pill,
+  ShieldAlert,
+  Thermometer,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
@@ -13,8 +23,24 @@ const PharmacyAuthorizationPanel = lazy(() =>
     default: module.PharmacyAuthorizationPanel,
   }))
 );
+const PharmacyEnvironmentalPanel = lazy(() =>
+  import('./PharmacyEnvironmentalPanel').then(module => ({
+    default: module.PharmacyEnvironmentalPanel,
+  }))
+);
 const PharmacyEvidencePanel = lazy(() =>
   import('./PharmacyEvidencePanel').then(module => ({ default: module.PharmacyEvidencePanel }))
+);
+const PharmacyFnePanel = lazy(() =>
+  import('./PharmacyFnePanel').then(module => ({ default: module.PharmacyFnePanel }))
+);
+const PharmacyFractionationPanel = lazy(() =>
+  import('./PharmacyFractionationPanel').then(module => ({
+    default: module.PharmacyFractionationPanel,
+  }))
+);
+const PharmacyInvimaPanel = lazy(() =>
+  import('./PharmacyInvimaPanel').then(module => ({ default: module.PharmacyInvimaPanel }))
 );
 const PharmacyLotSafetyPanel = lazy(() =>
   import('./PharmacyLotSafetyPanel').then(module => ({
@@ -25,10 +51,22 @@ const PharmacyRecallPanel = lazy(() =>
   import('./PharmacyRecallPanel').then(module => ({ default: module.PharmacyRecallPanel }))
 );
 
-type PharmacyOperationsView = 'lots' | 'recalls' | 'evidence' | 'authorizations';
+type PharmacyOperationsView =
+  | 'lots'
+  | 'fractionation'
+  | 'environmental'
+  | 'invima'
+  | 'fne'
+  | 'recalls'
+  | 'evidence'
+  | 'authorizations';
 
 const views = [
   { id: 'lots', icon: ShieldAlert },
+  { id: 'fractionation', icon: ArrowRightLeft },
+  { id: 'environmental', icon: Thermometer },
+  { id: 'invima', icon: Database },
+  { id: 'fne', icon: BookOpenCheck },
   { id: 'recalls', icon: AlertOctagon },
   { id: 'evidence', icon: ClipboardCheck },
   { id: 'authorizations', icon: KeyRound },
@@ -97,8 +135,7 @@ export function PharmacyOperationsPanel() {
           </p>
           <p className="mt-1">
             {t(
-              contextQuery.data.approvalCapabilityErrorCode ===
-                'PHARMACY_EVIDENCE_KEY_UNAVAILABLE'
+              contextQuery.data.approvalCapabilityErrorCode === 'PHARMACY_EVIDENCE_KEY_UNAVAILABLE'
                 ? 'pharmacy:context.approvalKeyRecoveryDescription'
                 : 'pharmacy:context.approvalAuthorizationRecoveryDescription'
             )}
@@ -150,6 +187,20 @@ export function PharmacyOperationsPanel() {
           }
         >
           {activeView === 'lots' && <PharmacyLotSafetyPanel />}
+          {activeView === 'fractionation' && <PharmacyFractionationPanel />}
+          {activeView === 'environmental' && (
+            <PharmacyEnvironmentalPanel businessDate={contextQuery.data.businessDate} />
+          )}
+          {activeView === 'invima' && <PharmacyInvimaPanel />}
+          {activeView === 'fne' && (
+            <PharmacyFnePanel
+              isAdmin={user?.role === 'admin'}
+              countryCode={contextQuery.data.countryCode}
+              businessDate={contextQuery.data.businessDate}
+              fneEnabled={Boolean(contextQuery.data.fneEnabled)}
+              fneResolutionNumber={contextQuery.data.fneResolutionNumber ?? null}
+            />
+          )}
           {activeView === 'recalls' && <PharmacyRecallPanel />}
           {activeView === 'evidence' && (
             <PharmacyEvidencePanel

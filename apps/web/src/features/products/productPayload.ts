@@ -79,6 +79,10 @@ export async function buildProductPayload(
     tracksStock: values.tracksStock,
     tracksLots: values.tracksLots,
     tracksSerials: values.tracksSerials,
+    isReturnableContainer: values.isReturnableContainer,
+    returnableDepositAmount: values.isReturnableContainer
+      ? Math.max(0, Number(values.returnableDepositAmount) || 0)
+      : 0,
     isActive: values.isActive,
     ...(unitAssignments.length > 0 ? { unitAssignments } : {}),
     providerAssignments: providerPayload.providerAssignments,

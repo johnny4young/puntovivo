@@ -118,7 +118,11 @@ describe('PromotionsPage', () => {
     await waitFor(() =>
       expect(createMutateAsync).toHaveBeenCalledWith({
         name: 'Morning offer',
+        ruleKind: 'percentage',
         discountPct: 12.5,
+        discountAmount: null,
+        buyQuantity: null,
+        payQuantity: null,
         siteId: null,
         productId: null,
         categoryId: null,
@@ -126,9 +130,56 @@ describe('PromotionsPage', () => {
         minQuantity: 1,
         startsAt: null,
         endsAt: null,
+        scheduleDays: null,
+        scheduleStartTime: null,
+        scheduleEndTime: null,
         priority: 0,
         combinable: false,
       })
+    );
+  });
+
+  it('keeps the shared minimum when an NxM trial is switched back to percentage', async () => {
+    const user = userEvent.setup();
+    render(<PromotionsPage />);
+
+    await user.click(screen.getByRole('button', { name: 'Create promotion' }));
+    await user.type(screen.getByLabelText('Promotion name'), 'Trial offer');
+    await user.selectOptions(screen.getByTestId('promotion-rule-kind'), 'nxm');
+    await user.clear(screen.getByTestId('promotion-buy-qty'));
+    await user.type(screen.getByTestId('promotion-buy-qty'), '3');
+    await user.selectOptions(screen.getByTestId('promotion-rule-kind'), 'percentage');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(createMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ ruleKind: 'percentage', minQuantity: 1 })
+      )
+    );
+  });
+
+  it('creates an NxM (2x1) promotion with recurring weekday schedule', async () => {
+    const user = userEvent.setup();
+    render(<PromotionsPage />);
+
+    await user.click(screen.getByRole('button', { name: 'Create promotion' }));
+    await user.type(screen.getByLabelText('Promotion name'), 'Soda 2x1');
+    await user.selectOptions(screen.getByTestId('promotion-rule-kind'), 'nxm');
+    await user.click(screen.getByTestId('promotion-day-1'));
+    await user.click(screen.getByTestId('promotion-day-3'));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(createMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Soda 2x1',
+          ruleKind: 'nxm',
+          buyQuantity: 2,
+          payQuantity: 1,
+          minQuantity: 2,
+          scheduleDays: [1, 3],
+        })
+      )
     );
   });
 

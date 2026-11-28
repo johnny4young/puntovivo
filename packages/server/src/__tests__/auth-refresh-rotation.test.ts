@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { users, tenants, authRefreshFamilies } from '../db/schema.js';
+import { users, tenants, authRefreshFamilies, deviceSessions } from '../db/schema.js';
 import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
 import { eq } from 'drizzle-orm';
@@ -100,7 +100,11 @@ async function loginOverHttp() {
   };
 }
 
-async function refreshOverHttp(refreshCookie: string, csrfCookie: string) {
+async function refreshOverHttp(
+  refreshCookie: string,
+  csrfCookie: string,
+  extraHeaders: Record<string, string> = {}
+) {
   const response = await server.app.inject({
     method: 'POST',
     url: '/api/trpc/auth.refresh?batch=1',
@@ -108,6 +112,7 @@ async function refreshOverHttp(refreshCookie: string, csrfCookie: string) {
       cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join('; '),
       'content-type': 'application/json',
       'x-csrf-token': csrfCookie,
+      ...extraHeaders,
     },
     payload: '{}',
   });
@@ -868,6 +873,45 @@ describe('refresh-token rotation', () => {
       // The upgraded cookie is family-tracked: it keeps refreshing fine.
       const next = await refreshOverHttp(upgraded.nextRefreshCookie!, upgraded.nextCsrfCookie!);
       expect(next.response.statusCode).toBe(200);
+    });
+
+    it('binds a legacy upgrade to the terminal named by x-device-id', async () => {
+      const db = getDatabase();
+      const user = db.select().from(users).where(eq(users.id, testUserId)).get()!;
+      const { deviceId } = await registerDeviceService(db, {
+        tenantId: testTenantId,
+        userId: testUserId,
+        kind: 'web',
+        name: 'legacy-upgrade-terminal',
+      });
+      const legacyToken = server.app.jwt.sign(
+        {
+          userId: user.id,
+          tenantId: user.tenantId,
+          email: user.email,
+          role: user.role,
+          sessionVersion: user.sessionVersion,
+          tokenType: 'refresh',
+        },
+        { expiresIn: '7d' }
+      );
+      const csrfProbe = await server.app.inject({
+        method: 'GET',
+        url: '/api/trpc/health.check',
+        headers: { cookie: `puntovivo_refresh=${legacyToken}` },
+      });
+      const csrfCookie = getCookieValue(csrfProbe.headers['set-cookie'], 'puntovivo_csrf')!;
+
+      const upgraded = await refreshOverHttp(legacyToken, csrfCookie, {
+        [DEVICE_ID_HEADER]: deviceId,
+      });
+      expect(upgraded.response.statusCode).toBe(200);
+      const familyId = (server.app.jwt.decode(upgraded.nextRefreshCookie!) as { familyId: string })
+        .familyId;
+      expect(
+        db.select().from(deviceSessions).where(eq(deviceSessions.refreshFamilyId, familyId)).get()
+          ?.deviceId
+      ).toBe(deviceId);
     });
 
     it('rejects an expired refresh family over HTTP instead of extending it', async () => {

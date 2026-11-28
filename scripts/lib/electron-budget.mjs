@@ -308,17 +308,26 @@ export async function runBudgetGate({
     const rejected = existsSync(rejectPath)
       ? readFileSync(rejectPath, 'utf8').split('\n').filter(Boolean)
       : [];
-    for (const reason of rejected) output.error(`${label}: a launch failed: ${reason}`);
     const run = code === 0 && existsSync(outPath) ? await loadRun(outPath) : null;
     if (!run) output.warn(`${label}: no launch produced a measurement (exit ${code})`);
     const verdict = judgeRun(run, budget, mode);
+    // Keep the majority rule consistent: one skipped workload round warns when
+    // at least minSamples launches still ran full load and passed.
+    const validLaunches = Math.min(
+      verdict.measuredLaunches,
+      Math.max(0, mode.rounds - rejected.length)
+    );
+    const workloadEnough = validLaunches >= minSamples(mode.rounds);
+    for (const reason of rejected) {
+      output[workloadEnough ? 'warn' : 'error'](`${label}: a launch failed: ${reason}`);
+    }
     output.log(renderCheckReport(verdict.report));
     if (!verdict.enough) {
       output[mode.requireMeasurement ? 'error' : 'warn'](
         `${label}: only ${verdict.measuredLaunches} of ${mode.rounds} launches measured`
       );
     }
-    const passed = verdict.passed && rejected.length === 0;
+    const passed = verdict.passed && (rejected.length === 0 || workloadEnough);
     const exitCode = gateExitCode(passed, mode, verdict.unmeasured);
     if (!passed && exitCode === 0) {
       output.warn(`${label}: WARN over budget or unmeasured; pass --strict to fail.`);

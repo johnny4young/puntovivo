@@ -55,12 +55,23 @@
 }
 
 /* Modest hardware (lib/graphicsTier.ts) and reduced-transparency requests
-   paint panels without backdrop blur. */
+   paint panels without backdrop blur, heavy card shadows, or infinite shimmer loops. */
+:root[data-graphics='lite'] {
+  --shadow-card: none;
+  --shadow-panel: none;
+}
+
 :root[data-graphics='lite'] *,
 :root[data-graphics='lite'] *::before,
 :root[data-graphics='lite'] *::after {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+}
+
+:root[data-graphics='lite'] .animate-shimmer,
+:root[data-graphics='lite'] .pv-sk,
+:root[data-graphics='lite'] .ocr-scan-band {
+  animation: none !important;
 }
 
 @media (prefers-reduced-transparency: reduce) {

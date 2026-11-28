@@ -197,6 +197,12 @@
       "to": "Hasta",
       "site": "Sede",
       "allSites": "Todas las sedes",
+      "presets": {
+        "today": "Hoy",
+        "thisWeek": "Esta semana",
+        "thisMonth": "Mes actual",
+        "lastMonth": "Mes anterior"
+      },
       "siteSaved": "Esta sede se usará la próxima vez que la empresa abra la exportación.",
       "siteSaveError": "No se pudo guardar la preferencia de sede.",
       "siteLoadError": "No se pudieron cargar las sedes. La exportación contable seguirá deshabilitada.",
@@ -206,7 +212,8 @@
     "kpi": {
       "vouchers": "Eventos contables",
       "total": "Total neto",
-      "taxes": "IVA · INC netos"
+      "taxes": "IVA · INC netos",
+      "rounding": "Ajuste por redondeo"
     },
     "empty": {
       "title": "Sin eventos contables en este rango",

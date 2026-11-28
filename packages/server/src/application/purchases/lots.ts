@@ -28,6 +28,11 @@ import {
   applyRecallCustodyOverlays,
   findActiveRecallOverlaysForLot,
 } from '../../services/pharmacy/transfer-custody.js';
+import {
+  recordControlledStockMovementInFneLedger,
+  recordControlledStockMovementsInFneLedger,
+  type FneLedgerMovement,
+} from '../pharmacy/fne.js';
 import type { EnqueueSyncContext } from '../../services/sync/enqueue.js';
 import type { ResolvedPurchaseItem, ResolvedPurchaseReturnItem } from './types.js';
 
@@ -136,6 +141,19 @@ export function receivePurchaseItemLots(
           }),
         };
       }
+      recordControlledStockMovementInFneLedger(tx, {
+        tenantId: input.tenantId,
+        siteId: input.siteId,
+        productId: input.productId,
+        lotId: lot.lotId,
+        lotNumber: receipt.lotNumber,
+        businessDate: input.businessDate,
+        movementType: 'receipt',
+        quantityDelta: receipt.baseQuantity,
+        actorId: input.actorId,
+        notes: receipt.notes ?? `Purchase ${input.purchaseNumber}`,
+        occurredAt: input.now,
+      });
     }
     lotIds.push(lot.lotId);
   }
@@ -170,6 +188,7 @@ export function returnPurchaseItemLots(
   });
   const pharmacyProduct = isPharmacyProduct(tx, input.tenantId, input.productId);
   const consumedById = new Map(consumed.map(row => [row.lotId, row]));
+  const fneMovements: FneLedgerMovement[] = [];
   for (const allocation of input.allocations) {
     const consumedLot = consumedById.get(allocation.inventoryLotId);
     if (
@@ -216,8 +235,27 @@ export function returnPurchaseItemLots(
         actorId: input.actorId,
         occurredAt: input.now,
       });
+      fneMovements.push({
+        lotId: consumedLot.lotId,
+        lotNumber: consumedLot.lotNumber,
+        movementType: 'supplier_return',
+        quantityDelta: -allocation.baseQuantity,
+        notes: 'Purchase return to supplier',
+      });
     }
   }
+  recordControlledStockMovementsInFneLedger(
+    tx,
+    {
+      tenantId: input.tenantId,
+      siteId: input.siteId,
+      productId: input.productId,
+      businessDate: input.businessDate,
+      actorId: input.actorId,
+      occurredAt: input.now,
+    },
+    fneMovements
+  );
   input.onValue?.(
     inventoryValueGuard(() => addInventoryValues(...consumed.map(row => row.totalCost)))
   );
@@ -305,6 +343,7 @@ export function voidPurchaseItemLots(
     });
   }
   if (isPharmacyProduct(tx, input.tenantId, input.productId)) {
+    const fneMovements: FneLedgerMovement[] = [];
     for (const lot of consumed) {
       writeInventoryLotEvent(tx, input.syncContext, {
         tenantId: input.tenantId,
@@ -321,7 +360,26 @@ export function voidPurchaseItemLots(
         actorId: input.actorId,
         occurredAt: input.now,
       });
+      fneMovements.push({
+        lotId: lot.lotId,
+        lotNumber: lot.lotNumber,
+        movementType: 'supplier_return',
+        quantityDelta: -lot.quantity,
+        notes: 'Purchase receipt voided',
+      });
     }
+    recordControlledStockMovementsInFneLedger(
+      tx,
+      {
+        tenantId: input.tenantId,
+        siteId: input.siteId,
+        productId: input.productId,
+        businessDate: input.businessDate,
+        actorId: input.actorId,
+        occurredAt: input.now,
+      },
+      fneMovements
+    );
   }
   input.onValue?.(
     inventoryValueGuard(() => addInventoryValues(...consumed.map(row => row.totalCost)))

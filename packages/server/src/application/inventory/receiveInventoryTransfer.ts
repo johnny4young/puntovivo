@@ -309,7 +309,7 @@ export function receiveInventoryTransfer(
             productId: item.productId,
             requested: requestedLine?.lotAllocations,
             now,
-            ...(args.businessDate ? { businessDate: args.businessDate } : {}),
+            businessDate: args.businessDate,
             actorId: args.receivedBy,
             syncContext: {
               tenantId: args.tenantId,

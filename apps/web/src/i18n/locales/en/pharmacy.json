@@ -4,6 +4,10 @@
   "tabs": {
     "label": "Pharmacy operations",
     "lots": "Lot safety",
+    "fractionation": "Fractionation",
+    "environmental": "Temp & humidity",
+    "invima": "INVIMA / CUM catalog",
+    "fne": "FNE controlled",
     "recalls": "Recalls",
     "evidence": "Prescription evidence",
     "authorizations": "Professional authorizations"
@@ -249,7 +253,7 @@
       "prescription": "Prescription",
       "controlled": "Controlled"
     },
-    "controlledBlocked": "Controlled medicines remain blocked from sale until a legally reviewed country policy explicitly enables them.",
+    "controlledBlocked": "Controlled medicines require an active FNE resolution and retained formula with buyer identification before any sale can proceed.",
     "prescriptionNotice": "Checkout requires an identified customer, valid prescription evidence, and approval by a currently authorized professional.",
     "sections": {
       "identity": {
@@ -272,6 +276,11 @@
       "dosageForm": "Dosage form",
       "administrationRoute": "Administration route",
       "presentation": "Presentation",
+      "dosesPerPack": "Doses per pack",
+      "cumCode": "CUM code (INVIMA)",
+      "invimaLookup": "Autofill from INVIMA / CUM catalog",
+      "invimaLookupPlaceholder": "Search by CUM, sanitary registration, or active ingredient",
+      "invimaApply": "Apply",
       "manufacturer": "Manufacturer / laboratory",
       "authorizationHolder": "Authorization holder",
       "classification": "Dispensing classification",
@@ -327,5 +336,162 @@
     "approvedAndSelected": "Evidence approved and selected for this sale",
     "notReady": "Complete every medicine requirement before confirming payment.",
     "ready": "Medicine policy and selected evidence are ready for atomic checkout."
+  },
+  "fractionation": {
+    "title": "Regulated lot fractionation",
+    "sourceProduct": "Source presentation (box / pack)",
+    "sourceProductPlaceholder": "Select source medicine",
+    "sourceLot": "Source physical lot",
+    "sourceLotPlaceholder": "Select an active lot",
+    "targetProduct": "Target presentation (blister / tablet)",
+    "targetProductPlaceholder": "Select matching target medicine",
+    "sourceQuantity": "Source quantity to open",
+    "targetQuantity": "Target units produced",
+    "reasonPlaceholder": "e.g. Opening box for blister dispensing preserving lot and expiry",
+    "submit": "Fractionate lot",
+    "historyTitle": "Fractionation history",
+    "emptyHistory": "No fractionations recorded at this site yet.",
+    "columns": {
+      "date": "Date",
+      "flow": "Conversion",
+      "lot": "Lot & expiry",
+      "registration": "Sanitary registration",
+      "actor": "Operator"
+    },
+    "toast": {
+      "success": "Lot fractionated with traceability preserved",
+      "summary": "Lot {{lot}} · target updated to {{onHand}} units",
+      "error": "Unable to fractionate lot"
+    }
+  },
+  "environmental": {
+    "title": "Temperature & humidity logbook (Res. 1403/2007)",
+    "period": "Shift",
+    "periods": {
+      "morning": "Morning",
+      "afternoon": "Afternoon"
+    },
+    "zone": "Storage zone",
+    "zones": {
+      "ambient": "Ambient (15–30 °C · RH ≤ 70%)",
+      "refrigerator": "Refrigerator / Cold chain (2–8 °C)"
+    },
+    "temperature": "Temperature (°C)",
+    "humidity": "Relative humidity (%)",
+    "instrumentCode": "Thermohygrometer / Serial",
+    "instrumentPlaceholder": "e.g. TH-AMB-01",
+    "correctiveAction": "Corrective action",
+    "correctivePlaceholder": "Describe the action taken for an excursion",
+    "notes": "Notes",
+    "submit": "Record reading",
+    "outOfRangePreview": "Reading is out of Res. 1403/2007 range. Record the corrective action.",
+    "inRange": "In range",
+    "outOfRange": "Out of range",
+    "onlyDeviations": "Deviations only",
+    "fromDate": "From",
+    "toDate": "To",
+    "printReport": "Print Res. 1403 report",
+    "summaryTotal": "Readings",
+    "summaryDeviations": "Deviations",
+    "summaryAmbient": "Ambient",
+    "summaryRefrigerator": "Refrigerator",
+    "empty": "No environmental readings recorded for this range.",
+    "columns": {
+      "date": "Date / Shift",
+      "zone": "Zone",
+      "reading": "Reading",
+      "status": "Status",
+      "action": "Corrective action"
+    },
+    "toast": {
+      "recorded": "Environmental reading recorded",
+      "deviationWarning": "Out-of-range environmental deviation recorded",
+      "error": "Unable to record environmental reading"
+    }
+  },
+  "invima": {
+    "importTitle": "Import official INVIMA / CUM catalog",
+    "csvLabel": "INVIMA Open Data CSV file or text",
+    "csvPlaceholder": "Paste comma- or semicolon-delimited CSV (expediente;consecutivocum;producto;titular;registrosanitario;...)",
+    "uploadFile": "Upload CSV file",
+    "loadSample": "Load Colombia sample",
+    "syncProducts": "Update validity and CUM on matching medicines",
+    "importAction": "Import catalog",
+    "searchTitle": "Local INVIMA / CUM catalog",
+    "searchPlaceholder": "Search by CUM, sanitary registration, product, or active ingredient",
+    "empty": "No INVIMA / CUM entries imported yet.",
+    "statuses": {
+      "vigente": "Valid",
+      "en_tramite_renovacion": "Renewal in progress",
+      "vencido": "Expired",
+      "cancelado": "Cancelled",
+      "suspendido": "Suspended"
+    },
+    "columns": {
+      "cum": "CUM",
+      "product": "Product / Active ingredient",
+      "registration": "Sanitary registration",
+      "status": "Validity",
+      "classification": "Condition"
+    },
+    "toast": {
+      "imported": "INVIMA catalog imported",
+      "importedWithSkipped_one": "INVIMA catalog imported · {{count}} row skipped for incomplete data",
+      "importedWithSkipped_other": "INVIMA catalog imported · {{count}} rows skipped for incomplete data",
+      "summary": "{{inserted}} inserted · {{updated}} updated · {{linked}} products linked",
+      "fileTooLarge": "CSV file exceeds the 2 MB import batch limit",
+      "error": "Unable to import INVIMA catalog"
+    }
+  },
+  "fne": {
+    "statusEnabled": "FNE enabled · Resolution {{resolution}}",
+    "statusDisabled": "Controlled blocked · No active FNE resolution",
+    "authTitle": "FNE authorization (Res. 1478/2006)",
+    "resolutionNumber": "FNE resolution number",
+    "issuingAuthority": "Issuing authority",
+    "responsible": "Responsible pharmacist",
+    "registerAuth": "Enable FNE resolution",
+    "revokeAuth": "Revoke resolution",
+    "defaultRevokeReason": "Administrative FNE resolution revocation",
+    "reportTitle": "Official FNE ledger & monthly report",
+    "month": "Report month",
+    "printReport": "Print FNE monthly report",
+    "emptyReport": "No controlled medicines registered at this site.",
+    "allergiesTitle": "Patient allergies",
+    "selectCustomer": "Customer / Patient",
+    "searchCustomer": "Search by name or ID",
+    "selectCustomerPlaceholder": "Select a customer",
+    "allergyIngredient": "Allergenic active ingredient",
+    "allergySeverity": "Severity",
+    "allergyNotes": "Clinical note",
+    "addAllergy": "Add allergy",
+    "removeAllergy": "Remove",
+    "emptyAllergies": "No allergies recorded for this patient.",
+    "severities": {
+      "mild": "Mild",
+      "moderate": "Moderate",
+      "severe": "Severe"
+    },
+    "columns": {
+      "medicine": "Controlled medicine",
+      "registration": "Registration",
+      "opening": "Opening",
+      "receipts": "Receipts",
+      "dispensations": "Dispensations",
+      "returns": "Customer returns",
+      "supplierReturns": "Supplier returns",
+      "fractionations": "Fractionations",
+      "transfers": "Transfers",
+      "adjustments": "Adjustments",
+      "destructions": "Destructions",
+      "closing": "Closing"
+    },
+    "toast": {
+      "authCreated": "FNE resolution enabled",
+      "authRevoked": "FNE resolution revoked",
+      "allergyAdded": "Patient allergy recorded",
+      "allergyRemoved": "Allergy removed",
+      "error": "Unable to complete FNE operation"
+    }
   }
 }

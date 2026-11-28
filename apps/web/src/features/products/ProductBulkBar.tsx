@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Tag } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { trpc } from '@/lib/trpc';
@@ -14,11 +15,13 @@ export function ProductBulkBar({
   selected,
   categories,
   canArchive,
+  onPrintLabels,
   onDone,
 }: {
   selected: readonly BulkProduct[];
   categories: ReadonlyArray<{ id: string; name: string }>;
   canArchive: boolean;
+  onPrintLabels?: () => void;
   onDone: () => void;
 }) {
   const { t } = useTranslation('products');
@@ -81,6 +84,18 @@ export function ProductBulkBar({
           </option>
         ))}
       </select>
+      {onPrintLabels && (
+        <button
+          type="button"
+          className="btn-outline inline-flex min-h-11 items-center gap-1.5"
+          disabled={isWorking}
+          onClick={onPrintLabels}
+          data-testid="products-bulk-labels"
+        >
+          <Tag className="h-4 w-4" aria-hidden="true" />
+          {t('bulk.printLabels')}
+        </button>
+      )}
       {canArchive && (
         <button
           type="button"

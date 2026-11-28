@@ -107,17 +107,19 @@ describe('PurchaseDetailsContent lot evidence', () => {
   it('labels the recorded remisión and offers to view its attachment', () => {
     render(
       <PurchaseDetailsContent
-        purchase={{
-          ...purchase,
-          documentType: 'remision',
-          documentNumber: 'RM-0042',
-          document: {
-            fileName: 'remision.png',
-            mimeType: 'image/png',
-            sizeBytes: 1024,
-            createdAt: '2030-01-01T12:00:00.000Z',
-          },
-        } as Purchase}
+        purchase={
+          {
+            ...purchase,
+            documentType: 'remision',
+            documentNumber: 'RM-0042',
+            document: {
+              fileName: 'remision.png',
+              mimeType: 'image/png',
+              sizeBytes: 1024,
+              createdAt: '2030-01-01T12:00:00.000Z',
+            },
+          } as Purchase
+        }
         returnError={null}
         voidError={null}
       />

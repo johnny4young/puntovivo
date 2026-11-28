@@ -10,6 +10,7 @@ import { inventoryValueChecks } from './value-checks.js';
  * @module db/schema/purchasing
  */
 import {
+  blob,
   check,
   index,
   integer,
@@ -172,7 +173,7 @@ export const purchaseDocuments = sqliteTable(
     fileName: text('file_name'),
     mimeType: text('mime_type').notNull(),
     sizeBytes: integer('size_bytes').notNull(),
-    payloadBase64: text('payload_base64').notNull(),
+    payload: blob('payload', { mode: 'buffer' }).notNull(),
     payloadHash: text('payload_hash').notNull(),
     uploadedBy: text('uploaded_by')
       .notNull()
@@ -182,7 +183,7 @@ export const purchaseDocuments = sqliteTable(
   table => [
     index('idx_purchase_documents_tenant_created').on(table.tenantId, table.createdAt),
     index('idx_purchase_documents_payload_hash').on(table.payloadHash),
-    uniqueIndex('idx_purchase_documents_purchase').on(table.purchaseId),
+    uniqueIndex('idx_purchase_documents_tenant_purchase').on(table.tenantId, table.purchaseId),
   ]
 );
 
@@ -372,41 +373,6 @@ export const providerPayableInvoices = sqliteTable(
       .where(sql`${table.purchaseId} IS NOT NULL`),
     check('chk_provider_payable_invoices_amount_positive', sql`${table.amount} > 0`),
     moneyTwoDecimalCheck('provider_payable_invoices_amount', table.amount),
-  ]
-);
-
-/**
- * Which purchases a supplier invoice covers. Several deliveries (remisiones)
- * can be consolidated into one final invoice; a purchase is invoiced at most
- * once, enforced by the unique purchase index. Legacy single-purchase
- * invoices keep their direct column for compatibility; this bridge is the
- * complete source of truth and migration 0103 backfills it.
- */
-export const providerPayableInvoicePurchases = sqliteTable(
-  'provider_payable_invoice_purchases',
-  {
-    id: text('id').primaryKey(),
-    tenantId: text('tenant_id')
-      .notNull()
-      .references(() => tenants.id),
-    invoiceId: text('invoice_id')
-      .notNull()
-      .references(() => providerPayableInvoices.id),
-    purchaseId: text('purchase_id')
-      .notNull()
-      .references(() => purchases.id),
-    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
-  },
-  table => [
-    index('idx_provider_payable_invoice_purchases_tenant').on(
-      table.tenantId,
-      table.createdAt
-    ),
-    index('idx_provider_payable_invoice_purchases_invoice').on(table.invoiceId),
-    uniqueIndex('idx_provider_payable_invoice_purchases_purchase').on(
-      table.tenantId,
-      table.purchaseId
-    ),
   ]
 );
 

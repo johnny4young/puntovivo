@@ -6,12 +6,14 @@ import { render } from '@/test/utils';
 import type { Order } from '@/types';
 import { OrderDetailsModal } from './OrderDetailsModal';
 
-const { invalidate, mutationCalls, orderState, useCriticalMutationMock } = vi.hoisted(() => ({
-  invalidate: vi.fn().mockResolvedValue(undefined),
-  mutationCalls: {} as Record<string, unknown[]>,
-  orderState: { value: null as Order | null },
-  useCriticalMutationMock: vi.fn(),
-}));
+const { invalidate, mutationCalls, orderState, printOrderDocumentMock, useCriticalMutationMock } =
+  vi.hoisted(() => ({
+    invalidate: vi.fn().mockResolvedValue(undefined),
+    mutationCalls: {} as Record<string, unknown[]>,
+    orderState: { value: null as Order | null },
+    printOrderDocumentMock: vi.fn(async () => undefined),
+    useCriticalMutationMock: vi.fn(),
+  }));
 
 function makeOrder(status: Order['status']): Order {
   return {
@@ -65,6 +67,12 @@ vi.mock('@/lib/useCriticalMutation', () => ({
   useCriticalMutation: useCriticalMutationMock,
 }));
 
+// Keep the real printability rule; only the window/Electron side effect is stubbed.
+vi.mock('./orderPrinter', async importOriginal => {
+  const actual = await importOriginal<typeof import('./orderPrinter')>();
+  return { ...actual, printOrderDocument: printOrderDocumentMock };
+});
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
@@ -90,6 +98,7 @@ describe('OrderDetailsModal draft lifecycle', () => {
   beforeEach(() => {
     for (const key of Object.keys(mutationCalls)) delete mutationCalls[key];
     invalidate.mockClear();
+    printOrderDocumentMock.mockClear();
     useCriticalMutationMock.mockImplementation(
       (key: string, options?: { onSuccess?: (data: unknown) => void | Promise<void> }) => {
         mutationCalls[key] ??= [];
@@ -155,5 +164,23 @@ describe('OrderDetailsModal draft lifecycle', () => {
     expect(screen.getByRole('button', { name: 'Receive Items' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Submit draft' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Discard draft' })).not.toBeInTheDocument();
+  });
+
+  it('hides the print action on a draft that was never sent to the supplier', () => {
+    orderState.value = makeOrder('draft');
+    render(<OrderDetailsModal orderId="order-1" isOpen onClose={vi.fn()} />);
+
+    expect(screen.queryByRole('button', { name: 'Print order' })).not.toBeInTheDocument();
+  });
+
+  it('prints the submitted order for the supplier when the print action is used', async () => {
+    const user = userEvent.setup();
+    const order = makeOrder('submitted');
+    orderState.value = order;
+    render(<OrderDetailsModal orderId="order-1" isOpen onClose={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: 'Print order' }));
+
+    await waitFor(() => expect(printOrderDocumentMock).toHaveBeenCalledWith(order));
   });
 });

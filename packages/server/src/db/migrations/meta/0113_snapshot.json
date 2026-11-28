@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "056aaad9-8dea-430b-bdb6-62887153d383",
-  "prevId": "96c27001-9a91-40af-aa7d-0e2544c15f29",
+  "id": "bfb79e38-f1bc-4b40-a76e-17e85ec76f5b",
+  "prevId": "13ae4566-7316-4a27-bf0d-f1630734f578",
   "tables": {
     "account_recovery_codes": {
       "name": "account_recovery_codes",
@@ -8209,6 +8209,142 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "product_bundle_components": {
+      "name": "product_bundle_components",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bundle_product_id": {
+          "name": "bundle_product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "component_product_id": {
+          "name": "component_product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_product_bundle_components_unique": {
+          "name": "idx_product_bundle_components_unique",
+          "columns": [
+            "tenant_id",
+            "bundle_product_id",
+            "component_product_id"
+          ],
+          "isUnique": true
+        },
+        "idx_product_bundle_components_bundle": {
+          "name": "idx_product_bundle_components_bundle",
+          "columns": [
+            "tenant_id",
+            "bundle_product_id"
+          ],
+          "isUnique": false
+        },
+        "idx_product_bundle_components_component": {
+          "name": "idx_product_bundle_components_component",
+          "columns": [
+            "tenant_id",
+            "component_product_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "product_bundle_components_tenant_id_tenants_id_fk": {
+          "name": "product_bundle_components_tenant_id_tenants_id_fk",
+          "tableFrom": "product_bundle_components",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "product_bundle_components_bundle_product_id_products_id_fk": {
+          "name": "product_bundle_components_bundle_product_id_products_id_fk",
+          "tableFrom": "product_bundle_components",
+          "tableTo": "products",
+          "columnsFrom": [
+            "bundle_product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "product_bundle_components_component_product_id_products_id_fk": {
+          "name": "product_bundle_components_component_product_id_products_id_fk",
+          "tableFrom": "product_bundle_components",
+          "tableTo": "products",
+          "columnsFrom": [
+            "component_product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_product_bundle_components_qty": {
+          "name": "chk_product_bundle_components_qty",
+          "value": "\"product_bundle_components\".\"quantity\" > 0"
+        },
+        "chk_product_bundle_components_no_self": {
+          "name": "chk_product_bundle_components_no_self",
+          "value": "\"product_bundle_components\".\"bundle_product_id\" <> \"product_bundle_components\".\"component_product_id\""
+        }
+      }
+    },
     "product_x_provider": {
       "name": "product_x_provider",
       "columns": {
@@ -8566,6 +8702,22 @@
           "notNull": true,
           "autoincrement": false,
           "default": false
+        },
+        "is_returnable_container": {
+          "name": "is_returnable_container",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "returnable_deposit_amount": {
+          "name": "returnable_deposit_amount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
         },
         "catalog_type": {
           "name": "catalog_type",
@@ -8935,6 +9087,162 @@
         "chk_products_init_cost_2dec": {
           "name": "chk_products_init_cost_2dec",
           "value": "round(\"products\".\"initial_cost\", 2) = \"products\".\"initial_cost\""
+        }
+      }
+    },
+    "sale_item_bundle_components": {
+      "name": "sale_item_bundle_components",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sale_item_id": {
+          "name": "sale_item_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "component_product_id": {
+          "name": "component_product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "component_quantity_per_unit": {
+          "name": "component_quantity_per_unit",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "total_quantity_deducted": {
+          "name": "total_quantity_deducted",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "unit_cost_at_sale": {
+          "name": "unit_cost_at_sale",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "inventory_cost_cents": {
+          "name": "inventory_cost_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cogs_cost_cents": {
+          "name": "cogs_cost_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_sale_item_bundle_components_sale_item": {
+          "name": "idx_sale_item_bundle_components_sale_item",
+          "columns": [
+            "tenant_id",
+            "sale_item_id"
+          ],
+          "isUnique": false
+        },
+        "idx_sale_item_bundle_components_component": {
+          "name": "idx_sale_item_bundle_components_component",
+          "columns": [
+            "tenant_id",
+            "component_product_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "sale_item_bundle_components_tenant_id_tenants_id_fk": {
+          "name": "sale_item_bundle_components_tenant_id_tenants_id_fk",
+          "tableFrom": "sale_item_bundle_components",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "sale_item_bundle_components_sale_item_id_sale_items_id_fk": {
+          "name": "sale_item_bundle_components_sale_item_id_sale_items_id_fk",
+          "tableFrom": "sale_item_bundle_components",
+          "tableTo": "sale_items",
+          "columnsFrom": [
+            "sale_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "sale_item_bundle_components_component_product_id_products_id_fk": {
+          "name": "sale_item_bundle_components_component_product_id_products_id_fk",
+          "tableFrom": "sale_item_bundle_components",
+          "tableTo": "products",
+          "columnsFrom": [
+            "component_product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_sale_item_bundle_components_inventory_cost_cents_safe_integer": {
+          "name": "chk_sale_item_bundle_components_inventory_cost_cents_safe_integer",
+          "value": "\"sale_item_bundle_components\".\"inventory_cost_cents\" IS NULL OR (typeof(\"sale_item_bundle_components\".\"inventory_cost_cents\") = 'integer' AND \"sale_item_bundle_components\".\"inventory_cost_cents\" BETWEEN -9007199254740991 AND 9007199254740991)"
+        },
+        "chk_sale_item_bundle_components_cogs_cost_cents_safe_integer": {
+          "name": "chk_sale_item_bundle_components_cogs_cost_cents_safe_integer",
+          "value": "\"sale_item_bundle_components\".\"cogs_cost_cents\" IS NULL OR (typeof(\"sale_item_bundle_components\".\"cogs_cost_cents\") = 'integer' AND \"sale_item_bundle_components\".\"cogs_cost_cents\" BETWEEN -9007199254740991 AND 9007199254740991)"
+        },
+        "chk_sale_item_bundle_components_valuation_basis_0": {
+          "name": "chk_sale_item_bundle_components_valuation_basis_0",
+          "value": "(\"sale_item_bundle_components\".\"inventory_cost_cents\" IS NULL AND \"sale_item_bundle_components\".\"cogs_cost_cents\" IS NULL) OR (\"sale_item_bundle_components\".\"inventory_cost_cents\" IS NOT NULL AND \"sale_item_bundle_components\".\"cogs_cost_cents\" IS NOT NULL)"
+        },
+        "chk_sale_item_bundle_components_qty": {
+          "name": "chk_sale_item_bundle_components_qty",
+          "value": "\"sale_item_bundle_components\".\"component_quantity_per_unit\" > 0 AND \"sale_item_bundle_components\".\"total_quantity_deducted\" > 0"
         }
       }
     },
@@ -11210,116 +11518,6 @@
         }
       }
     },
-    "provider_payable_invoice_purchases": {
-      "name": "provider_payable_invoice_purchases",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "invoice_id": {
-          "name": "invoice_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "purchase_id": {
-          "name": "purchase_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        }
-      },
-      "indexes": {
-        "idx_provider_payable_invoice_purchases_tenant": {
-          "name": "idx_provider_payable_invoice_purchases_tenant",
-          "columns": [
-            "tenant_id",
-            "created_at"
-          ],
-          "isUnique": false
-        },
-        "idx_provider_payable_invoice_purchases_invoice": {
-          "name": "idx_provider_payable_invoice_purchases_invoice",
-          "columns": [
-            "invoice_id"
-          ],
-          "isUnique": false
-        },
-        "idx_provider_payable_invoice_purchases_purchase": {
-          "name": "idx_provider_payable_invoice_purchases_purchase",
-          "columns": [
-            "tenant_id",
-            "purchase_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "provider_payable_invoice_purchases_tenant_id_tenants_id_fk": {
-          "name": "provider_payable_invoice_purchases_tenant_id_tenants_id_fk",
-          "tableFrom": "provider_payable_invoice_purchases",
-          "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "provider_payable_invoice_purchases_invoice_id_provider_payable_invoices_id_fk": {
-          "name": "provider_payable_invoice_purchases_invoice_id_provider_payable_invoices_id_fk",
-          "tableFrom": "provider_payable_invoice_purchases",
-          "tableTo": "provider_payable_invoices",
-          "columnsFrom": [
-            "invoice_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "provider_payable_invoice_purchases_purchase_id_purchases_id_fk": {
-          "name": "provider_payable_invoice_purchases_purchase_id_purchases_id_fk",
-          "tableFrom": "provider_payable_invoice_purchases",
-          "tableTo": "purchases",
-          "columnsFrom": [
-            "purchase_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "provider_payable_invoices": {
       "name": "provider_payable_invoices",
       "columns": {
@@ -11723,150 +11921,6 @@
           "value": "round(\"provider_payable_payments\".\"amount\", 2) = \"provider_payable_payments\".\"amount\""
         }
       }
-    },
-    "purchase_documents": {
-      "name": "purchase_documents",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "purchase_id": {
-          "name": "purchase_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "file_name": {
-          "name": "file_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "mime_type": {
-          "name": "mime_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "size_bytes": {
-          "name": "size_bytes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "payload_base64": {
-          "name": "payload_base64",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "payload_hash": {
-          "name": "payload_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "uploaded_by": {
-          "name": "uploaded_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        }
-      },
-      "indexes": {
-        "idx_purchase_documents_tenant_created": {
-          "name": "idx_purchase_documents_tenant_created",
-          "columns": [
-            "tenant_id",
-            "created_at"
-          ],
-          "isUnique": false
-        },
-        "idx_purchase_documents_payload_hash": {
-          "name": "idx_purchase_documents_payload_hash",
-          "columns": [
-            "payload_hash"
-          ],
-          "isUnique": false
-        },
-        "idx_purchase_documents_purchase": {
-          "name": "idx_purchase_documents_purchase",
-          "columns": [
-            "purchase_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "purchase_documents_tenant_id_tenants_id_fk": {
-          "name": "purchase_documents_tenant_id_tenants_id_fk",
-          "tableFrom": "purchase_documents",
-          "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "purchase_documents_purchase_id_purchases_id_fk": {
-          "name": "purchase_documents_purchase_id_purchases_id_fk",
-          "tableFrom": "purchase_documents",
-          "tableTo": "purchases",
-          "columnsFrom": [
-            "purchase_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "purchase_documents_uploaded_by_users_id_fk": {
-          "name": "purchase_documents_uploaded_by_users_id_fk",
-          "tableFrom": "purchase_documents",
-          "tableTo": "users",
-          "columnsFrom": [
-            "uploaded_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
     },
     "purchase_item_lots": {
       "name": "purchase_item_lots",
@@ -12861,20 +12915,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "document_type": {
-          "name": "document_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "document_number": {
-          "name": "document_number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "created_by": {
           "name": "created_by",
           "type": "text",
@@ -13127,10 +13167,11 @@
         }
       },
       "indexes": {
-        "idx_cash_movements_tenant": {
-          "name": "idx_cash_movements_tenant",
+        "idx_cash_movements_tenant_reference": {
+          "name": "idx_cash_movements_tenant_reference",
           "columns": [
-            "tenant_id"
+            "tenant_id",
+            "reference_id"
           ],
           "isUnique": false
         },
@@ -14128,13 +14169,6 @@
         }
       },
       "indexes": {
-        "idx_sales_tenant": {
-          "name": "idx_sales_tenant",
-          "columns": [
-            "tenant_id"
-          ],
-          "isUnique": false
-        },
         "idx_sales_tenant_created": {
           "name": "idx_sales_tenant_created",
           "columns": [
@@ -17385,10 +17419,11 @@
         }
       },
       "indexes": {
-        "idx_sale_returns_tenant": {
-          "name": "idx_sale_returns_tenant",
+        "idx_sale_returns_tenant_created": {
+          "name": "idx_sale_returns_tenant_created",
           "columns": [
-            "tenant_id"
+            "tenant_id",
+            "created_at"
           ],
           "isUnique": false
         },
@@ -17848,13 +17883,6 @@
         }
       },
       "indexes": {
-        "idx_inventory_balances_tenant": {
-          "name": "idx_inventory_balances_tenant",
-          "columns": [
-            "tenant_id"
-          ],
-          "isUnique": false
-        },
         "idx_inventory_balances_site": {
           "name": "idx_inventory_balances_site",
           "columns": [
@@ -19882,13 +19910,6 @@
         }
       },
       "indexes": {
-        "idx_inventory_lots_tenant": {
-          "name": "idx_inventory_lots_tenant",
-          "columns": [
-            "tenant_id"
-          ],
-          "isUnique": false
-        },
         "idx_inventory_lots_site": {
           "name": "idx_inventory_lots_site",
           "columns": [
@@ -21635,11 +21656,40 @@
           "autoincrement": false,
           "default": "'draft'"
         },
+        "rule_kind": {
+          "name": "rule_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'percentage'"
+        },
         "discount_pct": {
           "name": "discount_pct",
           "type": "real",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "discount_amount": {
+          "name": "discount_amount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "buy_quantity": {
+          "name": "buy_quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pay_quantity": {
+          "name": "pay_quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "site_id": {
@@ -21687,6 +21737,27 @@
         },
         "ends_at": {
           "name": "ends_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "schedule_days": {
+          "name": "schedule_days",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "schedule_start_time": {
+          "name": "schedule_start_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "schedule_end_time": {
+          "name": "schedule_end_time",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -22313,13 +22384,6 @@
         }
       },
       "indexes": {
-        "idx_audit_logs_tenant": {
-          "name": "idx_audit_logs_tenant",
-          "columns": [
-            "tenant_id"
-          ],
-          "isUnique": false
-        },
         "idx_audit_logs_actor": {
           "name": "idx_audit_logs_actor",
           "columns": [
@@ -23327,6 +23391,179 @@
             "id"
           ],
           "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "device_sessions": {
+      "name": "device_sessions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "device_id": {
+          "name": "device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "refresh_family_id": {
+          "name": "refresh_family_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'active'"
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "revoked_by_user_id": {
+          "name": "revoked_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_device_sessions_refresh_family": {
+          "name": "idx_device_sessions_refresh_family",
+          "columns": [
+            "refresh_family_id"
+          ],
+          "isUnique": true
+        },
+        "idx_device_sessions_tenant_device_status": {
+          "name": "idx_device_sessions_tenant_device_status",
+          "columns": [
+            "tenant_id",
+            "device_id",
+            "status"
+          ],
+          "isUnique": false
+        },
+        "idx_device_sessions_tenant_user_status": {
+          "name": "idx_device_sessions_tenant_user_status",
+          "columns": [
+            "tenant_id",
+            "user_id",
+            "status"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "device_sessions_tenant_id_tenants_id_fk": {
+          "name": "device_sessions_tenant_id_tenants_id_fk",
+          "tableFrom": "device_sessions",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "device_sessions_device_id_devices_id_fk": {
+          "name": "device_sessions_device_id_devices_id_fk",
+          "tableFrom": "device_sessions",
+          "tableTo": "devices",
+          "columnsFrom": [
+            "device_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "device_sessions_user_id_users_id_fk": {
+          "name": "device_sessions_user_id_users_id_fk",
+          "tableFrom": "device_sessions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "device_sessions_refresh_family_id_auth_refresh_families_id_fk": {
+          "name": "device_sessions_refresh_family_id_auth_refresh_families_id_fk",
+          "tableFrom": "device_sessions",
+          "tableTo": "auth_refresh_families",
+          "columnsFrom": [
+            "refresh_family_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "device_sessions_revoked_by_user_id_users_id_fk": {
+          "name": "device_sessions_revoked_by_user_id_users_id_fk",
+          "tableFrom": "device_sessions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "revoked_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -32158,6 +32395,152 @@
         }
       }
     },
+    "pharmacy_customer_allergies": {
+      "name": "pharmacy_customer_allergies",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "active_ingredient": {
+          "name": "active_ingredient",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "active_ingredient_normalized": {
+          "name": "active_ingredient_normalized",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "severity": {
+          "name": "severity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'moderate'"
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_pharmacy_customer_allergies_unique": {
+          "name": "idx_pharmacy_customer_allergies_unique",
+          "columns": [
+            "tenant_id",
+            "customer_id",
+            "active_ingredient_normalized"
+          ],
+          "isUnique": true
+        },
+        "idx_pharmacy_customer_allergies_tenant_customer": {
+          "name": "idx_pharmacy_customer_allergies_tenant_customer",
+          "columns": [
+            "tenant_id",
+            "customer_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "pharmacy_customer_allergies_tenant_id_tenants_id_fk": {
+          "name": "pharmacy_customer_allergies_tenant_id_tenants_id_fk",
+          "tableFrom": "pharmacy_customer_allergies",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_customer_allergies_customer_id_customers_id_fk": {
+          "name": "pharmacy_customer_allergies_customer_id_customers_id_fk",
+          "tableFrom": "pharmacy_customer_allergies",
+          "tableTo": "customers",
+          "columnsFrom": [
+            "customer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "pharmacy_customer_allergies_created_by_users_id_fk": {
+          "name": "pharmacy_customer_allergies_created_by_users_id_fk",
+          "tableFrom": "pharmacy_customer_allergies",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_pharmacy_allergy_severity": {
+          "name": "chk_pharmacy_allergy_severity",
+          "value": "\"pharmacy_customer_allergies\".\"severity\" in ('mild', 'moderate', 'severe')"
+        }
+      }
+    },
     "pharmacy_dispensations": {
       "name": "pharmacy_dispensations",
       "columns": {
@@ -32391,6 +32774,226 @@
         }
       }
     },
+    "pharmacy_environmental_logs": {
+      "name": "pharmacy_environmental_logs",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "site_id": {
+          "name": "site_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "business_date": {
+          "name": "business_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "period": {
+          "name": "period",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "zone": {
+          "name": "zone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "temperature_c": {
+          "name": "temperature_c",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "humidity_percent": {
+          "name": "humidity_percent",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "min_temp_c": {
+          "name": "min_temp_c",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "max_temp_c": {
+          "name": "max_temp_c",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "max_humidity_percent": {
+          "name": "max_humidity_percent",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "is_out_of_range": {
+          "name": "is_out_of_range",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "corrective_action": {
+          "name": "corrective_action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "instrument_code": {
+          "name": "instrument_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "recorded_by": {
+          "name": "recorded_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_pharmacy_env_logs_site_date": {
+          "name": "idx_pharmacy_env_logs_site_date",
+          "columns": [
+            "tenant_id",
+            "site_id",
+            "business_date",
+            "zone"
+          ],
+          "isUnique": false
+        },
+        "idx_pharmacy_env_logs_out_of_range": {
+          "name": "idx_pharmacy_env_logs_out_of_range",
+          "columns": [
+            "tenant_id",
+            "site_id",
+            "is_out_of_range",
+            "business_date"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "pharmacy_environmental_logs_tenant_id_tenants_id_fk": {
+          "name": "pharmacy_environmental_logs_tenant_id_tenants_id_fk",
+          "tableFrom": "pharmacy_environmental_logs",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_environmental_logs_site_id_sites_id_fk": {
+          "name": "pharmacy_environmental_logs_site_id_sites_id_fk",
+          "tableFrom": "pharmacy_environmental_logs",
+          "tableTo": "sites",
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_environmental_logs_recorded_by_users_id_fk": {
+          "name": "pharmacy_environmental_logs_recorded_by_users_id_fk",
+          "tableFrom": "pharmacy_environmental_logs",
+          "tableTo": "users",
+          "columnsFrom": [
+            "recorded_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_pharmacy_env_date": {
+          "name": "chk_pharmacy_env_date",
+          "value": "length(\"pharmacy_environmental_logs\".\"business_date\") = 10 and date(\"pharmacy_environmental_logs\".\"business_date\") = \"pharmacy_environmental_logs\".\"business_date\""
+        },
+        "chk_pharmacy_env_period": {
+          "name": "chk_pharmacy_env_period",
+          "value": "\"pharmacy_environmental_logs\".\"period\" in ('morning', 'afternoon')"
+        },
+        "chk_pharmacy_env_zone": {
+          "name": "chk_pharmacy_env_zone",
+          "value": "\"pharmacy_environmental_logs\".\"zone\" in ('ambient', 'refrigerator')"
+        },
+        "chk_pharmacy_env_temp_bounds": {
+          "name": "chk_pharmacy_env_temp_bounds",
+          "value": "\"pharmacy_environmental_logs\".\"min_temp_c\" < \"pharmacy_environmental_logs\".\"max_temp_c\" and \"pharmacy_environmental_logs\".\"temperature_c\" >= -40 and \"pharmacy_environmental_logs\".\"temperature_c\" <= 80"
+        },
+        "chk_pharmacy_env_humidity_bounds": {
+          "name": "chk_pharmacy_env_humidity_bounds",
+          "value": "\"pharmacy_environmental_logs\".\"humidity_percent\" is null or (\"pharmacy_environmental_logs\".\"humidity_percent\" >= 0 and \"pharmacy_environmental_logs\".\"humidity_percent\" <= 100)"
+        }
+      }
+    },
     "pharmacy_evidence_keys": {
       "name": "pharmacy_evidence_keys",
       "columns": {
@@ -32429,6 +33032,993 @@
         "chk_pharmacy_evidence_key_strength": {
           "name": "chk_pharmacy_evidence_key_strength",
           "value": "length(cast(\"pharmacy_evidence_keys\".\"secret_material\" as blob)) >= 32"
+        }
+      }
+    },
+    "pharmacy_fne_authorizations": {
+      "name": "pharmacy_fne_authorizations",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "site_id": {
+          "name": "site_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "country_code": {
+          "name": "country_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "resolution_number": {
+          "name": "resolution_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "issuing_authority": {
+          "name": "issuing_authority",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "responsible_user_id": {
+          "name": "responsible_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valid_from": {
+          "name": "valid_from",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valid_until": {
+          "name": "valid_until",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'active'"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "revoked_by": {
+          "name": "revoked_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_pharmacy_fne_auth_tenant_effective": {
+          "name": "idx_pharmacy_fne_auth_tenant_effective",
+          "columns": [
+            "tenant_id",
+            "country_code",
+            "status",
+            "valid_from",
+            "valid_until"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "pharmacy_fne_authorizations_tenant_id_tenants_id_fk": {
+          "name": "pharmacy_fne_authorizations_tenant_id_tenants_id_fk",
+          "tableFrom": "pharmacy_fne_authorizations",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_fne_authorizations_site_id_sites_id_fk": {
+          "name": "pharmacy_fne_authorizations_site_id_sites_id_fk",
+          "tableFrom": "pharmacy_fne_authorizations",
+          "tableTo": "sites",
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_fne_authorizations_responsible_user_id_users_id_fk": {
+          "name": "pharmacy_fne_authorizations_responsible_user_id_users_id_fk",
+          "tableFrom": "pharmacy_fne_authorizations",
+          "tableTo": "users",
+          "columnsFrom": [
+            "responsible_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_fne_authorizations_created_by_users_id_fk": {
+          "name": "pharmacy_fne_authorizations_created_by_users_id_fk",
+          "tableFrom": "pharmacy_fne_authorizations",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_fne_authorizations_revoked_by_users_id_fk": {
+          "name": "pharmacy_fne_authorizations_revoked_by_users_id_fk",
+          "tableFrom": "pharmacy_fne_authorizations",
+          "tableTo": "users",
+          "columnsFrom": [
+            "revoked_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_pharmacy_fne_auth_date_order": {
+          "name": "chk_pharmacy_fne_auth_date_order",
+          "value": "\"pharmacy_fne_authorizations\".\"valid_until\" is null or \"pharmacy_fne_authorizations\".\"valid_until\" >= \"pharmacy_fne_authorizations\".\"valid_from\""
+        },
+        "chk_pharmacy_fne_auth_dates": {
+          "name": "chk_pharmacy_fne_auth_dates",
+          "value": "length(\"pharmacy_fne_authorizations\".\"valid_from\") = 10 and date(\"pharmacy_fne_authorizations\".\"valid_from\") = \"pharmacy_fne_authorizations\".\"valid_from\" and (\"pharmacy_fne_authorizations\".\"valid_until\" is null or (length(\"pharmacy_fne_authorizations\".\"valid_until\") = 10 and date(\"pharmacy_fne_authorizations\".\"valid_until\") = \"pharmacy_fne_authorizations\".\"valid_until\"))"
+        },
+        "chk_pharmacy_fne_auth_country": {
+          "name": "chk_pharmacy_fne_auth_country",
+          "value": "length(\"pharmacy_fne_authorizations\".\"country_code\") = 2 and \"pharmacy_fne_authorizations\".\"country_code\" = upper(\"pharmacy_fne_authorizations\".\"country_code\") and \"pharmacy_fne_authorizations\".\"country_code\" glob '[A-Z][A-Z]'"
+        },
+        "chk_pharmacy_fne_auth_state": {
+          "name": "chk_pharmacy_fne_auth_state",
+          "value": "(\"pharmacy_fne_authorizations\".\"status\" = 'active' and \"pharmacy_fne_authorizations\".\"revoked_by\" is null and \"pharmacy_fne_authorizations\".\"revoked_at\" is null) or (\"pharmacy_fne_authorizations\".\"status\" = 'revoked' and \"pharmacy_fne_authorizations\".\"revoked_by\" is not null and \"pharmacy_fne_authorizations\".\"revoked_at\" is not null)"
+        }
+      }
+    },
+    "pharmacy_fne_ledger": {
+      "name": "pharmacy_fne_ledger",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "site_id": {
+          "name": "site_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "product_id": {
+          "name": "product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "lot_id": {
+          "name": "lot_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "lot_number": {
+          "name": "lot_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "business_date": {
+          "name": "business_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "movement_type": {
+          "name": "movement_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "quantity_delta": {
+          "name": "quantity_delta",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "balance_after": {
+          "name": "balance_after",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fne_authorization_id": {
+          "name": "fne_authorization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sale_id": {
+          "name": "sale_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "evidence_id": {
+          "name": "evidence_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "retained_formula_digest": {
+          "name": "retained_formula_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_pharmacy_fne_ledger_tenant_date": {
+          "name": "idx_pharmacy_fne_ledger_tenant_date",
+          "columns": [
+            "tenant_id",
+            "site_id",
+            "business_date",
+            "product_id"
+          ],
+          "isUnique": false
+        },
+        "idx_pharmacy_fne_ledger_tenant_product": {
+          "name": "idx_pharmacy_fne_ledger_tenant_product",
+          "columns": [
+            "tenant_id",
+            "product_id",
+            "occurred_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "pharmacy_fne_ledger_tenant_id_tenants_id_fk": {
+          "name": "pharmacy_fne_ledger_tenant_id_tenants_id_fk",
+          "tableFrom": "pharmacy_fne_ledger",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_fne_ledger_site_id_sites_id_fk": {
+          "name": "pharmacy_fne_ledger_site_id_sites_id_fk",
+          "tableFrom": "pharmacy_fne_ledger",
+          "tableTo": "sites",
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_fne_ledger_product_id_products_id_fk": {
+          "name": "pharmacy_fne_ledger_product_id_products_id_fk",
+          "tableFrom": "pharmacy_fne_ledger",
+          "tableTo": "products",
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_fne_ledger_lot_id_inventory_lots_id_fk": {
+          "name": "pharmacy_fne_ledger_lot_id_inventory_lots_id_fk",
+          "tableFrom": "pharmacy_fne_ledger",
+          "tableTo": "inventory_lots",
+          "columnsFrom": [
+            "lot_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_fne_ledger_fne_authorization_id_pharmacy_fne_authorizations_id_fk": {
+          "name": "pharmacy_fne_ledger_fne_authorization_id_pharmacy_fne_authorizations_id_fk",
+          "tableFrom": "pharmacy_fne_ledger",
+          "tableTo": "pharmacy_fne_authorizations",
+          "columnsFrom": [
+            "fne_authorization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_fne_ledger_sale_id_sales_id_fk": {
+          "name": "pharmacy_fne_ledger_sale_id_sales_id_fk",
+          "tableFrom": "pharmacy_fne_ledger",
+          "tableTo": "sales",
+          "columnsFrom": [
+            "sale_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_fne_ledger_evidence_id_pharmacy_prescription_evidence_id_fk": {
+          "name": "pharmacy_fne_ledger_evidence_id_pharmacy_prescription_evidence_id_fk",
+          "tableFrom": "pharmacy_fne_ledger",
+          "tableTo": "pharmacy_prescription_evidence",
+          "columnsFrom": [
+            "evidence_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_fne_ledger_actor_id_users_id_fk": {
+          "name": "pharmacy_fne_ledger_actor_id_users_id_fk",
+          "tableFrom": "pharmacy_fne_ledger",
+          "tableTo": "users",
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_pharmacy_fne_ledger_date": {
+          "name": "chk_pharmacy_fne_ledger_date",
+          "value": "length(\"pharmacy_fne_ledger\".\"business_date\") = 10 and date(\"pharmacy_fne_ledger\".\"business_date\") = \"pharmacy_fne_ledger\".\"business_date\""
+        },
+        "chk_pharmacy_fne_ledger_type": {
+          "name": "chk_pharmacy_fne_ledger_type",
+          "value": "\"pharmacy_fne_ledger\".\"movement_type\" in ('receipt', 'dispensation', 'return', 'destruction', 'fractionation_out', 'fractionation_in')"
+        },
+        "chk_pharmacy_fne_ledger_balance": {
+          "name": "chk_pharmacy_fne_ledger_balance",
+          "value": "\"pharmacy_fne_ledger\".\"balance_after\" >= 0"
+        }
+      }
+    },
+    "pharmacy_invima_catalog": {
+      "name": "pharmacy_invima_catalog",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cum_code": {
+          "name": "cum_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cum_normalized": {
+          "name": "cum_normalized",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "product_name": {
+          "name": "product_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "active_ingredient": {
+          "name": "active_ingredient",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "concentration": {
+          "name": "concentration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "dosage_form": {
+          "name": "dosage_form",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "administration_route": {
+          "name": "administration_route",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "presentation": {
+          "name": "presentation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "doses_per_pack": {
+          "name": "doses_per_pack",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "manufacturer": {
+          "name": "manufacturer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "authorization_holder": {
+          "name": "authorization_holder",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sanitary_registration": {
+          "name": "sanitary_registration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sanitary_registration_normalized": {
+          "name": "sanitary_registration_normalized",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "registration_status": {
+          "name": "registration_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'vigente'"
+        },
+        "registration_expires_at": {
+          "name": "registration_expires_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "classification": {
+          "name": "classification",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'otc'"
+        },
+        "imported_at": {
+          "name": "imported_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_pharmacy_invima_tenant_cum": {
+          "name": "idx_pharmacy_invima_tenant_cum",
+          "columns": [
+            "tenant_id",
+            "cum_normalized"
+          ],
+          "isUnique": true
+        },
+        "idx_pharmacy_invima_tenant_reg": {
+          "name": "idx_pharmacy_invima_tenant_reg",
+          "columns": [
+            "tenant_id",
+            "sanitary_registration_normalized"
+          ],
+          "isUnique": false
+        },
+        "idx_pharmacy_invima_tenant_ingredient": {
+          "name": "idx_pharmacy_invima_tenant_ingredient",
+          "columns": [
+            "tenant_id",
+            "active_ingredient"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "pharmacy_invima_catalog_tenant_id_tenants_id_fk": {
+          "name": "pharmacy_invima_catalog_tenant_id_tenants_id_fk",
+          "tableFrom": "pharmacy_invima_catalog",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_pharmacy_invima_status": {
+          "name": "chk_pharmacy_invima_status",
+          "value": "\"pharmacy_invima_catalog\".\"registration_status\" in ('vigente', 'en_tramite_renovacion', 'vencido', 'cancelado', 'suspendido')"
+        },
+        "chk_pharmacy_invima_classification": {
+          "name": "chk_pharmacy_invima_classification",
+          "value": "\"pharmacy_invima_catalog\".\"classification\" in ('otc', 'prescription', 'controlled')"
+        },
+        "chk_pharmacy_invima_doses": {
+          "name": "chk_pharmacy_invima_doses",
+          "value": "\"pharmacy_invima_catalog\".\"doses_per_pack\" is null or \"pharmacy_invima_catalog\".\"doses_per_pack\" > 0"
+        },
+        "chk_pharmacy_invima_expiry": {
+          "name": "chk_pharmacy_invima_expiry",
+          "value": "\"pharmacy_invima_catalog\".\"registration_expires_at\" is null or (length(\"pharmacy_invima_catalog\".\"registration_expires_at\") = 10 and date(\"pharmacy_invima_catalog\".\"registration_expires_at\") = \"pharmacy_invima_catalog\".\"registration_expires_at\")"
+        }
+      }
+    },
+    "pharmacy_lot_fractionations": {
+      "name": "pharmacy_lot_fractionations",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "site_id": {
+          "name": "site_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_product_id": {
+          "name": "source_product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_lot_id": {
+          "name": "source_lot_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "target_product_id": {
+          "name": "target_product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "target_lot_id": {
+          "name": "target_lot_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_quantity": {
+          "name": "source_quantity",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "target_quantity": {
+          "name": "target_quantity",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "units_per_source": {
+          "name": "units_per_source",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_lot_number": {
+          "name": "source_lot_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "target_lot_number": {
+          "name": "target_lot_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sanitary_registration": {
+          "name": "sanitary_registration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "transferred_value_cents": {
+          "name": "transferred_value_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_movement_id": {
+          "name": "source_movement_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "target_movement_id": {
+          "name": "target_movement_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_pharmacy_fractionations_tenant_site": {
+          "name": "idx_pharmacy_fractionations_tenant_site",
+          "columns": [
+            "tenant_id",
+            "site_id",
+            "occurred_at"
+          ],
+          "isUnique": false
+        },
+        "idx_pharmacy_fractionations_source_lot": {
+          "name": "idx_pharmacy_fractionations_source_lot",
+          "columns": [
+            "tenant_id",
+            "source_lot_id"
+          ],
+          "isUnique": false
+        },
+        "idx_pharmacy_fractionations_target_lot": {
+          "name": "idx_pharmacy_fractionations_target_lot",
+          "columns": [
+            "tenant_id",
+            "target_lot_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "pharmacy_lot_fractionations_tenant_id_tenants_id_fk": {
+          "name": "pharmacy_lot_fractionations_tenant_id_tenants_id_fk",
+          "tableFrom": "pharmacy_lot_fractionations",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_lot_fractionations_site_id_sites_id_fk": {
+          "name": "pharmacy_lot_fractionations_site_id_sites_id_fk",
+          "tableFrom": "pharmacy_lot_fractionations",
+          "tableTo": "sites",
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_lot_fractionations_source_product_id_products_id_fk": {
+          "name": "pharmacy_lot_fractionations_source_product_id_products_id_fk",
+          "tableFrom": "pharmacy_lot_fractionations",
+          "tableTo": "products",
+          "columnsFrom": [
+            "source_product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_lot_fractionations_source_lot_id_inventory_lots_id_fk": {
+          "name": "pharmacy_lot_fractionations_source_lot_id_inventory_lots_id_fk",
+          "tableFrom": "pharmacy_lot_fractionations",
+          "tableTo": "inventory_lots",
+          "columnsFrom": [
+            "source_lot_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_lot_fractionations_target_product_id_products_id_fk": {
+          "name": "pharmacy_lot_fractionations_target_product_id_products_id_fk",
+          "tableFrom": "pharmacy_lot_fractionations",
+          "tableTo": "products",
+          "columnsFrom": [
+            "target_product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_lot_fractionations_target_lot_id_inventory_lots_id_fk": {
+          "name": "pharmacy_lot_fractionations_target_lot_id_inventory_lots_id_fk",
+          "tableFrom": "pharmacy_lot_fractionations",
+          "tableTo": "inventory_lots",
+          "columnsFrom": [
+            "target_lot_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pharmacy_lot_fractionations_actor_id_users_id_fk": {
+          "name": "pharmacy_lot_fractionations_actor_id_users_id_fk",
+          "tableFrom": "pharmacy_lot_fractionations",
+          "tableTo": "users",
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_pharmacy_lot_fractionations_transferred_value_cents_safe_integer": {
+          "name": "chk_pharmacy_lot_fractionations_transferred_value_cents_safe_integer",
+          "value": "\"pharmacy_lot_fractionations\".\"transferred_value_cents\" IS NULL OR (typeof(\"pharmacy_lot_fractionations\".\"transferred_value_cents\") = 'integer' AND \"pharmacy_lot_fractionations\".\"transferred_value_cents\" BETWEEN 0 AND 9007199254740991)"
+        },
+        "chk_pharmacy_fractionation_qty_pos": {
+          "name": "chk_pharmacy_fractionation_qty_pos",
+          "value": "\"pharmacy_lot_fractionations\".\"source_quantity\" > 0 and \"pharmacy_lot_fractionations\".\"target_quantity\" > 0 and \"pharmacy_lot_fractionations\".\"units_per_source\" > 0"
+        },
+        "chk_pharmacy_fractionation_distinct_products": {
+          "name": "chk_pharmacy_fractionation_distinct_products",
+          "value": "\"pharmacy_lot_fractionations\".\"source_product_id\" <> \"pharmacy_lot_fractionations\".\"target_product_id\""
         }
       }
     },
@@ -32816,6 +34406,20 @@
           "notNull": false,
           "autoincrement": false
         },
+        "doses_per_pack": {
+          "name": "doses_per_pack",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cum_code": {
+          "name": "cum_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "manufacturer": {
           "name": "manufacturer",
           "type": "text",
@@ -32920,6 +34524,14 @@
           "columns": [
             "tenant_id",
             "sanitary_registration_normalized"
+          ],
+          "isUnique": false
+        },
+        "idx_pharmacy_profiles_cum": {
+          "name": "idx_pharmacy_profiles_cum",
+          "columns": [
+            "tenant_id",
+            "cum_code"
           ],
           "isUnique": false
         }
@@ -34320,6 +35932,130 @@
         }
       }
     },
+    "restaurant_modifier_bom_components": {
+      "name": "restaurant_modifier_bom_components",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "catalog_id": {
+          "name": "catalog_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "component_product_id": {
+          "name": "component_product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_restaurant_modifier_bom_pair": {
+          "name": "idx_restaurant_modifier_bom_pair",
+          "columns": [
+            "tenant_id",
+            "catalog_id",
+            "component_product_id"
+          ],
+          "isUnique": true
+        },
+        "idx_restaurant_modifier_bom_component": {
+          "name": "idx_restaurant_modifier_bom_component",
+          "columns": [
+            "tenant_id",
+            "component_product_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "restaurant_modifier_bom_components_tenant_id_tenants_id_fk": {
+          "name": "restaurant_modifier_bom_components_tenant_id_tenants_id_fk",
+          "tableFrom": "restaurant_modifier_bom_components",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "restaurant_modifier_bom_components_catalog_id_restaurant_modifier_catalog_id_fk": {
+          "name": "restaurant_modifier_bom_components_catalog_id_restaurant_modifier_catalog_id_fk",
+          "tableFrom": "restaurant_modifier_bom_components",
+          "tableTo": "restaurant_modifier_catalog",
+          "columnsFrom": [
+            "catalog_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "restaurant_modifier_bom_components_component_product_id_products_id_fk": {
+          "name": "restaurant_modifier_bom_components_component_product_id_products_id_fk",
+          "tableFrom": "restaurant_modifier_bom_components",
+          "tableTo": "products",
+          "columnsFrom": [
+            "component_product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_restaurant_modifier_bom_quantity": {
+          "name": "chk_restaurant_modifier_bom_quantity",
+          "value": "\"restaurant_modifier_bom_components\".\"quantity\" > 0"
+        }
+      }
+    },
     "restaurant_modifier_catalog": {
       "name": "restaurant_modifier_catalog",
       "columns": {
@@ -35342,6 +37078,175 @@
         }
       }
     },
+    "sale_item_modifier_bom_components": {
+      "name": "sale_item_modifier_bom_components",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sale_item_id": {
+          "name": "sale_item_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "catalog_id": {
+          "name": "catalog_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "modifier_name": {
+          "name": "modifier_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "component_product_id": {
+          "name": "component_product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "component_quantity_per_modifier": {
+          "name": "component_quantity_per_modifier",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "total_quantity_deducted": {
+          "name": "total_quantity_deducted",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "unit_cost_at_sale": {
+          "name": "unit_cost_at_sale",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "inventory_cost_cents": {
+          "name": "inventory_cost_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cogs_cost_cents": {
+          "name": "cogs_cost_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_sale_item_modifier_bom_item": {
+          "name": "idx_sale_item_modifier_bom_item",
+          "columns": [
+            "tenant_id",
+            "sale_item_id"
+          ],
+          "isUnique": false
+        },
+        "idx_sale_item_modifier_bom_component": {
+          "name": "idx_sale_item_modifier_bom_component",
+          "columns": [
+            "tenant_id",
+            "component_product_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "sale_item_modifier_bom_components_tenant_id_tenants_id_fk": {
+          "name": "sale_item_modifier_bom_components_tenant_id_tenants_id_fk",
+          "tableFrom": "sale_item_modifier_bom_components",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "sale_item_modifier_bom_components_sale_item_id_sale_items_id_fk": {
+          "name": "sale_item_modifier_bom_components_sale_item_id_sale_items_id_fk",
+          "tableFrom": "sale_item_modifier_bom_components",
+          "tableTo": "sale_items",
+          "columnsFrom": [
+            "sale_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "sale_item_modifier_bom_components_component_product_id_products_id_fk": {
+          "name": "sale_item_modifier_bom_components_component_product_id_products_id_fk",
+          "tableFrom": "sale_item_modifier_bom_components",
+          "tableTo": "products",
+          "columnsFrom": [
+            "component_product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_sale_item_modifier_bom_components_inventory_cost_cents_safe_integer": {
+          "name": "chk_sale_item_modifier_bom_components_inventory_cost_cents_safe_integer",
+          "value": "\"sale_item_modifier_bom_components\".\"inventory_cost_cents\" IS NULL OR (typeof(\"sale_item_modifier_bom_components\".\"inventory_cost_cents\") = 'integer' AND \"sale_item_modifier_bom_components\".\"inventory_cost_cents\" BETWEEN -9007199254740991 AND 9007199254740991)"
+        },
+        "chk_sale_item_modifier_bom_components_cogs_cost_cents_safe_integer": {
+          "name": "chk_sale_item_modifier_bom_components_cogs_cost_cents_safe_integer",
+          "value": "\"sale_item_modifier_bom_components\".\"cogs_cost_cents\" IS NULL OR (typeof(\"sale_item_modifier_bom_components\".\"cogs_cost_cents\") = 'integer' AND \"sale_item_modifier_bom_components\".\"cogs_cost_cents\" BETWEEN -9007199254740991 AND 9007199254740991)"
+        },
+        "chk_sale_item_modifier_bom_components_valuation_basis_0": {
+          "name": "chk_sale_item_modifier_bom_components_valuation_basis_0",
+          "value": "(\"sale_item_modifier_bom_components\".\"inventory_cost_cents\" IS NULL AND \"sale_item_modifier_bom_components\".\"cogs_cost_cents\" IS NULL) OR (\"sale_item_modifier_bom_components\".\"inventory_cost_cents\" IS NOT NULL AND \"sale_item_modifier_bom_components\".\"cogs_cost_cents\" IS NOT NULL)"
+        },
+        "chk_sale_item_modifier_bom_quantities": {
+          "name": "chk_sale_item_modifier_bom_quantities",
+          "value": "\"sale_item_modifier_bom_components\".\"component_quantity_per_modifier\" > 0 AND \"sale_item_modifier_bom_components\".\"total_quantity_deducted\" > 0"
+        }
+      }
+    },
     "kds_line_dispatches": {
       "name": "kds_line_dispatches",
       "columns": {
@@ -36272,6 +38177,13 @@
           "notNull": true,
           "autoincrement": false,
           "default": 0
+        },
+        "printer_config_json": {
+          "name": "printer_config_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "version": {
           "name": "version",

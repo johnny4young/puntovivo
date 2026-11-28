@@ -13,6 +13,7 @@ import {
 import { appendKitchenEvent } from './events.js';
 import { adoptLegacyKitchenSale } from './legacy.js';
 import { kitchenOrderState, loadKitchenOrderLines, updateKitchenLine } from './line-state.js';
+import { enqueueStationVoidTicketInTransaction } from '../../services/kds/comanda-printer.js';
 
 /**
  * Adopt the source BEFORE a split moves sale_items. Then call this for the child.
@@ -117,6 +118,30 @@ export function reconcileKitchenSaleInTransaction(
       },
       kitchenOrderState(next, scope.actorId)
     );
+    if (voidReason) {
+      const changedIds = new Set(changes.map(c => c.id));
+      enqueueStationVoidTicketInTransaction(tx, {
+        tenantId: scope.tenantId,
+        siteId: scope.siteId,
+        actorId: scope.actorId,
+        saleId,
+        saleNumber: sale.saleNumber,
+        tableLabel: sale.tableLabel,
+        orderId,
+        stationCode: order.station,
+        stationName: order.stationName ?? order.station,
+        eventSequence: after.version,
+        reason: voidReason,
+        lines: before
+          .filter(line => changedIds.has(line.id))
+          .map(line => ({
+            productName: line.productName,
+            quantity: line.quantity,
+            dinerLabel: line.dinerLabel,
+          })),
+        now: new Date().toISOString(),
+      });
+    }
     writeAuditLog({
       tx,
       tenantId: scope.tenantId,

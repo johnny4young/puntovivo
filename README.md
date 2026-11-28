@@ -13,7 +13,7 @@ una base SQLite local, con operación sin conexión antes de depender de la nube
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-16a34a.svg)](./LICENSE)
 [![CI](https://github.com/johnny4young/puntovivo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/johnny4young/puntovivo/actions/workflows/ci.yml)
-[![Node](https://img.shields.io/badge/node-%3E%3D24-339933.svg?logo=node.js&logoColor=white)](./package.json)
+[![Node](https://img.shields.io/badge/node-%3E%3D26.13.1-339933.svg?logo=node.js&logoColor=white)](./package.json)
 [![Electron](https://img.shields.io/badge/Electron-45-47848F.svg?logo=electron&logoColor=white)](./apps/desktop)
 [![React](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react&logoColor=black)](./apps/web)
 [![tRPC](https://img.shields.io/badge/tRPC-11-2596BE.svg?logo=trpc&logoColor=white)](./packages/server)
@@ -36,8 +36,9 @@ vendiendo cuando no tenga conexión.
 
 La misma aplicación React se ejecuta en dos destinos: **escritorio con Electron**
 y **navegador**, sobre una API **Fastify + tRPC** integrada. En escritorio, el
-servidor se ejecuta dentro del proceso principal de Electron y los datos se
-guardan en una base **SQLite** local cifrada.
+servidor corre en un hilo aislado (`worker_threads`) dentro de la aplicación
+Electron —sin bloquear el hilo principal de ventanas e IPC— y los datos se
+guardan en una base **SQLite** local cifrada con SQLCipher.
 
 Su alcance no es el de un ERP genérico ni una suite que dependa exclusivamente
 de la nube. Restaurante, KDS, IA, entregas, API pública y SaaS alojado existen
@@ -131,8 +132,7 @@ para releases están en [docs/PROJECT-STATUS.md](docs/es/PROJECT-STATUS.md).
   [ejecución 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582).
   Esa matriz de validación es evidencia de regresión para v1.10.1; no valida
   binarios posteriores, firmas de releases ni promete tiempos de recuperación
-  en producción. El [release v1.16.0](https://github.com/johnny4young/puntovivo/releases/tag/v1.16.0)
-  y la [política activa de actualización](https://johnny4young.github.io/puntovivo/update-policy.json)
+  en producción. La línea actual (`1.19.0`) y la [política activa de actualización](https://johnny4young.github.io/puntovivo/update-policy.json)
   no sustituyen la evidencia de Gate 5 en equipos representativos.
 - El artefacto macOS es para Apple Silicon y declara macOS 15 Sequoia como
   mínimo. El workflow de candidatos prueba por separado Sequoia 15 y Tahoe 26;
@@ -165,8 +165,8 @@ para releases están en [docs/PROJECT-STATUS.md](docs/es/PROJECT-STATUS.md).
 
 </div>
 
-La aplicación de escritorio importa `@puntovivo/server` directamente en el
-proceso principal de Electron; no inicia el servidor como un proceso hijo.
+La aplicación de escritorio ejecuta `@puntovivo/server` en un hilo
+`worker_threads` dentro de Electron; no inicia el servidor como un proceso hijo.
 
 ## Inicio rápido
 

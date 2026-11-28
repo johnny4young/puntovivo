@@ -95,9 +95,9 @@ function render(language: 'en' | 'es', signatureMethod: 'pin' | 'drawn' = 'pin')
 }
 
 describe('day-close PDF renderer', () => {
-  it('renders a deterministic, bounded PDF carrying the evidence identity', () => {
-    const first = render('en');
-    const second = render('en');
+  it('renders a deterministic, bounded PDF carrying the evidence identity', async () => {
+    const first = await render('en');
+    const second = await render('en');
     const raw = first.toString('latin1');
 
     expect(first.equals(second)).toBe(true);
@@ -108,12 +108,12 @@ describe('day-close PDF renderer', () => {
     expect(raw).toContain('Puntovivo Test Store');
   });
 
-  it('prints how the manager signed', () => {
-    expect(render('en').equals(render('en', 'drawn'))).toBe(false);
+  it('prints how the manager signed', async () => {
+    expect((await render('en')).equals(await render('en', 'drawn'))).toBe(false);
   });
 
-  it('selects neutral Spanish copy from the resolved tenant locale', () => {
-    const raw = render('es').toString('latin1');
+  it('selects neutral Spanish copy from the resolved tenant locale', async () => {
+    const raw = (await render('es')).toString('latin1');
     expect(raw).toContain('Reporte firmado de cierre del día');
     expect(raw).not.toContain('Signed day-close report');
   });

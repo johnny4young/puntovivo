@@ -7,10 +7,25 @@
  *
  * @module services/ai/providers/anthropic
  */
-import { anthropic } from '@ai-sdk/anthropic';
 import type { LanguageModelV4 } from '@ai-sdk/provider';
 
 import type { AIProvider, ModelPricing, ProviderPricing, TokenUsage } from './types.js';
+
+let loadedAnthropicSdk: typeof import('@ai-sdk/anthropic') | null = null;
+let anthropicSdkPromise: Promise<typeof import('@ai-sdk/anthropic')> | null = null;
+
+async function ensureAnthropicSdk(): Promise<void> {
+  if (loadedAnthropicSdk) return;
+  anthropicSdkPromise ??= import('@ai-sdk/anthropic');
+  loadedAnthropicSdk = await anthropicSdkPromise;
+}
+
+function requireAnthropicSdk(): typeof import('@ai-sdk/anthropic') {
+  if (!loadedAnthropicSdk) {
+    throw new Error('Anthropic SDK not loaded; await provider.ensureReady() first');
+  }
+  return loadedAnthropicSdk;
+}
 
 /**
  * USD per 1M tokens. Operator updates this table when Anthropic
@@ -107,8 +122,12 @@ export const anthropicProvider: AIProvider = {
     return Boolean(process.env.ANTHROPIC_API_KEY?.trim());
   },
 
+  ensureReady(): Promise<void> {
+    return ensureAnthropicSdk();
+  },
+
   languageModel(modelId: string): LanguageModelV4 {
-    return anthropic(modelId);
+    return requireAnthropicSdk().anthropic(modelId);
   },
 
   // every Claude 3+ language model supports image content in
@@ -117,7 +136,7 @@ export const anthropicProvider: AIProvider = {
   // service layer can gate on `provider.visionModel` rather than
   // guessing per provider id.
   visionModel(modelId: string): LanguageModelV4 {
-    return anthropic(modelId);
+    return requireAnthropicSdk().anthropic(modelId);
   },
 
   cacheControlForSystemPrompt(): Record<string, unknown> {

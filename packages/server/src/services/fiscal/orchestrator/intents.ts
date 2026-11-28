@@ -587,6 +587,7 @@ function materializeClaimedIntent(
                 providerId: fiscalDocuments.providerId,
                 status: fiscalDocuments.status,
                 kind: fiscalDocuments.kind,
+                documentNumber: fiscalDocuments.documentNumber,
               })
               .from(fiscalDocuments)
               .where(
@@ -635,7 +636,12 @@ function materializeClaimedIntent(
       const adapterInput: FiscalAdapterIssueInput = {
         ...payload.adapterInput,
         originalCufe,
-        ...(originalDocument ? { originalKind: originalDocument.kind } : {}),
+        ...(originalDocument
+          ? {
+              originalKind: originalDocument.kind,
+              originalDocumentNumber: originalDocument.documentNumber,
+            }
+          : {}),
         // A credit note references immutable fiscal evidence, never a customer's
         // current catalog record or a later tenant currency change.
         buyer: originalDocument

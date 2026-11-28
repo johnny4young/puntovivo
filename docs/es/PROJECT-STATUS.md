@@ -2,7 +2,7 @@
 
 **Idioma:** Español · [English](../PROJECT-STATUS.md)
 
-> Actualizado: 2026-09-22. Esta es la fuente pública de referencia sobre las
+> Actualizado: 2026-11-27. Esta es la fuente pública de referencia sobre las
 > capacidades entregadas y la preparación para publicar versiones. La priorización
 > interna, las estimaciones y las notas de ejecución permanecen en un archivo
 > privado de planificación ignorado por Git.
@@ -27,10 +27,14 @@ El candidato validado actual incluye:
   ventas a crédito, controles de aprobación del gerente cuyas solicitudes de cobro
   muestran a quien aprueba el límite de descuento de quien pide, el margen de la
   venta con y sin el descuento y la frecuencia y el descuento habituales del
-  cliente, promociones porcentuales
-  cuya autoridad reside en el servidor con ciclo de vida explícito y evidencia
-  congelada por línea, y entrega de recibos por WhatsApp controlada por una persona,
-  que genera texto y un PNG local opcional sin envío en segundo plano;
+  cliente, promociones cuya autoridad reside en el servidor con reglas
+  porcentuales, de monto fijo y lleve-pague (`NxM`), programación recurrente por
+  día/horario, ciclo de vida explícito y evidencia congelada por línea, combos y
+  kits multi-SKU con descargue y reversión atómica de stock de componentes,
+  generación de etiquetas de góndola y códigos de barras (planillas PDF A4/Carta
+  y salida térmica ZPL/TSPL), y entrega de recibos por WhatsApp controlada por
+  una persona, que genera texto y un PNG local opcional sin envío en segundo
+  plano;
 - un cobro en efectivo que pone primero el cambio: teclas de exacto y montos
   redondos, un teclado en pantalla para lo recibido y el cambio como la cifra
   más grande, con una forma de entregarlo en los billetes y monedas de la
@@ -183,7 +187,8 @@ El candidato validado actual incluye:
   no pueden resolver silenciosamente un código de empaque y acumulan paquetes
   pesados sucesivos. Las etiquetas de precio de paquete completo conservan
   distintos precios codificados en líneas de venta distintas al suspender y
-  reanudar. Un cajero debe consumir una autorización de gerente vinculada al
+  reanudar, y admiten un divisor de precio configurable por sede (etiquetas en
+  pesos enteros o con centavos). Un cajero debe consumir una autorización de gerente vinculada al
   cobro exacto antes de completar un precio fuera de catálogo; la comprobación
   previa vuelve a leer el catálogo actual del negocio o las instantáneas
   congeladas del borrador sin confiar en metadatos del renderizador. Los roles
@@ -245,10 +250,17 @@ El candidato validado actual incluye:
   hasta veinte modificadores distintos por línea, con cantidades y recargos por
   unidad, sin fusionar platos personalizados. Una visita a una mesa puede exponer
   todas las cuentas simultáneas; el número de comensales establecido y la capacidad
-  de mesa se aplican en el servidor. Completar, descartar, mover una mesa de un
-  servicio completo no compartido y dividir cuentas en la misma mesa mantienen
-  alineados venta y servicio mediante escrituras serializadas; dividir o fusionar
-  grupos implícitamente entre mesas se rechaza de forma segura. La liquidación
+  de mesa se aplican en el servidor. Completar, descartar, agregar rondas
+  adicionales directamente sobre una cuenta abierta, mover una mesa de un
+  servicio completo no compartido y dividir cuentas en la misma mesa (por
+  artículo, en partes iguales o por plato compartido, accesible para cajeros y
+  meseros) mantienen alineados venta y servicio mediante escrituras serializadas;
+  dividir o fusionar grupos implícitamente entre mesas se rechaza de forma
+  segura. El personal puede imprimir una precuenta no fiscal con propina
+  voluntaria sugerida y aviso de Ley 1935/2018 sin avanzar la numeración fiscal,
+  enrutar comandas térmicas por estación (cocina/bar) mediante el outbox de
+  hardware al enviar cada ronda y descontar automáticamente los ingredientes de
+  recetas y modificadores al completar la venta. La liquidación
   exige cobertura exacta de cada línea congelada de venta, y la división concilia
   ajustes de cabecera, totales y filas de pagos provisionales sin dividir evidencia
   de fidelidad ni saldo a favor. Nivel de precio, stock, impuestos, recibos,
@@ -308,12 +320,25 @@ El candidato validado actual incluye:
   incidente de cadena de frío, retiro, liberación, destrucción, devolución al
   proveedor y consulta de ventas afectadas. En la caja, los resultados de
   búsqueda y las líneas del ticket muestran el lote FEFO, los lotes por vencer
-  que deben salir primero, la clase de venta y los equivalentes más económicos,
-  y cada línea con fórmula muestra su evidencia aprobada antes de Cobrar.
-  Colombia v1 permite venta libre y
-  exige cliente actual, evidencia y empleado autorizado vigente para productos
-  con receta. Los medicamentos controlados y la operación con receta en países
-  sin adaptador revisado se rechazan de forma segura. Una receta aún válida cuya
+  que deben salir primero, la clase de venta, el ahorro por dosis frente a
+  equivalentes genéricos, alertas de alergias del cliente y duplicidad de
+  principio activo en el carrito, y cada línea con fórmula o controlada muestra
+  su evidencia aprobada antes de Cobrar. Colombia v1 permite venta libre y exige
+  cliente actual, evidencia y empleado autorizado vigente para productos con
+  receta. Los medicamentos controlados permanecen bloqueados de forma segura por
+  defecto hasta que un administrador registra una autorización vigente del FNE
+  (Resolución 1478/2006) respaldada por un químico farmacéutico o regente
+  activo; al habilitarse, ingresos, dispensaciones, devoluciones, anulaciones,
+  traslados, conteos y fraccionamientos registran asientos inmutables en un
+  libro FNE mensual imprimible. Las droguerías cuentan además con
+  fraccionamiento regulado de lotes (caja a blíster o tableta) que conserva
+  lote, vencimiento, registro sanitario, valoración exacta en centavos y
+  propagación bidireccional de retiros, bitácora diaria de temperatura y humedad
+  (Resolución 1403/2007) con reporte imprimible para inspección, importador
+  oficial de catálogo INVIMA/CUM desde CSV y registro de alergias por paciente
+  cubierto por exportación y eliminación de datos personales. La operación con
+  receta en países sin adaptador revisado sigue bloqueada de forma segura. Una
+  receta aún válida cuya
   aprobación profesional congelada vence o se revoca sigue bloqueada hasta que
   un empleado autorizado vuelva a aprobar explícitamente la misma evidencia
   sellada. Compras, transferencias, devoluciones, anulaciones y finalización de
@@ -376,10 +401,13 @@ El candidato validado actual incluye:
   cifrados, instantáneas programadas, simulacros de restauración, ensayo y control
   de evidencia de recuperación empaquetada, carga a bóveda en la nube compatible
   con S3 y atestación de protección de respaldos;
-- aislamiento de negocios y sedes, registros de auditoría, controles de rol,
-  registro de dispositivos, modos locales de Nodo de autoridad, sesiones
-  renovables de cliente Store Hub con custodia de credenciales en el proceso
-  principal, transporte de API a destino fijo y tiempo real autenticado por
+- aislamiento de negocios y sedes, registros de auditoría, controles de rol
+  (incluida la redacción en el servidor de costos de compra y márgenes en
+  lecturas de catálogo para roles sin privilegios), registro de dispositivos,
+  modos locales de Nodo de autoridad, sesiones renovables de cliente Store Hub
+  acotadas por dispositivo con custodia de credenciales en el proceso principal
+  (revocar una terminal no cierra sesiones ajenas del personal), transporte de
+  API a destino fijo y tiempo real autenticado por
   Authorization con repetición, reconexión y comprobaciones activas de revocación;
   núcleo duradero de sincronización y pantallas de salud operativa;
 - un Companion instalable con tamaño móvil para administradores, gerentes y
@@ -433,10 +461,21 @@ El candidato validado actual incluye:
 - fundamentos fiscales de Colombia y paquetes documentales en borrador para
   México y Chile. El simulador de Colombia puede conservar un borrador UBL 2.1
   local sin firma ni transmisión con el código de unidad UN/ECE congelado; es
-  evidencia de desarrollo, no un documento firmado por un proveedor. Ningún
-  paquete está certificado todavía para transmisión en producción;
-- destinos Electron 45 y navegador que comparten el mismo núcleo React, Fastify,
-  tRPC y SQLite.
+  evidencia de desarrollo, no un documento firmado por un proveedor. El paquete
+  de Colombia incluye además agrupación estructural UBL 2.1 (`TaxSubtotal` por
+  `01` IVA / `04` INC e identidad `LegalMonetaryTotal`), firmador local
+  `XAdES-EPES` y transporte `WS-Security` SOAP 1.2 con Contingencia tipo 08
+  (`ColombiaDianAdapter`, madurez `draft` hasta completar certificación en vivo
+  en `vpfe-hab`). Ningún paquete está certificado todavía para transmisión en
+  producción;
+- destinos Electron 45 (con el servidor Fastify + tRPC + SQLCipher aislado en
+  `worker_threads`, política de instalación segura; el verificador `Ed25519` para
+  artefactos Linux existe pero aún no está conectado al actualizador) y navegador
+  que comparten el mismo núcleo React, Fastify, tRPC y SQLite;
+- redondeo configurable de efectivo COP (`$ 50`) con cuadre de ajuste por
+  redondeo en exportación contable, barra de cobro simplificada en `/sales` con
+  menú de turno en cabecera, cobro completo en `/touch` y contraste WCAG AA en
+  modo oscuro.
 
 ## Veredicto de preparación
 
@@ -540,22 +579,23 @@ El candidato validado actual incluye:
   al vender aún requiere un flujo explícito de reemplazo/adopción que todavía
   no se admite. Esto no afirma recuperación fiscal desatendida ni certificación.
 - El perfil de farmacia demuestra controles locales de software, no cumplimiento
-  farmacéutico. Revisión legal por país, integración con INVIMA o registro
-  equivalente, autorización de medicamentos controlados, recetas electrónicas,
-  sensores de cadena de frío, hardware físico de farmacia y un piloto supervisado
-  en tienda real siguen siendo controles externos. Los agregados regulados
-  permanecen solo locales hasta que la sincronización pueda aplicar identidad
-  de producto, política, evidencia, retiro y custodia de lotes atómicamente.
+  farmacéutico. Revisión legal por país, integración en vivo por API con INVIMA
+  o registro equivalente (más allá de la importación CSV local), validación
+  legal de auditoría FNE, recetas electrónicas, sensores físicos de cadena de
+  frío, hardware físico de farmacia y un piloto supervisado en tienda real
+  siguen siendo controles externos. Los agregados regulados permanecen solo
+  locales hasta que la sincronización pueda aplicar identidad de producto,
+  política, evidencia, retiro y custodia de lotes atómicamente.
 - La notificación duradera de cocina es al menos una vez y requiere consulta
-  periódica/reconexión; un reconocimiento de difusión local no prueba entrega
-  a una pantalla o impresora física. Los gerentes configuran adicionales
-  versionados por sede desde la UI y los agrupan por plato (preparación, sin,
+  periódica/reconexión; un reconocimiento de difusión local o una comanda
+  encolada para impresión no prueban entrega física en pantalla o impresora. Los
+  gerentes configuran adicionales versionados por sede y recetas de ingredientes
+  de modificadores desde la UI y los agrupan por plato (preparación, sin,
   adicionales) con elecciones obligatorias y máximas que los pedidos deben
   cumplir. La pantalla de pedidos abre una hoja por plato con el comensal, esos
-  grupos, el tiempo y una nota para cocina, y muestra las rondas enviadas de la
-  mesa sobre la ronda en preparación. Cada ronda enviada abre su propia cuenta
-  en el servicio de la mesa; agregar una ronda a una cuenta existente aún no
-  existe. Los
+  grupos, el tiempo y una nota para cocina, muestra las rondas enviadas de la
+  mesa sobre la ronda en preparación y permite agregar nuevas rondas a una
+  cuenta abierta existente o imprimir una precuenta no fiscal. Los
   recargos de cajeros exigen una referencia
   exacta de catálogo activo comprobada dentro de la transacción de venta. Las
   instrucciones libres van en la nota para cocina del plato, mientras cargos

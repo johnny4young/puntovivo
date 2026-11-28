@@ -7,11 +7,13 @@ import {
   companies,
   countryCatalog,
   installationSetup,
+  sequentials,
   sites,
   tenantLocaleSettings,
   tenants,
   units,
   users,
+  vatRates,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { hashPasswordSecurely } from '../../security/passwords.js';
@@ -211,21 +213,151 @@ export function createInstallationSetup(db: DatabaseInstance): InstallationSetup
             tx.insert(tenantLocaleSettings)
               .values({ tenantId, countryCode: country.code, updatedAt: now })
               .run();
-            // A unit is structural catalog data, not stock or a fiscal assertion.
-            // Taxes, legal identifiers, numbering and cash setup stay explicit UI steps.
+            // Structural catalog units ready on day one (count, weight, volume).
+            const isEs = country.generalLocale === 'es';
             tx.insert(units)
-              .values({
-                id: nanoid(),
-                tenantId,
-                name: country.generalLocale === 'es' ? 'Unidad' : 'Unit',
-                abbreviation: 'UN',
-                dimension: 'count',
-                standardCode: 'EA',
-                referenceFactor: 1,
-                isActive: true,
-                createdAt: now,
-                updatedAt: now,
-              })
+              .values([
+                {
+                  id: nanoid(),
+                  tenantId,
+                  name: isEs ? 'Unidad' : 'Unit',
+                  abbreviation: 'UN',
+                  dimension: 'count',
+                  standardCode: 'EA',
+                  referenceFactor: 1,
+                  isActive: true,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+                {
+                  id: nanoid(),
+                  tenantId,
+                  name: isEs ? 'Kilogramo' : 'Kilogram',
+                  abbreviation: 'kg',
+                  dimension: 'mass',
+                  standardCode: 'KGM',
+                  referenceFactor: 1000,
+                  isActive: true,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+                {
+                  id: nanoid(),
+                  tenantId,
+                  name: isEs ? 'Gramo' : 'Gram',
+                  abbreviation: 'g',
+                  dimension: 'mass',
+                  standardCode: 'GRM',
+                  referenceFactor: 1,
+                  isActive: true,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+                {
+                  id: nanoid(),
+                  tenantId,
+                  name: isEs ? 'Litro' : 'Liter',
+                  abbreviation: 'L',
+                  dimension: 'volume',
+                  standardCode: 'LTR',
+                  referenceFactor: 1000,
+                  isActive: true,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+              ])
+              .run();
+            // Seed Colombia's statutory IVA/INC rates so a fresh store can sell within 2 minutes.
+            if (country.code === 'CO') {
+              tx.insert(vatRates)
+                .values([
+                  {
+                    id: nanoid(),
+                    tenantId,
+                    name: 'IVA 19%',
+                    rate: 19,
+                    kind: 'iva',
+                    isActive: true,
+                    createdAt: now,
+                    updatedAt: now,
+                  },
+                  {
+                    id: nanoid(),
+                    tenantId,
+                    name: 'IVA 5%',
+                    rate: 5,
+                    kind: 'iva',
+                    isActive: true,
+                    createdAt: now,
+                    updatedAt: now,
+                  },
+                  {
+                    id: nanoid(),
+                    tenantId,
+                    name: 'IVA 0% (Exento)',
+                    rate: 0,
+                    kind: 'iva',
+                    isActive: true,
+                    createdAt: now,
+                    updatedAt: now,
+                  },
+                  {
+                    id: nanoid(),
+                    tenantId,
+                    name: 'INC 8%',
+                    rate: 8,
+                    kind: 'inc',
+                    isActive: true,
+                    createdAt: now,
+                    updatedAt: now,
+                  },
+                ])
+                .run();
+            }
+            // Default document numbering per site so checkout, purchasing, and quoting work immediately.
+            tx.insert(sequentials)
+              .values([
+                {
+                  id: nanoid(),
+                  tenantId,
+                  siteId,
+                  documentType: 'sale',
+                  prefix: 'POS-',
+                  currentValue: 0,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+                {
+                  id: nanoid(),
+                  tenantId,
+                  siteId,
+                  documentType: 'purchase',
+                  prefix: 'COMP-',
+                  currentValue: 0,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+                {
+                  id: nanoid(),
+                  tenantId,
+                  siteId,
+                  documentType: 'order',
+                  prefix: 'PED-',
+                  currentValue: 0,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+                {
+                  id: nanoid(),
+                  tenantId,
+                  siteId,
+                  documentType: 'quotation',
+                  prefix: 'COT-',
+                  currentValue: 0,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+              ])
               .run();
             // Reference lists only; a customer's own document and regime are still chosen per customer.
             seedCustomerReferenceCatalogs(tx, { tenantId, countryCode: country.code, now });

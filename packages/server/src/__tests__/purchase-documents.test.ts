@@ -230,10 +230,7 @@ describe('Purchase documents', () => {
       .select({ after: auditLogs.after })
       .from(auditLogs)
       .where(
-        and(
-          eq(auditLogs.resourceId, created.id),
-          eq(auditLogs.action, 'purchase.document_updated')
-        )
+        and(eq(auditLogs.resourceId, created.id), eq(auditLogs.action, 'purchase.document_updated'))
       )
       .get();
     expect(identityAudit?.after).toMatchObject({
@@ -335,15 +332,21 @@ describe('Purchase documents', () => {
     const audit = getDatabase()
       .select({ action: auditLogs.action })
       .from(auditLogs)
-      .where(and(eq(auditLogs.resourceId, purchaseId), eq(auditLogs.action, 'purchase.document_updated')))
+      .where(
+        and(eq(auditLogs.resourceId, purchaseId), eq(auditLogs.action, 'purchase.document_updated'))
+      )
       .all();
     expect(audit.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('attaches the paper once, returns it with a verified hash, and rejects a second attach', async () => {
+  it('attaches the paper once as a BLOB, returns it with a verified hash, and rejects a second attach', async () => {
     const purchaseId = await insertPurchaseRow();
     const caller = appRouter.createCaller(createTestContext('manager'));
-    const paper = Buffer.from('remision paper image bytes', 'utf8').toString('base64');
+    const pngBytes = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.from('remision paper image bytes', 'utf8'),
+    ]);
+    const paper = pngBytes.toString('base64');
 
     const attached = await caller.purchases.attachDocument({
       purchaseId,
@@ -351,7 +354,17 @@ describe('Purchase documents', () => {
       mimeType: 'image/png',
       documentBase64: paper,
     });
-    expect(attached.sizeBytes).toBe(Buffer.from(paper, 'base64').length);
+    expect(attached.sizeBytes).toBe(pngBytes.length);
+
+    const stored = getDatabase()
+      .select({ payload: purchaseDocuments.payload })
+      .from(purchaseDocuments)
+      .where(
+        and(eq(purchaseDocuments.tenantId, tenantId), eq(purchaseDocuments.purchaseId, purchaseId))
+      )
+      .get();
+    expect(Buffer.isBuffer(stored?.payload)).toBe(true);
+    expect(stored?.payload.equals(pngBytes)).toBe(true);
 
     await expect(
       caller.purchases.attachDocument({
@@ -359,7 +372,7 @@ describe('Purchase documents', () => {
         mimeType: 'image/png',
         documentBase64: paper,
       })
-    ).rejects.toThrow(/already has an attached document/i);
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
 
     const fetched = await caller.purchases.getDocument({ purchaseId });
     expect(fetched.fileName).toBe('remision.png');
@@ -369,32 +382,107 @@ describe('Purchase documents', () => {
     const audit = getDatabase()
       .select({ action: auditLogs.action })
       .from(auditLogs)
-      .where(and(eq(auditLogs.resourceId, purchaseId), eq(auditLogs.action, 'purchase.document_attached')))
+      .where(
+        and(
+          eq(auditLogs.resourceId, purchaseId),
+          eq(auditLogs.action, 'purchase.document_attached')
+        )
+      )
       .all();
     expect(audit.length).toBe(1);
+  });
+
+  it('rejects files whose magic bytes disagree with the declared MIME type', async () => {
+    const purchaseId = await insertPurchaseRow();
+    const caller = appRouter.createCaller(createTestContext('manager'));
+    const plainText = Buffer.from('not really a pdf or image', 'utf8').toString('base64');
+
+    await expect(
+      caller.purchases.attachDocument({
+        purchaseId,
+        fileName: 'spoofed.pdf',
+        mimeType: 'application/pdf',
+        documentBase64: plainText,
+      })
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+
+    await expect(
+      caller.purchases.attachDocument({
+        purchaseId,
+        fileName: 'spoofed.webp',
+        mimeType: 'image/webp',
+        documentBase64: Buffer.from('RIFF1234AVI ', 'utf8').toString('base64'),
+      })
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+
+    // Valid PDF magic header passes cleanly.
+    const pdfBytes = Buffer.from('%PDF-1.4\n%%EOF\n', 'utf8');
+    await expect(
+      caller.purchases.attachDocument({
+        purchaseId,
+        fileName: 'remision.pdf',
+        mimeType: 'application/pdf',
+        documentBase64: pdfBytes.toString('base64'),
+      })
+    ).resolves.toMatchObject({ sizeBytes: pdfBytes.length });
   });
 
   it('detects a tampered attachment at read time', async () => {
     const purchaseId = await insertPurchaseRow();
     const db = getDatabase();
     const caller = appRouter.createCaller(createTestContext('manager'));
-    const paper = Buffer.from('original bytes', 'utf8').toString('base64');
+    const jpegBytes = Buffer.concat([
+      Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+      Buffer.from('original bytes', 'utf8'),
+    ]);
 
     await caller.purchases.attachDocument({
       purchaseId,
       mimeType: 'image/jpeg',
-      documentBase64: paper,
+      documentBase64: jpegBytes.toString('base64'),
     });
 
     await db
       .update(purchaseDocuments)
-      .set({ payloadBase64: Buffer.from('tampered bytes', 'utf8').toString('base64') })
-      .where(eq(purchaseDocuments.purchaseId, purchaseId))
+      .set({ payload: Buffer.from('tampered bytes', 'utf8') })
+      .where(
+        and(eq(purchaseDocuments.tenantId, tenantId), eq(purchaseDocuments.purchaseId, purchaseId))
+      )
       .run();
 
     await expect(caller.purchases.getDocument({ purchaseId })).rejects.toThrow(
       /failed integrity verification/i
     );
+  });
+
+  it('rejects cross-tenant document reads and attachments', async () => {
+    const purchaseId = await insertPurchaseRow();
+    const ownCaller = appRouter.createCaller(createTestContext('manager'));
+    const webpBytes = Buffer.from('RIFF\x12\x00\x00\x00WEBPVP8 ', 'binary');
+
+    await ownCaller.purchases.attachDocument({
+      purchaseId,
+      fileName: 'remision.webp',
+      mimeType: 'image/webp',
+      documentBase64: webpBytes.toString('base64'),
+    });
+
+    const foreignCtx = {
+      ...createTestContext('manager'),
+      tenantId: `foreign-tenant-${nanoid(6)}`,
+    };
+    const foreignCaller = appRouter.createCaller(foreignCtx);
+
+    await expect(foreignCaller.purchases.getDocument({ purchaseId })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+    await expect(
+      foreignCaller.purchases.attachDocument({
+        purchaseId,
+        mimeType: 'image/webp',
+        documentBase64: webpBytes.toString('base64'),
+      })
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
   it('rejects an empty payload and an unknown purchase', async () => {

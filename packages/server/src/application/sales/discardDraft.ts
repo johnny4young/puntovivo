@@ -21,6 +21,7 @@ import { cancelExternalSale } from '../external-orders/sale-binding.js';
  */
 
 import { reconcileKitchenSaleInTransaction } from '../kds/sale-lifecycle.js';
+import { tickDefaultHardwareWorker } from '../../services/peripherals/hardware-worker.js';
 import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { operationEvents, saleItems, sales } from '../../db/schema.js';
@@ -30,6 +31,8 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
+import { reverseBundleComponentsInTransaction } from '../../services/product-bundles.js';
+import { reverseModifierBomInTransaction } from '../../services/restaurant/modifier-bom.js';
 import {
   enqueueInventoryLotUpdatesForSaleInTransaction,
   restoreLotsForSale,
@@ -226,6 +229,32 @@ export async function discardDraft(
           productStockState,
           now,
         });
+        inventoryMovementIds.push(
+          ...reverseBundleComponentsInTransaction({
+            tx,
+            tenantId: ctx.tenantId,
+            siteId: authoritativeSaleSiteId,
+            saleId: input.saleId,
+            saleNumber: current.saleNumber,
+            reversalKind: 'discard',
+            userId: ctx.user.id,
+            now,
+            itemFractions: saleLineItems.map(item => ({ saleItemId: item.id, fraction: 1 })),
+            productStockState,
+          }),
+          ...reverseModifierBomInTransaction({
+            tx,
+            tenantId: ctx.tenantId,
+            siteId: authoritativeSaleSiteId,
+            saleId: input.saleId,
+            saleNumber: current.saleNumber,
+            reversalKind: 'discard',
+            userId: ctx.user.id,
+            now,
+            itemFractions: saleLineItems.map(item => ({ saleItemId: item.id, fraction: 1 })),
+            productStockState,
+          })
+        );
         // Auditoría 2026-07 — restore consumed lots on draft discard.
         restoredLotIds = restoreLotsForSale(tx, {
           tenantId: ctx.tenantId,
@@ -387,6 +416,8 @@ export async function discardDraft(
     }
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
   }
+
+  void tickDefaultHardwareWorker(ctx.tenantId).catch(() => {});
 
   return {
     id: input.saleId,

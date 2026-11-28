@@ -90,7 +90,17 @@
     "saveRoute": "Save routing",
     "saved": "Kitchen settings saved.",
     "saveError": "Could not save kitchen settings. Refresh and review the current version.",
-    "loadError": "Could not load kitchen settings. Close and reopen to retry."
+    "loadError": "Could not load kitchen settings. Close and reopen to retry.",
+    "printerMode": "Ticket printer",
+    "printerNone": "KDS screen only",
+    "printerSite": "Site primary printer",
+    "printerTcp": "Thermal TCP/LAN printer",
+    "printerHost": "LAN IP or host",
+    "printerPort": "TCP port",
+    "printerPaperWidth": "Paper width",
+    "printerCopies": "Copies",
+    "printerTagSite": "Site printer",
+    "printerTagTcp": "TCP {{host}}:{{port}}"
   },
   "line": {
     "pending": "Pending",

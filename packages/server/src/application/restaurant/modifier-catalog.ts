@@ -6,6 +6,7 @@ import { restaurantModifierCatalog, sites, tenants, users } from '../../db/schem
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
+import { replaceModifierBomInTransaction } from '../../services/restaurant/modifier-bom.js';
 import { isModuleActiveInSettings } from '../../services/modules/manifest.js';
 import type { CriticalCommandContext } from '../../trpc/middleware/commandEnvelope.js';
 import {
@@ -180,6 +181,17 @@ export function saveRestaurantModifier(
             .returning()
             .get();
       if (!row) changed();
+      if (input.bomComponents) {
+        replaceModifierBomInTransaction(tx, {
+          tenantId: ctx.tenantId,
+          siteId: input.siteId,
+          actorId: ctx.user.id,
+          catalogId: row.id,
+          catalogName: row.name,
+          operationId: ctx.envelope.operationId,
+          components: input.bomComponents,
+        });
+      }
       writeAuditLog({
         tx,
         tenantId: ctx.tenantId,

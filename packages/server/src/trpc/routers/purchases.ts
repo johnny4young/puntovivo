@@ -164,28 +164,19 @@ export const purchasesRouter = router({
   setDocument: managerOrAdminProcedure
     .input(setPurchaseDocumentInput)
     .mutation(async ({ ctx, input }) => {
-      return setPurchaseDocument(
-        { db: ctx.db, tenantId: ctx.tenantId, user: ctx.user! },
-        input
-      );
+      return setPurchaseDocument({ db: ctx.db, tenantId: ctx.tenantId, user: ctx.user! }, input);
     }),
 
   attachDocument: managerOrAdminProcedure
     .input(attachPurchaseDocumentInput)
     .mutation(async ({ ctx, input }) => {
-      return attachPurchaseDocument(
-        { db: ctx.db, tenantId: ctx.tenantId, user: ctx.user! },
-        input
-      );
+      return attachPurchaseDocument({ db: ctx.db, tenantId: ctx.tenantId, user: ctx.user! }, input);
     }),
 
   getDocument: managerOrAdminProcedure
     .input(getPurchaseDocumentInput)
     .query(async ({ ctx, input }) => {
-      return getPurchaseDocument(
-        { db: ctx.db, tenantId: ctx.tenantId, user: ctx.user! },
-        input
-      );
+      return getPurchaseDocument({ db: ctx.db, tenantId: ctx.tenantId, user: ctx.user! }, input);
     }),
 
   create: criticalCommandManagerOrAdminProcedure

@@ -128,6 +128,8 @@ describe('buildProductPayload', () => {
       dosageForm: null,
       administrationRoute: null,
       presentation: null,
+      dosesPerPack: null,
+      cumCode: null,
       manufacturer: null,
       authorizationHolder: null,
       sanitaryRegistration: 'INVIMA 2026M-001',

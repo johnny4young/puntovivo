@@ -36,11 +36,8 @@ function renderGuidance(itemCount = 0, locked = false) {
         lineCount={itemCount}
         canCharge={false}
         canOpenCashSession={false}
-        canCloseCashSession={false}
         onCharge={vi.fn()}
         onOpenCashSession={vi.fn()}
-        onCloseCashSession={vi.fn()}
-        onOpenMovement={vi.fn()}
         onRegisterAssignmentChange={vi.fn()}
       />
       <SalesShortcutStrip itemsLocked={locked} />

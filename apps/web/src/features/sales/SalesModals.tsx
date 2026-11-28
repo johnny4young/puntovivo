@@ -473,8 +473,9 @@ export function SalesModals({
               value={suspendLabelDraft}
               onChange={event => onChangeSuspendLabel(event.target.value)}
               placeholder={t('park.labelPlaceholder')}
+              aria-label={t('park.labelPlaceholder')}
               maxLength={80}
-              className="block w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm"
+              className="input block w-full text-sm"
               autoFocus
               disabled={isSuspending}
               data-testid="suspend-label-input"

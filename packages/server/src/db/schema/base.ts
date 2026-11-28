@@ -451,9 +451,14 @@ export const auditLogActionEnum = [
   'kds.order.voided',
   'kds.station.saved',
   'restaurant_modifier.save',
+  'restaurant_modifier.bom_updated',
   'restaurant_modifier_group.save',
   'restaurant_service.bill_requested',
   'restaurant_service.bill_request_cleared',
+  'restaurant_check.round_added',
+  'restaurant_check.precheck_printed',
+  'restaurant_check.split_equal',
+  'restaurant_check.split_shared_line',
   // Lines moved between the open checks of one table service.
   'restaurant.checks.regrouped',
   'kds.routing.saved',
@@ -528,6 +533,14 @@ export const auditLogActionEnum = [
   'pharmacy.recall.close',
   'pharmacy.lot.transition',
   'pharmacy.lot.destroy',
+  'pharmacy.lot.fractionate',
+  'pharmacy.environmental_log.record',
+  'pharmacy.invima.import',
+  'pharmacy.fne_authorization.create',
+  'pharmacy.fne_authorization.revoke',
+  'pharmacy.fne.dispense',
+  'pharmacy.customer_allergy.create',
+  'pharmacy.customer_allergy.delete',
   // an admin ran a non-destructive readiness drill against the
   // latest scheduled snapshot. Metadata records pass/fail plus bounded
   // tenant-scoped count deltas; no filesystem path or encryption key.
@@ -656,6 +669,7 @@ export const auditLogResourceTypeEnum = [
   'restaurant_modifier',
   'restaurant_modifier_group',
   'restaurant_service',
+  'restaurant_check',
   'kds_configuration',
   // closure — customer rows targeted by credit-limit audits.
   // shipped the credit-sales feature without ever emitting
@@ -680,6 +694,12 @@ export const auditLogResourceTypeEnum = [
   'pharmacy_product_profile',
   'pharmacy_prescription_evidence',
   'pharmacy_recall',
+  'pharmacy_lot_fractionation',
+  'pharmacy_environmental_log',
+  'pharmacy_invima_catalog',
+  'pharmacy_fne_authorization',
+  'pharmacy_fne_ledger',
+  'pharmacy_customer_allergy',
   'inventory_lot',
   // scheduler-owned encrypted snapshot targeted by a restore drill.
   'backup_snapshot',

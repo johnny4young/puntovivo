@@ -62,10 +62,8 @@ const LEGACY_SIDEBAR_ROUTES = [
   '/receipt-templates',
   '/peripherals',
   '/users',
-  '/settings/ai',
   '/audit-logs',
   '/fiscal-documents',
-  '/fiscal-reports',
 ] as const;
 
 describe('WORKSPACES catalogue', () => {

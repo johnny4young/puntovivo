@@ -2,6 +2,12 @@ import { eq } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import {
+  pharmacyCustomerAllergies,
+  pharmacyEnvironmentalLogs,
+  pharmacyFneAuthorizations,
+  pharmacyFneLedger,
+  pharmacyInvimaCatalog,
+  pharmacyLotFractionations,
   pharmacyPrescriptionEvidence,
   pharmacyProductProfiles,
   pharmacyProfessionalAuthorizations,
@@ -52,6 +58,36 @@ export function hasPharmacyOperationalData(db: DatabaseInstance, tenantId: strin
       .select({ id: pharmacyRecalls.id })
       .from(pharmacyRecalls)
       .where(eq(pharmacyRecalls.tenantId, tenantId))
+      .get() !== undefined ||
+    db
+      .select({ id: pharmacyEnvironmentalLogs.id })
+      .from(pharmacyEnvironmentalLogs)
+      .where(eq(pharmacyEnvironmentalLogs.tenantId, tenantId))
+      .get() !== undefined ||
+    db
+      .select({ id: pharmacyInvimaCatalog.id })
+      .from(pharmacyInvimaCatalog)
+      .where(eq(pharmacyInvimaCatalog.tenantId, tenantId))
+      .get() !== undefined ||
+    db
+      .select({ id: pharmacyFneAuthorizations.id })
+      .from(pharmacyFneAuthorizations)
+      .where(eq(pharmacyFneAuthorizations.tenantId, tenantId))
+      .get() !== undefined ||
+    db
+      .select({ id: pharmacyLotFractionations.id })
+      .from(pharmacyLotFractionations)
+      .where(eq(pharmacyLotFractionations.tenantId, tenantId))
+      .get() !== undefined ||
+    db
+      .select({ id: pharmacyFneLedger.id })
+      .from(pharmacyFneLedger)
+      .where(eq(pharmacyFneLedger.tenantId, tenantId))
+      .get() !== undefined ||
+    db
+      .select({ id: pharmacyCustomerAllergies.id })
+      .from(pharmacyCustomerAllergies)
+      .where(eq(pharmacyCustomerAllergies.tenantId, tenantId))
       .get() !== undefined
   );
 }

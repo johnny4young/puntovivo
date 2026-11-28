@@ -47,7 +47,21 @@ vi.mock('@/features/modules', () => ({
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
+    useUtils: () => ({
+      products: {
+        getBundleComponents: { invalidate: vi.fn() },
+      },
+    }),
     products: {
+      getBundleComponents: {
+        useQuery: () => ({ data: [], isLoading: false }),
+      },
+      search: {
+        useQuery: () => ({ data: { items: [] } }),
+      },
+      setBundleComponents: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false }),
+      },
       suggestCategory: {
         useMutation: (handlers: {
           onSuccess?: (data: unknown, variables?: unknown) => void;

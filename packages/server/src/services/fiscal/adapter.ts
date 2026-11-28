@@ -13,7 +13,7 @@
  * - `issue(input)` — emit a new document (DEE, FEV, NC, ND for CO;
  *   CFDI for MX; boleta/factura for CL).
  * - `voidDocument(...)` — cancel a previously issued document.
- * - `fetchStatus(cufe)` — poll an in-flight document for acceptance.
+ * - `fetchStatus(cufe, context?)` — poll an in-flight document for acceptance.
  *
  * Capability flags let the orchestrator skip methods an adapter does
  * not implement yet (e.g. the Colombia mock reports
@@ -118,6 +118,8 @@ export interface FiscalAdapterIssueInput {
   originalCufe?: string | undefined;
   /** Kind of the sale document a note corrects; selects the note's DIAN type code. */
   originalKind?: FiscalDocumentKind | undefined;
+  /** Number of the document a note corrects, for the note's billing reference. */
+  originalDocumentNumber?: string | undefined;
   reasonCode?: string | undefined;
   /**
    * Raw `tenants.settings` blob so country packs (MX, CL, ...) can
@@ -231,6 +233,12 @@ export interface FiscalAdapterConfig {
   settings: Record<string, unknown>;
 }
 
+/** What the provider recorded at issue time, so a status poll targets the right service. */
+export interface FiscalStatusContext {
+  environment?: FiscalEnvironment | undefined;
+  providerResponse?: Record<string, unknown> | null | undefined;
+}
+
 /**
  * Implement this interface to plug a new fiscal provider. The
  * orchestrator invokes methods inside the sale transaction, so every
@@ -259,5 +267,5 @@ export interface FiscalAdapter {
   validateConfig(input: FiscalAdapterConfig): Promise<FiscalAdapterValidationResult>;
   issue(input: FiscalAdapterIssueInput): Promise<FiscalAdapterIssueResult>;
   voidDocument(input: FiscalAdapterVoidInput): Promise<FiscalAdapterIssueResult>;
-  fetchStatus(cufe: string): Promise<FiscalDocumentStatus>;
+  fetchStatus(cufe: string, context?: FiscalStatusContext): Promise<FiscalDocumentStatus>;
 }

@@ -65,6 +65,8 @@ import {
 } from '../../services/pharmacy/product-profile.js';
 
 import { assertGs1CheckDigit } from '../../services/products/barcode-check-digit.js';
+import { assertBundleInventoryPolicy } from '../../services/product-bundles.js';
+import { assertModifierBomInventoryPolicy } from '../../services/restaurant/modifier-bom.js';
 
 export async function updateProduct(ctx: ProductMutationContext, input: UpdateProductInput) {
   const { id, ...updates } = input;
@@ -230,6 +232,20 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     tracksLots: nextTracksLots,
     tracksSerials: nextTracksSerials,
   });
+  assertBundleInventoryPolicy(ctx.db, {
+    tenantId: ctx.tenantId,
+    productId: id,
+    nextTracksStock,
+    nextTracksLots,
+    nextTracksSerials,
+  });
+  assertModifierBomInventoryPolicy(ctx.db, {
+    tenantId: ctx.tenantId,
+    productId: id,
+    nextTracksStock,
+    nextTracksLots,
+    nextTracksSerials,
+  });
   assertPharmacyProfileTransitionAllowed({
     existing: existingPharmacyProfile,
     next: nextPharmacyProfile,
@@ -315,6 +331,18 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
   if (updates.locationId !== undefined) updateData.locationId = resolvedLocationId;
   if (updates.initialCost !== undefined) updateData.initialCost = roundMoney(updates.initialCost);
   if (updates.minStock !== undefined) updateData.minStock = updates.minStock;
+  if (updates.isReturnableContainer !== undefined) {
+    updateData.isReturnableContainer = updates.isReturnableContainer;
+    if (!updates.isReturnableContainer) {
+      updateData.returnableDepositAmount = 0;
+    }
+  }
+  if (updates.returnableDepositAmount !== undefined) {
+    const nextIsReturnable = updates.isReturnableContainer ?? existing.isReturnableContainer;
+    updateData.returnableDepositAmount = nextIsReturnable
+      ? roundMoney(updates.returnableDepositAmount)
+      : 0;
+  }
   if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
   if (updates.barcode !== undefined) updateData.barcode = updates.barcode;
   if (updates.imageUrl !== undefined) updateData.imageUrl = updates.imageUrl;

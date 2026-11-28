@@ -6,14 +6,16 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { invalidateGroups } from '@/lib/invalidateGroups';
 import { formatDateTime } from '@/lib/utils';
 import type { Purchase } from '@/types';
+import {
+  getAcceptedPurchaseDocumentMimes,
+  preparePurchaseDocumentFile,
+} from './preparePurchaseDocumentFile';
 
 interface PurchaseDocumentPanelProps {
   purchase: Purchase;
 }
 
-const ACCEPTED_MIME = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'] as const;
-const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
-const dataUrlPrefix = /^data:[^;]+;base64,/;
+const ACCEPTED_MIME = getAcceptedPurchaseDocumentMimes();
 
 interface DocumentPreview {
   url: string;
@@ -71,31 +73,26 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
 
   const documentTypeLabel =
     purchase.documentType != null
-      ? t(`document.type${purchase.documentType.charAt(0).toUpperCase()}${purchase.documentType.slice(1)}`)
+      ? t(
+          `document.type${purchase.documentType.charAt(0).toUpperCase()}${purchase.documentType.slice(1)}`
+        )
       : t('document.typeNone');
 
   const handleFileSelected = async (file: File) => {
-    if (!ACCEPTED_MIME.includes(file.type as (typeof ACCEPTED_MIME)[number])) {
-      setError(t('document.attachError'));
-      return;
-    }
-    if (file.size > MAX_DOCUMENT_BYTES) {
-      setError(t('document.attachError'));
-      return;
-    }
-    const documentBase64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result).replace(dataUrlPrefix, ''));
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    });
     setBusy(true);
-    attachMutation.mutate({
-      purchaseId: purchase.id,
-      fileName: file.name,
-      mimeType: file.type as (typeof ACCEPTED_MIME)[number],
-      documentBase64,
-    });
+    setError(null);
+    try {
+      const prepared = await preparePurchaseDocumentFile(file);
+      attachMutation.mutate({
+        purchaseId: purchase.id,
+        fileName: prepared.fileName,
+        mimeType: prepared.mimeType,
+        documentBase64: prepared.documentBase64,
+      });
+    } catch {
+      setError(t('document.attachError'));
+      setBusy(false);
+    }
   };
 
   const handleViewDocument = async () => {
@@ -123,9 +120,7 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
 
   return (
     <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-      <p className="text-xs uppercase tracking-wide text-secondary-500">
-        {t('document.title')}
-      </p>
+      <p className="text-xs uppercase tracking-wide text-secondary-500">{t('document.title')}</p>
       <p className="mt-2 text-sm font-medium text-secondary-900">
         {documentTypeLabel}
         {purchase.documentNumber ? ` · ${purchase.documentNumber}` : ''}
@@ -183,7 +178,6 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
               className="h-96 w-full rounded-lg border border-secondary-200 bg-white"
             />
           ) : (
-            /* eslint-disable-next-line jsx-a11y/alt-text -- descriptive alt uses the file name */
             <img
               src={preview.url}
               alt={preview.fileName ?? t('document.previewTitle')}

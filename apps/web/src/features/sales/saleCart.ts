@@ -1,7 +1,11 @@
 import { roundMoney } from '@/lib/money';
 import { resolveTierUnitPrice, type PriceTier } from '@puntovivo/shared/price-tier';
 import { MIN_OPERATIONAL_QUANTITY, roundQuantity } from '@puntovivo/shared/unit-math';
-import type { ProductSearchSelection, ProductUnitAssignment } from '@/types';
+import type {
+  PharmacyClassification,
+  ProductSearchSelection,
+  ProductUnitAssignment,
+} from '@/types';
 
 /** A unit the line can switch to; the product's own unit assignment. */
 export type SaleUnitOption = Pick<
@@ -47,6 +51,8 @@ export interface SaleCartItem {
   fractionStep?: number | null | undefined;
   fractionMinimum?: number | null | undefined;
   tracksSerials?: boolean | undefined;
+  /** null = no pharmacy profile; absent = unknown (resumed or persisted line). */
+  pharmacyClassification?: PharmacyClassification | null | undefined;
   serialIds?: string[] | undefined;
   /** Site whose sellable registry produced serialIds. */
   serialSiteId?: string | null | undefined;
@@ -178,6 +184,7 @@ export function buildCartItem(selection: ProductSearchSelection): SaleCartItem {
     fractionStep: selection.product.fractionStep,
     fractionMinimum: selection.product.fractionMinimum,
     tracksSerials: selection.product.tracksSerials === true,
+    pharmacyClassification: selection.product.pharmacy?.classification ?? null,
     serialIds: [],
     serialSiteId: null,
     // Tier metadata only when the selection actually carries the three

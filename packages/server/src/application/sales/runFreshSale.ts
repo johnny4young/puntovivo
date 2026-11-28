@@ -30,6 +30,8 @@ import {
   inventoryMovements,
   inventoryBalances,
   products,
+  restaurantCheckLines,
+  restaurantLineModifiers,
   salePayments,
   saleItems,
   saleItemTaxComponents,
@@ -59,6 +61,8 @@ import {
   enqueueInventoryLotUpdatesForSaleInTransaction,
 } from '../../services/inventory-lots/index.js';
 import { assignProductSerialsToSaleLine } from '../../services/product-serials.js';
+import { deductBundleComponentsInTransaction } from '../../services/product-bundles.js';
+import { deductModifierBomInTransaction } from '../../services/restaurant/modifier-bom.js';
 import { inArray } from 'drizzle-orm';
 import {
   assertSaleCustomerStillEligible,
@@ -217,6 +221,7 @@ export async function runFreshSale(
       headerDiscountAmount: input.discountAmount ?? 0,
       nowIso: now,
       businessDate: businessClock.businessDate,
+      timezone: businessClock.timezone,
     });
     assertPromotionQuoteFingerprint(appliedPromotionQuote, input.promotionFingerprint);
     resolvedItems = applyPromotionQuote(manualResolvedItems, appliedPromotionQuote);
@@ -539,6 +544,7 @@ export async function runFreshSale(
           headerDiscountAmount: input.discountAmount ?? 0,
           nowIso: writerNow,
           businessDate: businessClock.businessDate,
+          timezone: businessClock.timezone,
         });
         assertPromotionQuoteFingerprint(transactionalQuote, input.promotionFingerprint);
       }
@@ -1019,6 +1025,20 @@ export async function runFreshSale(
         }
       }
 
+      const bundleMovementIds = deductBundleComponentsInTransaction({
+        tx: tx as unknown as typeof ctx.db,
+        tenantId: ctx.tenantId,
+        siteId: saleSiteId,
+        saleId,
+        saleNumber,
+        siteName: sequentialContext.siteName,
+        userId: ctx.user.id,
+        now,
+        rows: resolvedItems.rows,
+        productStockState,
+      });
+      inventoryMovementIds.push(...bundleMovementIds);
+
       if (input.restaurant) {
         const opened = openRestaurantCheckInTransaction(
           tx as unknown as typeof ctx.db,
@@ -1037,6 +1057,66 @@ export async function runFreshSale(
             input: input.restaurant,
           }
         );
+        const persistedCheckLines = tx
+          .select({
+            saleItemId: restaurantCheckLines.saleItemId,
+            catalogId: restaurantLineModifiers.catalogId,
+            groupKind: restaurantLineModifiers.groupKind,
+            name: restaurantLineModifiers.name,
+            quantity: restaurantLineModifiers.quantity,
+          })
+          .from(restaurantCheckLines)
+          .innerJoin(
+            restaurantLineModifiers,
+            and(
+              eq(restaurantLineModifiers.checkLineId, restaurantCheckLines.id),
+              eq(restaurantLineModifiers.tenantId, ctx.tenantId)
+            )
+          )
+          .where(
+            and(
+              eq(restaurantCheckLines.tenantId, ctx.tenantId),
+              eq(restaurantCheckLines.checkId, opened.checkId)
+            )
+          )
+          .all();
+        const modsBySaleItem = new Map<
+          string,
+          Array<{
+            catalogId: string | null;
+            groupKind: string | null;
+            name: string;
+            quantity: number;
+          }>
+        >();
+        for (const m of persistedCheckLines) {
+          const list = modsBySaleItem.get(m.saleItemId) ?? [];
+          list.push({
+            catalogId: m.catalogId,
+            groupKind: m.groupKind,
+            name: m.name,
+            quantity: m.quantity,
+          });
+          modsBySaleItem.set(m.saleItemId, list);
+        }
+        const modBomMovements = deductModifierBomInTransaction({
+          tx: tx as unknown as typeof ctx.db,
+          tenantId: ctx.tenantId,
+          siteId: saleSiteId,
+          saleId,
+          saleNumber,
+          siteName: sequentialContext.siteName,
+          userId: ctx.user.id,
+          now,
+          lines: resolvedItems.rows.map(row => ({
+            saleItemId: row.id,
+            productName: row.productName,
+            normalizedQuantity: row.normalizedQuantity,
+            modifiers: modsBySaleItem.get(row.id) ?? [],
+          })),
+          productStockState,
+        });
+        inventoryMovementIds.push(...modBomMovements);
         tx.update(sales)
           .set({ suspendedLabel: opened.tableName })
           .where(and(eq(sales.id, saleId), eq(sales.tenantId, ctx.tenantId)))

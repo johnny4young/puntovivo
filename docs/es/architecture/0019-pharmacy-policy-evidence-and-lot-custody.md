@@ -29,10 +29,22 @@ presentar replicación parcial como completa.
 - Cambiar requisito de cadena fría con stock/borrador abierto también rechaza.
   Un checkbox no prueba custodia anterior; adopción guiada futura debe poner en
   cuarentena/verificar lotes exactos antes de liberar.
-- `PharmacyPolicy` depende de país, fecha y clasificación. La política CO v1
+- `PharmacyPolicy` depende de país, fecha y clasificación. La política de Colombia
   permite OTC, exige cliente, receta y aprobación profesional vigente para
-  medicamentos de receta y mantiene controlados desactivados. País sin
-  adaptador revisado permite solo OTC; receta/controlados se rechazan.
+  medicamentos de receta, y mantiene controlados desactivados por defecto hasta
+  registrar una resolución FNE activa (`pharmacy_fne_authorizations` respaldada
+  por credencial farmacéutica vigente) en la sede, momento en que aplican
+  fórmula retenida con documento de comprador y custodia en
+  `pharmacy_fne_ledger`. País sin adaptador revisado permite solo OTC;
+  receta/controlados se rechazan.
+- Todo cambio de stock controlado (entrada, devolución a proveedor, dispensación
+  por lote, devolución o anulación de venta, traslado, conteo, fraccionamiento,
+  destrucción) se asienta en `pharmacy_fne_ledger` después de mover su lote. Un
+  saldo que no cuadra con el stock vivo de lotes nunca se recorta: la diferencia
+  queda como fila explícita `opening_balance` o `reconciliation`, y el reporte
+  mensual cierra en el stock físico.
+- Un registro sanitario que el catálogo INVIMA importado marca vencido,
+  cancelado o suspendido bloquea la venta igual que una fecha de registro vencida.
 - Validez usa día IANA del negocio resuelto en servidor. Toda escritura regulada
   revalida versión regional, país/zona y día bajo escritor inmediato: cambio
   regional concurrente o cruce de medianoche no confirma política vieja.
@@ -73,8 +85,13 @@ presentar replicación parcial como completa.
   y materializa lotes. Linaje de transferencias propaga por enlaces no anulados.
   Cerrar retiro no reactiva; liberar separado solo si ningún retiro activo cubre el lote.
 - Compras, retornos, transferencias, anulaciones y operaciones exactas conservan
-  no vendibilidad y procedencia. Transformación minorista rechaza medicamentos
-  hasta un flujo regulado separado revisado.
+  no vendibilidad y procedencia. Transformación minorista rechaza medicamentos;
+  la conversión regulada de empaque a blíster/tableta fluye exclusivamente por
+  `pharmacy_lot_fractionations`, conservando lote físico, vencimiento, registro
+  sanitario, valor exacto en centavos y linaje bidireccional de retiros, y debe
+  conservar las dosis por empaque. Las lecturas diarias Res. 1403 quedan en
+  `pharmacy_environmental_logs` append-only para la fecha de negocio actual,
+  contra los límites del servidor, y una desviación exige acción correctiva.
 
 ### Límites de lectura, interfaz, búsqueda y replicación
 
@@ -87,9 +104,9 @@ presentar replicación parcial como completa.
   búsqueda. Perfil de 50,000 productos sigue gate con presupuestos separados minorista/farmacia.
 - `pharmacy.genericAlternatives` es una lectura de sugerencia para cualquier
   rol de venta. Para un medicamento lista los más baratos con el mismo principio
-  activo, concentración, forma farmacéutica y presentación (sin distinguir
-  mayúsculas, tildes, espacios ni separador decimal; un campo vacío nunca
-  coincide), de clase no más estricta que la del original, en la tarifa pedida y
+  activo, concentración y forma farmacéutica (comparando presentaciones iguales
+  directamente y presentaciones distintas por precio redondeado por dosis cuando
+  ambas tienen `doses_per_pack`), de clase no más estricta que la del original, en la tarifa pedida y
   la misma moneda, con el
   ahorro, el stock vendible de la sede y el lote FEFO. Solo sugiere lo que la
   política vigente permite hoy, con el mismo predicado de producto que el

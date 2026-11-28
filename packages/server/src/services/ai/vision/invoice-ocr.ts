@@ -15,13 +15,7 @@
  *
  * @module services/ai/vision/invoice-ocr
  */
-import {
-  JSONParseError,
-  NoObjectGeneratedError,
-  TypeValidationError,
-  generateObject,
-  type LanguageModelUsage,
-} from 'ai';
+import type { LanguageModelUsage } from 'ai';
 import type { ProviderOptions } from '@ai-sdk/provider-utils';
 import { z } from 'zod';
 
@@ -223,6 +217,7 @@ export async function extractInvoiceFromImage(
   let model: ReturnType<NonNullable<AIProvider['visionModel']>>;
   let providerOptions: ReturnType<AIProvider['cacheControlForSystemPrompt']>;
   try {
+    await provider.ensureReady?.();
     model = provider.visionModel(modelId);
     providerOptions = provider.cacheControlForSystemPrompt();
   } catch (error) {
@@ -246,6 +241,9 @@ export async function extractInvoiceFromImage(
   // The client signal is admission-only: it stops work before the budget is
   // reserved, but a dispatched extraction runs to its own deadline and
   // settles its known cost instead of becoming an unknown-cost liability.
+  // Load before reserving: a failed import must not strand a budget hold.
+  const { JSONParseError, NoObjectGeneratedError, TypeValidationError, generateObject } =
+    await import('ai');
   ctx.abortSignal?.throwIfAborted();
   const reservation = reserveAiBudget(ctx.db, ctx.tenantId);
   const startedAt = Date.now();

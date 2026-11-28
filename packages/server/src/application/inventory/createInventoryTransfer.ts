@@ -418,7 +418,7 @@ export function createInventoryTransfer(
             allocations: lotAllocations,
             deferred,
             now,
-            ...(args.businessDate ? { businessDate: args.businessDate } : {}),
+            businessDate: args.businessDate,
             actorId: args.createdBy,
             syncContext: {
               tenantId: args.tenantId,

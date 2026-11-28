@@ -30,6 +30,7 @@ import { insertKitchenEvent } from './events.js';
 import { adoptLegacyKitchenSale } from './legacy.js';
 import { resolveKitchenRoutes } from './stations.js';
 import { validateKitchenSnapshots } from './snapshot.js';
+import { enqueueStationComandaInTransaction } from '../../services/kds/comanda-printer.js';
 
 /** Bounded current sale-line query; snapshots prefer the already frozen sale name. */
 function loadLines(tx: DatabaseInstance, scope: KdsWriteScope, saleId: string) {
@@ -46,8 +47,10 @@ function loadLines(tx: DatabaseInstance, scope: KdsWriteScope, saleId: string) {
       checkLineId: restaurantCheckLines.id,
       roundId: restaurantCheckLines.roundId,
       roundLabel: restaurantRounds.label,
+      roundSequence: restaurantRounds.sequence,
       courseKey: restaurantCourses.courseKey,
       dinerLabel: restaurantDiners.label,
+      dinerSeatNumber: restaurantDiners.seatNumber,
     })
     .from(saleItems)
     .innerJoin(sales, and(eq(sales.id, saleItems.saleId), eq(sales.tenantId, scope.tenantId)))
@@ -232,9 +235,13 @@ export function submitKitchenSaleInTransaction(
         unitLabel: row.unitLabel,
         notes: row.notes,
         roundId: row.roundId,
-        roundLabel: row.roundLabel,
+        // Unnamed later rounds show their number; the clients translate the caption.
+        roundLabel:
+          row.roundLabel ??
+          (row.roundSequence != null && row.roundSequence > 1 ? String(row.roundSequence) : null),
         courseKey: row.courseKey,
-        dinerLabel: row.dinerLabel,
+        dinerLabel:
+          row.dinerLabel ?? (row.dinerSeatNumber != null ? `C${row.dinerSeatNumber}` : null),
         modifiers: row.checkLineId ? (modifiersByLine.get(row.checkLineId) ?? []) : [],
       }))
     );
@@ -301,6 +308,30 @@ export function submitKitchenSaleInTransaction(
       kind: 'submitted',
       actorId: scope.actorId,
       facts: { lineCount: snapshots.length, sourceSaleId: saleId },
+    });
+    enqueueStationComandaInTransaction(tx, {
+      tenantId: scope.tenantId,
+      siteId: scope.siteId,
+      actorId: scope.actorId,
+      saleId,
+      saleNumber: sale.saleNumber,
+      tableLabel: sale.tableLabel,
+      orderId: id,
+      stationCode: station.code,
+      stationName: station.name,
+      printerConfig: station.printerConfig,
+      roundLabel: snapshots[0]?.roundLabel ?? null,
+      orderNotes: sale.notes,
+      lines: snapshots.map(snapshot => ({
+        productName: snapshot.productName,
+        quantity: snapshot.quantity,
+        unitLabel: snapshot.unitLabel,
+        courseKey: snapshot.courseKey,
+        dinerLabel: snapshot.dinerLabel,
+        modifiers: snapshot.modifiers,
+        notes: snapshot.notes,
+      })),
+      now,
     });
     createdOrderIds.push(id);
   }

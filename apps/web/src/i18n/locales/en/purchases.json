@@ -7,7 +7,11 @@
     "completed": "Completed Purchases",
     "recentSpend": "Recent Spend",
     "providersUsed": "Providers Used",
-    "draftTotal": "Draft Total"
+    "draftTotal": "Draft Total",
+    "tabs": {
+      "history": "History",
+      "newPurchase": "New purchase"
+    }
   },
   "checkout": {
     "kicker": "Current Purchase",

@@ -81,7 +81,11 @@ export type CriticalCommandPath =
   | 'sales.splitDraft'
   | 'sales.carryOver'
   | 'restaurantServices.openCheck'
+  | 'restaurantServices.addRound'
+  | 'restaurantServices.printPrecheck'
   | 'restaurantServices.regroupChecks'
+  | 'restaurantServices.splitEqual'
+  | 'restaurantServices.splitSharedLine'
   | 'restaurantModifiers.save'
   | 'restaurantModifiers.saveGroup'
   | 'cashSessions.open'
@@ -172,7 +176,11 @@ export type CriticalCommandPath =
   | 'pharmacy.createRecall'
   | 'pharmacy.closeRecall'
   | 'pharmacy.transitionLot'
-  | 'pharmacy.destroyLot';
+  | 'pharmacy.destroyLot'
+  | 'pharmacy.fractionateLot'
+  | 'pharmacy.recordEnvironmentalLog'
+  | 'pharmacy.createFneAuthorization'
+  | 'pharmacy.revokeFneAuthorization';
 
 /**
  * Recursively project router inputs / outputs through a dotted path. Most

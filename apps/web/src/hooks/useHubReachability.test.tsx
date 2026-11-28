@@ -223,4 +223,21 @@ describe('useHubReachability', () => {
     expect(result.current.reachable).toBe(false);
     expect(result.current.lastError).toBe('HTTP 503');
   });
+
+  it('shares one /api/health poller across simultaneous callers with the same transport', async () => {
+    setBridge('hub_client', 'http://hub.local:8090');
+    const sharedFetch = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
+
+    const first = renderHook(() => useHubReachability({ fetchImpl: sharedFetch as typeof fetch }));
+    const second = renderHook(() => useHubReachability({ fetchImpl: sharedFetch as typeof fetch }));
+
+    await waitFor(() => {
+      expect(first.result.current.reachable).toBe(true);
+      expect(second.result.current.reachable).toBe(true);
+    });
+    expect(sharedFetch).toHaveBeenCalledTimes(1);
+
+    first.unmount();
+    second.unmount();
+  });
 });

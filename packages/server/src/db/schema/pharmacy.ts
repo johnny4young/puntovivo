@@ -22,7 +22,9 @@ import {
 import { relations, sql } from 'drizzle-orm';
 
 import { nowIso, sqliteNow, lotStatusEnum } from './base.js';
+import { inventoryValueChecks } from './value-checks.js';
 import { customers } from './customers.js';
+import { inventoryMovements } from './inventory/core.js';
 import { inventoryLots } from './inventory/lots.js';
 import { products } from './products.js';
 import { providers } from './catalogs.js';
@@ -53,6 +55,40 @@ export const inventoryLotEventTypeEnum = [
   'cold_chain_incident',
 ] as const;
 export type InventoryLotEventType = (typeof inventoryLotEventTypeEnum)[number];
+
+export const pharmacyEnvironmentalPeriodEnum = ['morning', 'afternoon'] as const;
+export type PharmacyEnvironmentalPeriod = (typeof pharmacyEnvironmentalPeriodEnum)[number];
+
+export const pharmacyEnvironmentalZoneEnum = ['ambient', 'refrigerator'] as const;
+export type PharmacyEnvironmentalZone = (typeof pharmacyEnvironmentalZoneEnum)[number];
+
+export const pharmacyInvimaStatusEnum = [
+  'vigente',
+  'en_tramite_renovacion',
+  'vencido',
+  'cancelado',
+  'suspendido',
+] as const;
+export type PharmacyInvimaStatus = (typeof pharmacyInvimaStatusEnum)[number];
+
+export const pharmacyFneMovementTypeEnum = [
+  'receipt',
+  'supplier_return',
+  'dispensation',
+  'return',
+  'destruction',
+  'fractionation_out',
+  'fractionation_in',
+  'transfer_out',
+  'transfer_in',
+  'count_adjustment',
+  'opening_balance',
+  'reconciliation',
+] as const;
+export type PharmacyFneMovementType = (typeof pharmacyFneMovementTypeEnum)[number];
+
+export const pharmacyAllergySeverityEnum = ['mild', 'moderate', 'severe'] as const;
+export type PharmacyAllergySeverity = (typeof pharmacyAllergySeverityEnum)[number];
 
 /**
  * Database-local data-encryption material for sealed pharmacy evidence.
@@ -92,6 +128,8 @@ export const pharmacyProductProfiles = sqliteTable(
     dosageForm: text('dosage_form'),
     administrationRoute: text('administration_route'),
     presentation: text('presentation'),
+    dosesPerPack: integer('doses_per_pack'),
+    cumCode: text('cum_code'),
     manufacturer: text('manufacturer'),
     authorizationHolder: text('authorization_holder'),
     sanitaryRegistration: text('sanitary_registration'),
@@ -113,6 +151,7 @@ export const pharmacyProductProfiles = sqliteTable(
       table.tenantId,
       table.sanitaryRegistrationNormalized
     ),
+    index('idx_pharmacy_profiles_cum').on(table.tenantId, table.cumCode),
     check(
       'chk_pharmacy_profile_classification',
       sql`${table.classification} in ('otc', 'prescription', 'controlled')`
@@ -423,6 +462,341 @@ export const pharmacyRecallLots = sqliteTable(
   table => [
     primaryKey({ columns: [table.recallId, table.lotId] }),
     index('idx_pharmacy_recall_lots_tenant_lot').on(table.tenantId, table.lotId),
+  ]
+);
+
+/** Immutable regulated lot fractionation lineage (box -> blister -> tablet) preserving lot, expiry and cost cents. */
+export const pharmacyLotFractionations = sqliteTable(
+  'pharmacy_lot_fractionations',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    sourceProductId: text('source_product_id')
+      .notNull()
+      .references(() => products.id),
+    sourceLotId: text('source_lot_id')
+      .notNull()
+      .references(() => inventoryLots.id),
+    targetProductId: text('target_product_id')
+      .notNull()
+      .references(() => products.id),
+    targetLotId: text('target_lot_id')
+      .notNull()
+      .references(() => inventoryLots.id),
+    sourceQuantity: real('source_quantity').notNull(),
+    targetQuantity: real('target_quantity').notNull(),
+    unitsPerSource: real('units_per_source').notNull(),
+    sourceLotNumber: text('source_lot_number').notNull(),
+    targetLotNumber: text('target_lot_number').notNull(),
+    expiresAt: text('expires_at'),
+    sanitaryRegistration: text('sanitary_registration'),
+    transferredValueCents: integer('transferred_value_cents').notNull(),
+    sourceMovementId: text('source_movement_id')
+      .notNull()
+      .references(() => inventoryMovements.id),
+    targetMovementId: text('target_movement_id')
+      .notNull()
+      .references(() => inventoryMovements.id),
+    reason: text('reason').notNull(),
+    actorId: text('actor_id')
+      .notNull()
+      .references(() => users.id),
+    occurredAt: text('occurred_at').notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    ...inventoryValueChecks('pharmacy_lot_fractionations', {
+      cents: [table.transferredValueCents],
+      nonnegative: [table.transferredValueCents],
+      quantities: [table.sourceQuantity, table.targetQuantity, table.unitsPerSource],
+    }),
+    index('idx_pharmacy_fractionations_tenant_site').on(
+      table.tenantId,
+      table.siteId,
+      table.occurredAt
+    ),
+    index('idx_pharmacy_fractionations_source_lot').on(table.tenantId, table.sourceLotId),
+    index('idx_pharmacy_fractionations_target_lot').on(table.tenantId, table.targetLotId),
+    check(
+      'chk_pharmacy_fractionation_qty_pos',
+      sql`${table.sourceQuantity} > 0 and ${table.targetQuantity} > 0 and ${table.unitsPerSource} > 0`
+    ),
+    check(
+      'chk_pharmacy_fractionation_distinct_products',
+      sql`${table.sourceProductId} <> ${table.targetProductId}`
+    ),
+  ]
+);
+
+/** Append-only daily temperature and relative humidity logbook (Res. 1403/2007 CO). */
+export const pharmacyEnvironmentalLogs = sqliteTable(
+  'pharmacy_environmental_logs',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    businessDate: text('business_date').notNull(),
+    period: text('period', { enum: pharmacyEnvironmentalPeriodEnum }).notNull(),
+    zone: text('zone', { enum: pharmacyEnvironmentalZoneEnum }).notNull(),
+    temperatureC: real('temperature_c').notNull(),
+    humidityPercent: real('humidity_percent'),
+    minTempC: real('min_temp_c').notNull(),
+    maxTempC: real('max_temp_c').notNull(),
+    maxHumidityPercent: real('max_humidity_percent'),
+    isOutOfRange: integer('is_out_of_range', { mode: 'boolean' }).notNull().default(false),
+    correctiveAction: text('corrective_action'),
+    instrumentCode: text('instrument_code'),
+    notes: text('notes'),
+    recordedBy: text('recorded_by')
+      .notNull()
+      .references(() => users.id),
+    recordedAt: text('recorded_at').notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_pharmacy_env_logs_site_date').on(
+      table.tenantId,
+      table.siteId,
+      table.businessDate,
+      table.zone
+    ),
+    index('idx_pharmacy_env_logs_out_of_range').on(
+      table.tenantId,
+      table.siteId,
+      table.isOutOfRange,
+      table.businessDate
+    ),
+    check(
+      'chk_pharmacy_env_date',
+      sql`length(${table.businessDate}) = 10 and date(${table.businessDate}) = ${table.businessDate}`
+    ),
+    check('chk_pharmacy_env_period', sql`${table.period} in ('morning', 'afternoon')`),
+    check('chk_pharmacy_env_zone', sql`${table.zone} in ('ambient', 'refrigerator')`),
+    check(
+      'chk_pharmacy_env_temp_bounds',
+      sql`${table.minTempC} < ${table.maxTempC} and ${table.temperatureC} >= -40 and ${table.temperatureC} <= 80`
+    ),
+    check(
+      'chk_pharmacy_env_humidity_bounds',
+      sql`${table.humidityPercent} is null or (${table.humidityPercent} >= 0 and ${table.humidityPercent} <= 100)`
+    ),
+  ]
+);
+
+/** Official INVIMA / CUM reference catalog imported per tenant for medicine profile autofill and validity checks. */
+export const pharmacyInvimaCatalog = sqliteTable(
+  'pharmacy_invima_catalog',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    cumCode: text('cum_code').notNull(),
+    cumNormalized: text('cum_normalized').notNull(),
+    productName: text('product_name').notNull(),
+    activeIngredient: text('active_ingredient').notNull(),
+    concentration: text('concentration'),
+    dosageForm: text('dosage_form'),
+    administrationRoute: text('administration_route'),
+    presentation: text('presentation'),
+    dosesPerPack: integer('doses_per_pack'),
+    manufacturer: text('manufacturer'),
+    authorizationHolder: text('authorization_holder'),
+    sanitaryRegistration: text('sanitary_registration').notNull(),
+    sanitaryRegistrationNormalized: text('sanitary_registration_normalized').notNull(),
+    registrationStatus: text('registration_status', { enum: pharmacyInvimaStatusEnum })
+      .notNull()
+      .default('vigente'),
+    registrationExpiresAt: text('registration_expires_at'),
+    classification: text('classification', { enum: pharmacyClassificationEnum })
+      .notNull()
+      .default('otc'),
+    importedAt: text('imported_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    uniqueIndex('idx_pharmacy_invima_tenant_cum').on(table.tenantId, table.cumNormalized),
+    index('idx_pharmacy_invima_tenant_reg').on(
+      table.tenantId,
+      table.sanitaryRegistrationNormalized
+    ),
+    index('idx_pharmacy_invima_tenant_ingredient').on(table.tenantId, table.activeIngredient),
+    check(
+      'chk_pharmacy_invima_status',
+      sql`${table.registrationStatus} in ('vigente', 'en_tramite_renovacion', 'vencido', 'cancelado', 'suspendido')`
+    ),
+    check(
+      'chk_pharmacy_invima_classification',
+      sql`${table.classification} in ('otc', 'prescription', 'controlled')`
+    ),
+    check(
+      'chk_pharmacy_invima_doses',
+      sql`${table.dosesPerPack} is null or ${table.dosesPerPack} > 0`
+    ),
+    check(
+      'chk_pharmacy_invima_expiry',
+      sql`${table.registrationExpiresAt} is null or (length(${table.registrationExpiresAt}) = 10 and date(${table.registrationExpiresAt}) = ${table.registrationExpiresAt})`
+    ),
+  ]
+);
+
+/** Active FNE / Secretaría de Salud authorization enabling controlled medicines (Res. 1478/2006 CO). */
+export const pharmacyFneAuthorizations = sqliteTable(
+  'pharmacy_fne_authorizations',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id').references(() => sites.id),
+    countryCode: text('country_code').notNull(),
+    resolutionNumber: text('resolution_number').notNull(),
+    issuingAuthority: text('issuing_authority').notNull(),
+    responsibleUserId: text('responsible_user_id')
+      .notNull()
+      .references(() => users.id),
+    validFrom: text('valid_from').notNull(),
+    validUntil: text('valid_until'),
+    status: text('status', { enum: pharmacyAuthorizationStatusEnum }).notNull().default('active'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    revokedBy: text('revoked_by').references(() => users.id),
+    revokedAt: text('revoked_at'),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_pharmacy_fne_auth_tenant_effective').on(
+      table.tenantId,
+      table.countryCode,
+      table.status,
+      table.validFrom,
+      table.validUntil
+    ),
+    check(
+      'chk_pharmacy_fne_auth_date_order',
+      sql`${table.validUntil} is null or ${table.validUntil} >= ${table.validFrom}`
+    ),
+    check(
+      'chk_pharmacy_fne_auth_dates',
+      sql`length(${table.validFrom}) = 10 and date(${table.validFrom}) = ${table.validFrom} and (${table.validUntil} is null or (length(${table.validUntil}) = 10 and date(${table.validUntil}) = ${table.validUntil}))`
+    ),
+    check(
+      'chk_pharmacy_fne_auth_country',
+      sql`length(${table.countryCode}) = 2 and ${table.countryCode} = upper(${table.countryCode}) and ${table.countryCode} glob '[A-Z][A-Z]'`
+    ),
+    check(
+      'chk_pharmacy_fne_auth_state',
+      sql`(${table.status} = 'active' and ${table.revokedBy} is null and ${table.revokedAt} is null) or (${table.status} = 'revoked' and ${table.revokedBy} is not null and ${table.revokedAt} is not null)`
+    ),
+  ]
+);
+
+/** Append-only official controlled-substances ledger (Libro de Control Especial FNE). */
+export const pharmacyFneLedger = sqliteTable(
+  'pharmacy_fne_ledger',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id),
+    lotId: text('lot_id').references(() => inventoryLots.id),
+    lotNumber: text('lot_number'),
+    businessDate: text('business_date').notNull(),
+    movementType: text('movement_type', { enum: pharmacyFneMovementTypeEnum }).notNull(),
+    quantityDelta: real('quantity_delta').notNull(),
+    balanceAfter: real('balance_after').notNull(),
+    fneAuthorizationId: text('fne_authorization_id').references(() => pharmacyFneAuthorizations.id),
+    saleId: text('sale_id').references(() => sales.id),
+    evidenceId: text('evidence_id').references(() => pharmacyPrescriptionEvidence.id),
+    retainedFormulaDigest: text('retained_formula_digest'),
+    actorId: text('actor_id')
+      .notNull()
+      .references(() => users.id),
+    notes: text('notes'),
+    occurredAt: text('occurred_at').notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    ...inventoryValueChecks('pharmacy_fne_ledger', {
+      cents: [],
+      quantities: [table.quantityDelta, table.balanceAfter],
+    }),
+    index('idx_pharmacy_fne_ledger_tenant_date').on(
+      table.tenantId,
+      table.siteId,
+      table.businessDate,
+      table.productId
+    ),
+    index('idx_pharmacy_fne_ledger_tenant_product').on(
+      table.tenantId,
+      table.productId,
+      table.occurredAt
+    ),
+    check(
+      'chk_pharmacy_fne_ledger_date',
+      sql`length(${table.businessDate}) = 10 and date(${table.businessDate}) = ${table.businessDate}`
+    ),
+    check(
+      'chk_pharmacy_fne_ledger_type',
+      sql`${table.movementType} in ('receipt', 'supplier_return', 'dispensation', 'return', 'destruction', 'fractionation_out', 'fractionation_in', 'transfer_out', 'transfer_in', 'count_adjustment', 'opening_balance', 'reconciliation')`
+    ),
+    check(
+      'chk_pharmacy_fne_ledger_sign',
+      sql`(${table.movementType} in ('receipt', 'return', 'fractionation_in', 'transfer_in', 'opening_balance') and ${table.quantityDelta} > 0) or (${table.movementType} in ('dispensation', 'supplier_return', 'destruction', 'fractionation_out', 'transfer_out') and ${table.quantityDelta} < 0) or (${table.movementType} in ('count_adjustment', 'reconciliation') and ${table.quantityDelta} <> 0)`
+    ),
+    check('chk_pharmacy_fne_ledger_balance', sql`${table.balanceAfter} >= 0`),
+  ]
+);
+
+/** Tenant-scoped patient active-ingredient allergies used for POS checkout safety alerts. */
+export const pharmacyCustomerAllergies = sqliteTable(
+  'pharmacy_customer_allergies',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id, { onDelete: 'cascade' }),
+    activeIngredient: text('active_ingredient').notNull(),
+    activeIngredientNormalized: text('active_ingredient_normalized').notNull(),
+    severity: text('severity', { enum: pharmacyAllergySeverityEnum }).notNull().default('moderate'),
+    notes: text('notes'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    uniqueIndex('idx_pharmacy_customer_allergies_unique').on(
+      table.tenantId,
+      table.customerId,
+      table.activeIngredientNormalized
+    ),
+    index('idx_pharmacy_customer_allergies_tenant_customer').on(table.tenantId, table.customerId),
+    check(
+      'chk_pharmacy_allergy_severity',
+      sql`${table.severity} in ('mild', 'moderate', 'severe')`
+    ),
   ]
 );
 

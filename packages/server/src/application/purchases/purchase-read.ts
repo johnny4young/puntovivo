@@ -83,7 +83,9 @@ export function getPurchaseRecord(db: DatabaseInstance, tenantId: string, purcha
       createdAt: purchaseDocuments.createdAt,
     })
     .from(purchaseDocuments)
-    .where(eq(purchaseDocuments.purchaseId, purchaseId))
+    .where(
+      and(eq(purchaseDocuments.tenantId, tenantId), eq(purchaseDocuments.purchaseId, purchaseId))
+    )
     .get();
 
   const items = db

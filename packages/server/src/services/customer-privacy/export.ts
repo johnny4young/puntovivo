@@ -20,6 +20,7 @@ import {
   loyaltyAccounts,
   loyaltyMovements,
   paymentOutbox,
+  pharmacyCustomerAllergies,
   pharmacyDispensations,
   pharmacyPrescriptionEvidence,
   products,
@@ -96,6 +97,25 @@ export function buildCustomerPersonalDataExport(
   if (!subject) {
     return null;
   }
+
+  const pharmacyAllergyRecords = db
+    .select({
+      id: pharmacyCustomerAllergies.id,
+      activeIngredient: pharmacyCustomerAllergies.activeIngredient,
+      severity: pharmacyCustomerAllergies.severity,
+      notes: pharmacyCustomerAllergies.notes,
+      createdAt: pharmacyCustomerAllergies.createdAt,
+      updatedAt: pharmacyCustomerAllergies.updatedAt,
+    })
+    .from(pharmacyCustomerAllergies)
+    .where(
+      and(
+        eq(pharmacyCustomerAllergies.tenantId, tenantId),
+        eq(pharmacyCustomerAllergies.customerId, customerId)
+      )
+    )
+    .orderBy(asc(pharmacyCustomerAllergies.createdAt), asc(pharmacyCustomerAllergies.id))
+    .all();
 
   const pharmacyEvidenceRecords = db
     .select({
@@ -768,6 +788,7 @@ export function buildCustomerPersonalDataExport(
     generatedAt,
     subject,
     records: {
+      pharmacyCustomerAllergies: pharmacyAllergyRecords,
       pharmacyPrescriptionEvidence: pharmacyEvidenceRecords,
       pharmacyDispensations: pharmacyDispensationRecords,
       sales: salesRecords,

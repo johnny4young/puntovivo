@@ -17,6 +17,7 @@ import {
 } from '../../services/product-serials.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { assertCatalogStockMutationAllowed } from '../../services/products/lot-tracking.js';
+import { canViewProductCost } from '../../services/products/product-read.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import { assertTenantSite } from '../../services/devices/authority/helpers.js';
 import { router } from '../init.js';
@@ -148,15 +149,25 @@ export const productSerialsRouter = router({
 
   list: tenantProcedure.input(listProductSerialsInput).query(async ({ ctx, input }) => {
     await assertTenantSite(ctx.db, ctx.tenantId, input.siteId);
-    return {
-      items: listProductSerialUnits(ctx.db, {
-        tenantId: ctx.tenantId,
-        siteId: input.siteId,
-        productId: input.productId,
-        sellableOnly: input.sellableOnly,
-      }),
-    };
+    const items = listProductSerialUnits(ctx.db, {
+      tenantId: ctx.tenantId,
+      siteId: input.siteId,
+      productId: input.productId,
+      sellableOnly: input.sellableOnly,
+    });
+    if (canViewProductCost(ctx.user?.role)) return { items };
+    return { items: items.map(item => ({ ...item, unitCost: null as number | null })) };
   }),
+
+  hasTrackedProducts: tenantProcedure.query(({ ctx }) => ({
+    hasTrackedProducts:
+      ctx.db
+        .select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.tenantId, ctx.tenantId), eq(products.tracksSerials, true)))
+        .limit(1)
+        .get() !== undefined,
+  })),
 
   lookup: tenantProcedure.input(lookupProductSerialInput).query(({ ctx, input }) => ({
     items: lookupProductSerialWarranty(ctx.db, {

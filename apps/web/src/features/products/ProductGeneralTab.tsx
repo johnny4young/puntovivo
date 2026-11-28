@@ -27,6 +27,12 @@ const AISuggestionsPanel = lazy(() =>
   }))
 );
 
+const ProductBundleSection = lazy(() =>
+  import('./ProductBundleSection').then(module => ({
+    default: module.ProductBundleSection,
+  }))
+);
+
 interface ProductGeneralTabProps {
   formBundle: UseProductFormReturn;
   mode: ProductRole;
@@ -66,12 +72,15 @@ export function ProductGeneralTab({
     initialStock,
     tracksLots,
     tracksSerials,
+    isReturnableContainer,
     taxRateField,
     stockField,
     minStockField,
     sellByFractionField,
     tracksLotsField,
     tracksSerialsField,
+    isReturnableContainerField,
+    returnableDepositAmountField,
     fractionStepField,
     fractionMinimumField,
     vatRateField,
@@ -383,6 +392,7 @@ export function ProductGeneralTab({
               type="number"
               min="0"
               step="any"
+              disabled={!tracksStock}
               className={cn('pv-input', errors.minStock && 'error')}
               {...minStockField}
             />
@@ -413,7 +423,12 @@ export function ProductGeneralTab({
                     shouldDirty: true,
                     shouldValidate: true,
                   });
+                  form.setValue('sellByFraction', false, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
                   form.setValue('stock', 0, { shouldDirty: true, shouldValidate: true });
+                  form.setValue('minStock', 0, { shouldDirty: true, shouldValidate: true });
                 } else {
                   // Restore what the product actually holds: leaving the
                   // zero behind would silently wipe its stock on save.
@@ -508,72 +523,118 @@ export function ProductGeneralTab({
           )}
         </div>
 
+        {tracksStock && (
+          <div className="rounded-2xl border border-line/80 bg-surface-2/50 p-4">
+            <label className="flex items-center gap-3 text-sm font-medium text-secondary-900">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-secondary-300"
+                {...sellByFractionField}
+                onChange={event => {
+                  const checked = event.target.checked;
+                  void sellByFractionField.onChange(event);
+                  form.setValue('sellByFraction', checked, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+
+                  if (checked) {
+                    form.setValue('tracksSerials', false, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                    const nextFractionStep = Math.max(
+                      MIN_OPERATIONAL_QUANTITY,
+                      form.getValues('fractionStep') || MIN_OPERATIONAL_QUANTITY
+                    );
+                    const nextFractionMinimum = Math.max(
+                      form.getValues('fractionMinimum') || MIN_OPERATIONAL_QUANTITY,
+                      nextFractionStep
+                    );
+
+                    form.setValue('fractionStep', nextFractionStep, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                    form.setValue('fractionMinimum', nextFractionMinimum, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                  }
+                }}
+              />
+              {t('form.fields.sellByFraction')}
+            </label>
+            <p className="mt-2 text-sm text-secondary-500">{t('form.fields.sellByFractionHelp')}</p>
+
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <SimpleFormField
+                label={t('form.fields.fractionStep')}
+                htmlFor="product-fraction-step"
+              >
+                <input
+                  id="product-fraction-step"
+                  type="number"
+                  min={MIN_OPERATIONAL_QUANTITY}
+                  step="any"
+                  disabled={!sellByFraction}
+                  className="pv-input"
+                  {...fractionStepField}
+                />
+              </SimpleFormField>
+              <SimpleFormField
+                label={t('form.fields.fractionMinimum')}
+                htmlFor="product-fraction-minimum"
+              >
+                <input
+                  id="product-fraction-minimum"
+                  type="number"
+                  min={MIN_OPERATIONAL_QUANTITY}
+                  step="any"
+                  disabled={!sellByFraction}
+                  className="pv-input"
+                  {...fractionMinimumField}
+                />
+              </SimpleFormField>
+            </div>
+          </div>
+        )}
+
         <div className="rounded-2xl border border-line/80 bg-surface-2/50 p-4">
-          <label className="flex items-center gap-3 text-sm font-medium text-secondary-900">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-secondary-300"
-              {...sellByFractionField}
-              onChange={event => {
-                sellByFractionField.onChange(event);
-
-                if (event.target.checked) {
-                  form.setValue('tracksSerials', false, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  });
-                  const nextFractionStep = Math.max(
-                    MIN_OPERATIONAL_QUANTITY,
-                    form.getValues('fractionStep') || MIN_OPERATIONAL_QUANTITY
-                  );
-                  const nextFractionMinimum = Math.max(
-                    form.getValues('fractionMinimum') || MIN_OPERATIONAL_QUANTITY,
-                    nextFractionStep
-                  );
-
-                  form.setValue('fractionStep', nextFractionStep, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  });
-                  form.setValue('fractionMinimum', nextFractionMinimum, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  });
-                }
-              }}
-            />
-            {t('form.fields.sellByFraction')}
-          </label>
-          <p className="mt-2 text-sm text-secondary-500">{t('form.fields.sellByFractionHelp')}</p>
-
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <SimpleFormField label={t('form.fields.fractionStep')} htmlFor="product-fraction-step">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <label className="flex items-center gap-3 text-sm font-medium text-secondary-900">
               <input
-                id="product-fraction-step"
-                type="number"
-                min={MIN_OPERATIONAL_QUANTITY}
-                step="any"
-                disabled={!sellByFraction}
-                className="pv-input"
-                {...fractionStepField}
+                type="checkbox"
+                className="h-4 w-4 rounded border-secondary-300"
+                data-testid="product-returnable-toggle"
+                {...isReturnableContainerField}
               />
-            </SimpleFormField>
-            <SimpleFormField
-              label={t('form.fields.fractionMinimum')}
-              htmlFor="product-fraction-minimum"
-            >
-              <input
-                id="product-fraction-minimum"
-                type="number"
-                min={MIN_OPERATIONAL_QUANTITY}
-                step="any"
-                disabled={!sellByFraction}
-                className="pv-input"
-                {...fractionMinimumField}
-              />
-            </SimpleFormField>
+              {t('form.fields.isReturnableContainer')}
+            </label>
+            {isReturnableContainer && (
+              <SimpleFormField
+                label={t('form.fields.returnableDepositAmount')}
+                htmlFor="product-returnable-deposit"
+              >
+                <input
+                  id="product-returnable-deposit"
+                  data-testid="product-returnable-deposit"
+                  type="number"
+                  min="0"
+                  step="any"
+                  className="pv-input w-40"
+                  {...returnableDepositAmountField}
+                />
+              </SimpleFormField>
+            )}
           </div>
         </div>
+
+        {mode === 'edit' && productId && (
+          <Suspense fallback={null}>
+            <ProductBundleSection productId={productId} />
+          </Suspense>
+        )}
       </ProductFormFieldGroup>
     </div>
   );

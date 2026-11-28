@@ -8,18 +8,35 @@ import { resolveStationLabel } from './stationLabel';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { useKitchenOnline } from './useKitchenOnline';
-import type { KitchenInputs, KitchenOutputs } from './types';
-const fieldClass =
-  'min-h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-ink';
+import type { KitchenOutputs } from './types';
+const fieldClass = 'min-h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-ink';
 const buttonClass = 'min-h-11 rounded-lg border border-line-strong px-3 py-2 disabled:opacity-50';
 /** Snapshot of the station generation when the manager opens the edit form. */
-type StationDraft = Omit<KitchenInputs['saveStation'], 'siteId'>;
+type StationDraft = {
+  code: string;
+  name: string;
+  isActive: boolean;
+  position: number;
+  expectedVersion: number;
+  printerMode: 'none' | 'site_printer' | 'tcp';
+  printerHost: string;
+  printerPort: number;
+  printerPaperWidth: '58mm' | '80mm';
+  printerCharacterSet: 'cp858' | 'cp437' | 'cp850' | 'pc858_euro';
+  printerCopies: number;
+};
 const newStation = (): StationDraft => ({
   code: '',
   name: '',
   isActive: true,
   position: 0,
   expectedVersion: 0,
+  printerMode: 'none',
+  printerHost: '',
+  printerPort: 9100,
+  printerPaperWidth: '80mm',
+  printerCharacterSet: 'cp858',
+  printerCopies: 1,
 });
 export function KdsConfiguration({ siteId, onClose }: { siteId: string; onClose: () => void }) {
   const { t } = useTranslation('kds');
@@ -58,6 +75,14 @@ export function KdsConfiguration({ siteId, onClose }: { siteId: string; onClose:
                 <span>
                   {resolveStationLabel(station, t('station.main'))} · {station.code} ·{' '}
                   {t(station.isActive ? 'config.active' : 'config.inactive')}
+                  {station.printerConfig?.mode === 'site_printer'
+                    ? ` · ${t('config.printerTagSite')}`
+                    : station.printerConfig?.mode === 'tcp' && station.printerConfig.host
+                      ? ` · ${t('config.printerTagTcp', {
+                          host: station.printerConfig.host,
+                          port: station.printerConfig.port ?? 9100,
+                        })}`
+                      : ''}
                 </span>
                 <button
                   type="button"
@@ -70,6 +95,12 @@ export function KdsConfiguration({ siteId, onClose }: { siteId: string; onClose:
                       isActive: station.isActive,
                       position: station.position,
                       expectedVersion: station.version,
+                      printerMode: station.printerConfig?.mode ?? 'none',
+                      printerHost: station.printerConfig?.host ?? '',
+                      printerPort: station.printerConfig?.port ?? 9100,
+                      printerPaperWidth: station.printerConfig?.paperWidth ?? '80mm',
+                      printerCharacterSet: station.printerConfig?.characterSet ?? 'cp858',
+                      printerCopies: station.printerConfig?.copies ?? 1,
                     })
                   }
                 >
@@ -93,7 +124,27 @@ export function KdsConfiguration({ siteId, onClose }: { siteId: string; onClose:
           <form
             onSubmit={event => {
               event.preventDefault();
-              if (!unavailable) save.mutate({ siteId, ...draft });
+              if (unavailable) return;
+              save.mutate({
+                siteId,
+                code: draft.code,
+                name: draft.name,
+                isActive: draft.isActive,
+                position: draft.position,
+                expectedVersion: draft.expectedVersion,
+                printerConfig:
+                  draft.printerMode === 'none'
+                    ? null
+                    : {
+                        mode: draft.printerMode,
+                        ...(draft.printerMode === 'tcp'
+                          ? { host: draft.printerHost.trim(), port: draft.printerPort }
+                          : {}),
+                        paperWidth: draft.printerPaperWidth,
+                        characterSet: draft.printerCharacterSet,
+                        copies: draft.printerCopies,
+                      },
+              });
             }}
           >
             <fieldset
@@ -138,7 +189,96 @@ export function KdsConfiguration({ siteId, onClose }: { siteId: string; onClose:
                   onChange={event => setDraft({ ...draft, position: Number(event.target.value) })}
                 />
               </label>
-              <label className="flex items-center gap-2">
+              <label>
+                {t('config.printerMode')}
+                <select
+                  className={fieldClass}
+                  value={draft.printerMode}
+                  onChange={event =>
+                    setDraft({
+                      ...draft,
+                      printerMode: event.target.value as StationDraft['printerMode'],
+                    })
+                  }
+                  data-testid="kds-station-printer-mode"
+                >
+                  <option value="none">{t('config.printerNone')}</option>
+                  <option value="site_printer">{t('config.printerSite')}</option>
+                  <option value="tcp">{t('config.printerTcp')}</option>
+                </select>
+              </label>
+              {draft.printerMode === 'tcp' && (
+                <>
+                  <label>
+                    {t('config.printerHost')}
+                    <input
+                      className={fieldClass}
+                      required
+                      maxLength={253}
+                      placeholder="192.168.1.50"
+                      value={draft.printerHost}
+                      onChange={event => setDraft({ ...draft, printerHost: event.target.value })}
+                      data-testid="kds-station-printer-host"
+                    />
+                  </label>
+                  <label>
+                    {t('config.printerPort')}
+                    <input
+                      type="number"
+                      className={fieldClass}
+                      required
+                      min={9100}
+                      max={9103}
+                      step={1}
+                      value={draft.printerPort}
+                      onChange={event =>
+                        setDraft({ ...draft, printerPort: Number(event.target.value) || 9100 })
+                      }
+                      data-testid="kds-station-printer-port"
+                    />
+                  </label>
+                </>
+              )}
+              {draft.printerMode !== 'none' && (
+                <>
+                  <label>
+                    {t('config.printerPaperWidth')}
+                    <select
+                      className={fieldClass}
+                      value={draft.printerPaperWidth}
+                      onChange={event =>
+                        setDraft({
+                          ...draft,
+                          printerPaperWidth: event.target.value as '58mm' | '80mm',
+                        })
+                      }
+                      data-testid="kds-station-printer-width"
+                    >
+                      <option value="80mm">80mm</option>
+                      <option value="58mm">58mm</option>
+                    </select>
+                  </label>
+                  <label>
+                    {t('config.printerCopies')}
+                    <input
+                      type="number"
+                      className={fieldClass}
+                      min={1}
+                      max={3}
+                      step={1}
+                      value={draft.printerCopies}
+                      onChange={event =>
+                        setDraft({
+                          ...draft,
+                          printerCopies: Math.max(1, Math.min(3, Number(event.target.value) || 1)),
+                        })
+                      }
+                      data-testid="kds-station-printer-copies"
+                    />
+                  </label>
+                </>
+              )}
+              <label className="flex items-center gap-2 sm:col-span-2">
                 <input
                   type="checkbox"
                   checked={draft.isActive}

@@ -63,6 +63,10 @@ import {
   applyRecallCustodyOverlays,
   findActiveRecallOverlaysForLot,
 } from '../../services/pharmacy/transfer-custody.js';
+import {
+  appendFneLedgerEntry,
+  findEffectiveFneAuthorization,
+} from '../../application/pharmacy/fne.js';
 
 export const inventoryLotsRouter = router({
   receive: criticalCommandManagerOrAdminProcedure
@@ -105,6 +109,7 @@ export const inventoryLotsRouter = router({
               tracksLots: products.tracksLots,
               catalogType: products.catalogType,
               pharmacyProductId: pharmacyProductProfiles.productId,
+              pharmacyClassification: pharmacyProductProfiles.classification,
             })
             .from(products)
             .leftJoin(
@@ -198,6 +203,28 @@ export const inventoryLotsRouter = router({
             initialOnHandIfMissing: 0,
             now,
           });
+          if (product.pharmacyClassification === 'controlled') {
+            const fneAuth = findEffectiveFneAuthorization(tx, {
+              tenantId: criticalCtx.tenantId,
+              siteId: input.siteId,
+              countryCode: businessClock.countryCode,
+              businessDate: businessClock.businessDate,
+            });
+            appendFneLedgerEntry(tx, {
+              tenantId: criticalCtx.tenantId,
+              siteId: input.siteId,
+              productId: input.productId,
+              lotId: lot.lotId,
+              lotNumber: input.lotNumber,
+              businessDate: businessClock.businessDate,
+              movementType: 'receipt',
+              quantityDelta: receivedQuantity,
+              fneAuthorizationId: fneAuth?.id ?? null,
+              actorId: criticalCtx.user.id,
+              notes: input.notes ?? 'Inventory lot receipt',
+              occurredAt: now,
+            });
+          }
           // Use the committed rollup instead of recomputing with raw IEEE-754
           // arithmetic. The balance boundary rounds quantities to 12 decimals;
           // movement and audit snapshots must describe that same value.

@@ -308,7 +308,6 @@ export const auditLogs = sqliteTable(
       .$defaultFn(() => new Date().toISOString()),
   },
   table => [
-    index('idx_audit_logs_tenant').on(table.tenantId),
     index('idx_audit_logs_actor').on(table.actorId),
     index('idx_audit_logs_action').on(table.action),
     index('idx_audit_logs_resource').on(table.resourceType, table.resourceId),

@@ -5,7 +5,7 @@ CREATE TABLE `purchase_documents` (
 	`file_name` text,
 	`mime_type` text NOT NULL,
 	`size_bytes` integer NOT NULL,
-	`payload_base64` text NOT NULL,
+	`payload` blob NOT NULL,
 	`payload_hash` text NOT NULL,
 	`uploaded_by` text NOT NULL,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
@@ -16,6 +16,6 @@ CREATE TABLE `purchase_documents` (
 --> statement-breakpoint
 CREATE INDEX `idx_purchase_documents_tenant_created` ON `purchase_documents` (`tenant_id`,`created_at`);--> statement-breakpoint
 CREATE INDEX `idx_purchase_documents_payload_hash` ON `purchase_documents` (`payload_hash`);--> statement-breakpoint
-CREATE UNIQUE INDEX `idx_purchase_documents_purchase` ON `purchase_documents` (`purchase_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `idx_purchase_documents_tenant_purchase` ON `purchase_documents` (`tenant_id`,`purchase_id`);--> statement-breakpoint
 ALTER TABLE `purchases` ADD `document_type` text;--> statement-breakpoint
 ALTER TABLE `purchases` ADD `document_number` text;

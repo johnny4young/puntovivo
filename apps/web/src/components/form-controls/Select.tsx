@@ -117,9 +117,12 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
             }
             break;
           case 'Escape':
-            setIsOpen(false);
-            setSearchTerm('');
-            setHighlightedIndex(0);
+            if (isOpen) {
+              e.preventDefault();
+              setIsOpen(false);
+              setSearchTerm('');
+              setHighlightedIndex(0);
+            }
             break;
           case 'ArrowDown':
             e.preventDefault();
