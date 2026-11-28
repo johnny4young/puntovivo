@@ -1,7 +1,13 @@
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
-import { providerPayableInvoices, purchases, sites } from '../../db/schema.js';
+import {
+  providerPayableInvoicePurchases,
+  providerPayableInvoices,
+  purchases,
+  sites,
+} from '../../db/schema.js';
 import type { AvailableProviderPurchasesInput } from '../../trpc/schemas/providerPayables.js';
+import { computeNetKeptGoods } from './net-kept-goods.js';
 
 /** Shared bounded projection for legacy overview and the searchable picker. */
 export function readAvailableProviderPurchases(
@@ -12,9 +18,13 @@ export function readAvailableProviderPurchases(
   const conditions = and(
     eq(purchases.tenantId, tenantId),
     eq(purchases.providerId, input.providerId),
-    eq(purchases.status, 'completed'),
+    // A delivery that lost part of its goods to a return still holds invoiceable
+    // stock; only a fully returned one has nothing left to invoice. The invoice
+    // command reconciles against what was actually kept.
+    inArray(purchases.status, ['completed', 'partial_returned']),
     eq(sites.tenantId, tenantId),
     isNull(providerPayableInvoices.id),
+    isNull(providerPayableInvoicePurchases.id),
     input.siteId ? eq(purchases.siteId, input.siteId) : undefined,
     // Literal substring matching: '%' and '_' in a purchase number must not
     // expand into a wildcard query. Search stays inside this provider/tenant.
@@ -26,6 +36,10 @@ export function readAvailableProviderPurchases(
     eq(providerPayableInvoices.tenantId, tenantId),
     eq(providerPayableInvoices.purchaseId, purchases.id)
   );
+  const bridgeJoin = and(
+    eq(providerPayableInvoicePurchases.tenantId, tenantId),
+    eq(providerPayableInvoicePurchases.purchaseId, purchases.id)
+  );
   // Count and rows describe the same SQLite read snapshot; another terminal
   // may invoice a purchase, but cannot make this response internally disagree.
   return db.transaction(tx => {
@@ -35,11 +49,12 @@ export function readAvailableProviderPurchases(
         .from(purchases)
         .innerJoin(sites, eq(purchases.siteId, sites.id))
         .leftJoin(providerPayableInvoices, invoiceJoin)
+        .leftJoin(providerPayableInvoicePurchases, bridgeJoin)
         .where(conditions)
         .get()?.count ?? 0;
     const pageCount = Math.max(1, Math.ceil(total / input.perPage));
     const page = Math.min(input.page, pageCount);
-    const items = tx
+    const rows = tx
       .select({
         id: purchases.id,
         purchaseNumber: purchases.purchaseNumber,
@@ -51,11 +66,30 @@ export function readAvailableProviderPurchases(
       .from(purchases)
       .innerJoin(sites, eq(purchases.siteId, sites.id))
       .leftJoin(providerPayableInvoices, invoiceJoin)
+      .leftJoin(providerPayableInvoicePurchases, bridgeJoin)
       .where(conditions)
       .orderBy(desc(purchases.createdAt), desc(purchases.id))
       .limit(input.perPage)
       .offset((page - 1) * input.perPage)
       .all();
+    // The offered total is what the store kept, computed like the invoice command
+    // so the amount shown is the one it accepts.
+    const keptByPurchase =
+      rows.length > 0
+        ? computeNetKeptGoods(
+            tx,
+            tenantId,
+            rows.map(row => row.id)
+          ).totalByPurchase
+        : new Map<string, number>();
+    const items = rows.map(row => ({
+      id: row.id,
+      purchaseNumber: row.purchaseNumber,
+      total: keptByPurchase.get(row.id) ?? row.total,
+      siteId: row.siteId,
+      siteName: row.siteName,
+      createdAt: row.createdAt,
+    }));
     return { items, total, page, perPage: input.perPage, pageCount };
   });
 }

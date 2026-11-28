@@ -806,6 +806,13 @@
       "when": 1795803203396,
       "tag": "0114_pharmacy_fne_ledger_movements",
       "breakpoints": true
+    },
+    {
+      "idx": 115,
+      "version": "6",
+      "when": 1795822197349,
+      "tag": "0115_provider_payable_invoice_purchases",
+      "breakpoints": true
     }
   ]
 }

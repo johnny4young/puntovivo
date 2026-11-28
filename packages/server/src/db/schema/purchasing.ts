@@ -306,6 +306,7 @@ export const providerPayableInvoices = sqliteTable(
     issuedAt: text('issued_at').notNull(),
     dueAt: text('due_at').notNull(),
     amount: real('amount').notNull(),
+    taxAmount: real('tax_amount').notNull().default(0),
     notes: text('notes'),
     createdBy: text('created_by')
       .notNull()
@@ -331,6 +332,41 @@ export const providerPayableInvoices = sqliteTable(
       .where(sql`${table.purchaseId} IS NOT NULL`),
     check('chk_provider_payable_invoices_amount_positive', sql`${table.amount} > 0`),
     moneyTwoDecimalCheck('provider_payable_invoices_amount', table.amount),
+    ...moneyPositiveChecks('provider_payable_invoices_tax', table.taxAmount),
+  ]
+);
+
+/**
+ * Which purchases a supplier invoice covers. Several deliveries (remisiones)
+ * can be consolidated into one final invoice; a purchase is invoiced at most
+ * once, enforced by the unique purchase index. Legacy single-purchase
+ * invoices keep their direct column for compatibility; this bridge is the
+ * complete source of truth, and its migration backfills it.
+ */
+export const providerPayableInvoicePurchases = sqliteTable(
+  'provider_payable_invoice_purchases',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    invoiceId: text('invoice_id')
+      .notNull()
+      .references(() => providerPayableInvoices.id),
+    purchaseId: text('purchase_id')
+      .notNull()
+      .references(() => purchases.id),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(1),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_provider_payable_invoice_purchases_tenant').on(table.tenantId, table.createdAt),
+    index('idx_provider_payable_invoice_purchases_invoice').on(table.invoiceId),
+    uniqueIndex('idx_provider_payable_invoice_purchases_purchase').on(
+      table.tenantId,
+      table.purchaseId
+    ),
   ]
 );
 
