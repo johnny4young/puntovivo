@@ -205,7 +205,7 @@
     "attachConflict": "Esta compra ya tiene un documento adjunto. La vista se actualizó para mostrarlo.",
     "viewError": "No se pudo cargar el documento",
     "errorEmpty": "El archivo seleccionado está vacío",
-    "errorTooLarge": "El archivo supera el límite de 10 MB",
+    "errorTooLarge": "El archivo supera el límite de {{limitMb}} MB",
     "errorUnsupportedType": "Solo se permiten archivos PDF, PNG, JPEG o WebP",
     "previewTitle": "Vista previa del documento",
     "defaultFileName": "documento",

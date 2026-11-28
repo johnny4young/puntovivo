@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Paperclip } from 'lucide-react';
 import {
+  PURCHASE_DOCUMENT_MAX_BYTES,
   PURCHASE_DOCUMENT_MIME_TYPES,
   purchaseDocumentExtensionForMime,
   type PurchaseDocumentType,
@@ -18,6 +19,7 @@ interface PurchaseDocumentPanelProps {
 }
 
 const ACCEPTED_MIME = PURCHASE_DOCUMENT_MIME_TYPES;
+const MAX_DOCUMENT_MB = PURCHASE_DOCUMENT_MAX_BYTES / (1024 * 1024);
 
 const DOCUMENT_TYPE_KEYS: Record<PurchaseDocumentType, string> = {
   invoice: 'document.typeInvoice',
@@ -157,7 +159,10 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
       if (message === 'EMPTY_DOCUMENT') {
         setErrorState({ purchaseId: activePurchaseId, message: t('document.errorEmpty') });
       } else if (message === 'DOCUMENT_TOO_LARGE') {
-        setErrorState({ purchaseId: activePurchaseId, message: t('document.errorTooLarge') });
+        setErrorState({
+          purchaseId: activePurchaseId,
+          message: t('document.errorTooLarge', { limitMb: MAX_DOCUMENT_MB }),
+        });
       } else if (message === 'UNSUPPORTED_MIME') {
         setErrorState({
           purchaseId: activePurchaseId,
