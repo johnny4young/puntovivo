@@ -87,6 +87,8 @@ async function compressImageIfNeeded(
       };
     }
 
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, width, height);
     context.drawImage(bitmap, 0, 0, width, height);
 
     let encoded = await canvasToBlob(canvas, 'image/webp', PURCHASE_IMAGE_QUALITY);
@@ -139,7 +141,10 @@ export async function preparePurchaseDocumentFile(file: File): Promise<PreparedP
       ? { blob: file as Blob, mimeType: file.type, fileName: file.name }
       : await compressImageIfNeeded(file);
 
-  if (prepared.blob.size === 0 || prepared.blob.size > PURCHASE_DOCUMENT_MAX_BYTES) {
+  if (prepared.blob.size === 0) {
+    throw new Error('EMPTY_DOCUMENT');
+  }
+  if (prepared.blob.size > PURCHASE_DOCUMENT_MAX_BYTES) {
     throw new Error('DOCUMENT_TOO_LARGE');
   }
 

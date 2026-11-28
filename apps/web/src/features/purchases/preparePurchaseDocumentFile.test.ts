@@ -36,7 +36,9 @@ describe('preparePurchaseDocumentFile', () => {
 
   it('downscales oversized images to 1600 px on the long side and encodes as WebP', async () => {
     const close = vi.fn();
+    const fillRect = vi.fn();
     const drawImage = vi.fn();
+    const context = { fillStyle: '', fillRect, drawImage };
     Object.defineProperty(globalThis, 'createImageBitmap', {
       value: vi.fn(async () => ({ width: 4000, height: 3000, close })),
       configurable: true,
@@ -46,7 +48,7 @@ describe('preparePurchaseDocumentFile', () => {
     const createdCanvas = {
       width: 0,
       height: 0,
-      getContext: vi.fn(() => ({ drawImage })),
+      getContext: vi.fn(() => context),
       toBlob: vi.fn((cb: BlobCallback, mimeType?: string, quality?: number) => {
         expect(mimeType).toBe('image/webp');
         expect(quality).toBe(PURCHASE_IMAGE_QUALITY);
@@ -64,6 +66,8 @@ describe('preparePurchaseDocumentFile', () => {
 
     expect(createdCanvas.width).toBe(PURCHASE_IMAGE_MAX_LONG_SIDE_PX);
     expect(createdCanvas.height).toBe(1200);
+    expect(context.fillStyle).toBe('#ffffff');
+    expect(fillRect).toHaveBeenCalledWith(0, 0, 1600, 1200);
     expect(drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, 1600, 1200);
     expect(close).toHaveBeenCalledTimes(1);
     expect(prepared.mimeType).toBe('image/webp');
@@ -81,7 +85,7 @@ describe('preparePurchaseDocumentFile', () => {
     const createdCanvas = {
       width: 0,
       height: 0,
-      getContext: vi.fn(() => ({ drawImage: vi.fn() })),
+      getContext: vi.fn(() => ({ fillStyle: '', fillRect: vi.fn(), drawImage: vi.fn() })),
       toBlob: vi.fn((cb: BlobCallback, mimeType?: string) => {
         if (mimeType === 'image/webp') {
           cb(new Blob(['png-fallback'], { type: 'image/png' }));
@@ -106,8 +110,11 @@ describe('preparePurchaseDocumentFile', () => {
     expect(close).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects unsupported MIME types', async () => {
+  it('rejects unsupported MIME types and empty files with distinct errors', async () => {
     const textFile = new File(['hello'], 'notes.txt', { type: 'text/plain' });
     await expect(preparePurchaseDocumentFile(textFile)).rejects.toThrow('UNSUPPORTED_MIME');
+
+    const emptyPdf = new File([], 'empty.pdf', { type: 'application/pdf' });
+    await expect(preparePurchaseDocumentFile(emptyPdf)).rejects.toThrow('EMPTY_DOCUMENT');
   });
 });

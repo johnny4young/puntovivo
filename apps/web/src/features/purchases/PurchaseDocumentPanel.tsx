@@ -55,11 +55,12 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mountedRef = useRef(true);
   const viewRequestIdRef = useRef(0);
-  const [isBusy, setBusy] = useState(false);
+  const [busyPurchaseId, setBusyPurchaseId] = useState<string | null>(null);
   const [errorState, setErrorState] = useState<ScopedError | null>(null);
   const [previewState, setPreviewState] = useState<DocumentPreview | null>(null);
   const attached = purchase.document ?? null;
   const canManageDocument = user?.role === 'admin' || user?.role === 'manager';
+  const isBusy = busyPurchaseId === purchase.id;
   const preview = previewState?.purchaseId === purchase.id ? previewState : null;
   const error = errorState?.purchaseId === purchase.id ? errorState.message : null;
 
@@ -91,25 +92,32 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
   };
 
   const attachMutation = trpc.purchases.attachDocument.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (_data, variables) => {
       await refreshPurchase();
       toast.success({ title: t('document.attachSuccess') });
       if (mountedRef.current) {
-        setError(null);
-        setBusy(false);
+        setErrorState(current => (current?.purchaseId === variables.purchaseId ? null : current));
+        setBusyPurchaseId(current => (current === variables.purchaseId ? null : current));
       }
     },
-    onError: async attachError => {
+    onError: async (attachError, variables) => {
       // A stale purchase copy with a document already attached cannot accept
       // another upload: say so specifically and refresh so the existing paper
       // becomes visible instead of inviting retries that cannot succeed.
       if (attachError.data?.code === 'CONFLICT') {
-        if (mountedRef.current) setError(t('document.attachConflict'));
+        if (mountedRef.current) {
+          setErrorState({
+            purchaseId: variables.purchaseId,
+            message: t('document.attachConflict'),
+          });
+        }
         await refreshPurchase();
       } else if (mountedRef.current) {
-        setError(t('document.attachError'));
+        setErrorState({ purchaseId: variables.purchaseId, message: t('document.attachError') });
       }
-      if (mountedRef.current) setBusy(false);
+      if (mountedRef.current) {
+        setBusyPurchaseId(current => (current === variables.purchaseId ? null : current));
+      }
     },
   });
 
@@ -124,14 +132,15 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
   })();
 
   const handleFileSelected = async (file: File) => {
-    setBusy(true);
+    const activePurchaseId = purchase.id;
+    setBusyPurchaseId(activePurchaseId);
     setError(null);
     try {
       const { preparePurchaseDocumentFile } = await import('./preparePurchaseDocumentFile');
       const prepared = await preparePurchaseDocumentFile(file);
       if (!mountedRef.current) return;
       attachMutation.mutate({
-        purchaseId: purchase.id,
+        purchaseId: activePurchaseId,
         fileName: prepared.fileName,
         mimeType: prepared.mimeType,
         documentBase64: prepared.documentBase64,
@@ -139,41 +148,47 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
     } catch (prepareError) {
       if (!mountedRef.current) return;
       const message = prepareError instanceof Error ? prepareError.message : '';
-      if (message === 'DOCUMENT_TOO_LARGE') {
-        setError(t('document.errorTooLarge'));
+      if (message === 'EMPTY_DOCUMENT') {
+        setErrorState({ purchaseId: activePurchaseId, message: t('document.errorEmpty') });
+      } else if (message === 'DOCUMENT_TOO_LARGE') {
+        setErrorState({ purchaseId: activePurchaseId, message: t('document.errorTooLarge') });
       } else if (message === 'UNSUPPORTED_MIME') {
-        setError(t('document.errorUnsupportedType'));
+        setErrorState({
+          purchaseId: activePurchaseId,
+          message: t('document.errorUnsupportedType'),
+        });
       } else {
-        setError(t('document.attachError'));
+        setErrorState({ purchaseId: activePurchaseId, message: t('document.attachError') });
       }
-      setBusy(false);
+      setBusyPurchaseId(current => (current === activePurchaseId ? null : current));
     }
   };
 
   const handleViewDocument = async () => {
+    const activePurchaseId = purchase.id;
     const requestId = viewRequestIdRef.current + 1;
     viewRequestIdRef.current = requestId;
-    setBusy(true);
+    setBusyPurchaseId(activePurchaseId);
     setError(null);
     try {
       // Avoid retaining large base64 payloads in the React Query cache.
       const document = await utils.purchases.getDocument.fetch(
-        { purchaseId: purchase.id },
+        { purchaseId: activePurchaseId },
         { gcTime: 0, staleTime: 0 }
       );
       if (!mountedRef.current || requestId !== viewRequestIdRef.current) return;
       setPreviewState({
-        purchaseId: purchase.id,
+        purchaseId: activePurchaseId,
         url: documentObjectUrl(document.documentBase64, document.mimeType),
         mimeType: document.mimeType,
         fileName: document.fileName,
       });
     } catch {
       if (!mountedRef.current || requestId !== viewRequestIdRef.current) return;
-      setError(t('document.viewError'));
+      setErrorState({ purchaseId: activePurchaseId, message: t('document.viewError') });
     } finally {
       if (mountedRef.current && requestId === viewRequestIdRef.current) {
-        setBusy(false);
+        setBusyPurchaseId(current => (current === activePurchaseId ? null : current));
       }
     }
   };

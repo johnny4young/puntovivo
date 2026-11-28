@@ -12,8 +12,8 @@ const getDocumentFetchMock = vi.fn();
 const toastSuccessMock = vi.fn();
 const attachMutateMock = vi.fn();
 let attachMutationCallbacks: {
-  onSuccess?: () => Promise<void> | void;
-  onError?: (err: unknown) => Promise<void> | void;
+  onSuccess?: (_data?: unknown, variables?: { purchaseId: string }) => Promise<void> | void;
+  onError?: (err: unknown, variables?: { purchaseId: string }) => Promise<void> | void;
 } = {};
 
 vi.mock('@/features/auth/AuthProvider', () => ({
@@ -258,6 +258,12 @@ describe('PurchaseDetailsContent lot evidence', () => {
       );
     });
 
+    const emptyPdf = new File([], 'empty.pdf', { type: 'application/pdf' });
+    fireEvent.change(fileInput, { target: { files: [emptyPdf] } });
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('El archivo seleccionado está vacío');
+    });
+
     const oversizedPdf = new File([new Uint8Array(10 * 1024 * 1024 + 1)], 'huge.pdf', {
       type: 'application/pdf',
     });
@@ -279,7 +285,10 @@ describe('PurchaseDetailsContent lot evidence', () => {
     });
 
     await act(async () => {
-      await attachMutationCallbacks.onError?.({ data: { code: 'CONFLICT' } });
+      await attachMutationCallbacks.onError?.(
+        { data: { code: 'CONFLICT' } },
+        { purchaseId: 'purchase-1' }
+      );
     });
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(
@@ -371,6 +380,66 @@ describe('PurchaseDetailsContent lot evidence', () => {
     await act(async () => {
       resolveFetch({
         fileName: 'remision.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 256,
+        documentBase64: btoa('%PDF-1.4\n%%EOF\n'),
+        payloadHash: 'def',
+        uploadedBy: 'user-1',
+        createdAt: '2030-01-01T12:00:00.000Z',
+      });
+      await Promise.resolve();
+    });
+
+    expect(createObjectUrlSpy).not.toHaveBeenCalled();
+    createObjectUrlSpy.mockRestore();
+  });
+
+  it('keeps controls enabled after switching purchases while a previous view fetch is in flight', async () => {
+    let resolveFirstFetch!: (value: unknown) => void;
+    getDocumentFetchMock.mockReturnValue(
+      new Promise(resolve => {
+        resolveFirstFetch = resolve;
+      })
+    );
+    const createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:stale');
+
+    const { rerender } = render(
+      <PurchaseDetailsContent
+        purchase={
+          {
+            ...purchase,
+            id: 'purchase-1',
+            document: {
+              fileName: 'first.pdf',
+              mimeType: 'application/pdf',
+              sizeBytes: 256,
+              createdAt: '2030-01-01T12:00:00.000Z',
+            },
+          } as Purchase
+        }
+        returnError={null}
+        voidError={null}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Ver documento adjunto/i }));
+    expect(screen.getByRole('button', { name: /Ver documento adjunto/i })).toBeDisabled();
+
+    rerender(
+      <PurchaseDetailsContent
+        purchase={{ ...purchase, id: 'purchase-2', document: null } as Purchase}
+        returnError={null}
+        voidError={null}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: /Adjuntar foto o PDF del documento/i })
+    ).not.toBeDisabled();
+
+    await act(async () => {
+      resolveFirstFetch({
+        fileName: 'first.pdf',
         mimeType: 'application/pdf',
         sizeBytes: 256,
         documentBase64: btoa('%PDF-1.4\n%%EOF\n'),

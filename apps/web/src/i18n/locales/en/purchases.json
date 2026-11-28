@@ -204,6 +204,7 @@
     "attachError": "Could not attach the document",
     "attachConflict": "This purchase already has an attached document. The view was refreshed to show it.",
     "viewError": "Could not load the document",
+    "errorEmpty": "The selected file is empty",
     "errorTooLarge": "The file exceeds the 10 MB limit",
     "errorUnsupportedType": "Only PDF, PNG, JPEG, or WebP files are allowed",
     "previewTitle": "Document preview",
