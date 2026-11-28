@@ -310,6 +310,8 @@
     "PRODUCT_TRACKING_HAS_REVERSIBLE_TRANSFORMATION": "Inventory tracking cannot change while a completed transformation can still be voided for this product. Void it or wait for it to settle first.",
     "FISCAL_NUMBERING_RANGE_OVERLAP": "That range shares consecutives with another range of the same prefix.",
     "FISCAL_NUMBERING_RANGE_LOCKED": "The range does not allow that change in its current state.",
-    "FISCAL_NUMBERING_RANGE_NOT_FOUND": "The numbering range was not found."
+    "FISCAL_NUMBERING_RANGE_NOT_FOUND": "The numbering range was not found.",
+    "PURCHASE_VOID_PAYABLE_LINKED": "This purchase is linked to a supplier payable invoice and cannot be voided.",
+    "VAT_RATE_NAME_DUPLICATE": "A tax rate with that name already exists."
   }
 }

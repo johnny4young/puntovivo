@@ -10,12 +10,13 @@
  * @module features/restaurants/VoiceOrderingScreen
  */
 import { Suspense, lazy, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Receipt, Split } from 'lucide-react';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useSellingRoute } from '@/features/auth/useSellingRoute';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { useIsModuleActive } from '@/features/modules/ModulesContext';
 import { useRegisterZone } from '@/features/modules/useRegisterZone';
@@ -498,6 +499,8 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
     ) : null;
 
   const isMobile = variant === 'mobile';
+  const { route: sellingRoute } = useSellingRoute();
+  const backRoute = isMobile ? sellingRoute : '/touch';
   const sendLabel = t(kdsActive ? 'restaurants:rail.send' : 'restaurants:rail.save', {
     count: roundNumber,
   });
@@ -628,14 +631,19 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
           </h1>
           {user?.name && <p className="text-xs text-secondary-600">{user.name}</p>}
         </div>
-        <button
-          type="button"
-          className="btn-outline"
-          onClick={handleExit}
-          data-testid="voice-ordering-exit"
-        >
-          {t('restaurants:actions.exit')}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to={backRoute} className="btn-outline" data-testid="voice-ordering-back-link">
+            {t('restaurants:actions.backToPos')}
+          </Link>
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={handleExit}
+            data-testid="voice-ordering-exit"
+          >
+            {t('restaurants:actions.exit')}
+          </button>
+        </div>
       </header>
 
       {!isMobile && <div className="mb-4 shrink-0 space-y-3">{tableControls}</div>}

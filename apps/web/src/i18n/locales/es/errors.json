@@ -310,6 +310,8 @@
     "PRODUCT_TRACKING_HAS_REVERSIBLE_TRANSFORMATION": "No puede cambiar el control de inventario mientras una transformación completada de este producto todavía se pueda anular. Anúlela o espere a que quede firme primero.",
     "FISCAL_NUMBERING_RANGE_OVERLAP": "Ese rango comparte consecutivos con otro rango del mismo prefijo.",
     "FISCAL_NUMBERING_RANGE_LOCKED": "El rango no admite ese cambio en su estado actual.",
-    "FISCAL_NUMBERING_RANGE_NOT_FOUND": "No se encontró el rango de numeración."
+    "FISCAL_NUMBERING_RANGE_NOT_FOUND": "No se encontró el rango de numeración.",
+    "PURCHASE_VOID_PAYABLE_LINKED": "Esta compra está vinculada a una factura de proveedor por pagar y no puede anularse.",
+    "VAT_RATE_NAME_DUPLICATE": "Ya existe una tarifa de impuesto con ese nombre."
   }
 }

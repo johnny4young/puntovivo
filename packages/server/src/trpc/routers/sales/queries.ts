@@ -8,11 +8,14 @@
  * @module trpc/routers/sales/queries
  */
 import { and, desc, eq, gte, inArray, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
-import { parkedDraftOwnedBy } from '../../../application/sales/draft-ownership.js';
+import {
+  assertCanViewSaleDraft,
+  parkedDraftOwnedBy,
+} from '../../../application/sales/draft-ownership.js';
 import { isCarriedOverSql } from '../../../application/sales/carryDraftOver.js';
 
 import { tenantProcedure } from '../../middleware/tenant.js';
-import { cashierManagerOrAdminProcedure } from '../../middleware/roles.js';
+import { cashierManagerOrAdminProcedure, dashboardReadProcedure } from '../../middleware/roles.js';
 import {
   cashSessions,
   customers,
@@ -53,7 +56,7 @@ export const salesQueryProcedures = {
     await ensureTenantSite(ctx.db, ctx.tenantId, ctx.siteId);
     return getElectronicInvoiceAvailability(ctx.db, ctx.tenantId, ctx.siteId);
   }),
-  summary: tenantProcedure.query(async ({ ctx }) => {
+  summary: dashboardReadProcedure.query(async ({ ctx }) => {
     const now = new Date();
     const startOfToday = new Date(now);
     startOfToday.setHours(0, 0, 0, 0);
@@ -125,7 +128,29 @@ export const salesQueryProcedures = {
 
     const conditions = [eq(sales.tenantId, ctx.tenantId)];
     if (customerId) conditions.push(eq(sales.customerId, customerId));
-    if (status) conditions.push(eq(sales.status, status));
+    if (status) {
+      conditions.push(eq(sales.status, status));
+      if (status === 'draft') {
+        const actorRole = ctx.user?.role;
+        if (actorRole === 'cashier') {
+          conditions.push(
+            sql`(
+              (${sales.suspendedAt} IS NULL AND ${sales.resumedBy} = ${ctx.user!.id})
+              OR (${sales.suspendedAt} IS NOT NULL AND ${parkedDraftOwnedBy(ctx.user!.id)})
+            )`
+          );
+        } else if (actorRole === 'admin' || actorRole === 'manager') {
+          conditions.push(
+            sql`(${sales.suspendedAt} IS NOT NULL OR (${sales.suspendedAt} IS NULL AND ${sales.resumedBy} = ${ctx.user!.id}))`
+          );
+        } else {
+          conditions.push(sql`1 = 0`);
+        }
+      }
+    } else {
+      // Unfiltered sales history must not expose active/parked drafts.
+      conditions.push(ne(sales.status, 'draft'));
+    }
     if (paymentStatus) conditions.push(eq(sales.paymentStatus, paymentStatus));
     if (fromDate) conditions.push(gte(sales.createdAt, fromDate));
     if (toDate) conditions.push(lte(sales.createdAt, toDate));
@@ -284,7 +309,20 @@ export const salesQueryProcedures = {
   }),
   /** Get a single sale with its line items. */
   getById: tenantProcedure.input(getSaleInput).query(async ({ ctx, input }) => {
-    return getSaleRecord(ctx.db, ctx.tenantId, input.id);
+    const sale = await getSaleRecord(ctx.db, ctx.tenantId, input.id);
+    if (ctx.user) {
+      assertCanViewSaleDraft(
+        ctx.db,
+        {
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+          userId: ctx.user.id,
+          role: ctx.user.role,
+        },
+        sale
+      );
+    }
+    return sale;
   }),
 
   /**

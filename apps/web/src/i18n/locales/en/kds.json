@@ -113,5 +113,8 @@
   },
   "production": {
     "label": "On the line now"
+  },
+  "actions": {
+    "backToPos": "Back to register"
   }
 }

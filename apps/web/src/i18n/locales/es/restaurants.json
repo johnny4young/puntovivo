@@ -101,6 +101,7 @@
   "actions": {
     "voiceCTA": "Orden por voz",
     "manualAdd": "Buscar producto",
+    "backToPos": "Volver a caja",
     "exit": "Cerrar sesión"
   },
   "save": {

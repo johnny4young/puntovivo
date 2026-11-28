@@ -25,9 +25,11 @@ import { cancelExternalSale } from '../external-orders/sale-binding.js';
 import { reconcileKitchenSaleInTransaction } from '../kds/sale-lifecycle.js';
 import { tickDefaultHardwareWorker } from '../../services/peripherals/hardware-worker.js';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   cashSessions,
+  customerLedgerEntries,
   inventoryLots,
   loyaltyAccounts,
   loyaltyMovements,
@@ -265,6 +267,7 @@ export async function voidSale(
   let auditLogId: string | null = null;
   let restoredLotIds: string[] = [];
   let fiscalIntentId: string | null = null;
+  const customerLedgerEntryIds: string[] = [];
   const syncOutboxIds: string[] = [];
   const refundCashAmount = await getPersistedSaleCashContribution(ctx.db, {
     tenantId: ctx.tenantId,
@@ -467,6 +470,49 @@ export async function voidSale(
           }
         }
         revertPointsForSale(tx, { tenantId: ctx.tenantId, saleId: input.id, nowIso: now });
+
+        // Reverse credit-sale receivables so voiding never leaves phantom debt.
+        const creditLedgerRows = tx
+          .select({
+            customerId: customerLedgerEntries.customerId,
+            amount: customerLedgerEntries.amount,
+          })
+          .from(customerLedgerEntries)
+          .where(
+            and(
+              eq(customerLedgerEntries.tenantId, ctx.tenantId),
+              eq(customerLedgerEntries.referenceSaleId, input.id),
+              eq(customerLedgerEntries.kind, 'sale')
+            )
+          )
+          .all();
+        const creditByCustomer = new Map<string, number>();
+        for (const row of creditLedgerRows) {
+          if (row.amount > 0) {
+            creditByCustomer.set(
+              row.customerId,
+              roundMoney((creditByCustomer.get(row.customerId) ?? 0) + row.amount)
+            );
+          }
+        }
+        for (const [customerId, creditAmount] of creditByCustomer) {
+          if (creditAmount <= 0) continue;
+          const ledgerEntryId = nanoid();
+          tx.insert(customerLedgerEntries)
+            .values({
+              id: ledgerEntryId,
+              tenantId: ctx.tenantId,
+              customerId,
+              kind: 'adjustment',
+              amount: -creditAmount,
+              referenceSaleId: input.id,
+              note: `Voided sale ${existing.saleNumber}`,
+              createdBy: ctx.user.id,
+              createdAt: now,
+            })
+            .run();
+          customerLedgerEntryIds.push(ledgerEntryId);
+        }
 
         const syncCtx = {
           db: tx as unknown as typeof ctx.db,
@@ -706,6 +752,13 @@ export async function voidSale(
           sessionId: voidReversibleSessionId,
           amount: refundCashAmount,
         },
+      });
+    }
+    for (const ledgerEntryId of customerLedgerEntryIds) {
+      effects.push({
+        kind: 'customer_ledger_entry',
+        resourceType: 'customer_ledger_entries',
+        resourceId: ledgerEntryId,
       });
     }
     if (auditLogId) {

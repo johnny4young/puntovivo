@@ -1,9 +1,26 @@
 /** Render real cards; assert observed generations, rich snapshots, stale/offline and role behavior. */
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render as rtlRender,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '@/i18n';
 import type { KdsCardData, KitchenOutputs } from '../types';
 import { KdsBoard } from '../KdsBoard';
+
+function render(ui: ReactElement) {
+  const view = rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
+  return {
+    ...view,
+    rerender: (next: ReactElement) => view.rerender(<MemoryRouter>{next}</MemoryRouter>),
+  };
+}
 const h = vi.hoisted(() => ({
   stations: [] as KitchenOutputs['stations'],
   items: [] as KdsCardData[],
@@ -26,6 +43,9 @@ const h = vi.hoisted(() => ({
 }));
 vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({ user: { id: 'cook', role: h.role } }),
+}));
+vi.mock('@/features/auth/useSellingRoute', () => ({
+  useSellingRoute: () => ({ route: '/touch', isResolving: false }),
 }));
 vi.mock('@/features/tenant/TenantProvider', () => ({
   useTenant: () => ({
@@ -457,6 +477,15 @@ it('colours active tickets by age and leaves finished ones neutral', () => {
   expect(ages.filter(([, age]) => age === 'late')).toHaveLength(1);
   expect(ages.filter(([, age]) => age === 'warning')).toHaveLength(1);
   expect(ages.filter(([status]) => status === 'ready')).toEqual([['ready', 'none']]);
+});
+
+it('renders a back-to-register navigation link on the kitchen board and when no site is selected', () => {
+  render(<KdsBoard />);
+  expect(screen.getByTestId('kds-back-link')).toHaveAttribute('href', '/touch');
+
+  h.site = '';
+  render(<KdsBoard />);
+  expect(screen.getAllByTestId('kds-back-link').at(-1)).toHaveAttribute('href', '/touch');
 });
 
 it('runs a single shared clock interval regardless of how many order cards are mounted', () => {

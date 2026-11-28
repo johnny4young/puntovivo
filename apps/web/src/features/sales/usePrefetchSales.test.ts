@@ -40,14 +40,14 @@ beforeEach(() => {
 });
 
 describe('usePrefetchSales', () => {
-  it('prefetches all four entry queries with the page inputs when a site is active', () => {
+  it('prefetches entry queries with the page inputs when a site is active', () => {
     useTenantMock.mockReturnValue({ currentSite: { id: 'site-1' } });
 
     const { result } = renderHook(() => usePrefetchSales());
     result.current();
 
     expect(prefetchSpies.salesList).toHaveBeenCalledWith({ page: 1, perPage: 50 });
-    expect(prefetchSpies.salesSummary).toHaveBeenCalled();
+    expect(prefetchSpies.salesSummary).not.toHaveBeenCalled();
     expect(prefetchSpies.customersList).toHaveBeenCalledWith({
       page: 1,
       perPage: 100,
@@ -63,7 +63,7 @@ describe('usePrefetchSales', () => {
     result.current();
 
     expect(prefetchSpies.salesList).toHaveBeenCalled();
-    expect(prefetchSpies.salesSummary).toHaveBeenCalled();
+    expect(prefetchSpies.salesSummary).not.toHaveBeenCalled();
     expect(prefetchSpies.customersList).toHaveBeenCalled();
     expect(prefetchSpies.cashGetActive).not.toHaveBeenCalled();
   });

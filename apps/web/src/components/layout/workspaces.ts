@@ -88,6 +88,8 @@ export interface WorkspaceItem {
    * mirroring how the router redirects away from disabled modules.
    */
   requiredModule?: ClientModuleId;
+  /** All modules that must be active simultaneously (mirrors nested `RequireModule`). */
+  requiredModules?: readonly ClientModuleId[];
   /** Directory section used to present the route as an operator task. */
   directoryGroup?: string;
 }
@@ -175,6 +177,7 @@ export const WORKSPACES: readonly Workspace[] = [
         icon: Smartphone,
         allowedRoles: salesRoles,
         requiredModule: 'mobile-waiter',
+        requiredModules: ['mobile-waiter', 'dine-in'],
       },
       {
         // Read-only owner/viewer view backed by the minimal Companion snapshot.
@@ -594,6 +597,12 @@ export function visibleItemsForWorkspace(
   return workspace.items.filter(item => {
     if (!canAccessRole(role, item.allowedRoles)) return false;
     if (item.requiredModule && (!modulesReady || modules[item.requiredModule] !== true)) {
+      return false;
+    }
+    if (
+      item.requiredModules &&
+      (!modulesReady || item.requiredModules.some(moduleId => modules[moduleId] !== true))
+    ) {
       return false;
     }
     return true;

@@ -104,6 +104,9 @@ export function useActiveSite({
         return;
       }
 
+      // Persist synchronously so queries triggered on the next render send the
+      // new x-site-id header before the post-commit effect runs.
+      persistSiteId(siteId, tenantId);
       setSelection({ tenantId, siteId });
     },
     [tenantSites, tenantId]

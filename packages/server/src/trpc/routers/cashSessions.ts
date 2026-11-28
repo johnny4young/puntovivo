@@ -24,6 +24,7 @@ import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
 import { router } from '../init.js';
 import { roundMoney } from '../../lib/money.js';
 import { tenantProcedure } from '../middleware/tenant.js';
+import { ensureTenantSite } from '../middleware/tenantSite.js';
 import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import {
   criticalCommandCashierManagerOrAdminProcedure,
@@ -259,15 +260,19 @@ export const cashSessionsRouter = router({
     });
   }),
 
-  getActive: tenantProcedure.input(getActiveCashSessionInput).query(async ({ ctx }) => {
-    if (!ctx.siteId || !ctx.user) {
+  getActive: tenantProcedure.input(getActiveCashSessionInput).query(async ({ ctx, input }) => {
+    const effectiveSiteId = input?.siteId ?? ctx.siteId;
+    if (!effectiveSiteId || !ctx.user) {
       return null;
+    }
+    if (input?.siteId) {
+      await ensureTenantSite(ctx.db, ctx.tenantId, effectiveSiteId);
     }
 
     const activeSession = await getActiveCashSessionForCashier(
       ctx.db,
       ctx.tenantId,
-      ctx.siteId,
+      effectiveSiteId,
       ctx.user.id
     );
 
@@ -285,14 +290,18 @@ export const cashSessionsRouter = router({
   myPace: cashierManagerOrAdminProcedure
     .input(getActiveCashSessionInput)
     .output(cashierPaceOutput)
-    .query(async ({ ctx }) => {
-      if (!ctx.siteId || !ctx.user) {
+    .query(async ({ ctx, input }) => {
+      const effectiveSiteId = input?.siteId ?? ctx.siteId;
+      if (!effectiveSiteId || !ctx.user) {
         return null;
+      }
+      if (input?.siteId) {
+        await ensureTenantSite(ctx.db, ctx.tenantId, effectiveSiteId);
       }
       return computeCashierPaceFromTiming({
         db: ctx.db,
         tenantId: ctx.tenantId,
-        siteId: ctx.siteId,
+        siteId: effectiveSiteId,
         cashierId: ctx.user.id,
       });
     }),
@@ -304,12 +313,16 @@ export const cashSessionsRouter = router({
   myShiftSummary: cashierManagerOrAdminProcedure
     .input(getActiveCashSessionInput)
     .output(shiftSummaryOutput)
-    .query(({ ctx }) => {
-      if (!ctx.siteId || !ctx.user) return null;
+    .query(async ({ ctx, input }) => {
+      const effectiveSiteId = input?.siteId ?? ctx.siteId;
+      if (!effectiveSiteId || !ctx.user) return null;
+      if (input?.siteId) {
+        await ensureTenantSite(ctx.db, ctx.tenantId, effectiveSiteId);
+      }
       return computeShiftSummary({
         db: ctx.db,
         tenantId: ctx.tenantId,
-        siteId: ctx.siteId,
+        siteId: effectiveSiteId,
         cashierId: ctx.user.id,
       });
     }),

@@ -84,7 +84,7 @@ describe('AuditLogsPage', () => {
       { staleTime: 30_000 }
     );
 
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Action' }), 'sale.void');
+    await user.selectOptions(screen.getByLabelText(/action/i), 'sale.void');
 
     expect(privacyCard).toHaveAttribute('aria-pressed', 'false');
     expect(mocks.listUseQuery).toHaveBeenLastCalledWith(

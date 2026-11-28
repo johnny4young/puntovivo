@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { Button, SeverityMark, type Severity } from '@/components/ui';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { useAuth } from '@/features/auth/AuthProvider';
+import { useIsModuleActive } from '@/features/modules';
 import {
   ApprovalDecisionForm,
   type ApprovalDecision,
@@ -145,6 +147,9 @@ function PendingRow({
   formatTime: (iso: string) => string;
 }) {
   const { t } = useTranslation(['dashboard', 'common']);
+  const { user } = useAuth();
+  const operationsCenterActive = useIsModuleActive('operations-center');
+  const canOpenOperations = user?.role === 'admin' && operationsCenterActive;
   const toast = useToast();
   const utils = trpc.useUtils();
   const [decision, setDecision] = useState<ApprovalDecision | null>(null);
@@ -154,7 +159,7 @@ function PendingRow({
   });
 
   const { title, detail } = describe(item, t, nowIso, formatCurrency, formatTime);
-  const action = canAct ? rowAction(item, t) : null;
+  const action = canAct ? rowAction(item, t, canOpenOperations) : null;
 
   return (
     <li
@@ -340,17 +345,20 @@ function describe(
 
 function rowAction(
   item: TodayPendingItem,
-  t: Translate
+  t: Translate,
+  canOpenOperations: boolean
 ): { kind: 'approval' } | { kind: 'link'; to: string; label: string } | null {
   switch (item.kind) {
     case 'approval':
       return { kind: 'approval' };
     case 'staleSession':
-      return {
-        kind: 'link',
-        to: '/operations?tab=cash',
-        label: t('dashboard:today.pending.actions.countAndClose'),
-      };
+      return canOpenOperations
+        ? {
+            kind: 'link',
+            to: '/operations?tab=cash',
+            label: t('dashboard:today.pending.actions.countAndClose'),
+          }
+        : null;
     case 'incident': {
       const source = transferSource(item.incident);
       return source
@@ -362,13 +370,15 @@ function rowAction(
         : null;
     }
     case 'attention':
-      return {
-        kind: 'link',
-        to: `/operations?tab=${item.area}`,
-        label:
-          item.area === 'fiscal'
-            ? t('dashboard:today.pending.actions.fix')
-            : t('dashboard:today.pending.actions.review'),
-      };
+      return canOpenOperations
+        ? {
+            kind: 'link',
+            to: `/operations?tab=${item.area}`,
+            label:
+              item.area === 'fiscal'
+                ? t('dashboard:today.pending.actions.fix')
+                : t('dashboard:today.pending.actions.review'),
+          }
+        : null;
   }
 }

@@ -405,6 +405,12 @@ describe('CompanyPage tab behavior', () => {
     expect(screen.getByText(/There is no fiscal pack for US yet/i)).toBeInTheDocument();
   });
 
+  it('falls back from ?tab=restaurant to readiness when dine-in is inactive', async () => {
+    render(<CompanyPage />, { initialEntries: ['/company?tab=restaurant'] });
+    await screen.findByTestId('card-readiness');
+    expect(screen.getByTestId('card-readiness')).toBeInTheDocument();
+  });
+
   it('has no serious accessibility violations in the progressive Setup nav', async () => {
     const { container } = render(<CompanyPage />);
     await screen.findByTestId('card-readiness');

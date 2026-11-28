@@ -2,6 +2,7 @@ import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useIsModuleActive } from '@/features/modules';
 import { useOfflineSync } from '@/hooks';
 
 const PILL_CLASS =
@@ -14,6 +15,7 @@ const PILL_CLASS =
 export function SyncConflictsPill() {
   const { t } = useTranslation('common');
   const { user } = useAuth();
+  const operationsCenterActive = useIsModuleActive('operations-center');
   const { conflicts } = useOfflineSync();
 
   if (conflicts === 0) return null;
@@ -31,7 +33,7 @@ export function SyncConflictsPill() {
     </>
   );
 
-  if (user?.role === 'admin' || user?.role === 'manager') {
+  if (user?.role === 'admin' && operationsCenterActive) {
     return (
       <Link
         to="/operations?tab=sync"

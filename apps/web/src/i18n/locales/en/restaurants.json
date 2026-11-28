@@ -101,6 +101,7 @@
   "actions": {
     "voiceCTA": "Voice order",
     "manualAdd": "Search product",
+    "backToPos": "Back to register",
     "exit": "Sign out"
   },
   "save": {

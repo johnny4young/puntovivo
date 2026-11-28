@@ -151,7 +151,6 @@ export async function closeCashSession(
   }
 
   const actualCount = getClosingCountTotal(input.actualCount, input.denominations);
-  const overShort = getCashSessionOverShort(activeSession.expectedBalance, actualCount);
   const closedAt = new Date().toISOString();
   const closedBy = ctx.user.id;
 
@@ -163,80 +162,101 @@ export async function closeCashSession(
 
   let auditLogId: string | null = null;
   let hookEffects: CashSessionJournalEffectInput[] = [];
+  let expectedBalanceAtClose = activeSession.expectedBalance;
+  let overShort = 0;
 
-  // Tier-2 #8 — wrap the close write + audit-log insert in one
-  // transaction so an over/short row never exists without a paired
-  // audit entry (and vice versa). assertCashSessionStillOpen adds
-  // TOCTOU defense parity with the sale-lifecycle services.
-  ctx.db.transaction(tx => {
-    assertCashSessionStillOpen(tx, ctx.tenantId, activeSession.id);
+  // Tier-2 #8 — wrap the close write + audit-log insert in one immediate
+  // transaction and re-read expectedBalance after reserving the writer so a
+  // concurrent sale/refund/void cannot leave over/short stale.
+  ctx.db.transaction(
+    tx => {
+      assertCashSessionStillOpen(tx, ctx.tenantId, activeSession.id);
 
-    const netItemQuantity = netSaleItemQuantitySql(ctx.tenantId);
-    const paceAggregate = tx
-      .select({
-        itemCount: sql<number>`round(coalesce(sum(${netItemQuantity}), 0), 3)`.mapWith(Number),
-      })
-      .from(sales)
-      .leftJoin(saleItems, eq(saleItems.saleId, sales.id))
-      .where(
-        and(
-          eq(sales.tenantId, ctx.tenantId),
-          eq(sales.cashSessionId, activeSession.id),
-          eq(sales.status, 'completed'),
-          sql`(${sales.returnState} is null or ${sales.returnState} != 'refunded')`
+      const currentSession = tx
+        .select()
+        .from(cashSessions)
+        .where(and(eq(cashSessions.id, activeSession.id), eq(cashSessions.tenantId, ctx.tenantId)))
+        .get();
+      if (!currentSession || currentSession.status !== 'open') {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'CASH_SESSION_REQUIRED',
+          message: 'This cash session is already closed',
+          details: { sessionId: activeSession.id },
+        });
+      }
+
+      expectedBalanceAtClose = currentSession.expectedBalance;
+      overShort = getCashSessionOverShort(expectedBalanceAtClose, actualCount);
+
+      const netItemQuantity = netSaleItemQuantitySql(ctx.tenantId);
+      const paceAggregate = tx
+        .select({
+          itemCount: sql<number>`round(coalesce(sum(${netItemQuantity}), 0), 3)`.mapWith(Number),
+        })
+        .from(sales)
+        .leftJoin(saleItems, eq(saleItems.saleId, sales.id))
+        .where(
+          and(
+            eq(sales.tenantId, ctx.tenantId),
+            eq(sales.cashSessionId, currentSession.id),
+            eq(sales.status, 'completed'),
+            sql`(${sales.returnState} is null or ${sales.returnState} != 'refunded')`
+          )
         )
-      )
-      .get();
-    const paceItemsPerMinute = calculateCashierItemsPerMinute(
-      paceAggregate?.itemCount ?? 0,
-      Date.parse(closedAt) - Date.parse(activeSession.openedAt)
-    );
+        .get();
+      const paceItemsPerMinute = calculateCashierItemsPerMinute(
+        paceAggregate?.itemCount ?? 0,
+        Date.parse(closedAt) - Date.parse(currentSession.openedAt)
+      );
 
-    tx.update(cashSessions)
-      .set({
-        actualCount,
-        actualCountDenominations: input.denominations,
-        overShort,
-        status: 'closed',
-        closedAt,
-        paceItemsPerMinute,
-        updatedAt: closedAt,
-      })
-      .where(and(eq(cashSessions.id, activeSession.id), eq(cashSessions.tenantId, ctx.tenantId)))
-      .run();
+      tx.update(cashSessions)
+        .set({
+          actualCount,
+          actualCountDenominations: input.denominations,
+          overShort,
+          status: 'closed',
+          closedAt,
+          paceItemsPerMinute,
+          updatedAt: closedAt,
+        })
+        .where(and(eq(cashSessions.id, currentSession.id), eq(cashSessions.tenantId, ctx.tenantId)))
+        .run();
 
-    auditLogId = writeAuditLog({
-      tx,
-      tenantId: ctx.tenantId,
-      actorId: closedBy,
-      action: 'cash_session.close',
-      resourceType: 'cash_session',
-      resourceId: activeSession.id,
-      before: {
-        status: activeSession.status,
-        expectedBalance: activeSession.expectedBalance,
-        openingFloat: activeSession.openingFloat,
-      },
-      after: {
-        status: 'closed',
-        actualCount,
-        overShort,
-        closedAt,
-        paceItemsPerMinute,
-      },
-      metadata: {
-        // Material for trend reporting + flagging anomalous shifts.
-        // |overShort| > 0 means the cashier's count diverged from expected.
-        siteId: activeSession.siteId,
-        registerName: activeSession.registerName,
-        pendingFiscalDocuments: pending.pendingFiscalDocuments,
-        pendingPaymentSales: pending.pendingPaymentSales,
-      },
-    });
+      auditLogId = writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: closedBy,
+        action: 'cash_session.close',
+        resourceType: 'cash_session',
+        resourceId: currentSession.id,
+        before: {
+          status: currentSession.status,
+          expectedBalance: expectedBalanceAtClose,
+          openingFloat: currentSession.openingFloat,
+        },
+        after: {
+          status: 'closed',
+          actualCount,
+          overShort,
+          closedAt,
+          paceItemsPerMinute,
+        },
+        metadata: {
+          // Material for trend reporting + flagging anomalous shifts.
+          // |overShort| > 0 means the cashier's count diverged from expected.
+          siteId: currentSession.siteId,
+          registerName: currentSession.registerName,
+          pendingFiscalDocuments: pending.pendingFiscalDocuments,
+          pendingPaymentSales: pending.pendingPaymentSales,
+        },
+      });
 
-    hookEffects =
-      options.withinTransaction?.(tx, { session: activeSession, actualCount, closedAt }) ?? [];
-  });
+      hookEffects =
+        options.withinTransaction?.(tx, { session: currentSession, actualCount, closedAt }) ?? [];
+    },
+    { behavior: 'immediate' }
+  );
 
   const closedSession = await ctx.db
     .select()
@@ -262,7 +282,7 @@ export async function closeCashSession(
     await safeUpdateCashSessionClosedSummary(ctx, log, journalEventId, {
       cashSessionId: activeSession.id,
       siteId: activeSession.siteId,
-      expectedCashBalance: activeSession.expectedBalance,
+      expectedCashBalance: expectedBalanceAtClose,
       countedCashBalance: actualCount,
       overShortAmount: overShort,
       openedAt: activeSession.openedAt,
@@ -275,7 +295,7 @@ export async function closeCashSession(
         resourceId: activeSession.id,
         effectData: {
           overShort,
-          expectedBalance: activeSession.expectedBalance,
+          expectedBalance: expectedBalanceAtClose,
           actualCount,
         },
       },

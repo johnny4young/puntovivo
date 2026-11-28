@@ -162,11 +162,13 @@ function zeroAnomalyKindCounts(): Record<AnomalyKind, number> {
 }
 
 function grossSales(tenantId: string, start: string, endExclusive: string) {
+  // Attribute carried-over drafts and overnight checks to their completion day.
+  const occurredAt = sql<string>`coalesce(${sales.checkoutCompletedAt}, ${sales.createdAt})`;
   return and(
     eq(sales.tenantId, tenantId),
     inArray(sales.status, ['completed', 'voided']),
-    gte(sales.createdAt, start),
-    lt(sales.createdAt, endExclusive)
+    gte(occurredAt, start),
+    lt(occurredAt, endExclusive)
   );
 }
 
