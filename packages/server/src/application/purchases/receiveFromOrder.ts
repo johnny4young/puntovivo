@@ -413,6 +413,8 @@ export async function createPurchaseFromOrder(
           orderId: input.orderId,
           total,
           siteId: orderRecord.siteId,
+          documentType: input.documentType ?? null,
+          documentNumber: input.documentNumber ?? null,
         },
       });
       enqueueSyncInTransaction(syncContext, {

@@ -83,6 +83,7 @@ export async function registerHttpPlugins(
         // policy down to same-origin scripts; bundled assets all sit
         // under '/'.
         scriptSrc: isProduction ? ["'self'"] : ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        frameSrc: ["'self'", 'blob:'],
         frameAncestors: ["'none'"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Paperclip } from 'lucide-react';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { trpc } from '@/lib/trpc';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { invalidateGroups } from '@/lib/invalidateGroups';
@@ -25,12 +26,17 @@ interface DocumentPreview {
 
 /** Base64 → browser object URL. The caller owns revocation. */
 function documentObjectUrl(documentBase64: string, mimeType: string): string {
-  const bytes = Uint8Array.from(atob(documentBase64), character => character.charCodeAt(0));
+  const binary = atob(documentBase64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
   return URL.createObjectURL(new Blob([bytes], { type: mimeType }));
 }
 
 export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) {
   const { t } = useTranslation('purchases');
+  const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,6 +44,7 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<DocumentPreview | null>(null);
   const attached = purchase.document ?? null;
+  const canManageDocument = user?.role === 'admin' || user?.role === 'manager';
 
   useEffect(
     () => () => {
@@ -71,12 +78,17 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
     },
   });
 
-  const documentTypeLabel =
-    purchase.documentType != null
-      ? t(
-          `document.type${purchase.documentType.charAt(0).toUpperCase()}${purchase.documentType.slice(1)}`
-        )
-      : t('document.typeNone');
+  const documentIdentityLabel = (() => {
+    if (purchase.documentType != null) {
+      const typeLabel = t(
+        `document.type${purchase.documentType.charAt(0).toUpperCase()}${purchase.documentType.slice(1)}`
+      );
+      return purchase.documentNumber ? `${typeLabel} · ${purchase.documentNumber}` : typeLabel;
+    }
+    if (purchase.documentNumber) return purchase.documentNumber;
+    if (attached) return attached.fileName ?? t('document.typeOther');
+    return t('document.typeNone');
+  })();
 
   const handleFileSelected = async (file: File) => {
     setBusy(true);
@@ -89,8 +101,15 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
         mimeType: prepared.mimeType,
         documentBase64: prepared.documentBase64,
       });
-    } catch {
-      setError(t('document.attachError'));
+    } catch (prepareError) {
+      const message = prepareError instanceof Error ? prepareError.message : '';
+      if (message === 'DOCUMENT_TOO_LARGE') {
+        setError(t('document.errorTooLarge'));
+      } else if (message === 'UNSUPPORTED_MIME') {
+        setError(t('document.errorUnsupportedType'));
+      } else {
+        setError(t('document.attachError'));
+      }
       setBusy(false);
     }
   };
@@ -99,7 +118,11 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
     setBusy(true);
     setError(null);
     try {
-      const document = await utils.purchases.getDocument.fetch({ purchaseId: purchase.id });
+      // Avoid retaining large base64 payloads in the React Query cache.
+      const document = await utils.purchases.getDocument.fetch(
+        { purchaseId: purchase.id },
+        { gcTime: 0, staleTime: 0 }
+      );
       if (preview) URL.revokeObjectURL(preview.url);
       setPreview({
         url: documentObjectUrl(document.documentBase64, document.mimeType),
@@ -107,7 +130,7 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
         fileName: document.fileName,
       });
     } catch {
-      setError(t('document.attachError'));
+      setError(t('document.viewError'));
     } finally {
       setBusy(false);
     }
@@ -121,27 +144,26 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
   return (
     <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
       <p className="text-xs uppercase tracking-wide text-secondary-500">{t('document.title')}</p>
-      <p className="mt-2 text-sm font-medium text-secondary-900">
-        {documentTypeLabel}
-        {purchase.documentNumber ? ` · ${purchase.documentNumber}` : ''}
-      </p>
+      <p className="mt-2 text-sm font-medium text-secondary-900">{documentIdentityLabel}</p>
 
       {attached ? (
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <span className="text-xs text-secondary-500">
             {t('document.attachedOn', { date: formatDateTime(attached.createdAt) })}
           </span>
-          <button
-            type="button"
-            className="btn-secondary inline-flex items-center gap-2"
-            disabled={isBusy}
-            onClick={handleViewDocument}
-          >
-            <Paperclip className="h-4 w-4" aria-hidden="true" />
-            {t('document.view')}
-          </button>
+          {canManageDocument && (
+            <button
+              type="button"
+              className="btn-secondary inline-flex items-center gap-2"
+              disabled={isBusy}
+              onClick={handleViewDocument}
+            >
+              <Paperclip className="h-4 w-4" aria-hidden="true" />
+              {t('document.view')}
+            </button>
+          )}
         </div>
-      ) : (
+      ) : canManageDocument ? (
         <div className="mt-2">
           <input
             ref={fileInputRef}
@@ -164,7 +186,7 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
             {t('document.attachLabel')}
           </button>
         </div>
-      )}
+      ) : null}
 
       {/* In-app preview: the desktop build blocks renderer-created windows and
           external blob navigation, so the paper is shown inside the panel. */}

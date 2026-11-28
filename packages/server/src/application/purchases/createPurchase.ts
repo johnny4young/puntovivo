@@ -308,6 +308,8 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
             providerId: input.providerId,
             total,
             siteId: purchaseSite.id,
+            documentType: input.documentType ?? null,
+            documentNumber: input.documentNumber ?? null,
           },
         }
       );

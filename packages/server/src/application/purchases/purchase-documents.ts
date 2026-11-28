@@ -7,12 +7,13 @@
  * @module application/purchases/purchase-documents
  */
 import { createHash } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { nanoid } from 'nanoid';
 
 import { purchases, purchaseDocuments } from '../../db/schema.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   PURCHASE_DOCUMENT_MAX_BYTES,
   type AttachPurchaseDocumentInput,
@@ -124,6 +125,8 @@ export function setPurchaseDocument(ctx: PurchaseDocumentContext, input: SetPurc
         .set({
           ...(input.documentType !== undefined ? { documentType: after.documentType } : {}),
           ...(input.documentNumber !== undefined ? { documentNumber: after.documentNumber } : {}),
+          syncStatus: 'pending',
+          syncVersion: sql`${purchases.syncVersion} + 1`,
           updatedAt: new Date().toISOString(),
         })
         .where(and(eq(purchases.id, input.purchaseId), eq(purchases.tenantId, ctx.tenantId)))
@@ -138,6 +141,19 @@ export function setPurchaseDocument(ctx: PurchaseDocumentContext, input: SetPurc
         before: before ?? null,
         after,
       });
+      enqueueSyncInTransaction(
+        { db: tx as unknown as typeof ctx.db, tenantId: ctx.tenantId },
+        {
+          entityType: 'purchases',
+          entityId: input.purchaseId,
+          operation: 'update',
+          data: {
+            id: input.purchaseId,
+            documentType: after.documentType,
+            documentNumber: after.documentNumber,
+          },
+        }
+      );
 
       return after;
     },

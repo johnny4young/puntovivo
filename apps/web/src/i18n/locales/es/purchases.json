@@ -203,6 +203,9 @@
     "attachSuccess": "Documento adjunto",
     "attachError": "No se pudo adjuntar el documento",
     "attachConflict": "Esta compra ya tiene un documento adjunto. La vista se actualizó para mostrarlo.",
+    "viewError": "No se pudo cargar el documento",
+    "errorTooLarge": "El archivo supera el límite de 10 MB",
+    "errorUnsupportedType": "Solo se permiten archivos PDF, PNG, JPEG o WebP",
     "previewTitle": "Vista previa del documento",
     "close": "Cerrar",
     "download": "Descargar"

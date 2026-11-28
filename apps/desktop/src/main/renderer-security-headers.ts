@@ -109,6 +109,7 @@ export function buildRendererContentSecurityPolicy(args: {
     `default-src 'self'; ` +
     `base-uri 'self'; ` +
     `object-src 'none'; ` +
+    `frame-src 'self' blob:; ` +
     `frame-ancestors 'none'; ` +
     `connect-src ${connectSources.join(' ')}; ` +
     `img-src 'self' data: blob: https:; ` +

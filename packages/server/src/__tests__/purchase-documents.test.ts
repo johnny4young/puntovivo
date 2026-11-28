@@ -17,6 +17,7 @@ import {
   purchaseDocuments,
   purchases,
   sites,
+  syncOutbox,
   unitXProduct,
   units,
   users,
@@ -337,6 +338,33 @@ describe('Purchase documents', () => {
       )
       .all();
     expect(audit.length).toBeGreaterThanOrEqual(2);
+
+    const updatedRow = getDatabase()
+      .select({ syncStatus: purchases.syncStatus, syncVersion: purchases.syncVersion })
+      .from(purchases)
+      .where(and(eq(purchases.id, purchaseId), eq(purchases.tenantId, tenantId)))
+      .get();
+    expect(updatedRow?.syncStatus).toBe('pending');
+    expect(updatedRow?.syncVersion).toBe(3);
+
+    const outboxRows = getDatabase()
+      .select({ operation: syncOutbox.operation, payload: syncOutbox.payload })
+      .from(syncOutbox)
+      .where(
+        and(
+          eq(syncOutbox.tenantId, tenantId),
+          eq(syncOutbox.entityType, 'purchases'),
+          eq(syncOutbox.entityId, purchaseId)
+        )
+      )
+      .all();
+    expect(outboxRows.length).toBe(2);
+    expect(outboxRows[1]?.operation).toBe('update');
+    expect(outboxRows[1]?.payload).toMatchObject({
+      id: purchaseId,
+      documentType: 'remision',
+      documentNumber: 'RM-0017-B',
+    });
   });
 
   it('attaches the paper once as a BLOB, returns it with a verified hash, and rejects a second attach', async () => {
@@ -455,11 +483,16 @@ describe('Purchase documents', () => {
     );
   });
 
-  it('rejects cross-tenant document reads and attachments', async () => {
+  it('rejects cross-tenant document identity updates, reads, and attachments', async () => {
     const purchaseId = await insertPurchaseRow();
     const ownCaller = appRouter.createCaller(createTestContext('manager'));
     const webpBytes = Buffer.from('RIFF\x12\x00\x00\x00WEBPVP8 ', 'binary');
 
+    await ownCaller.purchases.setDocument({
+      purchaseId,
+      documentType: 'remision',
+      documentNumber: 'RM-OWN-1',
+    });
     await ownCaller.purchases.attachDocument({
       purchaseId,
       fileName: 'remision.webp',
@@ -472,6 +505,21 @@ describe('Purchase documents', () => {
       tenantId: `foreign-tenant-${nanoid(6)}`,
     };
     const foreignCaller = appRouter.createCaller(foreignCtx);
+
+    await expect(
+      foreignCaller.purchases.setDocument({
+        purchaseId,
+        documentType: 'invoice',
+        documentNumber: 'INV-FOREIGN',
+      })
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+    const untouched = getDatabase()
+      .select({ documentType: purchases.documentType, documentNumber: purchases.documentNumber })
+      .from(purchases)
+      .where(and(eq(purchases.id, purchaseId), eq(purchases.tenantId, tenantId)))
+      .get();
+    expect(untouched).toEqual({ documentType: 'remision', documentNumber: 'RM-OWN-1' });
 
     await expect(foreignCaller.purchases.getDocument({ purchaseId })).rejects.toMatchObject({
       code: 'NOT_FOUND',

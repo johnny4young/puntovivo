@@ -1,29 +1,47 @@
-import { screen, within } from '@testing-library/react';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
 import type { Purchase } from '@/types';
 import { PurchaseDetailsContent } from './PurchaseDetailsContent';
 
+let mockRole: 'admin' | 'manager' | 'cashier' = 'manager';
+const listInvalidateMock = vi.fn();
+const getByIdInvalidateMock = vi.fn();
+const getDocumentFetchMock = vi.fn();
+const toastSuccessMock = vi.fn();
+const attachMutateMock = vi.fn();
+let attachMutationCallbacks: {
+  onSuccess?: () => Promise<void> | void;
+  onError?: (err: unknown) => Promise<void> | void;
+} = {};
+
+vi.mock('@/features/auth/AuthProvider', () => ({
+  useAuth: () => ({ user: { id: 'user-1', role: mockRole } }),
+}));
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
       purchases: {
-        list: { invalidate: vi.fn() },
-        getById: { invalidate: vi.fn() },
-        getDocument: { fetch: vi.fn() },
+        list: { invalidate: listInvalidateMock },
+        getById: { invalidate: getByIdInvalidateMock },
+        getDocument: { fetch: getDocumentFetchMock },
       },
     }),
     purchases: {
       attachDocument: {
-        useMutation: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+        useMutation: (callbacks?: typeof attachMutationCallbacks) => {
+          attachMutationCallbacks = callbacks ?? {};
+          return { mutate: attachMutateMock, mutateAsync: vi.fn(), isPending: false };
+        },
       },
     },
   },
 }));
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
-  useToast: () => ({ success: vi.fn(), error: vi.fn() }),
+  useToast: () => ({ success: toastSuccessMock, error: vi.fn() }),
 }));
 
 const purchase = {
@@ -81,6 +99,15 @@ const purchase = {
 describe('PurchaseDetailsContent lot evidence', () => {
   beforeAll(async () => i18next.changeLanguage('es'));
 
+  beforeEach(() => {
+    mockRole = 'manager';
+    listInvalidateMock.mockReset();
+    getByIdInvalidateMock.mockReset();
+    getDocumentFetchMock.mockReset();
+    toastSuccessMock.mockReset();
+    attachMutateMock.mockReset();
+  });
+
   it('shows the calendar expiry and localized current lot status', () => {
     render(<PurchaseDetailsContent purchase={purchase} returnError={null} voidError={null} />);
 
@@ -104,7 +131,54 @@ describe('PurchaseDetailsContent lot evidence', () => {
     ).toBeInTheDocument();
   });
 
-  it('labels the recorded remisión and offers to view its attachment', () => {
+  it('hides attach and view actions for roles without document permissions', () => {
+    mockRole = 'cashier';
+    const { rerender } = render(
+      <PurchaseDetailsContent purchase={purchase} returnError={null} voidError={null} />
+    );
+
+    expect(
+      screen.queryByRole('button', { name: /Adjuntar foto o PDF del documento/i })
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <PurchaseDetailsContent
+        purchase={
+          {
+            ...purchase,
+            document: {
+              fileName: 'remision.pdf',
+              mimeType: 'application/pdf',
+              sizeBytes: 512,
+              createdAt: '2030-01-01T12:00:00.000Z',
+            },
+          } as Purchase
+        }
+        returnError={null}
+        voidError={null}
+      />
+    );
+
+    expect(screen.getByText('remision.pdf')).toBeInTheDocument();
+    expect(screen.queryByText('Sin documento')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Ver documento adjunto/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('labels the recorded remisión and views its attachment without retaining it in query cache', async () => {
+    const createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview-1');
+    const revokeObjectUrlSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    getDocumentFetchMock.mockResolvedValue({
+      fileName: 'remision.png',
+      mimeType: 'image/png',
+      sizeBytes: 1024,
+      documentBase64: btoa('fake-png'),
+      payloadHash: 'abc',
+      uploadedBy: 'user-1',
+      createdAt: '2030-01-01T12:00:00.000Z',
+    });
+
     render(
       <PurchaseDetailsContent
         purchase={
@@ -126,6 +200,93 @@ describe('PurchaseDetailsContent lot evidence', () => {
     );
 
     expect(screen.getByText('Remisión · RM-0042')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Ver documento adjunto/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Ver documento adjunto/i }));
+
+    await waitFor(() => {
+      expect(screen.getByAltText('remision.png')).toHaveAttribute('src', 'blob:preview-1');
+    });
+    expect(getDocumentFetchMock).toHaveBeenCalledWith(
+      { purchaseId: 'purchase-1' },
+      { gcTime: 0, staleTime: 0 }
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
+    expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:preview-1');
+    createObjectUrlSpy.mockRestore();
+    revokeObjectUrlSpy.mockRestore();
+  });
+
+  it('shows the dedicated view error when getDocument fails', async () => {
+    getDocumentFetchMock.mockRejectedValue(new Error('integrity check failed'));
+
+    render(
+      <PurchaseDetailsContent
+        purchase={
+          {
+            ...purchase,
+            document: {
+              fileName: 'remision.pdf',
+              mimeType: 'application/pdf',
+              sizeBytes: 512,
+              createdAt: '2030-01-01T12:00:00.000Z',
+            },
+          } as Purchase
+        }
+        returnError={null}
+        voidError={null}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Ver documento adjunto/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('No se pudo cargar el documento');
+    });
+  });
+
+  it('surfaces distinct client validation errors and handles attach conflicts with a refresh', async () => {
+    const { container } = render(
+      <PurchaseDetailsContent purchase={purchase} returnError={null} voidError={null} />
+    );
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+
+    const unsupported = new File(['hello'], 'notes.txt', { type: 'text/plain' });
+    fireEvent.change(fileInput, { target: { files: [unsupported] } });
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Solo se permiten archivos PDF, PNG, JPEG o WebP'
+      );
+    });
+
+    const oversizedPdf = new File([new Uint8Array(10 * 1024 * 1024 + 1)], 'huge.pdf', {
+      type: 'application/pdf',
+    });
+    fireEvent.change(fileInput, { target: { files: [oversizedPdf] } });
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('El archivo supera el límite de 10 MB');
+    });
+
+    const validPdf = new File(['%PDF-1.4\n%%EOF\n'], 'remision.pdf', { type: 'application/pdf' });
+    fireEvent.change(fileInput, { target: { files: [validPdf] } });
+    await waitFor(() => {
+      expect(attachMutateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          purchaseId: 'purchase-1',
+          fileName: 'remision.pdf',
+          mimeType: 'application/pdf',
+        })
+      );
+    });
+
+    await act(async () => {
+      await attachMutationCallbacks.onError?.({ data: { code: 'CONFLICT' } });
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Esta compra ya tiene un documento adjunto. La vista se actualizó para mostrarlo.'
+      );
+    });
+    expect(listInvalidateMock).toHaveBeenCalled();
+    expect(getByIdInvalidateMock).toHaveBeenCalled();
   });
 });

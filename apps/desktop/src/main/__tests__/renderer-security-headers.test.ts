@@ -35,6 +35,7 @@ describe('renderer security headers', () => {
     assert.match(csp, /connect-src[^;]*http:\/\/localhost:8090/);
     assert.match(csp, /connect-src[^;]*http:\/\/127\.0\.0\.1:8090/);
     assert.match(csp, /connect-src[^;]*ws:\/\/localhost:3000/);
+    assert.match(csp, /frame-src 'self' blob:;/);
     assert.match(csp, /script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:/);
   });
 
