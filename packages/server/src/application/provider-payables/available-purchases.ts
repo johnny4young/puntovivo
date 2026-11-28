@@ -58,7 +58,6 @@ export function readAvailableProviderPurchases(
       .select({
         id: purchases.id,
         purchaseNumber: purchases.purchaseNumber,
-        status: purchases.status,
         total: purchases.total,
         siteId: purchases.siteId,
         siteName: sites.name,
@@ -73,12 +72,15 @@ export function readAvailableProviderPurchases(
       .limit(input.perPage)
       .offset((page - 1) * input.perPage)
       .all();
-    // A partially returned delivery shows what the store kept, computed like the
-    // invoice command so the offered amount is the one it accepts.
-    const returnedIds = rows.filter(row => row.status === 'partial_returned').map(row => row.id);
+    // The offered total is what the store kept, computed like the invoice command
+    // so the amount shown is the one it accepts.
     const keptByPurchase =
-      returnedIds.length > 0
-        ? computeNetKeptGoods(tx, tenantId, returnedIds).totalByPurchase
+      rows.length > 0
+        ? computeNetKeptGoods(
+            tx,
+            tenantId,
+            rows.map(row => row.id)
+          ).totalByPurchase
         : new Map<string, number>();
     const items = rows.map(row => ({
       id: row.id,

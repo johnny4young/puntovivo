@@ -38,7 +38,7 @@ export const createProviderInvoiceInput = z
     providerId: z.string().min(1),
     purchaseId: z.string().min(1).optional(),
     /** Several deliveries (remisiones) consolidated by one final invoice.
-     * Takes precedence over the legacy single purchaseId. */
+     * When the legacy purchaseId is also sent it must be one of them. */
     purchaseIds: z.array(z.string().min(1)).min(1).max(50).optional(),
     /** Invoice lines as printed by the supplier. Required when consolidating
      * several purchases: each product must match what was received, in base

@@ -536,8 +536,8 @@ describe('provider payable consolidation', () => {
     });
     expect(returned.status).toBe('partial_returned');
 
-    // The overstatement this finding is about: invoicing everything that once
-    // arrived, as if 30 had never gone back.
+    // Invoicing everything that once arrived, as if 30 had never gone back,
+    // overstates the payable.
     await expect(
       caller.providerPayables.createInvoice({
         providerId,
