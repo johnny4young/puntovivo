@@ -124,18 +124,13 @@ describe('0115 payable backfill', () => {
     const second = await buildReplica([...linkedInvoices].reverse());
 
     expect(first.rows).toHaveLength(linkedInvoices.length);
-    // Byte-identical is the whole point: two devices that ran this migration
-    // against the same invoices must converge on one row per link, not on two
-    // rows describing the same link under different identities.
+    // Replicas must converge on the same rows, ids included, not duplicate links.
     expect(second.rows).toEqual(first.rows);
 
     const ids = (first.rows as Array<{ id: string }>).map(row => row.id);
     expect(new Set(ids).size).toBe(ids.length);
 
-    // Order independence alone could still hide randomness that happens to be
-    // seeded once per database. A replica that holds a single one of these
-    // invoices must therefore mint that same id on its own: the identity is a
-    // function of the row, never of its neighbours.
+    // A lone invoice must mint the same id: it depends on the row, not its neighbours.
     for (const link of linkedInvoices) {
       const alone = await buildReplica([link]);
       const together = (first.rows as Array<{ id: string; invoice_id: string }>).find(

@@ -7,6 +7,7 @@ import {
   sites,
 } from '../../db/schema.js';
 import type { AvailableProviderPurchasesInput } from '../../trpc/schemas/providerPayables.js';
+import { computeNetKeptGoods } from './net-kept-goods.js';
 
 /** Shared bounded projection for legacy overview and the searchable picker. */
 export function readAvailableProviderPurchases(
@@ -53,13 +54,12 @@ export function readAvailableProviderPurchases(
         .get()?.count ?? 0;
     const pageCount = Math.max(1, Math.ceil(total / input.perPage));
     const page = Math.min(input.page, pageCount);
-    const items = tx
+    const rows = tx
       .select({
         id: purchases.id,
         purchaseNumber: purchases.purchaseNumber,
-        // Net of supplier returns so partially returned deliveries expose the
-        // invoiceable balance instead of the pre-return gross receipt total.
-        total: sql<number>`ROUND(MAX(0, ${purchases.total} - COALESCE((SELECT SUM(pr.return_amount) FROM purchase_returns pr WHERE pr.tenant_id = ${purchases.tenantId} AND pr.purchase_id = ${purchases.id}), 0)), 2)`,
+        status: purchases.status,
+        total: purchases.total,
         siteId: purchases.siteId,
         siteName: sites.name,
         createdAt: purchases.createdAt,
@@ -73,6 +73,21 @@ export function readAvailableProviderPurchases(
       .limit(input.perPage)
       .offset((page - 1) * input.perPage)
       .all();
+    // A partially returned delivery shows what the store kept, computed like the
+    // invoice command so the offered amount is the one it accepts.
+    const returnedIds = rows.filter(row => row.status === 'partial_returned').map(row => row.id);
+    const keptByPurchase =
+      returnedIds.length > 0
+        ? computeNetKeptGoods(tx, tenantId, returnedIds).totalByPurchase
+        : new Map<string, number>();
+    const items = rows.map(row => ({
+      id: row.id,
+      purchaseNumber: row.purchaseNumber,
+      total: keptByPurchase.get(row.id) ?? row.total,
+      siteId: row.siteId,
+      siteName: row.siteName,
+      createdAt: row.createdAt,
+    }));
     return { items, total, page, perPage: input.perPage, pageCount };
   });
 }

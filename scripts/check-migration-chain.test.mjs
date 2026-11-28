@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import test from 'node:test';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { inspectMigrationChain, readMigrationChain } from './check-migration-chain.mjs';
 
@@ -82,4 +85,40 @@ test('the repository chain itself is sound', () => {
   // The gate must agree with the tree it ships in, or it is decoration.
   const folder = resolve(process.cwd(), 'packages/server/src/db/migrations');
   assert.deepEqual(inspectMigrationChain(readMigrationChain(folder)), []);
+});
+
+const GATE = resolve(import.meta.dirname, 'check-migration-chain.mjs');
+const REPO_ROOT = resolve(import.meta.dirname, '..');
+
+function runGate(entry, cwd) {
+  return spawnSync(process.execPath, [entry], { cwd, encoding: 'utf8' });
+}
+
+test('the gate really runs, directly and through a symlinked path', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'chain-gate-'));
+  try {
+    const entries = [GATE];
+    try {
+      symlinkSync(GATE, join(dir, 'gate.mjs'));
+      entries.push(join(dir, 'gate.mjs'));
+    } catch {
+      // Symlinks can need elevated rights on Windows: the direct run still counts.
+    }
+    for (const entry of entries) {
+      const result = runGate(entry, REPO_ROOT);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Migration chain check passed/);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the gate fails when there is no chain to inspect', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'chain-gate-empty-'));
+  try {
+    assert.notEqual(runGate(GATE, dir).status, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

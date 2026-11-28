@@ -429,11 +429,20 @@ describe('provider payable consolidation', () => {
       updatedAt: now,
     });
 
-    const before =
-      db
-        .select({ count: sql<number>`count(*)` })
-        .from(providerPayableInvoicePurchases)
-        .get()?.count ?? 0;
+    const countRows = () => ({
+      links:
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(providerPayableInvoicePurchases)
+          .get()?.count ?? 0,
+      invoices:
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(providerPayableInvoices)
+          .where(eq(providerPayableInvoices.providerId, providerId))
+          .get()?.count ?? 0,
+    });
+    const before = countRows();
 
     const caller = appRouter.createCaller(context());
     await expect(
@@ -450,12 +459,7 @@ describe('provider payable consolidation', () => {
       cause: { errorCode: 'PROVIDER_PAYABLE_PURCHASE_SITE_MISMATCH' },
     });
 
-    const after =
-      db
-        .select({ count: sql<number>`count(*)` })
-        .from(providerPayableInvoicePurchases)
-        .get()?.count ?? 0;
-    expect(after).toBe(before);
+    expect(countRows()).toEqual(before);
   });
 
   it('cannot reuse a purchase after a bridge-only consolidation', async () => {
@@ -854,6 +858,10 @@ describe('provider payable consolidation', () => {
       reason: 'Segunda mitad dañada',
     });
     expect(afterSecond.status).toBe('partial_returned');
+
+    // The picker must offer the balance the invoice command reconciles to.
+    const available = await caller.providerPayables.availablePurchases({ providerId });
+    expect(available.items).toEqual([expect.objectContaining({ id: created.id, total: 100 })]);
 
     await expect(
       caller.providerPayables.createInvoice({
