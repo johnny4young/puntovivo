@@ -14,6 +14,7 @@ import {
   purchases,
   sites,
   syncOutbox,
+  tenants,
   units,
   unitXProduct,
   users,
@@ -993,5 +994,131 @@ describe('provider payable consolidation', () => {
       )
       .get();
     expect(linkOutbox?.status).toBe('synced');
+  });
+
+  it('never mixes another tenant into the bridge, the picker or the overview', async () => {
+    const db = getDatabase();
+    const providerId = await createProvider(`Tenant isolation ${nanoid(5)}`);
+    const productId = await createProduct('Tenant probe');
+    const own = await createRemissionPurchase(providerId, productId, 2, 10);
+    const second = await createRemissionPurchase(providerId, productId, 2, 10);
+
+    const now = new Date().toISOString();
+    const company = db
+      .select({ companyId: sites.companyId })
+      .from(sites)
+      .where(eq(sites.id, siteId))
+      .get();
+    if (!company) throw new Error('Expected the seeded site');
+    const foreignTenantId = nanoid();
+    await db.insert(tenants).values({
+      id: foreignTenantId,
+      name: 'Foreign tenant for payables',
+      slug: `iso-pay-${nanoid(6).toLowerCase()}`,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const foreignSiteId = nanoid();
+    await db.insert(sites).values({
+      id: foreignSiteId,
+      tenantId: foreignTenantId,
+      companyId: company.companyId,
+      name: 'Foreign site',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    // Same provider id on purpose: only the tenant predicate can tell it apart.
+    const foreignPurchaseId = nanoid();
+    await db.insert(purchases).values({
+      id: foreignPurchaseId,
+      tenantId: foreignTenantId,
+      purchaseNumber: `REM-F-${nanoid(5)}`,
+      providerId,
+      siteId: foreignSiteId,
+      status: 'completed',
+      subtotal: 20,
+      total: 20,
+      createdBy: userId,
+      syncVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const foreignInvoiceId = nanoid();
+    await db.insert(providerPayableInvoices).values({
+      id: foreignInvoiceId,
+      tenantId: foreignTenantId,
+      providerId,
+      siteId: foreignSiteId,
+      purchaseId: null,
+      kind: 'invoice',
+      documentNumber: `FAC-F-${nanoid(6)}`,
+      issuedAt: businessDayFromNow(-2),
+      dueAt: businessDayFromNow(28),
+      amount: 20,
+      createdBy: userId,
+      createdAt: now,
+    });
+    // Another tenant's bridge row pointing at one of our purchases.
+    await db.insert(providerPayableInvoicePurchases).values({
+      id: nanoid(),
+      tenantId: foreignTenantId,
+      invoiceId: foreignInvoiceId,
+      purchaseId: own,
+      createdAt: now,
+    });
+
+    const caller = appRouter.createCaller(context());
+    const available = await caller.providerPayables.availablePurchases({ providerId });
+    expect(available.items.map(item => item.id).sort()).toEqual([own, second].sort());
+
+    await expect(
+      caller.providerPayables.createInvoice({
+        providerId,
+        purchaseIds: [own, foreignPurchaseId],
+        lines: [{ productId, quantity: 4, unitCost: 10 }],
+        documentNumber: `FAC-${nanoid(6)}`,
+        issuedAt: businessDayFromNow(-2),
+        dueAt: businessDayFromNow(28),
+        amount: 40,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PROVIDER_PAYABLE_PURCHASE_MISMATCH' },
+    });
+    const leaked = db
+      .select({ id: providerPayableInvoicePurchases.id })
+      .from(providerPayableInvoicePurchases)
+      .where(
+        and(
+          eq(providerPayableInvoicePurchases.tenantId, tenantId),
+          eq(providerPayableInvoicePurchases.purchaseId, own)
+        )
+      )
+      .all();
+    expect(leaked).toEqual([]);
+
+    const invoice = await caller.providerPayables.createInvoice({
+      providerId,
+      purchaseIds: [own, second],
+      lines: [{ productId, quantity: 4, unitCost: 10 }],
+      documentNumber: `FAC-${nanoid(6)}`,
+      issuedAt: businessDayFromNow(-2),
+      dueAt: businessDayFromNow(28),
+      amount: 40,
+    });
+    // Another tenant's bridge row pointing at our invoice.
+    await db.insert(providerPayableInvoicePurchases).values({
+      id: nanoid(),
+      tenantId: foreignTenantId,
+      invoiceId: invoice.id,
+      purchaseId: foreignPurchaseId,
+      createdAt: now,
+    });
+
+    const overview = await caller.providerPayables.overview({ providerId });
+    const entry = overview.invoices.find(item => item.id === invoice.id);
+    expect(entry?.purchaseIds.slice().sort()).toEqual([own, second].sort());
+    expect(entry?.purchaseNumbers).toHaveLength(2);
   });
 });
