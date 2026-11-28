@@ -393,9 +393,12 @@ export function AuditLogsPage() {
 
       <div className="card p-6">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <label className="block">
-            <span className="label">{t('filters.action')}</span>
+          <div className="block">
+            <label htmlFor="audit-filter-action" className="label block">
+              {t('filters.action')}
+            </label>
             <select
+              id="audit-filter-action"
               className="input mt-1"
               value={action}
               onChange={event => {
@@ -411,10 +414,13 @@ export function AuditLogsPage() {
                 </option>
               ))}
             </select>
-          </label>
-          <label className="block">
-            <span className="label">{t('filters.resourceType')}</span>
+          </div>
+          <div className="block">
+            <label htmlFor="audit-filter-resource-type" className="label block">
+              {t('filters.resourceType')}
+            </label>
             <select
+              id="audit-filter-resource-type"
               className="input mt-1"
               value={resourceType}
               onChange={event => setResourceType(event.target.value as AuditLogResourceType | '')}
@@ -426,25 +432,31 @@ export function AuditLogsPage() {
                 </option>
               ))}
             </select>
-          </label>
-          <label className="block">
-            <span className="label">{t('filters.createdAfter')}</span>
+          </div>
+          <div className="block">
+            <label htmlFor="audit-filter-created-after" className="label block">
+              {t('filters.createdAfter')}
+            </label>
             <input
+              id="audit-filter-created-after"
               type="date"
               className="input mt-1"
               value={createdAfter}
               onChange={event => setCreatedAfter(event.target.value)}
             />
-          </label>
-          <label className="block">
-            <span className="label">{t('filters.createdBefore')}</span>
+          </div>
+          <div className="block">
+            <label htmlFor="audit-filter-created-before" className="label block">
+              {t('filters.createdBefore')}
+            </label>
             <input
+              id="audit-filter-created-before"
               type="date"
               className="input mt-1"
               value={createdBefore}
               onChange={event => setCreatedBefore(event.target.value)}
             />
-          </label>
+          </div>
         </div>
       </div>
 

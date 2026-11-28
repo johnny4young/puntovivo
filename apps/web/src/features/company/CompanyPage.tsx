@@ -5,6 +5,7 @@ import { PageLoadingState } from '@/components/feedback/LoadingState';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useIsModuleActive } from '@/features/modules';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
@@ -42,8 +43,11 @@ export function CompanyPage(): React.ReactElement {
   const focusTarget = isCompanyFocusTarget(focusParam) ? focusParam : null;
   // admins default to readiness; other allowed roles retain
   // the legacy general-form landing.
+  const dineInActive = useIsModuleActive('dine-in');
   const defaultTab: CompanyTabKey = canEdit ? 'readiness' : 'general';
-  const activeTab: CompanyTabKey = isCompanyTabKey(tabParam) ? tabParam : defaultTab;
+  const requestedTab: CompanyTabKey = isCompanyTabKey(tabParam) ? tabParam : defaultTab;
+  const activeTab: CompanyTabKey =
+    requestedTab === 'restaurant' && !dineInActive ? defaultTab : requestedTab;
 
   const upsertMutation = trpc.companies.upsert.useMutation({
     onSuccess: async savedCompany => {

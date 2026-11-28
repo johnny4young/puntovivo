@@ -1,8 +1,10 @@
 /** Live kitchen board: coherent server projection, explicit stale/offline states and CAS actions. */
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useSellingRoute } from '@/features/auth/useSellingRoute';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { useRealtimeChannel } from '@/hooks/useRealtimeChannel';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -21,12 +23,22 @@ const KdsConfiguration = lazy(() =>
 export function KdsBoard() {
   const { currentSite, currentTenant } = useTenant();
   const { user } = useAuth();
+  const { route: sellingRoute } = useSellingRoute();
   const { t } = useTranslation('kds');
   if (!currentSite)
     return (
-      <p data-testid="kds-no-site" className="p-8 text-muted-foreground">
-        {t('errors.noSiteSelected')}
-      </p>
+      <div className="flex flex-col items-start gap-4 p-8">
+        <p data-testid="kds-no-site" className="text-muted-foreground">
+          {t('errors.noSiteSelected')}
+        </p>
+        <Link
+          to={sellingRoute}
+          data-testid="kds-back-link"
+          className="inline-flex min-h-11 items-center rounded-lg border border-line-strong bg-surface px-4 text-sm font-medium text-ink hover:bg-surface-2"
+        >
+          {t('actions.backToPos')}
+        </Link>
+      </div>
     );
   // Local drafts and pending controls cannot survive a tenant, login or site switch.
   return (
@@ -34,6 +46,7 @@ export function KdsBoard() {
       key={`${currentTenant?.id}:${user?.id}:${currentSite.id}`}
       siteId={currentSite.id}
       siteName={currentSite.name}
+      sellingRoute={sellingRoute}
       canManage={user?.role === 'admin' || user?.role === 'manager'}
     />
   );
@@ -41,10 +54,12 @@ export function KdsBoard() {
 function KitchenBoard({
   siteId,
   siteName,
+  sellingRoute,
   canManage,
 }: {
   siteId: string;
   siteName: string;
+  sellingRoute: string;
   canManage: boolean;
 }) {
   const { t } = useTranslation(['kds', 'common']);
@@ -120,7 +135,16 @@ function KitchenBoard({
   if (station && !availableStations.has(station)) availableStations.set(station, station);
   return (
     <div className="flex flex-col gap-6" data-testid="kds-board">
-      <h1 className="text-xl font-semibold text-ink">{t('boardTitle', { site: siteName })}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold text-ink">{t('boardTitle', { site: siteName })}</h1>
+        <Link
+          to={sellingRoute}
+          data-testid="kds-back-link"
+          className="inline-flex min-h-11 items-center rounded-lg border border-line-strong bg-surface px-4 text-sm font-medium text-ink hover:bg-surface-2"
+        >
+          {t('actions.backToPos')}
+        </Link>
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-4 text-ink">
         <div
           role="group"

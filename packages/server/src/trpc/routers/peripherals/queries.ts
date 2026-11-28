@@ -21,6 +21,7 @@ import { summarizeItemTaxBreakdown } from '../../../services/receipt-renderer/ta
 import { escposReceiptPrinterConfigSchema } from '../../../services/peripherals/drivers/escpos-receipt-printer.js';
 import { escposCashDrawerConfigSchema } from '../../../services/peripherals/drivers/escpos-cash-drawer.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
+import { assertCanViewSaleDraft } from '../../../application/sales/draft-ownership.js';
 import { managerOrAdminProcedure } from '../../middleware/roles.js';
 import { criticalCommandCashierManagerOrAdminProcedure } from '../../middleware/criticalCommand.js';
 import { asCriticalCommandContext } from '../../middleware/commandEnvelope.js';
@@ -109,6 +110,18 @@ export const peripheralsQueryProcedures = {
   renderReceiptHtml: tenantProcedure.input(renderReceiptHtmlInput).query(async ({ ctx, input }) => {
     const sale = await getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
     await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    if (ctx.user) {
+      assertCanViewSaleDraft(
+        ctx.db,
+        {
+          tenantId: ctx.tenantId,
+          siteId: input.siteId,
+          userId: ctx.user.id,
+          role: ctx.user.role,
+        },
+        sale
+      );
+    }
     const templateContext = await resolveSaleReceiptTemplateContext({
       db: ctx.db,
       tenantId: ctx.tenantId,
@@ -142,6 +155,18 @@ export const peripheralsQueryProcedures = {
     .query(async ({ ctx, input }) => {
       const sale = await getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
       await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      if (ctx.user) {
+        assertCanViewSaleDraft(
+          ctx.db,
+          {
+            tenantId: ctx.tenantId,
+            siteId: input.siteId,
+            userId: ctx.user.id,
+            role: ctx.user.role,
+          },
+          sale
+        );
+      }
       const templateContext = await resolveSaleReceiptTemplateContext({
         db: ctx.db,
         tenantId: ctx.tenantId,
@@ -225,6 +250,18 @@ export const peripheralsQueryProcedures = {
     // Cross-tenant guard. Throws SALE_NOT_FOUND for foreign ids.
     const sale = await getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
     await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    if (ctx.user) {
+      assertCanViewSaleDraft(
+        ctx.db,
+        {
+          tenantId: ctx.tenantId,
+          siteId: input.siteId,
+          userId: ctx.user.id,
+          role: ctx.user.role,
+        },
+        sale
+      );
+    }
 
     const printerRow = await ctx.db
       .select()

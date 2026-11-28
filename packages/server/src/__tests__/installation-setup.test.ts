@@ -180,7 +180,7 @@ describe('first-use ownership over real tRPC and SQLite', () => {
         .from(schema.units)
         .all()
         .map(u => u.abbreviation)
-    ).toEqual(['UN', 'kg', 'g', 'L']);
+    ).toEqual(['UN', 'kg', 'g', 'L', 'm']);
     expect(company.taxId).toBeNull();
     expect(
       server.db

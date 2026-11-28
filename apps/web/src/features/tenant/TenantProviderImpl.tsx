@@ -57,6 +57,23 @@ export function TenantProvider({ children }: TenantProviderProps) {
     const previous = previousSiteIdRef.current;
     previousSiteIdRef.current = currentSiteId;
     if (previous !== null && currentSiteId !== null && previous !== currentSiteId) {
+      // Clear site-scoped operational caches immediately so previous-site data
+      // never flashes while queries refetch under the new x-site-id header.
+      const siteScopedRoots = new Set([
+        'cashSessions',
+        'sales',
+        'kds',
+        'restaurantServices',
+        'peripherals',
+        'operations',
+        'inventory',
+      ]);
+      void queryClient.resetQueries({
+        predicate: query => {
+          const head = Array.isArray(query.queryKey[0]) ? query.queryKey[0][0] : query.queryKey[0];
+          return typeof head === 'string' && siteScopedRoots.has(head);
+        },
+      });
       void queryClient.invalidateQueries();
     }
   }, [currentSiteId, queryClient]);

@@ -18,16 +18,21 @@ import { freezePurchaseValue, frozenReceiptSlice } from './values.js';
  */
 import { TRPCError } from '@trpc/server';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import {
   inventoryMovements,
+  orderItems,
+  orders,
   products,
+  providerPayableInvoicePurchases,
+  providerPayableInvoices,
   purchaseItemLots,
   purchaseItems,
   purchases,
 } from '../../db/schema.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import { QUANTITY_EPSILON, settleDebitedBalance } from '../../lib/quantity.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
@@ -101,6 +106,38 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'Only completed purchases can be voided',
+        });
+      }
+
+      const linkedBridgeInvoice = tx
+        .select({ invoiceId: providerPayableInvoicePurchases.invoiceId })
+        .from(providerPayableInvoicePurchases)
+        .where(
+          and(
+            eq(providerPayableInvoicePurchases.tenantId, ctx.tenantId),
+            eq(providerPayableInvoicePurchases.purchaseId, input.id)
+          )
+        )
+        .get();
+      const linkedDirectInvoice = linkedBridgeInvoice
+        ? null
+        : tx
+            .select({ invoiceId: providerPayableInvoices.id })
+            .from(providerPayableInvoices)
+            .where(
+              and(
+                eq(providerPayableInvoices.tenantId, ctx.tenantId),
+                eq(providerPayableInvoices.purchaseId, input.id)
+              )
+            )
+            .get();
+      const linkedInvoiceId = linkedBridgeInvoice?.invoiceId ?? linkedDirectInvoice?.invoiceId;
+      if (linkedInvoiceId) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'PURCHASE_VOID_PAYABLE_LINKED',
+          message: 'Cannot void a purchase linked to a supplier payable invoice',
+          details: { purchaseId: input.id, invoiceId: linkedInvoiceId },
         });
       }
 
@@ -337,6 +374,78 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
         });
       }
 
+      // Recompute linked purchase-order receipt status so voided receipts can be re-received.
+      let revertedOrderStatus: 'submitted' | 'partial_received' | 'received' | null = null;
+      if (current.orderId) {
+        const linkedOrder = tx
+          .select({
+            id: orders.id,
+            status: orders.status,
+            syncVersion: orders.syncVersion,
+          })
+          .from(orders)
+          .where(and(eq(orders.id, current.orderId), eq(orders.tenantId, ctx.tenantId)))
+          .get();
+        if (
+          linkedOrder &&
+          (linkedOrder.status === 'received' || linkedOrder.status === 'partial_received')
+        ) {
+          const orderLines = tx
+            .select({ id: orderItems.id, quantity: orderItems.quantity })
+            .from(orderItems)
+            .where(eq(orderItems.orderId, linkedOrder.id))
+            .all();
+          const remainingReceipts = tx
+            .select({
+              sourceOrderItemId: purchaseItems.sourceOrderItemId,
+              receivedQuantity: sql<number>`coalesce(sum(${purchaseItems.quantity}), 0)`,
+            })
+            .from(purchaseItems)
+            .innerJoin(purchases, eq(purchaseItems.purchaseId, purchases.id))
+            .where(
+              and(
+                eq(purchases.tenantId, ctx.tenantId),
+                eq(purchases.orderId, linkedOrder.id),
+                inArray(purchases.status, ['completed', 'partial_returned', 'returned'])
+              )
+            )
+            .groupBy(purchaseItems.sourceOrderItemId)
+            .all();
+          const receivedByLine = new Map(
+            remainingReceipts
+              .filter(row => row.sourceOrderItemId)
+              .map(row => [
+                row.sourceOrderItemId as string,
+                roundQuantity(row.receivedQuantity ?? 0, 12),
+              ])
+          );
+          let hasAnyReceived = false;
+          let fullyReceivedCount = 0;
+          for (const line of orderLines) {
+            const receivedQty = receivedByLine.get(line.id) ?? 0;
+            if (receivedQty > QUANTITY_EPSILON) hasAnyReceived = true;
+            if (receivedQty + QUANTITY_EPSILON >= line.quantity) fullyReceivedCount += 1;
+          }
+          const nextOrderStatus = !hasAnyReceived
+            ? 'submitted'
+            : orderLines.length > 0 && fullyReceivedCount === orderLines.length
+              ? 'received'
+              : 'partial_received';
+          if (nextOrderStatus !== linkedOrder.status) {
+            tx.update(orders)
+              .set({
+                status: nextOrderStatus,
+                updatedAt: now,
+                syncStatus: 'pending',
+                syncVersion: (linkedOrder.syncVersion ?? 0) + 1,
+              })
+              .where(and(eq(orders.id, linkedOrder.id), eq(orders.tenantId, ctx.tenantId)))
+              .run();
+            revertedOrderStatus = nextOrderStatus;
+          }
+        }
+      }
+
       // voiding a purchase reverses destination stock at the
       // receiving site and pushes the purchase row into `voided`. Audit row
       // is written inside the same transaction as the reversal so either
@@ -370,6 +479,21 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
           data: { id: input.id, status: 'voided', reason: input.reason },
         }
       );
+      if (current.orderId && revertedOrderStatus) {
+        enqueueSyncInTransaction(
+          { ...ctx, db: tx as unknown as typeof ctx.db },
+          {
+            entityType: 'orders',
+            entityId: current.orderId,
+            operation: 'update',
+            data: {
+              id: current.orderId,
+              status: revertedOrderStatus,
+              voidedPurchaseId: input.id,
+            },
+          }
+        );
+      }
       enqueueInventoryLotSnapshotsInTransaction(
         { ...ctx, db: tx as unknown as typeof ctx.db },
         mutatedLotIds,

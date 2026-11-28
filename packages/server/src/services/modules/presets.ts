@@ -73,16 +73,19 @@ export const VERTICAL_PRESETS: Record<VerticalPresetId, PresetPatch> = {
   // versión provisional.
   restaurant: {
     'operations-center': true,
+    quotations: false,
     'pos-touch': true,
     kds: true,
     'customer-display': false,
     'mobile-waiter': true,
     'dine-in': true,
+    delivery: false,
   },
   // Comida rápida / cafetería: pantalla táctil + cocina, sin mesas, sin
   // mesero móvil y sin la pantalla al cliente, que todavía no es operativa.
   quickservice: {
     'operations-center': true,
+    quotations: false,
     'pos-touch': true,
     kds: true,
     'customer-display': false,
@@ -102,6 +105,7 @@ export const VERTICAL_PRESETS: Record<VerticalPresetId, PresetPatch> = {
     'customer-display': false,
     'mobile-waiter': false,
     'dine-in': false,
+    delivery: false,
   },
   // Ferretería: cotizaciones para proyectos y mostrador de escritorio.
   // Las plantillas de longitud/serial/lote son opt-in en el catálogo; el

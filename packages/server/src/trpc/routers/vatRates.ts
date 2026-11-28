@@ -15,12 +15,13 @@
  */
 
 import { TRPCError } from '@trpc/server';
-import { and, eq, like } from 'drizzle-orm';
+import { and, eq, like, ne } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { productTaxComponents, products, vatRates } from '../../db/schema.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import type { DatabaseInstance } from '../../db/index.js';
@@ -40,6 +41,33 @@ function findTenantVatRate(db: DatabaseInstance, tenantId: string, id: string) {
     .from(vatRates)
     .where(and(eq(vatRates.id, id), eq(vatRates.tenantId, tenantId)))
     .get();
+}
+
+function assertUniqueVatRateName(
+  db: DatabaseInstance,
+  tenantId: string,
+  name: string,
+  excludeId?: string
+): void {
+  const duplicate = db
+    .select({ id: vatRates.id })
+    .from(vatRates)
+    .where(
+      and(
+        eq(vatRates.tenantId, tenantId),
+        eq(vatRates.name, name),
+        ...(excludeId ? [ne(vatRates.id, excludeId)] : [])
+      )
+    )
+    .get();
+  if (duplicate) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'VAT_RATE_NAME_DUPLICATE',
+      message: 'A tax rate with that name already exists',
+      details: { name },
+    });
+  }
 }
 
 function vatRateAuditSnapshot(row: typeof vatRates.$inferSelect) {
@@ -82,6 +110,8 @@ export const vatRatesRouter = router({
 
     return ctx.db.transaction(
       tx => {
+        assertUniqueVatRateName(tx, ctx.tenantId, input.name);
+
         tx.insert(vatRates)
           .values({
             id,
@@ -132,6 +162,9 @@ export const vatRatesRouter = router({
         const existing = findTenantVatRate(tx, ctx.tenantId, id);
         if (!existing) {
           throw new TRPCError({ code: 'NOT_FOUND', message: 'VAT rate not found' });
+        }
+        if (updates.name !== undefined && updates.name !== existing.name) {
+          assertUniqueVatRateName(tx, ctx.tenantId, updates.name, id);
         }
 
         tx.update(vatRates)

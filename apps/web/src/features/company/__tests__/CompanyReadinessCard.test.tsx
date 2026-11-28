@@ -24,6 +24,12 @@ const readinessQueryRef: { current: ReadinessQueryState } = {
 
 const acknowledgeMutate = vi.fn();
 const acknowledgeState = { isPending: false };
+let mockSellingRoute: '/sales' | '/touch' = '/sales';
+let mockSellingRouteResolving = false;
+
+vi.mock('@/features/auth/useSellingRoute', () => ({
+  useSellingRoute: () => ({ route: mockSellingRoute, isResolving: mockSellingRouteResolving }),
+}));
 
 function LocationProbe() {
   const location = useLocation();
@@ -112,6 +118,8 @@ function setReadiness(overrides: Partial<CompanyReadiness> = {}): CompanyReadine
 describe('CompanyReadinessCard', () => {
   beforeEach(async () => {
     await i18next.changeLanguage('en');
+    mockSellingRoute = '/sales';
+    mockSellingRouteResolving = false;
     acknowledgeMutate.mockReset();
     acknowledgeState.isPending = false;
     readinessQueryRef.current = {
@@ -391,6 +399,42 @@ describe('CompanyReadinessCard', () => {
 
     expect(screen.queryByTestId('company-readiness-acknowledge')).not.toBeInTheDocument();
     expect(screen.getByTestId('company-readiness-continue')).toBeInTheDocument();
+  });
+
+  it('routes touch-register verticals to /touch when continuing to sell', () => {
+    mockSellingRoute = '/touch';
+    setReadiness({
+      blockerCount: 0,
+      acknowledgedAt: '2026-07-28T12:00:00.000Z',
+      sections: sampleSections().map(section =>
+        section.status === 'blocker' ? { ...section, status: 'ready' } : section
+      ),
+    });
+    render(
+      <>
+        <CompanyReadinessCard />
+        <LocationProbe />
+      </>,
+      { initialEntries: ['/company'] }
+    );
+
+    fireEvent.click(screen.getByTestId('company-readiness-continue'));
+
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/touch');
+  });
+
+  it('holds the continue action until the selling route resolves', () => {
+    mockSellingRouteResolving = true;
+    setReadiness({
+      blockerCount: 0,
+      acknowledgedAt: '2026-07-28T12:00:00.000Z',
+      sections: sampleSections().map(section =>
+        section.status === 'blocker' ? { ...section, status: 'ready' } : section
+      ),
+    });
+    render(<CompanyReadinessCard />);
+
+    expect(screen.getByTestId('company-readiness-continue')).toBeDisabled();
   });
 
   it('passes axe-core WCAG 2 AA on the guided happy path', async () => {

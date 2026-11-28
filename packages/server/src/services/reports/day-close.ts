@@ -262,12 +262,13 @@ export function computeDayCloseSummary(
     const previousWeekDay = utcDayOffset(day, -PULSE_COMPARISON_DAYS);
     const previousWeekStart = `${previousWeekDay}T00:00:00.000Z`;
     const previousWeekEnd = `${previousWeekDay}T23:59:59.999Z`;
+    const previousWeekEndExclusive = `${utcDayOffset(previousWeekDay, 1)}T00:00:00.000Z`;
     // Dated events here too, so the pulse compares like with like against the
     // day revenue computed above.
     const previousWeekRefunds = windowReturnedAmountSql(
       input.tenantId,
       previousWeekStart,
-      previousWeekEnd
+      previousWeekEndExclusive
     );
     const previousWeekStats = db
       .select({

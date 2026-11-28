@@ -139,6 +139,11 @@ vi.mock('@/features/tenant/TenantProvider', () => ({
 vi.mock('@/features/modules/ModulesContext', () => ({
   useIsModuleActive: (id: string) => moduleActiveMock(id),
   useIsOptionalModuleActive: (id: string | null | undefined) => (id ? moduleActiveMock(id) : true),
+  useModulesSnapshot: () => ({
+    modules: { 'pos-touch': moduleActiveMock('pos-touch') },
+    isPlaceholder: false,
+    isError: false,
+  }),
 }));
 
 vi.mock('@/lib/useCriticalMutation', () => ({
@@ -1367,5 +1372,10 @@ describe('VoiceOrderingScreen', () => {
     fireEvent.click(sheet().getByTestId('plate-sheet-note-toggle'));
     expect(sheet().getByTestId('plate-sheet-note')).toHaveAttribute('maxLength', '280');
     expect(sheet().getByTestId('plate-sheet-note-toggle')).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('exposes a non-destructive back-to-register link alongside sign out', () => {
+    renderScreen('touch');
+    expect(screen.getByTestId('voice-ordering-back-link')).toHaveAttribute('href', '/touch');
   });
 });

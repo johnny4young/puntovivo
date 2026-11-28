@@ -113,5 +113,8 @@
   },
   "production": {
     "label": "En línea ahora"
+  },
+  "actions": {
+    "backToPos": "Volver a caja"
   }
 }

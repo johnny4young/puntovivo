@@ -29,7 +29,6 @@ export function usePrefetchSales(): () => void {
 
   return useCallback(() => {
     void utils.sales.list.prefetch({ page: 1, perPage: 50 });
-    void utils.sales.summary.prefetch();
     void utils.customers.list.prefetch({ page: 1, perPage: 100, isActive: true });
     if (siteId) {
       void utils.cashSessions.getActive.prefetch({ siteId });

@@ -291,4 +291,19 @@ describe('launch migration navigation', () => {
     expect(visibleItemsForWorkspace(setup, 'admin', {})).toContainEqual(item);
     expect(visibleItemsForWorkspace(setup, 'manager', {})).not.toContainEqual(item);
   });
+
+  it('requires both mobile-waiter and dine-in for /m in Sell workspace', () => {
+    const sell = WORKSPACES.find(workspace => workspace.id === 'sell')!;
+    const mobileOnly = visibleItemsForWorkspace(sell, 'cashier', {
+      'mobile-waiter': true,
+      'dine-in': false,
+    });
+    expect(mobileOnly.some(item => item.href === '/m')).toBe(false);
+
+    const bothActive = visibleItemsForWorkspace(sell, 'cashier', {
+      'mobile-waiter': true,
+      'dine-in': true,
+    });
+    expect(bothActive.some(item => item.href === '/m')).toBe(true);
+  });
 });

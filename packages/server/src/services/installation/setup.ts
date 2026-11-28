@@ -265,6 +265,18 @@ export function createInstallationSetup(db: DatabaseInstance): InstallationSetup
                   createdAt: now,
                   updatedAt: now,
                 },
+                {
+                  id: nanoid(),
+                  tenantId,
+                  name: isEs ? 'Metro' : 'Meter',
+                  abbreviation: 'm',
+                  dimension: 'length',
+                  standardCode: 'MTR',
+                  referenceFactor: 1,
+                  isActive: true,
+                  createdAt: now,
+                  updatedAt: now,
+                },
               ])
               .run();
             // Seed Colombia's statutory IVA/INC rates so a fresh store can sell within 2 minutes.

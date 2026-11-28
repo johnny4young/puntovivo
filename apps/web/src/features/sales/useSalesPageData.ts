@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
-import { keepPreviousData } from '@tanstack/react-query';
 import { useReceiptAutoPrint } from '@/features/sales/useReceiptAutoPrint';
 import { type PreflightBlockerId, type PreflightItem } from '@/features/sales/useCheckoutPreflight';
 import { deriveScannerConfig, type WedgeConfig } from '@/features/sales/useBarcodeWedgeListener';
@@ -69,10 +68,14 @@ export function useSalesPageData({
     { siteId: currentSite?.id },
     {
       enabled: !!currentSite,
-      placeholderData: keepPreviousData,
     }
   );
-  const activeCashSession = (activeCashSessionQuery.data as CashSession | null | undefined) ?? null;
+  const rawActiveCashSession =
+    (activeCashSessionQuery.data as CashSession | null | undefined) ?? null;
+  const activeCashSession =
+    rawActiveCashSession && currentSite && rawActiveCashSession.siteId === currentSite.id
+      ? rawActiveCashSession
+      : null;
   const registerAssignmentsQuery = trpc.cashSessions.registerAssignments.useQuery(undefined, {
     enabled: !!currentSite,
   });
@@ -81,8 +84,8 @@ export function useSalesPageData({
   // modal warning always see a fresh count; the payload is tiny
   // (paginated, 50 rows max).
   const draftsQuery = trpc.sales.listDrafts.useQuery(
-    { page: 1, perPage: 50 },
-    { enabled: !!currentTenant }
+    { page: 1, perPage: 50, siteId: currentSite?.id },
+    { enabled: !!currentTenant && !!currentSite }
   );
   const suspendedDraftsCount = draftsQuery.data?.totalItems ?? 0;
   const firstSuspendedDraft = firstParkedDraft(draftsQuery.data?.items);

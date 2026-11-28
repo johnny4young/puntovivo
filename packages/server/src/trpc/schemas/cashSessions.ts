@@ -10,9 +10,8 @@ export const cashSessionDenominationInput = z.object({
 });
 
 /**
- * `siteId` only partitions the client cache key per site. The procedures answer
- * for `ctx.siteId`, which `createContext` resolves from the validated
- * `x-site-id` header.
+ * Optional site override for cashier session queries; falls back to `ctx.siteId`
+ * and is tenant-validated via `ensureTenantSite` when supplied.
  */
 export const getActiveCashSessionInput = z
   .object({

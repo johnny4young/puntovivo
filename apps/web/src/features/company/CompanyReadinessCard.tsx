@@ -26,6 +26,7 @@ import { PageLoadingState } from '@/components/feedback/LoadingState';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { Button } from '@/components/ui';
+import { useSellingRoute } from '@/features/auth/useSellingRoute';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
@@ -75,6 +76,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
   const toast = useToast();
   const utils = trpc.useUtils();
   const navigate = useNavigate();
+  const { route: sellingRoute, isResolving: isResolvingSellingRoute } = useSellingRoute();
   const [searchParams, setSearchParams] = useSearchParams();
   const readinessQuery = trpc.setupReadiness.get.useQuery(undefined, {
     staleTime: 60_000,
@@ -85,7 +87,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
       await utils.setupReadiness.get.invalidate();
       toast.success({ title: t('readiness.acknowledge.toast') });
       onAcknowledged?.();
-      navigate('/sales');
+      navigate(sellingRoute);
     },
     onError: onErrorToast(toast, t, {
       titleKey: 'setupReadiness:readiness.acknowledge.error',
@@ -170,7 +172,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
       acknowledgeMutation.mutate();
       return;
     }
-    navigate('/sales');
+    navigate(sellingRoute);
   };
 
   const selectedDescription = selectedSection
@@ -275,7 +277,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
               <PrimaryTaskButton
                 className="shrink-0 bg-white text-slate-950 hover:bg-slate-100"
                 onClick={continueToSales}
-                disabled={acknowledgeMutation.isPending}
+                disabled={acknowledgeMutation.isPending || isResolvingSellingRoute}
                 data-testid={
                   readinessQuery.data.acknowledgedAt === null
                     ? 'company-readiness-acknowledge'
